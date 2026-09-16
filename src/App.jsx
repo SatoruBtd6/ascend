@@ -29,15 +29,15 @@ const RAINBOW = "linear-gradient(90deg,#ff3cac,#ffb43c,#f7ff3c,#3cff9e,#3cc8ff,#
 
 /* ---------- Game data ---------- */
 const RANKS = [
-  { id: "E", color: "#8A96AD", glow: "rgba(138,150,173,.35)" },
-  { id: "D", color: "#4FD18B", glow: "rgba(79,209,139,.4)" },
-  { id: "C", color: "#3FB4FF", glow: "rgba(63,180,255,.5)" },
-  { id: "B", color: "#8E7BFF", glow: "rgba(142,123,255,.5)" },
-  { id: "A", color: "#FF9340", glow: "rgba(255,147,64,.55)" },
-  { id: "S", color: "#FFD447", glow: "rgba(255,212,71,.7)" },
+  { id: "E", color: "#9AA7BD", alt: "#DDE6F2", glow: "rgba(154,167,189,.4)" },
+  { id: "D", color: "#3DF08A", alt: "#B6FFD9", glow: "rgba(61,240,138,.55)" },
+  { id: "C", color: "#38C6FF", alt: "#B3ECFF", glow: "rgba(56,198,255,.6)" },
+  { id: "B", color: "#B14BFF", alt: "#E6BFFF", glow: "rgba(177,75,255,.65)" },
+  { id: "A", color: "#FF2D6F", alt: "#FF9A3D", glow: "rgba(255,45,111,.7)" },
+  { id: "S", color: "#FFD447", alt: "#FFFFFF", glow: "rgba(255,212,71,.85)" },
 ];
 const RANK_DARK = RANKS.map((r) => r.color);
-const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#EA580C", "#C28A00"];
+const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#D6194F", "#C28A00"];
 function applyTheme(settings = {}) {
   const mode = settings.theme === "light" ? "light" : "dark";
   Object.keys(C).forEach((k) => delete C[k]);
@@ -599,7 +599,7 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 2, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 2, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
@@ -614,6 +614,9 @@ export default function App() {
   const [dialog, setDialog] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const songPushed = useRef(false);
+  const [musclePick, setMusclePick] = useState("Chest");
+  const [muscleFrom, setMuscleFrom] = useState("status");
+  const openMuscle = (g, from = "status") => { setMusclePick(g); setMuscleFrom(from); setTab("muscle"); window.scrollTo?.(0, 0); };
   useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
   const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
   AskRef.current = (message, onYes, yesLabel = "Confirm") => setDialog({ message, onYes, yesLabel });
@@ -638,6 +641,10 @@ export default function App() {
         const r = await window.storage.get("ascend-state", false);
         if (r?.value) { const v = JSON.parse(r.value); st = { ...DEFAULT, ...v, settings: { ...DEFAULT.settings, ...(v.settings || {}) } }; }
       } catch (e) { /* first run */ }
+      try {
+        const ls = JSON.parse(localStorage.getItem("ascend-settings") || "null");
+        if (ls && (ls.savedAt || 0) > (st.settings?.savedAt || 0)) st = { ...st, settings: { ...st.settings, ...ls } };
+      } catch (e) { /* first run */ }
       if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
       if ((st.achV || 1) < 2) st = reconcileAchievements(st, true);
       let ok = !!window.storage?.set;
@@ -655,6 +662,8 @@ export default function App() {
     }, 400);
     return () => clearTimeout(t);
   }, [s, loaded]);
+  // Settings also live on this device so colors and fonts survive account or connection hiccups
+  useEffect(() => { if (loaded) { try { localStorage.setItem("ascend-settings", JSON.stringify(s.settings)); } catch (e) { /* private mode */ } } }, [s.settings, loaded]);
 
   // Push leaderboard card whenever progress changes
   useEffect(() => {
@@ -730,15 +739,21 @@ export default function App() {
         .zesty .neonline{background:${RAINBOW};box-shadow:0 0 10px rgba(255,60,172,.7)}
         .zesty .barfill{background-image:${RAINBOW}!important;background-size:200% auto!important;animation:rainbow 5s linear infinite;box-shadow:0 0 10px rgba(255,60,172,.6)!important}
         @keyframes rkspin{to{transform:rotate(360deg)}}
+        @keyframes rkbreathe{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.06);opacity:.9}}
+        @keyframes rkpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.6)}}
+        @keyframes rkorbit{to{transform:rotate(360deg)}}
+        @keyframes rktwinkle{0%,100%{opacity:.2}50%{opacity:1}}
+        @keyframes rkhalo{0%{transform:scale(.6);opacity:.4}100%{transform:scale(2);opacity:0}}
         @keyframes rkshine{0%,60%{transform:skewX(-20deg) translateX(0)}100%{transform:skewX(-20deg) translateX(190px)}}
-        @keyframes nm-pulse{0%,100%{text-shadow:0 0 6px var(--nc)}50%{text-shadow:0 0 22px var(--nc),0 0 40px var(--nc)}}
+        @keyframes nm-pulse{0%,100%{text-shadow:0 0 4px var(--nc)}50%{text-shadow:0 0 12px var(--nc)}}
+        .fancyname{background:transparent}
         .nm-pulse{animation:nm-pulse 1.6s ease-in-out infinite}
         .nm-rainbow{background:${RAINBOW};background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:rainbow 3s linear infinite;text-shadow:none}
         @keyframes nm-wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
         @keyframes nm-shake{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(1px,-1px) rotate(2deg)}75%{transform:translate(-1px,1px) rotate(-2deg)}}
         @keyframes nm-wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
         .nm-wobble{animation:nm-wobble 1.2s ease-in-out infinite;transform-origin:center}
-        @keyframes nm-flicker{0%,19%,21%,23%,54%,56%,100%{opacity:1;text-shadow:0 0 10px var(--nc),0 0 24px var(--nc)}20%,22%,55%{opacity:.35;text-shadow:none}}
+        @keyframes nm-flicker{0%,19%,21%,23%,54%,56%,100%{opacity:1;text-shadow:0 0 8px var(--nc)}20%,22%,55%{opacity:.35;text-shadow:none}}
         .nm-flicker{animation:nm-flicker 3s linear infinite}
         @keyframes nm-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}
         .nm-float{animation:nm-float 2.4s ease-in-out infinite}
@@ -747,7 +762,8 @@ export default function App() {
       <div className="bgfx" />
 
       <div className="relative max-w-md mx-auto pb-44 px-4 pt-5">
-        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={() => openProfile(null)} />}
+        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={() => openProfile(null)} openMuscle={openMuscle} />}
+        {tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} />}
         {tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
         {!storageOk && (
           <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
@@ -762,7 +778,7 @@ export default function App() {
         {tab === "quests" && <Quests s={s} setS={setS} gainXp={gainXp} />}
         {tab === "fuel" && <Fuel s={s} setS={setS} gainXp={gainXp} />}
         {tab === "calendar" && <Calendar s={s} />}
-        {tab === "ranks" && <Ranks s={s} />}
+        {tab === "ranks" && <Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} />}
         {tab === "board" && <Board s={s} setS={setS} openProfile={openProfile} />}
       </div>
 
@@ -835,7 +851,7 @@ function Sheet({ title, onClose, children }) {
 }
 
 /* ---------- Status ---------- */
-function Status({ s, setS, openSettings, openProfile }) {
+function Status({ s, setS, openSettings, openProfile, openMuscle }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -872,7 +888,7 @@ function Status({ s, setS, openSettings, openProfile }) {
           </div>
         </div>
         <div className="mt-3 relative"><Bar pct={overall.divPct} color={oc.color} /></div>
-        <button onClick={openProfile} className="mt-3 body text-sm underline relative" style={{ color: C.cyan }}>View profile, achievements & weight chart</button>
+        <button onClick={openProfile} className="btn mt-4 w-full py-2.5 text-sm flex items-center justify-center gap-2 relative"><User size={16} />Profile · achievements · weight chart</button>
         <div className="body text-xs mt-1 relative" style={{ color: C.mute }}>Overall counts every muscle group. Groups you haven't trained count as zero.</div>
 
         <div className="neonline my-4" />
@@ -898,6 +914,17 @@ function Status({ s, setS, openSettings, openProfile }) {
 
       <MogInbox s={s} openProfile={openProfile} />
 
+      <h2 className="text-lg font-bold glowtext">Muscle groups <span className="body text-sm font-normal" style={{ color: C.dim }}>tap one</span></h2>
+      <div className="grid grid-cols-3 gap-2">
+        {Object.keys(GROUP_WEIGHT).map((gk) => { const sc = g[gk] || 0; const rr = rankFromScore(sc); return (
+          <button key={gk} onClick={() => openMuscle(gk)} className="panel p-2 flex flex-col items-center gap-1">
+            <RankBadge rank={sc ? rr.rank : RANKS[0]} size={40} still={!sc} />
+            <div className="text-xs font-bold">{gk}</div>
+            <div className="text-xs body" style={{ color: sc ? rr.rank.color : C.mute }}>{sc ? rr.label : "–"}</div>
+          </button>
+        ); })}
+      </div>
+
       <h2 className="text-lg font-bold glowtext">Lift ranks</h2>
       {ranked.length === 0 ? (
         <Empty>Log a workout in Train to get ranked on each lift. Check the Ranks tab to see what every rank takes for your height and weight.</Empty>
@@ -906,7 +933,7 @@ function Status({ s, setS, openSettings, openProfile }) {
           {ranked.sort((a, b) => b.score - a.score).map(({ e, best, rank, label, pct, next, nextLabel }) => {
             const unit = e.type === "bodyweight" ? " reps" : " lb";
             return (
-              <div key={e.name} className="panel p-3 flex items-center gap-4">
+              <button key={e.name} onClick={() => openMuscle(e.group)} className="panel p-3 flex items-center gap-4 w-full text-left">
                 <RankBadge rank={rank} size={34} />
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between gap-2">
@@ -919,7 +946,7 @@ function Status({ s, setS, openSettings, openProfile }) {
                     <span>{next ? `${nextLabel} at ${next}${unit}` : "Maxed out"}</span>
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -1355,9 +1382,6 @@ function Quests({ s, setS, gainXp }) {
   const canMore = tierDone(topTier) && day.bonuses >= topTier;
   const rerollsLeft = DAILY_REROLLS - day.rerolls;
 
-  const ws = weekStart();
-  const weekWorkouts = s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length;
-  const weekClaimed = s.weekly?.[ws];
 
   return (
     <div className="space-y-4">
@@ -1410,16 +1434,7 @@ function Quests({ s, setS, gainXp }) {
         </button>
       )}
 
-      <h2 className="text-lg font-bold pt-2">Weekly challenge</h2>
-      <div className="panel p-4">
-        <div className="flex justify-between items-start">
-          <div className="flex gap-3 items-center"><Trophy style={{ color: C.orange }} /><div><div className="font-bold">Train 4 times this week</div><div className="body text-sm" style={{ color: C.dim }}>{Math.min(weekWorkouts, 4)} / 4 workouts logged</div></div></div>
-          <span className="text-sm font-bold" style={{ color: C.gold }}>+300 XP</span>
-        </div>
-        <div className="my-3"><Bar pct={(weekWorkouts / 4) * 100} color={C.orange} /></div>
-        {weekClaimed ? <div className="text-sm font-semibold" style={{ color: C.green }}>Cleared</div> :
-          <button disabled={weekWorkouts < 4} onClick={() => { setS((p) => ({ ...p, weekly: { ...p.weekly, [ws]: true } })); gainXp(300, "Weekly challenge"); }} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: weekWorkouts >= 4 ? C.gold : C.soft, color: weekWorkouts >= 4 ? "#0A1630" : C.mute }}>Claim</button>}
-      </div>
+      <Challenges s={s} setS={setS} gainXp={gainXp} />
     </div>
   );
 }
@@ -1791,6 +1806,7 @@ function Board({ s, setS, openProfile }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("points");
+  const [muscle, setMuscle] = useState("Chest");
   const [err, setErr] = useState("");
 
   const load = async () => {
@@ -1826,8 +1842,14 @@ function Board({ s, setS, openProfile }) {
   };
 
   const ws = weekStart();
-  const SORTS = { points: ["Points", "pts", (r) => r.points || 0], xp: ["XP", "XP", (r) => r.xp || 0], streak: ["Streak", "days", (r) => r.streak || 0], week: ["Week", "workouts", (r) => (r.weekOf === ws ? r.week : 0)] };
-  const [, unit, val] = SORTS[sort];
+  const mk = monthKey();
+  const SORTS = {
+    points: ["Points", "pts", (r) => r.points || 0], xp: ["XP", "XP", (r) => r.xp || 0], month: ["Month", "XP this month", (r) => (r.month?.key === mk ? r.month.xp : 0)],
+    streak: ["Streak", "days", (r) => r.streak || 0], week: ["Week", "workouts", (r) => (r.weekOf === ws ? r.week : 0)],
+    muscle: ["Muscles", "", (r) => r.groups?.[muscle] || 0, (r) => { const sc = r.groups?.[muscle] || 0; return sc ? rankFromScore(sc).label : "–"; }],
+  };
+  const [, unit, val, fmt] = SORTS[sort];
+  const show = (r) => (fmt ? fmt(r) : val(r).toLocaleString());
   const sorted = [...rows].sort((a, b) => val(b) - val(a));
   const top = sorted.slice(0, 3), rest = sorted.slice(3);
   const isMe = (r) => r.key === `lb:${s.playerId}`;
@@ -1857,11 +1879,18 @@ function Board({ s, setS, openProfile }) {
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {Object.entries(SORTS).map(([id, [l]]) => (
-          <button key={id} onClick={() => setSort(id)} className="flex-1 py-2 text-sm font-semibold" style={{ borderRadius: 4, background: sort === id ? C.blue : C.soft, color: sort === id ? "#fff" : C.text, border: `1px solid ${C.border}`, boxShadow: sort === id ? "0 0 14px rgba(47,140,255,.5)" : "none" }}>{l}</button>
+          <button key={id} onClick={() => setSort(id)} className="px-3 py-2 text-sm font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 4, background: sort === id ? C.blue : C.soft, color: sort === id ? "#fff" : C.text, border: `1px solid ${C.border}`, boxShadow: sort === id ? "0 0 14px rgba(47,140,255,.5)" : "none" }}>{l}</button>
         ))}
       </div>
+      {sort === "muscle" && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {Object.keys(GROUP_WEIGHT).map((gk) => <button key={gk} onClick={() => setMuscle(gk)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: muscle === gk ? C.cyan : C.soft, color: muscle === gk ? "#001018" : C.text, border: `1px solid ${C.border}` }}>{gk}</button>)}
+        </div>
+      )}
+      {sort === "month" && <div className="body text-xs" style={{ color: C.mute }}>XP earned since the 1st. Resets every month, so anyone can take the top spot.</div>}
+      {sort === "muscle" && <div className="body text-xs" style={{ color: C.mute }}>Ranked by each player's best lift in {muscle}. Numbers hide, ranks show.</div>}
       {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Points come from all XP earned in workouts, plus a bonus for the rank of every lift that grows fast as you climb (about 1,000 for a maxed S lift).</div>}
 
       {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
@@ -1878,7 +1907,7 @@ function Board({ s, setS, openProfile }) {
                 {P.place === 1 && <Crown size={26} style={{ color: C.gold, filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} className="mb-1" />}
                 <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} />
                 <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} /></div>
-                <div className="text-xs body mb-2" style={{ color: C.dim }}>{val(r).toLocaleString()} {unit}</div>
+                <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}</div>
                 <div className="w-full flex items-start justify-center pt-2" style={{ height: P.h, borderRadius: "4px 4px 0 0", background: PROFILE_BGS.find((b) => b.id === r.look?.bg)?.css ? `linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.6)), ${PROFILE_BGS.find((b) => b.id === r.look?.bg).css}` : `linear-gradient(180deg, ${P.glow}, ${C.bg})`, backgroundSize: "cover", border: `1px solid ${r.look?.accent || P.color}`, borderBottom: "none", boxShadow: `0 0 20px ${P.glow}` }}>
                   <span className="text-3xl font-extrabold" style={{ color: P.color, textShadow: `0 0 12px ${P.glow}` }}>{P.place}</span>
                 </div>
@@ -1900,7 +1929,7 @@ function Board({ s, setS, openProfile }) {
                 <div className="body text-xs" style={{ color: C.dim }}>{r.rank}{r.div ? ` ${r.div}` : ""} · Level {r.lvl} · {r.streak} day streak</div>
               </div>
               <div className="text-right">
-                <div className="font-bold glowtext">{val(r).toLocaleString()}</div>
+                <div className="font-bold glowtext">{show(r)}</div>
                 <div className="body text-xs" style={{ color: C.mute }}>{unit}</div>
               </div>
             </button>
@@ -1913,7 +1942,7 @@ function Board({ s, setS, openProfile }) {
 }
 
 /* ---------- Ranks guide ---------- */
-function Ranks({ s }) {
+function Ranks({ s, openMuscle }) {
   const p = s.profile;
   const [pick, setPick] = useState("Bench Press");
   const overall = overallInfo(s);
@@ -1994,13 +2023,13 @@ function Ranks({ s }) {
           const sc = overall.groups[k] || 0;
           const r = rankFromScore(sc);
           return (
-            <div key={k}>
+            <button key={k} onClick={() => openMuscle?.(k)} className="w-full text-left">
               <div className="flex justify-between text-sm">
-                <span className="font-semibold">{k} <span className="body text-xs" style={{ color: C.mute }}>counts {Math.round((w / totalW) * 100)}%</span></span>
+                <span className="font-semibold">{k} <span className="body text-xs" style={{ color: C.mute }}>counts {Math.round((w / totalW) * 100)}% · tap</span></span>
                 <span className="font-bold" style={{ color: sc ? r.rank.color : C.mute }}>{sc ? r.label : "Untrained"}</span>
               </div>
               <div className="mt-1"><Bar pct={(sc / 6) * 100} color={sc ? r.rank.color : C.mute} /></div>
-            </div>
+            </button>
           );
         })}
         <div className="body text-xs" style={{ color: C.mute }}>Cardio and timed exercises earn XP but don't affect rank.</div>
@@ -2034,7 +2063,7 @@ async function decodeSave(code) {
 
 function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
   const st = s.settings || {};
-  const setSet = (k, v) => setS((p) => ({ ...p, settings: { ...p.settings, [k]: v } }));
+  const setSet = (k, v) => setS((p) => ({ ...p, settings: { ...p.settings, [k]: v, savedAt: Date.now() } }));
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [paste, setPaste] = useState("");
@@ -2118,6 +2147,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
               </label>
             ))}
             <button onClick={() => setSet("custom", { ...DEFAULT.settings.custom, on: true })} className="col-span-3 ghost py-2 text-sm">Reset colors</button>
+            <div className="col-span-3 body text-xs flex items-center gap-1" style={{ color: C.green }}><Check size={14} />Saved to your account and this device{st.savedAt ? ` · ${new Date(st.savedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}</div>
           </div>
         )}
         <div className="flex items-center gap-3">
@@ -3008,6 +3038,8 @@ function profileCard(s) {
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: Object.fromEntries(wl),
+    month: { key: monthKey(), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(monthKey())).reduce((a, [, v]) => a + v, 0) },
+    groups: groupScores(s),
     lifts: rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 6).map((r) => ({ name: r.e.name, label: r.label, rank: r.rank.id, best: Math.round(r.best), bw: r.e.type === "bodyweight" })),
   };
 }
@@ -3310,45 +3342,13 @@ function FancyName({ name, look, className = "", style = {}, size }) {
     );
   }
   const cls = anim ? `nm-${anim}` : "";
+  if (anim) className = className.replace("glowtext", "");
   if (anim === "rainbow") return <span className={`${className} ${cls}`} style={{ ...base, color: undefined }}>{text}</span>;
   return <span className={`${className} ${cls}`} style={{ ...base, "--nc": color || C.cyan }}>{text}</span>;
 }
 
 /* ---------- Rank emblems ---------- */
 const darken = (hex, k = 0.45) => { const c = hexRgb(hex); return c ? `rgb(${c.map((v) => Math.round(v * k)).join(",")})` : hex; };
-function RankBadge({ rank, size = 44, still = false }) {
-  const tier = Math.max(0, RANKS.indexOf(rank));
-  const id = `rk${rank.id}`;
-  const hex = (r, cx = 50, cy = 50) => Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i - Math.PI / 2; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
-  const spin = !still && tier >= 2, rays = !still && tier >= 4, orbit = !still && tier >= 5, shine = !still && tier >= 1;
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" className="shrink-0" role="img" aria-label={`${rank.id} rank`} style={{ filter: `drop-shadow(0 0 ${5 + tier * 2}px ${rank.glow})`, overflow: "visible" }}>
-      <defs>
-        <linearGradient id={`${id}f`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={rank.color} stopOpacity=".6" /><stop offset=".5" stopColor="#04070f" /><stop offset="1" stopColor={rank.color} stopOpacity=".4" /></linearGradient>
-        <linearGradient id={`${id}m`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset=".42" stopColor={rank.color} /><stop offset=".58" stopColor={darken(rank.color)} /><stop offset="1" stopColor="#ffffff" stopOpacity=".9" /></linearGradient>
-        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".55" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
-        <clipPath id={`${id}c`}><polygon points={hex(44)} /></clipPath>
-      </defs>
-      {rays && (
-        <g style={{ transformOrigin: "50px 50px", animation: "rkspin 14s linear infinite", opacity: 0.55 }}>
-          {Array.from({ length: 12 }, (_, i) => <line key={i} x1="50" y1="50" x2={50 + 62 * Math.cos((Math.PI / 6) * i)} y2={50 + 62 * Math.sin((Math.PI / 6) * i)} stroke={rank.color} strokeWidth={i % 2 ? 1 : 2.5} strokeLinecap="round" opacity={i % 2 ? 0.5 : 0.9} />)}
-        </g>
-      )}
-      <polygon points={hex(49)} fill="none" stroke={rank.color} strokeWidth="1.2" opacity=".45" style={spin ? { transformOrigin: "50px 50px", animation: "rkspin 9s linear infinite reverse" } : null} strokeDasharray={spin ? "10 6" : "0"} />
-      <polygon points={hex(44)} fill={`url(#${id}f)`} stroke={rank.color} strokeWidth="3" strokeLinejoin="round" />
-      <polygon points={hex(36)} fill="none" stroke={rank.color} strokeWidth="1" opacity=".55" />
-      {tier >= 3 && <polygon points={hex(40)} fill="none" stroke="#fff" strokeWidth=".6" opacity=".35" />}
-      <text x="50" y="65" textAnchor="middle" fontSize="46" fontWeight="900" fontFamily="'Oxanium', sans-serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.35)} strokeWidth="1.2" paintOrder="stroke">{rank.id}</text>
-      {shine && <g clipPath={`url(#${id}c)`}><rect x="-60" y="0" width="40" height="100" fill={`url(#${id}s)`} transform="skewX(-20)" style={{ animation: `rkshine ${4 - tier * 0.4}s ease-in-out infinite` }} /></g>}
-      {orbit && (
-        <g style={{ transformOrigin: "50px 50px", animation: "rkspin 5s linear infinite" }}>
-          {[0, 1, 2].map((i) => <circle key={i} cx={50 + 52 * Math.cos((2 * Math.PI / 3) * i)} cy={50 + 52 * Math.sin((2 * Math.PI / 3) * i)} r="3" fill="#fff" style={{ filter: `drop-shadow(0 0 4px ${rank.color})` }} />)}
-        </g>
-      )}
-    </svg>
-  );
-}
-
 /* ---------- Meal builder ---------- */
 function MealBuilder({ s, setS, pool, onDone, onBack }) {
   const [name, setName] = useState("");
@@ -3691,5 +3691,234 @@ function MogInbox({ s, openProfile }) {
       </div>
       <ChevronRight size={18} style={{ color: C.gold }} />
     </button>
+  );
+}
+
+/* ---------- Rank emblems v3 ---------- */
+function RankBadge({ rank, size = 44, still = false }) {
+  const tier = Math.max(0, RANKS.indexOf(rank));
+  const id = `rk${rank.id}`;
+  const hex = (r, cx = 50, cy = 50, rot = 0) => Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i - Math.PI / 2 + rot; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
+  const anim = !still;
+  const c2 = rank.alt || rank.color;
+  const sparks = tier >= 3 ? 6 + tier * 2 : 0;
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" className="shrink-0" role="img" aria-label={`${rank.id} rank`} style={{ filter: `drop-shadow(0 0 ${5 + tier * 3}px ${rank.glow})`, overflow: "visible" }}>
+      <defs>
+        <radialGradient id={`${id}core`} cx="50%" cy="42%" r="60%"><stop offset="0" stopColor="#fff" stopOpacity={0.35 + tier * 0.08} /><stop offset=".35" stopColor={rank.color} stopOpacity=".55" /><stop offset="1" stopColor="#02040c" /></radialGradient>
+        <linearGradient id={`${id}ring`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff" /><stop offset=".3" stopColor={rank.color} /><stop offset=".65" stopColor={c2} /><stop offset="1" stopColor="#fff" /></linearGradient>
+        <linearGradient id={`${id}m`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset=".4" stopColor={rank.color} /><stop offset=".55" stopColor={darken(rank.color, 0.55)} /><stop offset=".75" stopColor={c2} /><stop offset="1" stopColor="#ffffff" /></linearGradient>
+        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".7" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
+        <clipPath id={`${id}c`}><polygon points={hex(42)} /></clipPath>
+      </defs>
+      {tier >= 4 && (
+        <g style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${16 - tier * 2}s linear infinite` } : null} opacity=".7">
+          {Array.from({ length: 16 }, (_, i) => <line key={i} x1="50" y1="50" x2={50 + 66 * Math.cos((Math.PI / 8) * i)} y2={50 + 66 * Math.sin((Math.PI / 8) * i)} stroke={i % 2 ? c2 : rank.color} strokeWidth={i % 4 === 0 ? 3 : 1.2} strokeLinecap="round" opacity={i % 2 ? 0.5 : 0.95} />)}
+        </g>
+      )}
+      {tier >= 5 && <circle cx="50" cy="50" r="58" fill="none" stroke="#fff" strokeWidth="1.5" strokeDasharray="2 14" opacity=".9" style={anim ? { transformOrigin: "50px 50px", animation: "rkspin 4s linear infinite reverse" } : null} />}
+      {tier >= 2 && <polygon points={hex(52, 50, 50, Math.PI / 6)} fill="none" stroke={`url(#${id}ring)`} strokeWidth={tier >= 4 ? 2.5 : 1.5} strokeDasharray={tier >= 4 ? "18 8" : "8 8"} opacity=".9" style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${12 - tier}s linear infinite reverse` } : null} />}
+      {tier >= 1 && <polygon points={hex(48)} fill="none" stroke={rank.color} strokeWidth="1" opacity=".5" style={anim ? { transformOrigin: "50px 50px", animation: `rkbreathe 2.6s ease-in-out infinite` } : null} />}
+      <polygon points={hex(42)} fill={`url(#${id}core)`} stroke={`url(#${id}ring)`} strokeWidth="3.5" strokeLinejoin="round" />
+      <polygon points={hex(34)} fill="none" stroke="#fff" strokeWidth={0.6 + tier * 0.25} opacity={0.25 + tier * 0.08} strokeDasharray={tier >= 3 ? "4 3" : "0"} style={anim && tier >= 3 ? { transformOrigin: "50px 50px", animation: "rkspin 20s linear infinite" } : null} />
+      {tier >= 2 && <polygon points={hex(38, 50, 50, Math.PI / 6)} fill="none" stroke={c2} strokeWidth="1" opacity=".55" />}
+      <text x="50" y="66" textAnchor="middle" fontSize="48" fontWeight="900" fontFamily="'Oxanium', sans-serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.3)} strokeWidth="1.4" paintOrder="stroke" style={anim && tier >= 1 ? { animation: `rkpulse ${3.5 - tier * 0.35}s ease-in-out infinite` } : null}>{rank.id}</text>
+      {anim && tier >= 1 && <g clipPath={`url(#${id}c)`}><rect x="-60" y="0" width="34" height="100" fill={`url(#${id}s)`} transform="skewX(-22)" style={{ animation: `rkshine ${4.2 - tier * 0.45}s ease-in-out infinite` }} /></g>}
+      {sparks > 0 && Array.from({ length: sparks }, (_, i) => {
+        const a = (2 * Math.PI * i) / sparks, r = 46 + (i % 3) * 6;
+        return <circle key={i} cx={50 + r * Math.cos(a)} cy={50 + r * Math.sin(a)} r={i % 3 === 0 ? 2.2 : 1.3} fill={i % 2 ? "#fff" : c2} style={anim ? { transformOrigin: "50px 50px", animation: `rkorbit ${7 + (i % 4) * 2}s linear infinite${i % 2 ? " reverse" : ""}, rktwinkle ${1 + (i % 5) * 0.3}s ease-in-out infinite` } : null} />;
+      })}
+      {tier >= 5 && <circle cx="50" cy="50" r="30" fill="none" stroke="#fff" strokeWidth="6" opacity=".18" style={anim ? { transformOrigin: "50px 50px", animation: "rkhalo 2.2s ease-out infinite" } : null} />}
+    </svg>
+  );
+}
+
+/* ---------- Muscle pages ---------- */
+const MUSCLE_INFO = {
+  Chest: { name: "Chest", key: ["Bench Press", "Incline Bench Press", "Dumbbell Press"], tips: ["Anchor the group on a heavy press (barbell or dumbbell) for 3–5 sets of 5–8, adding weight or a rep every week.", "Add an incline press for the upper chest and a fly or cable crossover for a stretch under load.", "Chest rank uses your best press. Push the estimated max up with heavier low-rep sets, not just more volume."] },
+  Back: { name: "Back", key: ["Deadlift", "Barbell Row", "Pull-up", "Lat Pulldown"], tips: ["Pull twice as much as you push: one vertical pull (pull-ups or pulldowns) and one horizontal pull (rows) every week.", "Deadlift or trap-bar deadlift moves this rank fastest because its factor is the highest of any lift.", "Log weighted pull-ups with the added weight in the +lb column, it counts extra."] },
+  Legs: { name: "Legs", key: ["Squat", "Leg Press", "Romanian Deadlift", "Hack Squat"], tips: ["Squat or hack squat heavy once a week, then a second lighter leg day with leg press, RDLs, and single-leg work.", "Legs count the most toward overall rank, so this is the highest-value muscle group to grind.", "Leg press numbers need to be big to rank: the machine's threshold is 2.4× your bench standard."] },
+  Shoulders: { name: "Shoulders", key: ["Overhead Press", "Dumbbell Shoulder Press", "Lateral Raise"], tips: ["Overhead press is the rank driver here. Press standing, strict, 4–5 sets of 5–8.", "Lateral raises and rear delt work add width but rank slowly; their thresholds are strict on purpose.", "Shoulders are held to a 25% stricter standard, so expect this group to lag your chest by a rank or so."] },
+  Arms: { name: "Arms", key: ["Barbell Curl", "Tricep Pushdown", "Close-Grip Bench Press"], tips: ["Barbell curl and close-grip bench move arm rank fastest, they have the highest factors in the group.", "Two exercises each for biceps and triceps, 3 sets of 8–12, and add a little weight every week.", "Arms only count 8% of overall rank, so treat this as the finisher, not the priority."] },
+  Core: { name: "Core", key: ["Cable Crunch", "Hanging Leg Raise", "Ab Crunch Machine"], tips: ["Weighted core work ranks: cable crunches or the crunch machine with real load, 3 sets of 10–15.", "Hanging leg raises count by reps. Strict, slow reps with no swing.", "Planks and holds earn XP but don't affect rank since they're timed."] },
+};
+function MuscleFigure({ group, score, color }) {
+  const k = 1 + Math.min(6, score) * 0.11; // muscles grow with rank
+  const def = 0.15 + Math.min(6, score) * 0.12; // definition lines get sharper
+  const on = (g) => g === group;
+  const base = C.mute, skin = "#1a2436";
+  const M = (g, el) => <g style={{ transformOrigin: "100px 130px", transform: on(g) ? `scale(${k})` : "none", transition: "transform .6s" }} opacity={on(g) ? 1 : 0.35}>{el}</g>;
+  const fill = (g) => (on(g) ? color : base);
+  const lat = on("Back") ? 12 * (k - 1) + 4 : 0;
+  return (
+    <svg viewBox="0 0 200 300" width="100%" style={{ maxHeight: 340 }} role="img" aria-label={`${group} muscle model`}>
+      <defs>
+        <radialGradient id="mgl" cx="50%" cy="45%" r="50%"><stop offset="0" stopColor={color} stopOpacity=".35" /><stop offset="1" stopColor={color} stopOpacity="0" /></radialGradient>
+        <linearGradient id="msk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a3852" /><stop offset="1" stopColor={skin} /></linearGradient>
+      </defs>
+      <circle cx="100" cy="130" r="120" fill="url(#mgl)" />
+      {/* body silhouette */}
+      <circle cx="100" cy="36" r="17" fill="url(#msk)" />
+      <rect x="93" y="50" width="14" height="14" fill="url(#msk)" />
+      <path d={`M${60 - lat},70 Q100,58 ${140 + lat},70 L${132 + lat * 0.4},150 Q100,165 ${68 - lat * 0.4},150 Z`} fill="url(#msk)" stroke={on("Back") ? color : "none"} strokeWidth="2" />
+      <path d="M72,152 Q100,160 128,152 L124,215 L106,215 L100,190 L94,215 L76,215 Z" fill="url(#msk)" />
+      <path d="M78,216 L94,216 L92,290 L76,290 Z M106,216 L122,216 L124,290 L108,290 Z" fill="url(#msk)" />
+      <path d={`M${58 - lat},72 Q42,80 38,120 L32,165 L46,168 L54,120 Q56,95 ${68 - lat},88 Z`} fill="url(#msk)" />
+      <path d={`M${142 + lat},72 Q158,80 162,120 L168,165 L154,168 L146,120 Q144,95 ${132 + lat},88 Z`} fill="url(#msk)" />
+      {/* muscle overlays */}
+      {M("Shoulders", <><ellipse cx="62" cy="80" rx="15" ry="13" fill={fill("Shoulders")} /><ellipse cx="138" cy="80" rx="15" ry="13" fill={fill("Shoulders")} /></>)}
+      {M("Chest", <><path d="M70,84 Q98,80 99,105 Q90,118 72,110 Z" fill={fill("Chest")} /><path d="M130,84 Q102,80 101,105 Q110,118 128,110 Z" fill={fill("Chest")} /><line x1="100" y1="84" x2="100" y2="112" stroke="#000" strokeOpacity={def} strokeWidth="1.5" /></>)}
+      {M("Arms", <><ellipse cx="50" cy="112" rx="9" ry="20" fill={fill("Arms")} transform="rotate(8 50 112)" /><ellipse cx="150" cy="112" rx="9" ry="20" fill={fill("Arms")} transform="rotate(-8 150 112)" /><ellipse cx="42" cy="148" rx="7" ry="16" fill={fill("Arms")} opacity=".8" /><ellipse cx="158" cy="148" rx="7" ry="16" fill={fill("Arms")} opacity=".8" /></>)}
+      {M("Core", <>{[0, 1, 2].map((r) => [0, 1].map((c) => <rect key={`${r}${c}`} x={90 + c * 11} y={118 + r * 13} width="9" height="11" rx="2" fill={fill("Core")} opacity={0.9 - r * 0.15} />))}<line x1="100" y1="116" x2="100" y2="156" stroke="#000" strokeOpacity={def} /></>)}
+      {M("Legs", <><path d="M78,160 Q92,158 98,170 L96,212 L80,212 Z" fill={fill("Legs")} /><path d="M122,160 Q108,158 102,170 L104,212 L120,212 Z" fill={fill("Legs")} /><path d="M80,222 L92,222 L90,270 L80,270 Z" fill={fill("Legs")} opacity=".8" /><path d="M108,222 L120,222 L120,270 L110,270 Z" fill={fill("Legs")} opacity=".8" /></>)}
+      {on("Back") && <>
+        <path d={`M${64 - lat},72 L${76 - lat * 0.3},140 L100,150 L${124 + lat * 0.3},140 L${136 + lat},72 Q100,66 ${64 - lat},72 Z`} fill={color} opacity=".85" />
+        <line x1="100" y1="70" x2="100" y2="150" stroke="#000" strokeOpacity={def + 0.2} strokeWidth="2" />
+        {[0, 1, 2].map((i) => <line key={i} x1={78 - lat * 0.2} y1={88 + i * 18} x2={122 + lat * 0.2} y2={88 + i * 18} stroke="#000" strokeOpacity={def} />)}
+      </>}
+      {score > 0 && <g opacity={def}>{[74, 84, 94, 106, 116, 126].map((x) => <line key={x} x1={x} y1="160" x2={x} y2="164" stroke={color} strokeWidth="1" />)}</g>}
+    </svg>
+  );
+}
+function MusclePage({ s, group, onBack, openExercise }) {
+  const info = MUSCLE_INFO[group] || { name: group, key: [], tips: [] };
+  const sc = groupScores(s)[group] || 0;
+  const r = rankFromScore(sc);
+  const lifts = rankedLifts(s).filter((x) => x.e.group === group).sort((a, b) => b.score - a.score);
+  const since30 = shift(today(), -30);
+  let sets30 = 0, vol30 = 0, sessions30 = new Set(), volAll = 0;
+  s.workouts.forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.group !== group || d.type === "timed") return; const v = ex.sets.reduce((a, st) => a + (+st.w || 0) * (+st.r || 0), 0); volAll += v; if (w.date >= since30) { sets30 += ex.sets.length; vol30 += v; sessions30.add(w.date); } }));
+  const [ai, setAi] = useState({ status: "idle", text: "", next: [] });
+  const askAi = async () => {
+    setAi({ status: "loading", text: "", next: [] });
+    try {
+      const rr = await askJson(STERLING_SYS, `Muscle group: ${group}. Current group rank ${sc ? r.label : "untrained"} (score ${sc.toFixed(2)} of 6). Lifts logged: ${lifts.map((x) => `${x.e.name} ${x.label} best ${Math.round(x.best)}${x.e.type === "bodyweight" ? " reps" : " lb est max"}${x.next ? `, next rank at ${x.next}` : ""}`).join("; ") || "none"}. Last 30 days: ${sessions30.size} sessions, ${sets30} sets, ${Math.round(vol30).toLocaleString()} lb volume. Bodyweight ${s.profile.weight} lb. Give a specific plan to raise this muscle group's rank. Respond ONLY with JSON: {"quip": "one funny line", "plan": "2-3 sentences of specific advice", "next": [{"exercise": "name", "scheme": "e.g. 4×6", "why": "under 10 words"}]}`);
+      setAi({ status: "done", text: `${rr.quip ? `"${rr.quip}" ` : ""}${rr.plan || ""}`, next: (rr.next || []).slice(0, 3) });
+    } catch (e) { setAi({ status: "error", text: "", next: [] }); }
+  };
+  const steps = [0, 1, 2, 3, 4, 5];
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext flex-1">{info.name}</h1>
+        <span className="font-extrabold text-xl" style={{ color: sc ? r.rank.color : C.mute, textShadow: `0 0 12px ${r.rank.glow}` }}>{sc ? r.label : "Untrained"}</span>
+      </div>
+      <div className="panel p-3">
+        <MuscleFigure group={group} score={sc} color={sc ? r.rank.color : C.dim} />
+        <div className="flex justify-between items-center px-1">
+          {steps.map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <div key={t} className="flex flex-col items-center gap-1" style={{ opacity: reached ? 1 : 0.35 }}><RankBadge rank={rk} size={26} still /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></div>; })}
+        </div>
+        <div className="mt-2"><Bar pct={(sc / 6) * 100} color={sc ? r.rank.color : C.mute} /></div>
+        <div className="body text-xs mt-1" style={{ color: C.dim }}>The figure fills out as your best lift in this group climbs. Group rank = your best-ranked lift here.</div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[["Sessions (30d)", sessions30.size], ["Sets (30d)", sets30], ["Volume (30d)", `${Math.round(vol30 / 1000)}k lb`], ["Lifetime volume", volAll >= 1000000 ? `${(volAll / 1000000).toFixed(1)}M lb` : `${Math.round(volAll / 1000)}k lb`], ["Lifts ranked", lifts.length], ["Counts toward overall", `${Math.round(((GROUP_WEIGHT[group] || 0) / Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0)) * 100)}%`]].map(([l, v]) => (
+          <div key={l} className="panel py-3 px-2 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold glowtext">{v}</div></div>
+        ))}
+      </div>
+      <h2 className="text-lg font-bold">Your lifts here</h2>
+      {lifts.length === 0 && <Empty>Nothing logged for {info.name} yet. Start with {info.key.slice(0, 2).join(" or ")}.</Empty>}
+      <div className="space-y-2">
+        {lifts.map((x) => (
+          <button key={x.e.name} onClick={() => openExercise?.(x.e.name)} className="panel p-3 flex items-center gap-3 w-full text-left">
+            <RankBadge rank={x.rank} size={30} />
+            <div className="flex-1 min-w-0"><div className="font-semibold truncate">{x.e.name}</div><div className="body text-xs" style={{ color: C.dim }}>Best {Math.round(x.best)}{x.e.type === "bodyweight" ? " reps" : " lb est. max"}{x.next ? ` · ${x.nextLabel} at ${x.next}` : " · maxed"}</div></div>
+            <span className="font-bold" style={{ color: x.rank.color }}>{x.label}</span>
+          </button>
+        ))}
+      </div>
+      <h2 className="text-lg font-bold">How to rank up</h2>
+      <div className="panel p-4 space-y-2">
+        {info.tips.map((t, i) => <div key={i} className="body text-sm flex gap-2" style={{ color: C.sub }}><span style={{ color: C.cyan }}>▸</span><span>{t}</span></div>)}
+        <div className="body text-xs pt-1" style={{ color: C.mute }}>Rank-driving lifts: {info.key.join(", ")}.</div>
+      </div>
+      <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
+        <div className="font-bold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling's plan for your {info.name.toLowerCase()}</div>
+        {ai.status === "idle" && <button onClick={askAi} className="btn w-full py-2 text-sm">Build me a plan</button>}
+        {ai.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is measuring your {info.name.toLowerCase()} with a tape…</div>}
+        {ai.status === "error" && <button onClick={askAi} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
+        {ai.text && <div className="body text-sm" style={{ color: C.text }}>{ai.text}</div>}
+        {ai.next.map((n, i) => <div key={i} className="ghost p-2 flex items-center gap-2 text-sm"><div className="flex-1 min-w-0"><span className="font-semibold">{n.exercise}</span> <span style={{ color: C.dim }}>{n.scheme}{n.why ? ` · ${n.why}` : ""}</span></div><a href={ytUrl(n.exercise)} target="_blank" rel="noreferrer" aria-label={`How to ${n.exercise}`} style={{ color: C.mute }}><Youtube size={16} /></a></div>)}
+        {ai.status === "done" && <button onClick={askAi} className="body text-xs underline" style={{ color: C.mute }}>New plan</button>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Weekly + monthly challenges ---------- */
+const monthKey = (d = today()) => d.slice(0, 7);
+const rangeStats = (s, from, to = "9999") => {
+  const ws = s.workouts.filter((w) => w.date >= from && w.date <= to && w.source !== "quest");
+  const groups = new Set();
+  let volume = 0, prs = 0, miles = 0;
+  ws.forEach((w) => { volume += w.volume || 0; prs += Math.round((w.prBonus || 0) / 40); w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") groups.add(d.group); else if (d.group === "Cardio") ex.sets.forEach((st) => { miles += +st.w || 0; }); }); });
+  const quests = Object.entries(s.days || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, day]) => a + (day.list || []).filter((q) => q.claimed).length, 0);
+  const fuel = Object.keys(s.fuelClaimed || {}).filter((d) => d >= from && d <= to).length;
+  const xp = Object.entries(s.xpLog || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, v]) => a + v, 0);
+  const weights = Object.keys(s.weightLog || {}).filter((d) => d >= from && d <= to).length;
+  const days = new Set(ws.map((w) => w.date));
+  let best = 0, run = 0, prev = null;
+  [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; });
+  return { workouts: ws.length, volume, prs, miles, quests, fuel, xp, groups: groups.size, weights, streak: best };
+};
+const WEEKLY_POOL = [
+  { id: "w-train4", title: "Train 4 times this week", target: 4, unit: "workouts", xp: 300, get: (st) => st.workouts, fixed: true },
+  { id: "w-vol", title: "Move 25,000 lb this week", target: 25000, unit: "lb", xp: 350, get: (st) => st.volume },
+  { id: "w-quests", title: "Clear 12 daily quests", target: 12, unit: "quests", xp: 300, get: (st) => st.quests },
+  { id: "w-fuel", title: "Hit your fuel goal 4 days", target: 4, unit: "days", xp: 350, get: (st) => st.fuel },
+  { id: "w-groups", title: "Train 5 different muscle groups", target: 5, unit: "groups", xp: 300, get: (st) => st.groups },
+  { id: "w-prs", title: "Set 3 new PRs", target: 3, unit: "PRs", xp: 400, get: (st) => st.prs },
+  { id: "w-miles", title: "Cover 8 miles of cardio", target: 8, unit: "mi", xp: 350, get: (st) => st.miles },
+  { id: "w-streak", title: "Train 3 days in a row", target: 3, unit: "days", xp: 300, get: (st) => st.streak },
+];
+const MONTHLY_POOL = [
+  { id: "m-train16", title: "16 workouts this month", target: 16, unit: "workouts", xp: 1500, get: (st) => st.workouts, fixed: true },
+  { id: "m-vol", title: "Move 150,000 lb this month", target: 150000, unit: "lb", xp: 2000, get: (st) => st.volume },
+  { id: "m-quests", title: "Clear 50 daily quests", target: 50, unit: "quests", xp: 1500, get: (st) => st.quests },
+  { id: "m-fuel", title: "Hit your fuel goal 15 days", target: 15, unit: "days", xp: 2000, get: (st) => st.fuel },
+  { id: "m-prs", title: "Set 10 new PRs", target: 10, unit: "PRs", xp: 2500, get: (st) => st.prs },
+  { id: "m-miles", title: "Cover 30 miles of cardio", target: 30, unit: "mi", xp: 1800, get: (st) => st.miles },
+  { id: "m-weigh", title: "Log your weight 12 days", target: 12, unit: "days", xp: 1000, get: (st) => st.weights },
+  { id: "m-streak", title: "Train 7 days in a row", target: 7, unit: "days", xp: 2200, get: (st) => st.streak },
+];
+function pickChallenges(pool, seedStr, n) {
+  let seed = [...seedStr].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) >>> 0;
+  const fixed = pool.filter((c) => c.fixed), rest = pool.filter((c) => !c.fixed), out = [...fixed];
+  while (out.length < n && rest.length) { seed = (seed * 1103515245 + 12345) >>> 0; out.push(rest.splice(seed % rest.length, 1)[0]); }
+  return out;
+}
+function ChallengeCard({ c, value, claimed, onClaim, color }) {
+  const done = value >= c.target;
+  const fmt = (v) => (c.unit === "lb" ? Math.round(v).toLocaleString() : c.unit === "mi" ? Math.round(v * 10) / 10 : Math.round(v));
+  return (
+    <div className="panel p-4" style={claimed ? { borderColor: "rgba(79,209,139,.55)" } : null}>
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex gap-3 items-center"><Trophy style={{ color }} /><div><div className="font-bold">{c.title}</div><div className="body text-sm" style={{ color: C.dim }}>{fmt(Math.min(value, c.target))} / {fmt(c.target)} {c.unit}</div></div></div>
+        <span className="text-sm font-bold whitespace-nowrap" style={{ color: C.gold }}>+{c.xp.toLocaleString()} XP</span>
+      </div>
+      <div className="my-3"><Bar pct={(value / c.target) * 100} color={claimed ? C.green : color} /></div>
+      {claimed ? <div className="text-sm font-semibold flex items-center gap-1" style={{ color: C.green }}><Check size={16} />Cleared</div> :
+        <button disabled={!done} onClick={onClaim} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: done ? C.gold : C.soft, color: done ? "#0A1630" : C.mute, boxShadow: done ? "0 0 16px rgba(255,212,71,.5)" : "none" }}>Claim</button>}
+    </div>
+  );
+}
+function Challenges({ s, setS, gainXp }) {
+  const ws = weekStart(), we = shift(ws, 6), mk = monthKey(), mStart = `${mk}-01`, mEnd = `${mk}-31`;
+  const wst = rangeStats(s, ws, we), mst = rangeStats(s, mStart, mEnd);
+  const weekly = pickChallenges(WEEKLY_POOL, ws, 3), monthly = pickChallenges(MONTHLY_POOL, mk, 3);
+  const wc = s.weekly?.[ws]; const wClaimed = wc === true ? { "w-train4": true } : (wc || {});
+  const mClaimed = s.monthly?.[mk] || {};
+  const claimW = (c) => { setS((p) => { const cur = p.weekly?.[ws]; const obj = cur === true ? { "w-train4": true } : (cur || {}); return { ...p, weekly: { ...(p.weekly || {}), [ws]: { ...obj, [c.id]: true } } }; }); gainXp(c.xp, "Weekly challenge"); };
+  const claimM = (c) => { setS((p) => ({ ...p, monthly: { ...(p.monthly || {}), [mk]: { ...(p.monthly?.[mk] || {}), [c.id]: true } } })); gainXp(c.xp, "Monthly challenge"); };
+  const monthName = new Date(mStart + "T12:00").toLocaleDateString(undefined, { month: "long" });
+  return (
+    <>
+      <h2 className="text-lg font-bold pt-2">Weekly challenges <span className="body text-sm font-normal" style={{ color: C.dim }}>resets Sunday</span></h2>
+      {weekly.map((c) => <ChallengeCard key={c.id} c={c} value={c.get(wst)} claimed={!!wClaimed[c.id]} onClaim={() => claimW(c)} color={C.orange} />)}
+      <h2 className="text-lg font-bold pt-2">{monthName} challenges <span className="body text-sm font-normal" style={{ color: C.dim }}>big XP</span></h2>
+      {monthly.map((c) => <ChallengeCard key={c.id} c={c} value={c.get(mst)} claimed={!!mClaimed[c.id]} onClaim={() => claimM(c)} color="#B14BFF" />)}
+      <div className="body text-xs" style={{ color: C.mute }}>Weekly and monthly progress is tracked automatically from your workouts, quests, fuel goals, and weigh-ins. New ones roll in every week and month.</div>
+    </>
   );
 }
