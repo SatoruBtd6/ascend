@@ -1,5 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-html, body { background: #000; margin: 0; }
+html, body { background: #000; margin: 0; -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior-y: none; }
 input, select, textarea, button { font: inherit; }

@@ -1,44 +1,117 @@
-// Gives App.jsx the same window.storage it had inside Claude, backed by Supabase,
-// and routes its Claude API calls through our own secure /api/claude function.
+// Gives App.jsx its window.storage backed by Supabase, with an on-device copy so the app
+// keeps working with no signal and syncs automatically when the connection comes back.
+
+const LS = "ascend-kv:";
+const QUEUE = "ascend-kv-queue";
+const lsGet = (k) => { try { return localStorage.getItem(LS + k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(LS + k, v); } catch { /* storage full: skip mirror */ } };
+const lsDel = (k) => { try { localStorage.removeItem(LS + k); } catch { /* ignore */ } };
+const readQueue = () => { try { return JSON.parse(localStorage.getItem(QUEUE) || "[]"); } catch { return []; } };
+const writeQueue = (q) => { try { localStorage.setItem(QUEUE, JSON.stringify(q)); } catch { /* ignore */ } };
+const isNetErr = (e) => !navigator.onLine || /fetch|network|failed|load/i.test(String(e?.message || e));
+// Only the user's own small records get mirrored; big shared blobs (songs, photos) stay online-only
+const mirrorable = (scope, key, value) => !scope.startsWith("shared") && String(value ?? "").length < 1_500_000;
 
 export function installStorage(supabase, userId) {
+  if (window.__ascendStorageUser === userId && window.storage) return;
+  window.__ascendStorageUser = userId;
   const scope = (shared) => (shared ? "shared" : `user:${userId}`);
-  const cache = new Map(); // key -> { value, t } for shared lists, so reading a leaderboard isn't N round trips
+  const cache = new Map();
   const esc = (t) => t.replace(/[%_\\]/g, (c) => `\\${c}`);
+  const id = (shared, key) => `${scope(shared)}|${key}`;
+
+  const pushNow = async (op) => {
+    if (op.type === "set") {
+      const { error } = await supabase.from("kv").upsert({ scope: op.scope, key: op.key, value: op.value, updated_at: new Date(op.t).toISOString() }, { onConflict: "scope,key" });
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("kv").delete().eq("scope", op.scope).eq("key", op.key);
+      if (error) throw error;
+    }
+  };
+  const enqueue = (op) => { const q = readQueue().filter((x) => !(x.scope === op.scope && x.key === op.key)); q.push(op); writeQueue(q); };
+  let flushing = false;
+  const flush = async () => {
+    if (flushing || !navigator.onLine) return;
+    flushing = true;
+    try {
+      let q = readQueue();
+      while (q.length) {
+        try { await pushNow(q[0]); } catch (e) { if (isNetErr(e)) break; /* permission or bad row: drop it */ }
+        q = readQueue().slice(1); writeQueue(q);
+      }
+    } finally { flushing = false; }
+  };
+  window.addEventListener("online", flush);
+  setInterval(flush, 20000);
+  flush();
 
   window.storage = {
     async get(key, shared = false) {
-      const ck = `${scope(shared)}|${key}`;
+      const ck = id(shared, key);
       const c = cache.get(ck);
       if (c && Date.now() - c.t < 4000) return { key, value: c.value, shared };
-      const { data, error } = await supabase.from("kv").select("value").eq("scope", scope(shared)).eq("key", key).maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error("Key not found");
-      return { key, value: data.value, shared };
+      // If this key has unsent local changes, the local copy is the newest
+      if (!shared && readQueue().some((x) => x.scope === scope(false) && x.key === key)) {
+        const v = lsGet(ck); if (v !== null) return { key, value: v, shared };
+      }
+      try {
+        const { data, error } = await supabase.from("kv").select("value").eq("scope", scope(shared)).eq("key", key).maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error("Key not found");
+        if (mirrorable(scope(shared), key, data.value)) lsSet(ck, data.value);
+        return { key, value: data.value, shared };
+      } catch (e) {
+        if (String(e?.message) === "Key not found") throw e;
+        const v = lsGet(ck);
+        if (v !== null) return { key, value: v, shared };
+        throw e;
+      }
     },
     async set(key, value, shared = false) {
-      cache.delete(`${scope(shared)}|${key}`);
-      const { error } = await supabase.from("kv").upsert({ scope: scope(shared), key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: "scope,key" });
-      if (error) throw error;
+      const ck = id(shared, key), v = String(value);
+      cache.delete(ck);
+      if (mirrorable(scope(shared), key, v)) lsSet(ck, v);
+      const op = { type: "set", scope: scope(shared), key, value: v, t: Date.now() };
+      try { await pushNow(op); }
+      catch (e) {
+        if (isNetErr(e) && !shared) { enqueue(op); return { key, value, shared, queued: true }; }
+        throw e;
+      }
       return { key, value, shared };
     },
     async delete(key, shared = false) {
-      cache.delete(`${scope(shared)}|${key}`);
-      const { error } = await supabase.from("kv").delete().eq("scope", scope(shared)).eq("key", key);
-      if (error) throw error;
+      const ck = id(shared, key);
+      cache.delete(ck); lsDel(ck);
+      const op = { type: "delete", scope: scope(shared), key, t: Date.now() };
+      try { await pushNow(op); }
+      catch (e) {
+        if (isNetErr(e) && !shared) { enqueue(op); return { key, deleted: true, shared, queued: true }; }
+        throw e;
+      }
       return { key, deleted: true, shared };
     },
     async list(prefix = "", shared = false) {
-      const { data, error } = await supabase.from("kv").select("key,value").eq("scope", scope(shared)).like("key", `${esc(prefix)}%`);
-      if (error) throw error;
-      const t = Date.now();
-      data.forEach((d) => cache.set(`${scope(shared)}|${d.key}`, { value: d.value, t }));
-      return { keys: data.map((d) => d.key), prefix, shared };
+      try {
+        const { data, error } = await supabase.from("kv").select("key,value").eq("scope", scope(shared)).like("key", `${esc(prefix)}%`);
+        if (error) throw error;
+        const t = Date.now();
+        data.forEach((d) => cache.set(id(shared, d.key), { value: d.value, t }));
+        return { keys: data.map((d) => d.key), prefix, shared };
+      } catch (e) {
+        if (shared) throw e;
+        const keys = [];
+        try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); const pre = LS + id(false, prefix); if (k && k.startsWith(pre)) keys.push(k.slice((LS + scope(false) + "|").length)); } } catch { /* ignore */ }
+        return { keys, prefix, shared };
+      }
     },
+    pending: () => readQueue().length,
   };
 }
 
 export function installClaudeProxy(supabase) {
+  if (window.__ascendProxy) return;
+  window.__ascendProxy = true;
   const orig = window.fetch.bind(window);
   window.fetch = async (url, opts = {}) => {
     if (typeof url === "string" && url.startsWith("https://api.anthropic.com/v1/messages")) {

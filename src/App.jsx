@@ -8,7 +8,7 @@ const THEMES = {
     blue: "#0A84FF", cyan: "#00D9FF", soft: "#03080F", line: "rgba(0,217,255,.26)", border: "#10283F",
     track: "#081530", sheet: "#040A1C", accentBg: "#0C2350", navBg: "rgba(0,0,0,.96)", badgeBg: "rgba(2,6,16,.8)",
     inpBg: "#000000", panelTop: "rgba(0,34,70,.42)", panelBot: "rgba(0,0,0,.94)", glow: "rgba(0,217,255,.75)",
-    grid: "rgba(0,217,255,.028)", halo: "rgba(0,160,255,.22)",
+    grid: "rgba(0,217,255,.028)", halo: "rgba(40,110,255,.20)", glass: "rgba(255,255,255,.045)", glassLine: "rgba(255,255,255,.09)",
     gold: "#FFD447", green: "#39E68F", orange: "#FF9340", red: "#FF4D6D",
   },
   light: {
@@ -16,7 +16,7 @@ const THEMES = {
     blue: "#0070F0", cyan: "#0088CC", soft: "#FFFFFF", line: "rgba(0,120,210,.28)", border: "#C9D9EA",
     track: "#D6E3F0", sheet: "#FFFFFF", accentBg: "#DDEEFF", navBg: "rgba(255,255,255,.96)", badgeBg: "rgba(255,255,255,.92)",
     inpBg: "#FFFFFF", panelTop: "rgba(255,255,255,.97)", panelBot: "rgba(230,240,250,.97)", glow: "rgba(0,136,204,.3)",
-    grid: "rgba(0,120,210,.06)", halo: "rgba(0,144,255,.18)",
+    grid: "rgba(0,120,210,.06)", halo: "rgba(0,144,255,.18)", glass: "rgba(255,255,255,.72)", glassLine: "rgba(10,30,60,.08)",
     gold: "#D99A00", green: "#12A860", orange: "#E8740C", red: "#E0284A",
   },
 };
@@ -600,13 +600,13 @@ function customTheme(cu) {
   return {
     bg: mixRgb(bg, bg, 0), text: mixRgb(fg, fg, 0), dim: mixRgb(fg, bg, 0.34), mute: mixRgb(fg, bg, 0.52), sub: mixRgb(fg, bg, 0.16),
     cyan: cu.cyan, blue: cu.blue, soft: mixRgb(bg, cy, 0.05), sheet: mixRgb(bg, cy, 0.06), accentBg: mixRgb(bg, cy, 0.18), track: mixRgb(bg, cy, 0.12), border: mixRgb(bg, cy, 0.24), inpBg: mixRgb(bg, bg, 0),
-    line: rgbaOf(cy, 0.3), glow: rgbaOf(cy, light ? 0.35 : 0.75), grid: rgbaOf(cy, 0.05), halo: rgbaOf(bl, light ? 0.18 : 0.3), navBg: rgbaOf(bg, 0.96), badgeBg: rgbaOf(bg, 0.85), panelTop: rgbaOf(cy, 0.12), panelBot: rgbaOf(bg, 0.94),
+    glass: light ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.05)", glassLine: light ? "rgba(10,30,60,.08)" : rgbaOf(cy, 0.14), line: rgbaOf(cy, 0.3), glow: rgbaOf(cy, light ? 0.35 : 0.75), grid: rgbaOf(cy, 0.05), halo: rgbaOf(bl, light ? 0.18 : 0.3), navBg: rgbaOf(bg, 0.96), badgeBg: rgbaOf(bg, 0.85), panelTop: rgbaOf(cy, 0.12), panelBot: rgbaOf(bg, 0.94),
   };
 }
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
@@ -628,6 +628,17 @@ export default function App() {
   const [exerciseFrom, setExerciseFrom] = useState("status");
   const openExercise = (name, from = "status") => { setExercisePick(name); setExerciseFrom(from); setTab("exercise"); window.scrollTo?.(0, 0); };
   const [ceremony, setCeremony] = useState(null);
+  const [burst, setBurst] = useState(null);
+  useEffect(() => {
+    const on = (e) => {
+      const kind = e.detail; setBurst({ kind, id: Date.now() });
+      const root = document.getElementById("ascend-root");
+      if (root) { root.classList.remove("shake-pr", "shake-soft"); void root.offsetWidth; root.classList.add(kind === "pr" ? "shake-pr" : "shake-soft"); setTimeout(() => root.classList.remove("shake-pr", "shake-soft"), 700); }
+      setTimeout(() => setBurst(null), 1500);
+    };
+    window.addEventListener("ascend-juice", on);
+    return () => window.removeEventListener("ascend-juice", on);
+  }, []);
   const [offline, setOffline] = useState(false);
   useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
   const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
@@ -698,7 +709,7 @@ export default function App() {
       try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
     }, 1200);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog]);
+  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog]);
 
   const gainXp = (amt, msg) => {
     const before = levelFromXp(sRef.current.xp).lvl, after = levelFromXp(Math.max(0, sRef.current.xp + amt)).lvl;
@@ -753,7 +764,7 @@ export default function App() {
   const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
 
   return (
-    <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} style={{ background: C.bg, color: C.text, fontFamily: "'Oxanium', system-ui, sans-serif" }}>
+    <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Lexend:wght@400;600;800&family=Orbitron:wght@700;900&family=Bangers&family=Cinzel:wght@700;900&family=Permanent+Marker&family=Press+Start+2P&family=Pacifico&family=Creepster&display=swap');
         .body{font-family:'Inter',system-ui,sans-serif;line-height:1.45;letter-spacing:.005em}
         h1,h2{letter-spacing:.01em}
@@ -761,18 +772,26 @@ export default function App() {
         .fancyname,.fancyname *,.dys .fancyname,.dys .fancyname *{font-family:var(--nf)!important;letter-spacing:normal}
         .bgfx{position:fixed;inset:0;pointer-events:none;background:
           radial-gradient(70% 38% at 50% -8%, ${C.halo}, transparent 70%),
-          linear-gradient(${C.grid} 1px, transparent 1px) 0 0/44px 44px,
-          linear-gradient(90deg, ${C.grid} 1px, transparent 1px) 0 0/44px 44px, ${C.bg}}
-        .panel{position:relative;background:linear-gradient(180deg,${C.panelTop},${C.panelBot} 70%);border:1px solid ${C.line};border-radius:8px;box-shadow:0 1px 0 ${C.line} inset}
-        .panel::before,.panel::after{content:"";position:absolute;width:10px;height:10px;border-color:${C.cyan};pointer-events:none;opacity:.55}
-        .panel::before{top:-1px;left:-1px;border-top:2px solid;border-left:2px solid}
-        .panel::after{bottom:-1px;right:-1px;border-bottom:2px solid;border-right:2px solid}
-        .inp{background:${C.inpBg};border:1px solid ${C.border};border-radius:6px;padding:8px 10px;color:${C.text};width:100%}
+          radial-gradient(60% 40% at 100% 100%, ${C.halo}, transparent 70%), ${C.bg}}
+        .panel{position:relative;background:${C.glass};border:1px solid ${C.glassLine};border-radius:16px;-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);box-shadow:0 8px 30px rgba(0,0,0,.18)}
+        .panel::before,.panel::after{content:none}
+        .space-y-4>:not([hidden])~:not([hidden]){margin-top:1.15rem}
+        h1{font-weight:700;letter-spacing:-.01em} h2{font-weight:650;letter-spacing:-.005em}
+        @keyframes aurapulse{0%,100%{opacity:.5;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}
+        @keyframes juiceflash{0%{opacity:1}100%{opacity:0}}
+        @keyframes juicespark{0%{transform:translate(0,0) rotate(0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(.2);opacity:0}}
+        @keyframes juicetext{0%{transform:translateX(-50%) scale(.4);opacity:0}25%{transform:translateX(-50%) scale(1.25);opacity:1}70%{opacity:1}100%{transform:translateX(-50%) scale(1);opacity:0}}
+        @keyframes shake{0%,100%{transform:translate(0,0)}15%{transform:translate(-8px,4px)}30%{transform:translate(7px,-5px)}45%{transform:translate(-6px,-3px)}60%{transform:translate(5px,4px)}75%{transform:translate(-3px,2px)}}
+        @keyframes shakesoft{0%,100%{transform:translate(0,0)}30%{transform:translate(-3px,2px)}60%{transform:translate(3px,-2px)}}
+        .shake-pr{animation:shake .55s cubic-bezier(.36,.07,.19,.97)} .shake-soft{animation:shakesoft .3s ease-out}
+        @keyframes bossidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+        @keyframes bosshit{0%{transform:scale(1)}30%{transform:scale(.85) rotate(-6deg);filter:brightness(2)}100%{transform:scale(1)}}
+        .inp{background:${C.inpBg};border:1px solid ${C.glassLine};border-radius:10px;padding:8px 10px;color:${C.text};width:100%}
         .inp:focus,button:focus-visible{outline:2px solid ${C.cyan};outline-offset:1px;box-shadow:0 0 12px ${C.glow}}
-        .btn{background:linear-gradient(180deg,${C.cyan},${C.blue});box-shadow:0 0 14px ${C.glow}, inset 0 1px 0 rgba(255,255,255,.35);border-radius:6px;color:#001018;font-weight:800;letter-spacing:.02em}
-        .ghost{background:${C.soft};border:1px solid ${C.border};border-radius:6px;color:${C.text}}
-        .glowtext{text-shadow:0 0 8px ${C.glow}}
-        .ranklabel{font-family:'Cinzel','Oxanium',serif;letter-spacing:.06em}
+        .btn{background:linear-gradient(180deg,${C.cyan},${C.blue});box-shadow:0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);border-radius:12px;color:#001018;font-weight:800;letter-spacing:.02em}
+        .ghost{background:${C.glass};border:1px solid ${C.glassLine};border-radius:12px;color:${C.text}}
+        .glowtext{text-shadow:none}
+        .ranklabel{font-family:'Inter',system-ui,sans-serif;font-weight:800;letter-spacing:.02em}
         .neonline{height:1px;background:linear-gradient(90deg,transparent,${C.cyan},transparent);box-shadow:0 0 8px ${C.cyan}}
         @keyframes breathe{0%,100%{filter:drop-shadow(0 0 6px var(--g))}50%{filter:drop-shadow(0 0 20px var(--g))}}
         .breathe{animation:breathe 3.2s ease-in-out infinite}
@@ -816,8 +835,9 @@ export default function App() {
         @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}`}</style>
       <div className="bgfx" />
 
-      <div className="relative max-w-md mx-auto pb-44 px-4 pt-5">
-        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={() => openProfile(null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} />}
+      <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
+        <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
+        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} />}
         {tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
         {tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
         {tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
@@ -839,14 +859,15 @@ export default function App() {
       </div>
 
       {toast && (
-        <div className="fixed top-4 left-1/2 z-50 px-5 py-2.5 text-sm font-bold" style={{ transform: "translateX(-50%)", animation: "pop .3s ease-out", borderRadius: 4, whiteSpace: "nowrap",
+        <div className="fixed left-1/2 z-50 px-5 py-2.5 text-sm font-bold" style={{ top: "calc(env(safe-area-inset-top) + 12px)", transform: "translateX(-50%)", animation: "pop .3s ease-out", borderRadius: 999, whiteSpace: "nowrap",
           background: toast.big ? C.gold : C.sheet, color: toast.big ? "#0A1630" : C.cyan, border: `1px solid ${toast.big ? C.gold : C.blue}`,
           boxShadow: toast.big ? "0 0 30px rgba(255,212,71,.6)" : `0 0 22px ${C.glow}` }}>{toast.text}</div>
       )}
 
       {party && <DiscoParty />}
       {ceremony && <Ceremony c={ceremony} onClose={() => setCeremony(null)} />}
-      {offline && <div className="fixed top-2 right-2 z-50 px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div>}
+      {burst && <JuiceBurst key={burst.id} kind={burst.kind} />}
+      {offline && <div className="fixed right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
       {dialog && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.65)" }} onClick={() => setDialog(null)}>
           <div role="dialog" aria-modal="true" className="panel w-full max-w-sm p-5" style={{ background: C.sheet }} onClick={(e) => e.stopPropagation()}>
@@ -859,18 +880,17 @@ export default function App() {
         </div>
       )}
       {s.settings?.zesty && tab !== "assistant" && (
-        <button aria-label={party ? "Stop the disco" : "Start the disco"} onClick={() => setParty(!party)} className="fixed z-40 flex items-center justify-center" style={{ right: 20, bottom: 148, width: 44, height: 44, borderRadius: 999, background: party ? RAINBOW : C.soft, backgroundSize: "200% auto", animation: party ? "rainbow 2s linear infinite" : "none", border: `1px solid ${C.border}`, boxShadow: "0 0 18px rgba(255,60,172,.5)" }}>
+        <button aria-label={party ? "Stop the disco" : "Start the disco"} onClick={() => setParty(!party)} className="fixed z-40 flex items-center justify-center" style={{ right: 20, bottom: "calc(env(safe-area-inset-bottom) + 148px)", width: 44, height: 44, borderRadius: 999, background: party ? RAINBOW : C.soft, backgroundSize: "200% auto", animation: party ? "rainbow 2s linear infinite" : "none", border: `1px solid ${C.border}`, boxShadow: "0 0 18px rgba(255,60,172,.5)" }}>
           <DiscoIcon size={24} spinning={party} />
         </button>
       )}
       {tab !== "assistant" && (
-        <button aria-label="Open voice assistant" onClick={() => setTab("assistant")} className="btn fixed z-40 flex items-center justify-center" style={{ right: 16, bottom: 86, width: 52, height: 52, borderRadius: 999 }}>
+        <button aria-label="Open voice assistant" onClick={() => setTab("assistant")} className="btn fixed z-40 flex items-center justify-center" style={{ right: 16, bottom: "calc(env(safe-area-inset-bottom) + 86px)", width: 52, height: 52, borderRadius: 999 }}>
           <Bot size={24} />
         </button>
       )}
 
-      <nav className="fixed bottom-0 inset-x-0 z-40" style={{ background: C.navBg, backdropFilter: "blur(10px)" }}>
-        <div className="neonline" />
+      <nav className="fixed bottom-0 inset-x-0 z-40" style={{ background: C.glass, borderTop: `1px solid ${C.glassLine}`, backdropFilter: "blur(22px) saturate(150%)", WebkitBackdropFilter: "blur(22px) saturate(150%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="max-w-md mx-auto grid grid-cols-7">
           {tabs.map(([id, Icon, label]) => (
             <button key={id} onClick={() => setTab(id)} className="pt-2.5 pb-3 flex flex-col items-center gap-1 relative" style={{ fontSize: 10, color: tab === id ? C.cyan : C.mute, filter: tab === id ? `drop-shadow(0 0 6px ${C.glow})` : "none" }}>
@@ -909,7 +929,7 @@ function Sheet({ title, onClose, children }) {
 }
 
 /* ---------- Status ---------- */
-function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, goTrain }) {
+function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, goTrain, openRival }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -928,7 +948,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
             onBlur={(e) => { setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } })); setEditName(false); }} />
         ) : (
           <div className="flex items-center gap-3 min-w-0">
-            <button aria-label="Open your profile" onClick={openProfile}><Avatar src={s.profile.avatar} name={s.profile.name} size={44} ring={oc.color} /></button>
+            <button aria-label="Open your profile" onClick={openProfile}><Avatar src={s.profile.avatar} name={s.profile.name} size={44} ring={oc.color} look={s.profile.look} /></button>
             <button onClick={() => setEditName(true)} className="text-2xl font-bold tracking-wide truncate">{s.profile.name ? <FancyName name={s.profile.name} look={s.profile.look} className="glowtext" /> : "Set your name"}</button>
           </div>
         )}
@@ -938,12 +958,13 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
 
       <div className="panel p-5 overflow-hidden">
         <div className="absolute -right-4 -top-10 font-extrabold select-none" style={{ fontSize: 170, color: oc.color, opacity: 0.07, lineHeight: 1 }}>{oc.id}</div>
-        <div className="flex items-center gap-5 relative">
-          <div className="breathe" style={{ "--g": oc.glow }}><RankBadge rank={oc} size={66} /></div>
-          <div className="flex-1">
-            <div className="text-sm body" style={{ color: C.dim }}>Overall rank · {RANK_INFO[oc.id][0]}</div>
-            <div className="ranklabel text-4xl font-extrabold" style={{ color: oc.color, textShadow: `0 0 18px ${oc.glow}` }}>{overall.label}</div>
+        <div className="flex items-center gap-4 relative">
+          <div className="flex-1 min-w-0">
+            <div className="breathe inline-block" style={{ "--g": oc.glow }}><RankBadge rank={oc} size={60} /></div>
+            <div className="text-sm body mt-2" style={{ color: C.dim }}>Overall rank · {RANK_INFO[oc.id][0]}</div>
+            <div className="ranklabel text-4xl" style={{ color: oc.color }}>{overall.label}</div>
           </div>
+          <Physique tier={overall.score} height={150} aura={s.profile.look?.aura} />
         </div>
         <div className="mt-3 relative"><Bar pct={overall.divPct} color={oc.color} /></div>
         <button onClick={openProfile} className="btn mt-4 w-full py-2.5 text-sm flex items-center justify-center gap-2 relative"><User size={16} />Profile · achievements · weight chart</button>
@@ -971,6 +992,8 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
       </div>
 
       <Dashboard s={s} setS={setS} goTrain={goTrain} />
+      <RoastCard s={s} setS={setS} />
+      <NemesisAlert s={s} setS={setS} openProfile={openProfile} />
       <Nudges s={s} openExercise={openExercise} goTrain={goTrain} />
       <WeeklyReport s={s} />
       <MogInbox s={s} openProfile={openProfile} />
@@ -1085,7 +1108,8 @@ function Train({ s, setS, gainXp }) {
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name) } }));
-    if (prs) { SFX.pr(); postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
+    juice(prs ? "pr" : "finish");
+    if (prs) { postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
     gainXp(xp, prs ? `${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete");
     setRest(null);
   };
@@ -1145,6 +1169,7 @@ function Train({ s, setS, gainXp }) {
             <div className="flex justify-between items-center"><div className="font-bold">Last workout{s.lastSummary.title ? ` · ${s.lastSummary.title}` : ""}</div><button aria-label="Dismiss" onClick={() => setS((p) => ({ ...p, lastSummary: null }))} style={{ color: C.mute }}><X size={16} /></button></div>
             <div className="body text-sm" style={{ color: C.sub }}>+{s.lastSummary.xp} XP · {Math.round(s.lastSummary.volume).toLocaleString()} lb{s.lastSummary.minutes ? ` · ${s.lastSummary.minutes} min` : ""}{s.lastSummary.prs ? ` · ${s.lastSummary.prs} PR${s.lastSummary.prs > 1 ? "s" : ""} (${s.lastSummary.prNames.join(", ")})` : ""}</div>
             {s.lastSummary.suggestions.length > 0 && <div className="body text-xs" style={{ color: C.dim }}>Next time: {s.lastSummary.suggestions.map((x) => `${x.name} ${x.next.w}×${x.next.r}`).join(" · ")}</div>}
+            <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: s.lastSummary.prs ? "New PR" : "Workout complete", headline: s.lastSummary.prs ? `${s.lastSummary.prs} new PR${s.lastSummary.prs > 1 ? "s" : ""}` : (s.lastSummary.title ? `${s.lastSummary.title} day` : "Session done"), sub: s.lastSummary.prNames?.length ? s.lastSummary.prNames.join(", ") : s.lastSummary.title || "", tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${s.lastSummary.xp}`], ["Volume", `${Math.round(s.lastSummary.volume).toLocaleString()} lb`], ["Time", s.lastSummary.minutes ? `${s.lastSummary.minutes} min` : "–"], ["Streak", `${streakOf(s)} days`]] })} />
           </div>
         )}
 
@@ -1165,6 +1190,7 @@ function Train({ s, setS, gainXp }) {
                   {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
                   {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", ") }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
                   {!w.source && s.lb && <SharePreset s={s} workout={w} />}
+                  {!w.source && <ReceiptButton small label="Share card" make={() => buildReceipt({ s, kind: "Workout", headline: w.title ? `${w.title} day` : "Workout", sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Exercises", w.exercises.length], ["Sets", w.exercises.reduce((a, e) => a + e.sets.length, 0)]] })} />}
                   <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
                   <button aria-label="Delete workout" onClick={() => ask("Delete this workout? The XP you earned stays.", () => setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
                 </div>
@@ -1209,6 +1235,7 @@ function Train({ s, setS, gainXp }) {
         <button onClick={finish} className="px-5 py-2.5 text-sm font-bold" style={{ background: C.green, color: "#02040B", borderRadius: 4, boxShadow: "0 0 16px rgba(79,209,139,.5)" }}>{a.editId ? "Save changes" : "Finish"}</button>
       </div>
 
+      {!a.editId && <WarmUp s={s} a={a} setActive={setActive} />}
       {a.exercises.length === 0 && <Empty>Add your first exercise. Check off each set as you finish it, and only checked sets count.</Empty>}
 
       {a.exercises.map((ex, ei) => {
@@ -1916,7 +1943,7 @@ function Board({ s, setS, openProfile, gainXp }) {
   const [view, setView] = useState("board");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState("points");
+  const [sort, setSort] = useState("season");
   const [muscle, setMuscle] = useState("Chest");
   const [err, setErr] = useState("");
 
@@ -1940,11 +1967,14 @@ function Board({ s, setS, openProfile, gainXp }) {
       setErr("Couldn't reach the shared leaderboard. Check your connection and tap refresh in a moment.");
     } else {
       const cards = await Promise.all(keys.map(readCard));
-      setRows(cards.filter(Boolean));
+      const got = cards.filter(Boolean);
+      setRows(got);
+      settleSeason(s, setS, got).catch(() => {});
     }
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (view !== "crew") return; const t = setInterval(load, 30000); return () => clearInterval(t); }, [view]);
 
   const leave = async () => {
     setS((p) => ({ ...p, lb: false }));
@@ -1954,7 +1984,9 @@ function Board({ s, setS, openProfile, gainXp }) {
 
   const ws = weekStart();
   const mk = monthKey();
+  const sk = seasonKey();
   const SORTS = {
+    season: ["Season", "season XP", (r) => (r.season?.key === sk ? r.season.xp : 0)],
     points: ["Points", "pts", (r) => r.points || 0], xp: ["XP", "XP", (r) => r.xp || 0], month: ["Month", "XP this month", (r) => (r.month?.key === mk ? r.month.xp : 0)],
     streak: ["Streak", "days", (r) => r.streak || 0], week: ["Week", "workouts", (r) => (r.weekOf === ws ? r.week : 0)],
     muscle: ["Muscles", "", (r) => r.groups?.[muscle] || 0, (r) => { const sc = r.groups?.[muscle] || 0; return sc ? rankFromScore(sc).label : "–"; }],
@@ -2006,6 +2038,7 @@ function Board({ s, setS, openProfile, gainXp }) {
           {Object.keys(GROUP_WEIGHT).map((gk) => <button key={gk} onClick={() => setMuscle(gk)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: muscle === gk ? C.cyan : C.soft, color: muscle === gk ? "#001018" : C.text, border: `1px solid ${C.border}` }}>{gk}</button>)}
         </div>
       )}
+      {sort === "season" && <SeasonBanner />}
       {sort === "month" && <div className="body text-xs" style={{ color: C.mute }}>XP earned since the 1st. Resets every month, so anyone can take the top spot.</div>}
       {sort === "muscle" && <div className="body text-xs" style={{ color: C.mute }}>Ranked by each player's best lift in {muscle}. Numbers hide, ranks show.</div>}
       {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Points come from all XP earned in workouts, plus a bonus for the rank of every lift that grows fast as you climb (about 1,000 for a maxed S lift).</div>}
@@ -2022,7 +2055,7 @@ function Board({ s, setS, openProfile, gainXp }) {
             return (
               <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="flex flex-col items-center">
                 {P.place === 1 && <Crown size={26} style={{ color: C.gold, filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} className="mb-1" />}
-                <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} />
+                <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} look={r.look} />
                 <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} /></div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase truncate w-full text-center" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}</div>
@@ -2041,9 +2074,9 @@ function Board({ s, setS, openProfile, gainXp }) {
           return (
             <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="panel p-3 flex items-center gap-3 w-full text-left" style={{ ...(lookStyle(r.look, 0.6) || {}), ...(isMe(r) ? { boxShadow: "0 0 20px rgba(124,211,255,.3)" } : {}) }}>
               <span className="w-7 text-center text-lg font-extrabold" style={{ color: C.dim }}>{i + 4}</span>
-              <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} />
+              <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} look={r.look} />
               <div className="flex-1 min-w-0 ml-1">
-                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}</div>
+                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{s.nemesis?.id === r.id && <span className="ml-1" title="Your nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="body text-xs" style={{ color: C.dim }}><span className="ranklabel">{r.rank}{r.div ? ` ${r.div}` : ""}</span> · Level {r.lvl} · {r.streak} day streak{r.atGym && Date.now() - r.atGym < 3 * 3600 * 1000 ? <span style={{ color: C.green }}> · at the gym</span> : null}</div>
               </div>
@@ -2751,6 +2784,7 @@ function IntervalTimer({ visible, onBack, onOpen }) {
   }, [run?.paused, run?.phase, !!run]);
 
   const releaseWake = () => { try { wakeRef.current?.release(); } catch (e) { /* ignore */ } wakeRef.current = null; };
+  useEffect(() => { if (run && run.phase !== "done") document.title = `${run.paused ? "❚❚" : "⏱"} ${run.phase === "work" ? "Work" : run.phase === "rest" ? "Rest" : "Ready"} ${fmtClock(run.left)} · Ascend`; else document.title = "Ascend"; }, [run?.left, run?.phase, run?.paused]);
   useEffect(() => () => releaseWake(), []);
 
   const start = async () => {
@@ -2781,7 +2815,7 @@ function IntervalTimer({ visible, onBack, onOpen }) {
   if (!visible) {
     if (!run || run.phase === "done") return null;
     return (
-      <button onClick={onOpen} aria-label="Open interval timer" className="fixed z-40 flex items-center gap-2 px-3 py-2 font-bold tabular-nums" style={{ left: 16, bottom: 90, borderRadius: 999, background: C.sheet, color: phaseColor, border: `1px solid ${phaseColor}`, boxShadow: `0 0 16px ${phaseColor}66` }}>
+      <button onClick={onOpen} aria-label="Open interval timer" className="fixed z-40 flex items-center gap-2 px-3 py-2 font-bold tabular-nums" style={{ left: 16, bottom: "calc(env(safe-area-inset-bottom) + 90px)", borderRadius: 999, background: C.sheet, color: phaseColor, border: `1px solid ${phaseColor}`, boxShadow: `0 0 16px ${phaseColor}66` }}>
         <TimerIcon size={16} />{run.phase === "work" ? "Work" : run.phase === "rest" ? "Rest" : "Ready"} {fmtClock(run.left)}{run.paused ? " ❚❚" : ""}
       </button>
     );
@@ -3060,12 +3094,22 @@ const fromB64url = (t) => { const s = t.replace(/-/g, "+").replace(/_/g, "/"); r
 const songLinkLabel = (url) => (/youtu\.?be/i.test(url) ? "YouTube" : /spotify/i.test(url) ? "Spotify" : /apple/i.test(url) ? "Apple Music" : /soundcloud/i.test(url) ? "SoundCloud" : "Link");
 
 /* ---------- Profiles ---------- */
-function Avatar({ src, name, size = 48, ring }) {
+function Avatar({ src, name, size = 48, ring, look }) {
   const color = ring || C.cyan;
-  return src ? (
-    <img src={src} alt="" style={{ width: size, height: size, borderRadius: 999, objectFit: "cover", border: `2px solid ${color}`, boxShadow: `0 0 12px ${C.glow}`, flexShrink: 0 }} />
+  const border = BORDERS.find((b) => b.id === look?.border && b.css);
+  const inner = src ? (
+    <img src={src} alt="" style={{ width: size, height: size, borderRadius: 999, objectFit: "cover", border: border ? "none" : `2px solid ${color}`, flexShrink: 0, display: "block" }} />
   ) : (
-    <div className="flex items-center justify-center font-extrabold shrink-0" style={{ width: size, height: size, borderRadius: 999, background: C.accentBg, color, border: `2px solid ${color}`, fontSize: size * 0.42 }}>{((name || "?").trim()[0] || "?").toUpperCase()}</div>
+    <div className="flex items-center justify-center font-bold shrink-0" style={{ width: size, height: size, borderRadius: 999, background: C.accentBg, color, border: border ? "none" : `2px solid ${color}`, fontSize: size * 0.42 }}>{((name || "?").trim()[0] || "?").toUpperCase()}</div>
+  );
+  if (!border && (!look?.aura || look.aura === "none")) return inner;
+  const pad = border ? Math.max(2, Math.round(size / 22)) : 0;
+  return (
+    <div className="relative shrink-0 flex items-center justify-center" style={{ width: size + pad * 2, height: size + pad * 2 }}>
+      {look?.aura && look.aura !== "none" && <AuraRing aura={look.aura} size={(size + pad * 2) * 1.45} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />}
+      {border && <div aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: 999, background: border.css, animation: border.spin ? "rkspin 4s linear infinite" : "none" }} />}
+      <div className="relative" style={{ borderRadius: 999, overflow: "hidden" }}>{inner}</div>
+    </div>
   );
 }
 
@@ -3150,7 +3194,10 @@ function profileCard(s) {
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: Object.fromEntries(wl),
-    month: { key: monthKey(), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(monthKey())).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(monthKey()) && w.source !== "quest").length },
+    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); ex.sets.forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && w.source !== "quest").length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
+    uid: window.ascendUserId || null, tier: bestTier(s),
+    season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
+    badges: s.seasonBadges || {},
     groups: groupScores(s),
     lifts: rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 6).map((r) => ({ name: r.e.name, label: r.label, rank: r.rank.id, best: Math.round(r.best), bw: r.e.type === "bodyweight" })),
   };
@@ -3282,7 +3329,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
           <div className="panel p-5" style={lookStyle(data.look)}>
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} />
+                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={data.look} />
                 {me && (
                   <>
                     <button aria-label="Change profile photo" onClick={() => fileRef.current?.click()} className="absolute flex items-center justify-center" style={{ right: -4, bottom: -4, width: 28, height: 28, borderRadius: 999, background: C.cyan, color: "#001018" }}><Camera size={15} /></button>
@@ -3293,6 +3340,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
               <div className="flex-1 min-w-0">
                 <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
                 {data.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: data.look?.accent || C.cyan }}>{data.title}</div>}
+                {Object.keys(data.badges || {}).length > 0 && <div className="mt-1"><SeasonBadges badges={data.badges} /></div>}
                 <div className="body text-sm" style={{ color: rank.color }}>{data.rank}{data.div ? ` ${data.div}` : ""} · Level {data.lvl}</div>
                 <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{(data.points || 0).toLocaleString()} pts · {data.streak} day streak{st?.since ? ` · since ${new Date(st.since + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}</div>
               </div>
@@ -3308,6 +3356,18 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
           {me && (
             <div className="panel p-4 space-y-3">
               <div className="font-bold">Customize your look</div>
+              <div className="flex justify-center"><Physique tier={overallInfo(s).score} height={200} aura={s.profile.look?.aura} caption={`Physique · ${overallInfo(s).label}`} /></div>
+              <div className="body text-xs" style={{ color: C.dim }}>Aura</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {AURAS.map((a) => { const ok = unlocked(a, s), sel = (s.profile.look?.aura || "none") === a.id; return <button key={a.id} disabled={!ok} title={a.how} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), aura: a.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5" style={{ borderRadius: 999, background: sel ? C.blue : C.glass, color: sel ? "#fff" : ok ? C.text : C.mute, border: `1px solid ${C.glassLine}`, opacity: ok ? 1 : 0.6 }}>{a.colors ? <span style={{ width: 10, height: 10, borderRadius: 999, background: `linear-gradient(135deg,${a.colors[0]},${a.colors[1]})` }} /> : null}{!ok && <Lock size={10} />}{a.name}</button>; })}
+              </div>
+              <div className="body text-xs" style={{ color: C.dim }}>Profile border</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {BORDERS.map((b) => { const ok = unlocked(b, s), sel = (s.profile.look?.border || "none") === b.id; return <button key={b.id} disabled={!ok} title={b.how} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), border: b.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5" style={{ borderRadius: 999, background: sel ? C.blue : C.glass, color: sel ? "#fff" : ok ? C.text : C.mute, border: `1px solid ${C.glassLine}`, opacity: ok ? 1 : 0.6 }}>{b.css ? <span style={{ width: 10, height: 10, borderRadius: 999, background: b.css }} /> : null}{!ok && <Lock size={10} />}{b.name}</button>; })}
+              </div>
+              <details className="body text-xs" style={{ color: C.mute }}><summary style={{ cursor: "pointer", color: C.dim }}>How to unlock auras and borders</summary>
+                <div className="mt-1 space-y-0.5">{[...AURAS, ...BORDERS].filter((x) => x.how).map((x) => <div key={`${x.id}-${x.name}`} className="flex justify-between gap-2"><span style={{ color: unlocked(x, s) ? C.green : C.mute }}>{unlocked(x, s) ? "✓ " : ""}{x.name}</span><span>{x.how}</span></div>)}</div>
+              </details>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {PROFILE_BGS.map((b) => (
                   <button key={b.id} aria-label={`${b.name} background`} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), bg: b.id } } }))} className="shrink-0 flex flex-col items-center gap-1">
@@ -3409,6 +3469,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
             </>
           )}
 
+          {!me && <div className="flex justify-center"><Physique tier={data.tier ?? (RANKS.findIndex((r) => r.id === data.rank) || 0)} height={220} aura={data.look?.aura} caption={`${data.name}'s physique`} /></div>}
           {!me ? <VersusPanel s={s} data={data} me={me} id={id} setS={setS} gainXp={gainXp} /> : <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} />}
 
           <h2 className="text-lg font-bold flex items-center gap-2"><MessageCircle size={18} />Comments</h2>
@@ -3577,7 +3638,7 @@ async function rateMog(dataUrl) {
   const parts = { pucker: clamp(r.pucker), brows: clamp(r.brows), stare: clamp(r.stare), jaw: clamp(r.jaw), commitment: clamp(r.commitment) };
   return { ...parts, total: Object.values(parts).reduce((a, b) => a + b, 0), quip: String(r.quip || "The judges have spoken.").slice(0, 80) };
 }
-function MogSection({ s, setS, gainXp, me, targetId, targetName, embedded }) {
+function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embedded }) {
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -3611,7 +3672,7 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName, embedded }) {
         await window.storage.set(pending.key, JSON.stringify(rec), true);
       } else {
         const id = uid();
-        const rec = { id, from: s.playerId, fromName: s.profile.name, to: targetId, toName: targetName, t: Date.now(), a: entry, b: null, status: "pending" };
+        const rec = { id, from: s.playerId, fromUid: window.ascendUserId || null, fromName: s.profile.name, to: targetId, toUid: targetUid || null, toName: targetName, t: Date.now(), a: entry, b: null, status: "pending" };
         await window.storage.set(`mog:${id}`, JSON.stringify(rec), true);
       }
       await load();
@@ -3659,6 +3720,7 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName, embedded }) {
             {m.status === "pending" && iAmTarget && <div className="body text-xs" style={{ color: C.dim }}>{m.fromName} scored {m.a.total}. Beat it to win {MOG_XP} XP.</div>}
             {m.status === "done" && (
               <>
+                <div className="flex justify-end"><ReceiptButton label="Share result" make={() => buildReceipt({ s, kind: "Mog-off", headline: m.winner === "tie" ? "Dead heat" : `${m.winner === m.from ? m.fromName : m.toName} mogged`, sub: `${m.fromName} ${m.a.total} vs ${m.toName} ${m.b?.total ?? "–"}`, rows: [["Lips", `${m.a.pucker} vs ${m.b?.pucker ?? "–"}`], ["Brows", `${m.a.brows} vs ${m.b?.brows ?? "–"}`], ["Stare", `${m.a.stare} vs ${m.b?.stare ?? "–"}`], ["Commitment", `${m.a.commitment} vs ${m.b?.commitment ?? "–"}`]] })} /></div>
                 <div className="text-center font-extrabold" style={{ color: C.gold }}>{m.winner === "tie" ? "It's a tie. Both mogged equally hard." : `${m.winner === m.from ? m.fromName : m.toName} wins the mog-off`}</div>
                 <button onClick={() => setOpen(isOpen ? null : m.key)} className="body text-xs underline w-full" style={{ color: C.cyan }}>{isOpen ? "Hide faces" : "Show the faces and scores"}</button>
                 {isOpen && <div className="flex gap-3"><Face e={m.a} label={m.fromName} win={m.winner === m.from} /><Face e={m.b} label={m.toName} win={m.winner === m.to} /></div>}
@@ -3935,7 +3997,7 @@ function MusclePage({ s, group, onBack, openExercise }) {
         <span className="font-extrabold text-xl" style={{ color: sc ? r.rank.color : C.mute, textShadow: `0 0 12px ${r.rank.glow}` }}>{sc ? r.label : "Untrained"}</span>
       </div>
       <div className="panel p-3">
-        <MuscleFigure group={group} score={sc} color={sc ? r.rank.color : C.dim} />
+        <Physique tier={sc} height={260} caption={`${info.name} at ${sc ? r.label : "untrained"}`} />
         <div className="flex justify-between items-center px-1">
           {steps.map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <div key={t} className="flex flex-col items-center gap-1" style={{ opacity: reached ? 1 : 0.35 }}><RankBadge rank={rk} size={26} still /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></div>; })}
         </div>
@@ -4242,6 +4304,10 @@ const SFX = {
   rankUp() { [262, 330, 392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.3, i * 0.12, 0.22, "sawtooth")); [1047, 1319, 1568].forEach((f, i) => this.tone(f, 0.9, 0.75 + i * 0.05, 0.16)); },
   achievement() { [784, 988, 1175].forEach((f, i) => this.tone(f, 0.25, i * 0.08, 0.18, "triangle")); },
   water() { this.tone(660, 0.08, 0, 0.1); this.tone(990, 0.12, 0.08, 0.1); },
+  noise(dur, vol, cutoff, delay = 0) { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, b = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2); const n = c.createBufferSource(); n.buffer = b; const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = cutoff; const g = c.createGain(); g.gain.value = vol; n.connect(f); f.connect(g); g.connect(c.destination); n.start(t); },
+  sweep(f1, f2, dur, vol, type = "sine", delay = 0) { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02); },
+  slam() { this.sweep(140, 32, 0.9, 0.9); this.noise(0.35, 0.7, 900); [211, 347, 529, 811].forEach((f, i) => this.tone(f, 1.1 - i * 0.15, 0.02, 0.07, "square")); this.sweep(90, 40, 0.5, 0.5, "triangle", 0.12); },
+  thud() { this.sweep(110, 45, 0.45, 0.6); this.noise(0.18, 0.35, 700); },
 };
 
 /* ---------- Rank-up ceremony ---------- */
@@ -4287,6 +4353,11 @@ const TITLES = [
   { id: "mythic", name: "Mythic", req: (s) => Object.keys(s.ach || {}).some((id) => allAchievements().find((a) => a.id === id)?.tier === 5), how: "Any Mythic achievement" },
   { id: "elite", name: "Elite", req: (s) => overallInfo(s).score >= 5, how: "Reach S overall" },
   { id: "gymgod", name: "Gym God", req: (s) => overallInfo(s).score >= 6, how: "????" },
+  { id: "wyrmslayer", name: "Wyrmslayer", req: (s) => (s.loot?.bosses || []).includes("wyrm"), how: "Defeat the Iron Wyrm" },
+  { id: "icebreaker", name: "Icebreaker", req: (s) => (s.loot?.bosses || []).includes("colossus"), how: "Defeat the Frost Colossus" },
+  { id: "gravebane", name: "Gravebane", req: (s) => (s.loot?.bosses || []).includes("gravemaw"), how: "Defeat the Gravemaw" },
+  { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
+  { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
 ];
 
 /* ---------- Progression + coaching helpers ---------- */
@@ -4368,8 +4439,10 @@ function RestBubble({ end, onDone, onClose }) {
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
   const left = Math.max(0, Math.ceil((end - now) / 1000));
   useEffect(() => { if (left === 0) { Beeper.unlock(); Beeper.work(); onDone(); } }, [left]);
+  useEffect(() => { document.title = `⏱ ${fmtClock(left)} rest · Ascend`; }, [left]);
+  useEffect(() => () => { document.title = "Ascend"; }, []);
   return (
-    <button onClick={onClose} aria-label="Dismiss rest timer" className="fixed z-40 flex items-center gap-2 px-4 py-2 font-bold tabular-nums" style={{ left: 16, bottom: 90, borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}` }}>
+    <button onClick={onClose} aria-label="Dismiss rest timer" className="fixed z-40 flex items-center gap-2 px-4 py-2 font-bold tabular-nums" style={{ left: 16, bottom: "calc(env(safe-area-inset-bottom) + 90px)", borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}` }}>
       <TimerIcon size={16} />Rest {fmtClock(left)}
     </button>
   );
@@ -4822,12 +4895,7 @@ function Feed({ s, openProfile }) {
 }
 const CREW_PER_PLAYER = 12, CREW_XP = 500, DUEL_XP = 100;
 function Crew({ s, setS, gainXp, rows, openProfile }) {
-  const mk = monthKey(), ws = weekStart();
-  const players = rows.length || 1;
-  const goal = CREW_PER_PLAYER * players;
-  const done = rows.reduce((a, r) => a + (r.month?.key === mk ? r.month.workouts || 0 : 0), 0);
-  const claimed = s.groupClaimed?.[mk];
-  const monthName = new Date(`${mk}-01T12:00`).toLocaleDateString(undefined, { month: "long" });
+  const ws = weekStart();
   const [duels, setDuels] = useState([]);
   useEffect(() => { readShared("duel:").then((d) => setDuels(d.filter((x) => x.from === s.playerId || x.to === s.playerId).sort((a, b) => (b.t || 0) - (a.t || 0)))); }, []);
   const cardOf = (id) => rows.find((r) => r.id === id || r.key === `lb:${id}`);
@@ -4836,12 +4904,7 @@ function Crew({ s, setS, gainXp, rows, openProfile }) {
   const remove = async (d) => { try { await window.storage.delete(d.key, true); setDuels((x) => x.filter((y) => y.key !== d.key)); } catch (e) { /* ignore */ } };
   return (
     <div className="space-y-3">
-      <div className="panel p-4 space-y-2">
-        <div className="flex justify-between items-start"><div className="font-bold flex items-center gap-2"><Users size={18} style={{ color: C.cyan }} />Crew goal: {goal} workouts in {monthName}</div><span className="text-sm font-bold" style={{ color: C.gold }}>+{CREW_XP} XP each</span></div>
-        <div className="body text-xs" style={{ color: C.dim }}>{CREW_PER_PLAYER} per person across {players} player{players === 1 ? "" : "s"} on the board. Everyone's workouts count.</div>
-        <Bar pct={(done / goal) * 100} color={C.cyan} />
-        <div className="flex justify-between text-sm"><span className="font-semibold">{done} / {goal}</span>{claimed ? <span style={{ color: C.green }}>Claimed</span> : <button disabled={done < goal} onClick={() => { setS((p) => ({ ...p, groupClaimed: { ...(p.groupClaimed || {}), [mk]: true } })); gainXp(CREW_XP, "Crew goal"); }} className="px-3 py-1 font-bold text-sm" style={{ borderRadius: 4, background: done >= goal ? C.gold : C.soft, color: done >= goal ? "#0A1630" : C.mute }}>Claim</button>}</div>
-      </div>
+      <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />
       <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} />XP duels</h2>
       {duels.length === 0 && <Empty>No duels. Open a cousin's profile from the board and challenge them to a 7-day XP duel.</Empty>}
       {duels.map((d) => {
@@ -4873,14 +4936,14 @@ function Crew({ s, setS, gainXp, rows, openProfile }) {
     </div>
   );
 }
-function DuelButton({ s, targetId, targetName }) {
+function DuelButton({ s, targetId, targetName, targetUid }) {
   const [forfeit, setForfeit] = useState("");
   const [sent, setSent] = useState(false);
   const [open, setOpen] = useState(false);
   const send = async () => {
     if (!s.lb || !s.profile.name) return;
     const id = uid();
-    try { await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromName: s.profile.name, to: targetId, toName: targetName, ws: weekStart(), forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true); setSent(true); } catch (e) { /* ignore */ }
+    try { await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromUid: window.ascendUserId || null, fromName: s.profile.name, to: targetId, toUid: targetUid || null, toName: targetName, ws: weekStart(), forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true); setSent(true); } catch (e) { /* ignore */ }
   };
   if (sent) return <div className="body text-sm" style={{ color: C.green }}>Duel sent. Check the Crew tab on the Board for standings.</div>;
   if (!open) return <button onClick={() => setOpen(true)} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Swords size={16} />Challenge to a 7-day XP duel</button>;
@@ -4899,7 +4962,7 @@ function SharePreset({ s, workout }) {
   useEffect(() => { if (open) readShared("lb:").then((r) => setRows(r.filter((x) => x.id !== s.playerId && x.name))); }, [open]);
   const send = async (r) => {
     const exercises = workout.exercises.map((e) => ({ name: e.name, sets: e.sets.length }));
-    try { await window.storage.set(`preset:${uid()}`, JSON.stringify({ to: r.id, from: s.playerId, fromName: s.profile.name, name: workout.title || `${s.profile.name}'s workout`, exercises, t: Date.now() }), true); setDone(r.name); } catch (e) { /* ignore */ }
+    try { await window.storage.set(`preset:${uid()}`, JSON.stringify({ to: r.id, toUid: r.uid || null, fromUid: window.ascendUserId || null, from: s.playerId, fromName: s.profile.name, name: workout.title || `${s.profile.name}'s workout`, exercises, t: Date.now() }), true); setDone(r.name); } catch (e) { /* ignore */ }
   };
   if (done) return <span className="body text-xs" style={{ color: C.green }}>Sent to {done}</span>;
   if (!open) return <button aria-label="Send as preset" onClick={() => setOpen(true)} style={{ color: C.cyan }}><Send size={16} /></button>;
@@ -4978,7 +5041,7 @@ function VersusPanel({ s, data, me, id, setS, gainXp }) {
   const mr = RANKS.find((r) => r.id === mine.rank) || RANKS[0], tr = RANKS.find((r) => r.id === them.rank) || RANKS[0];
   const Side = ({ c, r, right }) => (
     <div className={`flex-1 flex flex-col items-center text-center min-w-0 ${right ? "" : ""}`}>
-      <Avatar src={c.avatar} name={c.name} size={64} ring={c.look?.accent || r.color} />
+      <Avatar src={c.avatar} name={c.name} size={64} ring={c.look?.accent || r.color} look={c.look} />
       <div className="font-bold mt-2 truncate w-full"><FancyName name={c.name} look={c.look} /></div>
       {c.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: c.look?.accent || C.cyan }}>{c.title}</div>}
       <div className="mt-1"><RankBadge rank={r} size={34} /></div>
@@ -5004,8 +5067,9 @@ function VersusPanel({ s, data, me, id, setS, gainXp }) {
         {row("XP this week", mine.weekXp, them.weekOf === mine.weekOf ? them.weekXp : 0, (v) => v.toLocaleString())}
         {row("workouts", mine.stats?.workouts, them.stats?.workouts)}
       </div>
-      <DuelButton s={s} targetId={id} targetName={them.name} />
-      <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={them.name} embedded />
+      <button onClick={() => setS((p) => ({ ...p, nemesis: p.nemesis?.id === id ? null : { id, name: them.name }, nemesisSeen: {} }))} className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: s.nemesis?.id === id ? "#FF6B8F" : C.text, borderColor: s.nemesis?.id === id ? "rgba(255,45,111,.5)" : C.glassLine }}>😈 {s.nemesis?.id === id ? "Your nemesis · tap to remove" : "Mark as nemesis"}</button>
+      <DuelButton s={s} targetId={id} targetName={them.name} targetUid={them.uid} />
+      <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={them.name} targetUid={them.uid} embedded />
     </div>
   );
 }
@@ -5018,6 +5082,370 @@ function QuestAdd({ unit, onAdd }) {
     <div className="flex items-center gap-1">
       <input type="number" inputMode="decimal" className="inp text-sm" style={{ width: 62, padding: "5px 6px" }} placeholder={unit} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} aria-label={`Add ${unit}`} />
       <button onClick={go} disabled={!(+v > 0)} className="btn px-2.5 py-1.5 text-sm">Add</button>
+    </div>
+  );
+}
+
+/* ---------- Physique avatars ---------- */
+const TIER_IDS = ["E", "D", "C", "B", "A", "S", "SS"];
+function Physique({ tier = 0, height = 220, aura, caption }) {
+  const id = TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))];
+  const rank = RANKS[Math.max(0, Math.min(6, Math.floor(tier)))];
+  return (
+    <div className="relative flex flex-col items-center" style={{ height: height + (caption ? 24 : 0) }}>
+      <div className="absolute" style={{ top: height * 0.08, width: height * 0.62, height: height * 0.8, borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(10px)" }} />
+      {aura && aura !== "none" && <AuraRing aura={aura} size={height * 0.7} style={{ top: height * 0.05 }} />}
+      <img src={`/avatars/${id}.webp`} alt={`${id}-rank physique`} loading="lazy" style={{ height, width: "auto", position: "relative", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />
+      {caption && <div className="body text-xs mt-1" style={{ color: C.dim }}>{caption}</div>}
+    </div>
+  );
+}
+
+/* ---------- Auras + borders ---------- */
+const AURAS = [
+  { id: "none", name: "None", how: "" },
+  { id: "ember", name: "Ember", how: "Any lift at D", tier: 1, colors: ["#FF9340", "#FF4D6D"] },
+  { id: "tide", name: "Tide", how: "Any lift at C", tier: 2, colors: ["#38C6FF", "#2F6BFF"] },
+  { id: "storm", name: "Storm", how: "Any lift at B", tier: 3, colors: ["#B14BFF", "#38C6FF"] },
+  { id: "inferno", name: "Inferno", how: "Any lift at A", tier: 4, colors: ["#FF2D6F", "#FFB43C"] },
+  { id: "halo", name: "Halo", how: "Any lift at S", tier: 5, colors: ["#FFD447", "#FFFFFF"] },
+  { id: "godray", name: "Godray", how: "Any lift at SS", tier: 6, colors: ["#FFFFFF", "#7DF9FF"] },
+  { id: "wyrm", name: "Wyrmfire", how: "Defeat the Iron Wyrm", loot: "wyrm", colors: ["#3DF08A", "#FFD447"] },
+  { id: "frost", name: "Frostbite", how: "Defeat the Frost Colossus", loot: "colossus", colors: ["#B3ECFF", "#FFFFFF"] },
+  { id: "abyss", name: "Abyss", how: "Defeat the Gravemaw", loot: "gravemaw", colors: ["#6A00FF", "#FF2D6F"] },
+  { id: "champion", name: "Champion", how: "Win a season", season: true, colors: ["#FFD447", "#FF9340"] },
+];
+const BORDERS = [
+  { id: "none", name: "Default", how: "" },
+  { id: "steel", name: "Steel", how: "Any lift at D", tier: 1, css: "linear-gradient(135deg,#dfe6ee,#6f7c8c,#dfe6ee)" },
+  { id: "gold", name: "Gold", how: "Any lift at B", tier: 3, css: "linear-gradient(135deg,#fff1b8,#c9962e,#fff1b8)" },
+  { id: "prism", name: "Prism", how: "Any lift at A", tier: 4, css: "conic-gradient(#ff3cac,#ffb43c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)", spin: true },
+  { id: "obsidian", name: "Obsidian", how: "Any lift at S", tier: 5, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
+  { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
+  { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
+];
+const bestTier = (s) => Math.floor(Object.values(groupScores(s)).reduce((a, b) => Math.max(a, b), 0));
+function unlocked(item, s) {
+  if (item.id === "none") return true;
+  if (item.tier !== undefined) return bestTier(s) >= item.tier;
+  if (item.loot) return item.loot === "any" ? (s.loot?.bosses || []).length > 0 : (s.loot?.bosses || []).includes(item.loot);
+  if (item.season) return item.id === "champion" ? Object.values(s.seasonBadges || {}).some((b) => b.place === 1) : Object.keys(s.seasonBadges || {}).length > 0;
+  return false;
+}
+function AuraRing({ aura, size, style }) {
+  const a = AURAS.find((x) => x.id === aura);
+  if (!a || !a.colors) return null;
+  const [c1, c2] = a.colors;
+  return (
+    <div aria-hidden="true" className="absolute pointer-events-none" style={{ width: size, height: size, borderRadius: "50%", ...style }}>
+      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `conic-gradient(from 0deg, ${c1}, transparent 30%, ${c2}, transparent 70%, ${c1})`, filter: `blur(${Math.max(4, size / 12)}px)`, opacity: 0.85, animation: "rkspin 6s linear infinite" }} />
+      <div style={{ position: "absolute", inset: size * 0.08, borderRadius: "50%", background: `radial-gradient(closest-side, ${c2}55, transparent)`, animation: "aurapulse 2.8s ease-in-out infinite" }} />
+    </div>
+  );
+}
+
+/* ---------- The Juice ---------- */
+function juice(kind = "pr") {
+  try { window.dispatchEvent(new CustomEvent("ascend-juice", { detail: kind })); } catch (e) { /* ignore */ }
+  if (kind === "pr") { SFX.slam(); try { navigator.vibrate?.([70, 40, 140]); } catch (e) { /* unsupported */ } }
+  else { SFX.thud(); try { navigator.vibrate?.(60); } catch (e) { /* unsupported */ } }
+}
+function JuiceBurst({ kind }) {
+  const big = kind === "pr";
+  const n = big ? 42 : 22;
+  const cols = big ? ["#FFD447", "#FFFFFF", "#FF9340", "#F5D27A"] : ["#38C6FF", "#FFFFFF", "#3DF08A"];
+  return (
+    <div aria-hidden="true" className="fixed inset-0 z-[65] pointer-events-none overflow-hidden">
+      <div className="absolute inset-0" style={{ background: big ? "radial-gradient(circle at 50% 45%, rgba(255,212,71,.35), transparent 60%)" : "radial-gradient(circle at 50% 45%, rgba(56,198,255,.22), transparent 55%)", animation: "juiceflash .7s ease-out forwards" }} />
+      {Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * Math.PI * 2 + (i % 3) * 0.2, d = (big ? 180 : 120) + ((i * 37) % 120);
+        return <span key={i} style={{ position: "absolute", left: "50%", top: "45%", width: i % 4 ? 6 : 10, height: i % 5 ? 6 : 14, borderRadius: i % 3 ? 999 : 2, background: cols[i % cols.length], boxShadow: `0 0 8px ${cols[i % cols.length]}`, "--dx": `${Math.cos(a) * d}px`, "--dy": `${Math.sin(a) * d + 60}px`, "--rot": `${(i * 47) % 360}deg`, animation: `juicespark ${0.9 + (i % 5) * 0.12}s cubic-bezier(.15,.8,.3,1) forwards` }} />;
+      })}
+      {big && <div className="absolute left-1/2 top-[38%] text-5xl font-black tracking-widest" style={{ transform: "translateX(-50%)", color: "#FFD447", textShadow: "0 0 30px rgba(255,212,71,.9)", fontFamily: "'Cinzel', serif", animation: "juicetext 1.4s ease-out forwards" }}>PR</div>}
+    </div>
+  );
+}
+
+/* ---------- Share receipts ---------- */
+const loadImg = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+async function buildReceipt({ s, kind, headline, sub, rows, tierImg, footer }) {
+  const W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  const oc = overallRank(s);
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0b1430"); g.addColorStop(1, "#000"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const rg = x.createRadialGradient(W / 2, 380, 40, W / 2, 380, 620); rg.addColorStop(0, `${oc.color}55`); rg.addColorStop(1, "transparent"); x.fillStyle = rg; x.fillRect(0, 0, W, H);
+  const [logo, phys] = await Promise.all([loadImg("/logo.webp"), tierImg !== undefined ? loadImg(`/avatars/${TIER_IDS[tierImg]}.webp`) : Promise.resolve(null)]);
+  if (logo) { const lw = 150, lh = (logo.height / logo.width) * lw; x.drawImage(logo, 70, 60, lw, lh); }
+  x.fillStyle = "#C9B57A"; x.font = "600 28px Inter, system-ui, sans-serif"; x.textAlign = "right"; x.fillText("ASCEND", W - 70, 110);
+  x.fillStyle = "rgba(255,255,255,.55)"; x.font = "500 26px Inter, system-ui, sans-serif"; x.fillText(new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), W - 70, 150);
+  if (phys) { const ph = 620, pw = (phys.width / phys.height) * ph; x.globalAlpha = 0.9; x.drawImage(phys, W - pw - 20, 250, pw, ph); x.globalAlpha = 1; }
+  x.textAlign = "left";
+  x.fillStyle = oc.color; x.font = "700 30px Inter, system-ui, sans-serif"; x.fillText(kind.toUpperCase(), 70, 300);
+  x.fillStyle = "#fff"; x.font = "800 92px Inter, system-ui, sans-serif";
+  const words = String(headline).split(" "); let line = "", y = 400;
+  words.forEach((w) => { const t = line ? `${line} ${w}` : w; if (x.measureText(t).width > 620 && line) { x.fillText(line, 70, y); line = w; y += 100; } else line = t; });
+  x.fillText(line, 70, y);
+  if (sub) { x.fillStyle = "rgba(255,255,255,.7)"; x.font = "500 36px Inter, system-ui, sans-serif"; x.fillText(sub, 70, y + 64); }
+  let ry = 960;
+  (rows || []).slice(0, 4).forEach(([label, value]) => {
+    x.fillStyle = "rgba(255,255,255,.07)"; x.beginPath(); x.roundRect?.(70, ry - 58, W - 140, 84, 20); if (!x.roundRect) x.rect(70, ry - 58, W - 140, 84); x.fill();
+    x.fillStyle = "rgba(255,255,255,.65)"; x.font = "500 32px Inter, system-ui, sans-serif"; x.fillText(label, 100, ry);
+    x.fillStyle = "#fff"; x.font = "700 36px Inter, system-ui, sans-serif"; x.textAlign = "right"; x.fillText(String(value), W - 100, ry); x.textAlign = "left";
+    ry += 100;
+  });
+  x.fillStyle = "#fff"; x.font = "700 40px Inter, system-ui, sans-serif"; x.fillText(s.profile.name || "Ascend lifter", 70, H - 90);
+  x.fillStyle = oc.color; x.font = "600 30px Inter, system-ui, sans-serif"; x.fillText(`${overallInfo(s).label} · Level ${levelFromXp(s.xp).lvl}`, 70, H - 48);
+  x.fillStyle = "rgba(255,255,255,.5)"; x.textAlign = "right"; x.font = "500 28px Inter, system-ui, sans-serif"; x.fillText(footer || "ascendfit.site", W - 70, H - 48);
+  return new Promise((res) => c.toBlob((b) => res(b), "image/png"));
+}
+function ReceiptButton({ make, label = "Share card", small }) {
+  const [img, setImg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const blobRef = useRef(null);
+  const open = async () => { setBusy(true); try { const b = await make(); blobRef.current = b; setImg(URL.createObjectURL(b)); } catch (e) { /* ignore */ } setBusy(false); };
+  const close = () => { if (img) URL.revokeObjectURL(img); setImg(null); };
+  const share = async () => {
+    const file = new File([blobRef.current], "ascend.png", { type: "image/png" });
+    try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: "Ascend" }); return; } } catch (e) { if (e?.name === "AbortError") return; }
+    const a = document.createElement("a"); a.href = img; a.download = "ascend.png"; document.body.appendChild(a); a.click(); a.remove();
+  };
+  return (
+    <>
+      <button onClick={open} disabled={busy} aria-label={label} className={small ? "" : "ghost px-3 py-2 text-sm font-semibold flex items-center gap-2"} style={{ color: C.cyan }}>
+        {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}{small ? null : label}
+      </button>
+      {img && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center p-5 gap-3" style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }} onClick={close}>
+          <img src={img} alt="Share card" style={{ maxHeight: "70vh", maxWidth: "100%", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,.6)" }} onClick={(e) => e.stopPropagation()} />
+          <div className="flex gap-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <button onClick={close} className="ghost flex-1 py-3 font-semibold">Close</button>
+            <button onClick={share} className="btn flex-1 py-3">Share or save</button>
+          </div>
+          <div className="body text-xs" style={{ color: "rgba(255,255,255,.6)" }}>On iPhone, choose "Save Image" to post it anywhere.</div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ---------- Boss fights ---------- */
+const BOSSES = [
+  { id: "wyrm", name: "The Iron Wyrm", tag: "Coils of cold steel", color: "#3DF08A", icon: "🐉" },
+  { id: "colossus", name: "Frost Colossus", tag: "A glacier that learned to walk", color: "#B3ECFF", icon: "🧊" },
+  { id: "gravemaw", name: "Gravemaw", tag: "It eats skipped leg days", color: "#B14BFF", icon: "💀" },
+];
+const BOSS_HP_PER_PLAYER = 60000, BOSS_XP = 600;
+const bossDamage = (card, mk) => (card?.month?.key === mk ? Math.round((card.month.volume || 0) + (card.month.reps || 0) * 5 + (card.month.miles || 0) * 800) : 0);
+function BossFight({ s, setS, gainXp, rows, openProfile }) {
+  const mk = monthKey();
+  const idx = (parseInt(mk.slice(0, 4), 10) * 12 + parseInt(mk.slice(5, 7), 10)) % BOSSES.length;
+  const boss = BOSSES[idx];
+  const players = Math.max(1, rows.length);
+  const hp = BOSS_HP_PER_PLAYER * players;
+  const dmg = rows.map((r) => ({ r, d: bossDamage(r, mk) })).sort((a, b) => b.d - a.d);
+  const total = dmg.reduce((a, x) => a + x.d, 0);
+  const left = Math.max(0, hp - total), dead = left === 0;
+  const mine = dmg.find((x) => x.r.id === s.playerId)?.d || 0;
+  const claimed = s.loot?.claimed?.[mk];
+  const [hit, setHit] = useState(false);
+  const prev = useRef(total);
+  useEffect(() => { if (total > prev.current) { setHit(true); const t = setTimeout(() => setHit(false), 500); prev.current = total; return () => clearTimeout(t); } prev.current = total; }, [total]);
+  const monthName = new Date(`${mk}-01T12:00`).toLocaleDateString(undefined, { month: "long" });
+  const claim = () => {
+    setS((p) => ({ ...p, loot: { ...(p.loot || {}), bosses: [...new Set([...(p.loot?.bosses || []), boss.id])], claimed: { ...(p.loot?.claimed || {}), [mk]: true } } }));
+    gainXp(BOSS_XP, `Defeated ${boss.name}`); juice("pr");
+  };
+  return (
+    <div className="panel p-5 space-y-4 overflow-hidden" style={{ borderColor: `${boss.color}55` }}>
+      <div className="flex items-center gap-4">
+        <div className="text-5xl" style={{ filter: `drop-shadow(0 0 16px ${boss.color})`, animation: hit ? "bosshit .45s ease-out" : dead ? "none" : "bossidle 3s ease-in-out infinite", opacity: dead ? 0.35 : 1 }}>{boss.icon}</div>
+        <div className="flex-1 min-w-0">
+          <div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{monthName} boss</div>
+          <div className="text-xl font-bold" style={{ color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
+          <div className="body text-xs" style={{ color: C.dim }}>{boss.tag}</div>
+        </div>
+      </div>
+      <div>
+        <div className="h-4 overflow-hidden relative" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)" }}>
+          <div className="h-full" style={{ width: `${(left / hp) * 100}%`, borderRadius: 999, background: `linear-gradient(90deg, #FF2D6F, ${boss.color})`, transition: "width .8s cubic-bezier(.2,.8,.2,1)", boxShadow: `0 0 14px ${boss.color}` }} />
+        </div>
+        <div className="flex justify-between body text-xs mt-1.5" style={{ color: C.dim }}><span>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</span><span>{hp.toLocaleString()} HP</span></div>
+      </div>
+      <div className="body text-xs" style={{ color: C.dim }}>Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
+      {dmg.filter((x) => x.d > 0).length > 0 && (
+        <div className="space-y-1.5">
+          {dmg.filter((x) => x.d > 0).slice(0, 6).map(({ r, d }) => (
+            <button key={r.key || r.id} onClick={() => openProfile(r.id)} className="w-full flex items-center gap-2 text-sm">
+              <span className="flex-1 text-left truncate"><FancyName name={r.name} look={r.look} /></span>
+              <span className="body text-xs" style={{ color: C.dim }}>{Math.round((d / Math.max(1, total)) * 100)}%</span>
+              <span className="font-semibold tabular-nums">{d.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {dead && mine > 0 && !claimed && <button onClick={claim} className="btn w-full py-3">Claim loot</button>}
+      {claimed && <div className="body text-sm text-center" style={{ color: C.green }}>Loot claimed. Equip it in Profile → Customize.</div>}
+      {dead && mine === 0 && <div className="body text-xs text-center" style={{ color: C.dim }}>Log a workout this month to earn a share of the loot.</div>}
+    </div>
+  );
+}
+
+/* ---------- Seasons ---------- */
+const seasonKey = (d = today()) => `${d.slice(0, 4)}-S${Math.floor((parseInt(d.slice(5, 7), 10) - 1) / 3) + 1}`;
+const seasonStart = (key) => { const [y, q] = key.split("-S"); return `${y}-${String((+q - 1) * 3 + 1).padStart(2, "0")}-01`; };
+const nextSeasonStart = (key) => { const [y, q] = key.split("-S").map(Number); return q === 4 ? `${y + 1}-01-01` : `${y}-${String(q * 3 + 1).padStart(2, "0")}-01`; };
+const prevSeasonKey = (key) => { const [y, q] = key.split("-S").map(Number); return q === 1 ? `${y - 1}-S4` : `${y}-S${q - 1}`; };
+const seasonXp = (s, key) => { const a = seasonStart(key), b = nextSeasonStart(key); return Object.entries(s.xpLog || {}).filter(([d]) => d >= a && d < b).reduce((t, [, v]) => t + v, 0); };
+async function settleSeason(s, setS, rows) {
+  const last = prevSeasonKey(seasonKey());
+  let rec = null;
+  try { const r = await window.storage.get(`season:${last}`, true); rec = r?.value ? JSON.parse(r.value) : null; } catch (e) { rec = null; }
+  if (!rec) {
+    const ranked = rows.filter((r) => r.prevSeason?.key === last && r.prevSeason.xp > 0).sort((a, b) => b.prevSeason.xp - a.prevSeason.xp).slice(0, 3);
+    if (!ranked.length) return;
+    rec = { key: last, winners: ranked.map((r, i) => ({ id: r.id, name: r.name, xp: r.prevSeason.xp, place: i + 1 })), t: Date.now() };
+    try { await window.storage.set(`season:${last}`, JSON.stringify(rec), true); } catch (e) { /* someone else already wrote it */ }
+  }
+  const mine = rec.winners?.find((w) => w.id === s.playerId);
+  if (mine && !s.seasonBadges?.[last]) setS((p) => ({ ...p, seasonBadges: { ...(p.seasonBadges || {}), [last]: { place: mine.place, xp: mine.xp } } }));
+}
+function SeasonBanner() {
+  const key = seasonKey();
+  const days = Math.max(0, Math.ceil((new Date(nextSeasonStart(key) + "T00:00") - new Date()) / 86400000));
+  return (
+    <div className="panel px-4 py-3 flex items-center justify-between">
+      <div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Season {key.split("-S")[1]} · {key.slice(0, 4)}</div><div className="text-sm font-semibold">Top 3 earn permanent badges</div></div>
+      <div className="text-right"><div className="text-xl font-bold tabular-nums">{days}</div><div className="body text-xs" style={{ color: C.dim }}>days left</div></div>
+    </div>
+  );
+}
+const MEDAL = ["", "🥇", "🥈", "🥉"];
+function SeasonBadges({ badges }) {
+  const list = Object.entries(badges || {}).sort(([a], [b]) => (a < b ? 1 : -1));
+  if (!list.length) return null;
+  return <div className="flex gap-2 flex-wrap">{list.map(([k, b]) => <span key={k} className="px-2.5 py-1 text-xs font-semibold" style={{ borderRadius: 999, background: "rgba(255,212,71,.12)", border: "1px solid rgba(255,212,71,.35)", color: "#FFD447" }}>{MEDAL[b.place]} {k.replace("-S", " S")}</span>)}</div>;
+}
+
+/* ---------- Nemesis ---------- */
+function NemesisAlert({ s, setS, openProfile }) {
+  const [card, setCard] = useState(null);
+  const nem = s.nemesis;
+  useEffect(() => { if (!nem?.id) return; window.storage.get(`lb:${nem.id}`, true).then((r) => setCard(r?.value ? JSON.parse(r.value) : null)).catch(() => {}); }, [nem?.id]);
+  useEffect(() => { if (card && s.nemesisSeen?.workouts === undefined) setS((p) => ({ ...p, nemesisSeen: { workouts: card.stats?.workouts || 0, points: card.points || 0 } })); }, [card]);
+  if (!nem?.id || !card) return null;
+  const seen = s.nemesisSeen || {};
+  const myPoints = pointsOf(s);
+  const alerts = [];
+  if ((card.stats?.workouts || 0) > (seen.workouts ?? card.stats?.workouts ?? 0)) alerts.push(`${card.name} just logged a workout.`);
+  if ((card.points || 0) > myPoints && (seen.points ?? 0) <= myPoints) alerts.push(`${card.name} passed you in points (${card.points.toLocaleString()} vs ${myPoints.toLocaleString()}).`);
+  if (seen.workouts === undefined || !alerts.length) return null;
+  const dismiss = () => setS((p) => ({ ...p, nemesisSeen: { workouts: card.stats?.workouts || 0, points: card.points || 0 } }));
+  return (
+    <div className="panel p-4 flex items-start gap-3" style={{ borderColor: "rgba(255,45,111,.45)" }}>
+      <span className="text-2xl">😈</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold" style={{ color: "#FF6B8F" }}>Nemesis alert</div>
+        {alerts.map((a, i) => <div key={i} className="body text-sm" style={{ color: C.text }}>{a}</div>)}
+        <div className="flex gap-3 mt-2"><button onClick={() => { dismiss(); openProfile(nem.id); }} className="body text-sm font-semibold" style={{ color: C.cyan }}>View rival</button><button onClick={dismiss} className="body text-sm" style={{ color: C.dim }}>Dismiss</button></div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Proactive Sterling ---------- */
+function sterlingSay(s, text) {
+  if (!window.speechSynthesis || s.settings?.voice === false) return;
+  try {
+    window.speechSynthesis.cancel();
+    const style = VOICE_STYLES[s.settings?.voiceStyle] || VOICE_STYLES.goblin;
+    const v = pickBritishVoice();
+    text.split(/(?<=[.!?])\s+/).filter(Boolean).forEach((part, i) => {
+      const u = new SpeechSynthesisUtterance(part); if (v) u.voice = v;
+      const [pitch, rate] = style.seq[i % style.seq.length]; u.lang = "en-GB"; u.pitch = pitch; u.rate = rate;
+      window.speechSynthesis.speak(u);
+    });
+  } catch (e) { /* ignore */ }
+}
+function brokenStreak(s) {
+  const days = [...activeDays(s)].sort();
+  if (!days.length) return null;
+  const last = days[days.length - 1];
+  const gap = Math.round((new Date(today() + "T12:00") - new Date(last + "T12:00")) / 86400000);
+  if (gap < 2) return null;
+  let run = 1, d = last;
+  while (days.includes(shift(d, -1))) { run++; d = shift(d, -1); }
+  return run >= 2 ? { run, gap } : null;
+}
+const ROAST_FALLBACK = [
+  "A {run}-day streak, abandoned like a gym membership in February. The dumbbells have filed a missing persons report.",
+  "{gap} days off. Even your shadow has been lifting more than you. Shall we fix that, or shall I inform the family?",
+  "I had your {run}-day streak framed. I've now had to use the frame for kindling. Back to it.",
+];
+function RoastCard({ s, setS }) {
+  const d = today();
+  const b = brokenStreak(s);
+  const [busy, setBusy] = useState(false);
+  if (!b || s.roasts?.[d]?.dismissed) return null;
+  const cached = s.roasts?.[d]?.text;
+  const play = async () => {
+    if (cached) { sterlingSay(s, cached); return; }
+    if (window.speechSynthesis) { try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) { /* unlock */ } }
+    setBusy(true);
+    let text = ROAST_FALLBACK[(b.run + b.gap) % ROAST_FALLBACK.length].replace("{run}", b.run).replace("{gap}", b.gap);
+    try { const r = await askJson(STERLING_SYS, `The user had a ${b.run}-day training streak and has now skipped ${b.gap} days. Write a short, savage but affectionate roast in 2 sentences that ends by pushing them to train today. No insults about their body. Respond ONLY with JSON: {"text": "..."}`, 300); if (r.text) text = String(r.text).slice(0, 280); } catch (e) { /* fallback */ }
+    setBusy(false);
+    setS((p) => ({ ...p, roasts: { ...(p.roasts || {}), [d]: { text } } }));
+    sterlingSay(s, text);
+  };
+  return (
+    <div className="panel p-4 flex items-center gap-3">
+      <button onClick={play} aria-label="Play Sterling's message" className="btn shrink-0 flex items-center justify-center" style={{ width: 46, height: 46, borderRadius: 999 }}>{busy ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}</button>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold">Sterling left you a message</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{cached || `About that ${b.run}-day streak…`}</div>
+      </div>
+      <button aria-label="Dismiss" onClick={() => setS((p) => ({ ...p, roasts: { ...(p.roasts || {}), [d]: { ...(p.roasts?.[d] || {}), dismissed: true } } }))} style={{ color: C.mute }}><X size={16} /></button>
+    </div>
+  );
+}
+
+/* ---------- Dynamic warm-ups ---------- */
+const WARMUP_FALLBACK = {
+  upper: [["Arm circles", 30, "Big slow circles, both directions"], ["Band pull-aparts", 40, "Squeeze shoulder blades"], ["Cat-cow", 30, "Move through the whole spine"], ["Push-up to downward dog", 40, "Slow and controlled"], ["Light set of first lift", 40, "50% of working weight"]],
+  lower: [["Leg swings", 30, "Front-to-back, then side-to-side"], ["Bodyweight squats", 40, "Pause at the bottom"], ["Hip 90/90 switches", 40, "Keep chest tall"], ["Glute bridges", 30, "Squeeze at the top"], ["Walking lunges", 40, "Long stride, knee soft"]],
+  full: [["Jumping jacks", 30, "Easy pace"], ["World's greatest stretch", 50, "Alternate sides"], ["Bodyweight squats", 30, "Full depth"], ["Arm circles", 30, "Both directions"], ["Inchworms", 40, "Walk hands out and back"]],
+};
+function WarmUp({ s, a, setActive }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const steps = a.warmup;
+  const build = async () => {
+    setOpen(true); if (steps) return;
+    setBusy(true);
+    const names = a.exercises.map((e) => e.name).join(", ");
+    const lower = /leg|lower|squat|dead/i.test(`${a.title} ${names}`), upper = /push|pull|upper|chest|back|arm|shoulder/i.test(`${a.title} ${names}`);
+    let out = WARMUP_FALLBACK[lower && !upper ? "lower" : upper && !lower ? "upper" : "full"].map(([name, secs, cue]) => ({ name, secs, cue }));
+    try {
+      const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Exercises planned: ${names || "not chosen yet"}. Give a 3-minute dynamic mobility warm-up of 5 or 6 moves that prepares the joints and muscles used today. Respond ONLY with JSON: {"steps": [{"name": "move", "secs": seconds, "cue": "under 8 words"}]}`, 500);
+      const st = (r.steps || []).slice(0, 7).map((x) => ({ name: String(x.name).slice(0, 40), secs: Math.max(15, Math.min(60, +x.secs || 30)), cue: String(x.cue || "").slice(0, 60) }));
+      if (st.length >= 3) out = st;
+    } catch (e) { /* fallback */ }
+    setActive((w) => ({ ...w, warmup: out }));
+    setBusy(false);
+  };
+  const done = a.warmupDone || [];
+  if (!open) return <button onClick={build} className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Activity size={16} />3-minute warm-up</button>;
+  return (
+    <div className="panel p-4 space-y-2">
+      <div className="flex justify-between items-center"><div className="font-semibold text-sm flex items-center gap-2"><Activity size={16} style={{ color: C.cyan }} />Warm-up</div><button aria-label="Hide warm-up" onClick={() => setOpen(false)} style={{ color: C.mute }}><ChevronDown size={16} style={{ transform: "rotate(180deg)" }} /></button></div>
+      {busy && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is picking your moves…</div>}
+      {(steps || []).map((x, i) => { const on = done.includes(i); return (
+        <button key={i} onClick={() => setActive((w) => ({ ...w, warmupDone: on ? (w.warmupDone || []).filter((j) => j !== i) : [...(w.warmupDone || []), i] }))} className="w-full flex items-center gap-3 text-left py-1">
+          <span className="shrink-0 flex items-center justify-center" style={{ width: 22, height: 22, borderRadius: 999, border: `1.5px solid ${on ? C.green : C.border}`, background: on ? C.green : "transparent", color: "#02040B" }}>{on && <Check size={13} />}</span>
+          <span className="flex-1 min-w-0"><span className="text-sm font-medium" style={{ color: on ? C.dim : C.text, textDecoration: on ? "line-through" : "none" }}>{x.name}</span><span className="body text-xs block" style={{ color: C.dim }}>{x.cue}</span></span>
+          <span className="body text-xs tabular-nums" style={{ color: C.dim }}>{x.secs}s</span>
+        </button>
+      ); })}
     </div>
   );
 }
