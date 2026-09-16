@@ -8,7 +8,7 @@ const THEMES = {
     blue: "#0A84FF", cyan: "#00D9FF", soft: "#03080F", line: "rgba(0,217,255,.26)", border: "#10283F",
     track: "#081530", sheet: "#040A1C", accentBg: "#0C2350", navBg: "rgba(0,0,0,.96)", badgeBg: "rgba(2,6,16,.8)",
     inpBg: "#000000", panelTop: "rgba(0,34,70,.42)", panelBot: "rgba(0,0,0,.94)", glow: "rgba(0,217,255,.75)",
-    grid: "rgba(0,217,255,.045)", halo: "rgba(0,160,255,.30)",
+    grid: "rgba(0,217,255,.028)", halo: "rgba(0,160,255,.22)",
     gold: "#FFD447", green: "#39E68F", orange: "#FF9340", red: "#FF4D6D",
   },
   light: {
@@ -760,17 +760,18 @@ export default function App() {
         .fancyname,.fancyname *,.dys .fancyname,.dys .fancyname *{font-family:var(--nf)!important;letter-spacing:normal}
         .bgfx{position:fixed;inset:0;pointer-events:none;background:
           radial-gradient(70% 38% at 50% -8%, ${C.halo}, transparent 70%),
-          linear-gradient(${C.grid} 1px, transparent 1px) 0 0/28px 28px,
-          linear-gradient(90deg, ${C.grid} 1px, transparent 1px) 0 0/28px 28px, ${C.bg}}
-        .panel{position:relative;background:linear-gradient(180deg,${C.panelTop},${C.panelBot} 70%);border:1px solid ${C.line};border-radius:4px;box-shadow:0 0 18px ${C.line}, inset 0 1px 0 ${C.line}}
-        .panel::before,.panel::after{content:"";position:absolute;width:14px;height:14px;border-color:${C.cyan};pointer-events:none;filter:drop-shadow(0 0 4px ${C.cyan})}
+          linear-gradient(${C.grid} 1px, transparent 1px) 0 0/44px 44px,
+          linear-gradient(90deg, ${C.grid} 1px, transparent 1px) 0 0/44px 44px, ${C.bg}}
+        .panel{position:relative;background:linear-gradient(180deg,${C.panelTop},${C.panelBot} 70%);border:1px solid ${C.line};border-radius:8px;box-shadow:0 1px 0 ${C.line} inset}
+        .panel::before,.panel::after{content:"";position:absolute;width:10px;height:10px;border-color:${C.cyan};pointer-events:none;opacity:.55}
         .panel::before{top:-1px;left:-1px;border-top:2px solid;border-left:2px solid}
         .panel::after{bottom:-1px;right:-1px;border-bottom:2px solid;border-right:2px solid}
-        .inp{background:${C.inpBg};border:1px solid ${C.border};border-radius:3px;padding:8px 10px;color:${C.text};width:100%}
+        .inp{background:${C.inpBg};border:1px solid ${C.border};border-radius:6px;padding:8px 10px;color:${C.text};width:100%}
         .inp:focus,button:focus-visible{outline:2px solid ${C.cyan};outline-offset:1px;box-shadow:0 0 12px ${C.glow}}
-        .btn{background:linear-gradient(180deg,${C.cyan},${C.blue});box-shadow:0 0 22px ${C.glow}, inset 0 1px 0 rgba(255,255,255,.35);border-radius:3px;color:#001018;font-weight:800;letter-spacing:.02em}
-        .ghost{background:${C.soft};border:1px solid ${C.border};border-radius:3px;color:${C.text}}
-        .glowtext{text-shadow:0 0 10px ${C.glow}, 0 0 28px ${C.glow}}
+        .btn{background:linear-gradient(180deg,${C.cyan},${C.blue});box-shadow:0 0 14px ${C.glow}, inset 0 1px 0 rgba(255,255,255,.35);border-radius:6px;color:#001018;font-weight:800;letter-spacing:.02em}
+        .ghost{background:${C.soft};border:1px solid ${C.border};border-radius:6px;color:${C.text}}
+        .glowtext{text-shadow:0 0 8px ${C.glow}}
+        .ranklabel{font-family:'Cinzel','Oxanium',serif;letter-spacing:.06em}
         .neonline{height:1px;background:linear-gradient(90deg,transparent,${C.cyan},transparent);box-shadow:0 0 8px ${C.cyan}}
         @keyframes breathe{0%,100%{filter:drop-shadow(0 0 6px var(--g))}50%{filter:drop-shadow(0 0 20px var(--g))}}
         .breathe{animation:breathe 3.2s ease-in-out infinite}
@@ -940,7 +941,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
           <div className="breathe" style={{ "--g": oc.glow }}><RankBadge rank={oc} size={66} /></div>
           <div className="flex-1">
             <div className="text-sm body" style={{ color: C.dim }}>Overall rank · {RANK_INFO[oc.id][0]}</div>
-            <div className="text-4xl font-extrabold" style={{ color: oc.color, textShadow: `0 0 18px ${oc.glow}` }}>{overall.label}</div>
+            <div className="ranklabel text-4xl font-extrabold" style={{ color: oc.color, textShadow: `0 0 18px ${oc.glow}` }}>{overall.label}</div>
           </div>
         </div>
         <div className="mt-3 relative"><Bar pct={overall.divPct} color={oc.color} /></div>
@@ -979,7 +980,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
           <button key={gk} onClick={() => openMuscle(gk)} className="panel p-2 flex flex-col items-center gap-1">
             <RankBadge rank={sc ? rr.rank : RANKS[0]} size={40} still={!sc} />
             <div className="text-xs font-bold">{gk}</div>
-            <div className="text-xs body" style={{ color: sc ? rr.rank.color : C.mute }}>{sc ? rr.label : "–"}</div>
+            <div className="ranklabel text-xs" style={{ color: sc ? rr.rank.color : C.mute }}>{sc ? rr.label : "–"}</div>
           </button>
         ); })}
       </div>
@@ -997,7 +998,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between gap-2">
                     <span className="font-semibold truncate">{e.name}</span>
-                    <span className="font-bold whitespace-nowrap" style={{ color: rank.color }}>{label}</span>
+                    <span className="ranklabel font-bold whitespace-nowrap" style={{ color: rank.color }}>{label}</span>
                   </div>
                   <div className="mt-1.5"><Bar pct={pct} color={rank.color} /></div>
                   <div className="text-xs body mt-1 flex justify-between gap-2" style={{ color: C.mute }}>
@@ -1478,6 +1479,7 @@ function Quests({ s, setS, gainXp }) {
           {day.list.filter((q) => q.tier === t).map((q) => {
             const done = q.progress >= q.target;
             const step = questStep(q);
+            const quick = q.unit === "mi" ? [0.5, 1, 2] : q.unit === "min" ? [1, 5, 10] : q.unit === "cups" ? [1, 2] : q.unit === "steps" ? [500, 1000, 2500] : [5, 10, 25];
             const exName = QUEST_EX[q.qid];
             const label = /^[a-z]/.test(q.title) ? `${q.target.toLocaleString()} ${q.title}` : `${q.title} ${q.target.toLocaleString()} ${q.unit}`;
             return (
@@ -1494,11 +1496,14 @@ function Quests({ s, setS, gainXp }) {
                 {q.claimed ? (
                   <div className="text-sm font-semibold flex items-center gap-1" style={{ color: C.green }}><Check size={16} />Cleared</div>
                 ) : (
-                  <div className="flex gap-2">
-                    <button aria-label="Reroll quest" disabled={rerollsLeft <= 0 || q.progress > 0} onClick={() => reroll(q.id)} className="ghost px-3 py-2" style={{ color: rerollsLeft > 0 && q.progress === 0 ? C.cyan : C.mute }}><RefreshCw size={16} /></button>
-                    <button onClick={() => setProg(q.id, q.progress - step)} className="ghost px-3 py-2 font-bold">−{step.toLocaleString()}</button>
-                    <button onClick={() => setProg(q.id, q.progress + step)} className="ghost px-3 py-2 font-bold">+{step.toLocaleString()}</button>
-                    <button disabled={!done} onClick={() => claim(q)} className="flex-1 py-2 font-bold" style={{ borderRadius: 4, background: done ? C.gold : C.soft, color: done ? "#0A1630" : C.mute, boxShadow: done ? "0 0 16px rgba(255,212,71,.5)" : "none" }}>Claim</button>
+                  <div className="space-y-2">
+                    <div className="flex gap-1.5 items-center flex-wrap">
+                      <button aria-label="Reroll quest" disabled={rerollsLeft <= 0 || q.progress > 0} onClick={() => reroll(q.id)} className="ghost px-2.5 py-1.5" style={{ color: rerollsLeft > 0 && q.progress === 0 ? C.cyan : C.mute }}><RefreshCw size={14} /></button>
+                      {quick.map((n) => <button key={n} onClick={() => setProg(q.id, Math.round((q.progress + n) * 100) / 100)} className="ghost px-2.5 py-1.5 text-sm font-bold">+{n.toLocaleString()}</button>)}
+                      <QuestAdd unit={q.unit} onAdd={(n) => setProg(q.id, Math.round((q.progress + n) * 100) / 100)} />
+                      {q.progress > 0 && <button aria-label="Undo" onClick={() => setProg(q.id, Math.max(0, Math.round((q.progress - quick[0]) * 100) / 100))} className="ghost px-2.5 py-1.5 text-sm" style={{ color: C.mute }}>−{quick[0]}</button>}
+                    </div>
+                    <button disabled={!done} onClick={() => claim(q)} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: done ? C.gold : C.soft, color: done ? "#0A1630" : C.mute, boxShadow: done ? "0 0 16px rgba(255,212,71,.5)" : "none" }}>{done ? "Claim" : `${Math.round((q.target - q.progress) * 100) / 100} ${q.unit} to go`}</button>
                   </div>
                 )}
               </div>
@@ -2018,6 +2023,7 @@ function Board({ s, setS, openProfile, gainXp }) {
                 {P.place === 1 && <Crown size={26} style={{ color: C.gold, filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} className="mb-1" />}
                 <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} />
                 <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} /></div>
+                {r.title && <div className="text-xs font-bold tracking-wider uppercase truncate w-full text-center" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}</div>
                 <div className="w-full flex items-start justify-center pt-2" style={{ height: P.h, borderRadius: "4px 4px 0 0", background: PROFILE_BGS.find((b) => b.id === r.look?.bg)?.css ? `linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.6)), ${PROFILE_BGS.find((b) => b.id === r.look?.bg).css}` : `linear-gradient(180deg, ${P.glow}, ${C.bg})`, backgroundSize: "cover", border: `1px solid ${r.look?.accent || P.color}`, borderBottom: "none", boxShadow: `0 0 20px ${P.glow}` }}>
                   <span className="text-3xl font-extrabold" style={{ color: P.color, textShadow: `0 0 12px ${P.glow}` }}>{P.place}</span>
@@ -2037,7 +2043,8 @@ function Board({ s, setS, openProfile, gainXp }) {
               <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} />
               <div className="flex-1 min-w-0 ml-1">
                 <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}</div>
-                <div className="body text-xs" style={{ color: C.dim }}>{r.title ? <span style={{ color: r.look?.accent || C.cyan }}>{r.title} · </span> : null}{r.rank}{r.div ? ` ${r.div}` : ""} · Level {r.lvl} · {r.streak} day streak{r.atGym && Date.now() - r.atGym < 3 * 3600 * 1000 ? <span style={{ color: C.green }}> · at the gym</span> : null}</div>
+                {r.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
+                <div className="body text-xs" style={{ color: C.dim }}><span className="ranklabel">{r.rank}{r.div ? ` ${r.div}` : ""}</span> · Level {r.lvl} · {r.streak} day streak{r.atGym && Date.now() - r.atGym < 3 * 3600 * 1000 ? <span style={{ color: C.green }}> · at the gym</span> : null}</div>
               </div>
               <div className="text-right">
                 <div className="font-bold glowtext">{show(r)}</div>
@@ -3316,7 +3323,9 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {TITLES.map((t) => { const ok = t.req(s), sel = (s.profile.title || "rookie") === t.id; return <button key={t.id} disabled={!ok} title={t.how} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, title: t.id } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 999, background: sel ? C.blue : C.soft, color: sel ? "#fff" : ok ? C.text : C.mute, border: `1px solid ${C.border}`, opacity: ok ? 1 : 0.6 }}>{!ok && <Lock size={10} />}{t.name}</button>; })}
               </div>
-              <div className="body text-xs" style={{ color: C.mute }}>Locked titles: {TITLES.filter((t) => !t.req(s)).slice(0, 4).map((t) => `${t.name} (${t.how})`).join(", ")}{TITLES.filter((t) => !t.req(s)).length > 4 ? "…" : ""}</div>
+              <details className="body text-xs" style={{ color: C.mute }}><summary style={{ cursor: "pointer", color: C.dim }}>How to earn every title</summary>
+                <div className="grid grid-cols-1 gap-0.5 mt-1">{TITLES.map((t) => <div key={t.id} className="flex justify-between gap-2"><span style={{ color: t.req(s) ? C.green : C.mute }}>{t.req(s) ? "✓ " : ""}{t.name}</span><span className="text-right">{t.how}</span></div>)}</div>
+              </details>
               <div className="body text-xs" style={{ color: C.dim }}>Name animation</div>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {NAME_ANIMS.map((a) => <button key={a.id} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), anim: a.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: (s.profile.look?.anim || "none") === a.id ? C.blue : C.soft, color: (s.profile.look?.anim || "none") === a.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{a.name}</button>)}
@@ -3399,8 +3408,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
             </>
           )}
 
-          {!me && <DuelButton s={s} targetId={id} targetName={data.name} />}
-          <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} />
+          {!me ? <VersusPanel s={s} data={data} me={me} id={id} setS={setS} gainXp={gainXp} /> : <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} />}
 
           <h2 className="text-lg font-bold flex items-center gap-2"><MessageCircle size={18} />Comments</h2>
           {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
@@ -3568,7 +3576,7 @@ async function rateMog(dataUrl) {
   const parts = { pucker: clamp(r.pucker), brows: clamp(r.brows), stare: clamp(r.stare), jaw: clamp(r.jaw), commitment: clamp(r.commitment) };
   return { ...parts, total: Object.values(parts).reduce((a, b) => a + b, 0), quip: String(r.quip || "The judges have spoken.").slice(0, 80) };
 }
-function MogSection({ s, setS, gainXp, me, targetId, targetName }) {
+function MogSection({ s, setS, gainXp, me, targetId, targetName, embedded }) {
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -3626,13 +3634,10 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName }) {
   const rows = me ? list : list.filter((m) => (m.from === targetId || m.to === targetId));
   return (
     <div className="space-y-2">
-      <h2 className="text-lg font-bold flex items-center gap-2">🐟 Mog-off</h2>
+      {!embedded && <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} style={{ color: "#FF2D6F" }} />PvP · mog-offs</h2>}
       <input ref={camRef} type="file" accept="image/*" capture="user" onChange={onShot} style={{ display: "none" }} />
       {!me && (
-        <div className="panel p-4 space-y-2">
-          <div className="body text-sm" style={{ color: C.sub }}>Challenge {targetName || "them"} to a mog-off. Look into the camera, dead serious, fishy lips, eyebrows locked in. The AI judge scores the face. Winner gets {MOG_XP} XP.</div>
-          <button onClick={() => snap(null)} disabled={busy} className="btn w-full py-3 flex items-center justify-center gap-2">{busy ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}{busy ? "Judging your mog…" : "Take your mog shot"}</button>
-        </div>
+        <button onClick={() => snap(null)} disabled={busy} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}{busy ? "Judging your mog…" : `🐟 Mog-off ${targetName || "them"} (+${MOG_XP} XP)`}</button>
       )}
       {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
       {me && rows.length === 0 && <Empty>No mog-offs yet. Open a cousin's profile from the Board tab and challenge them. When someone challenges you, it shows here and on your Status tab.</Empty>}
@@ -3846,7 +3851,7 @@ function RankBadge({ rank, size = 44, still = false }) {
       <polygon points={hex(42)} fill={`url(#${id}core)`} stroke={`url(#${id}ring)`} strokeWidth="3.5" strokeLinejoin="round" />
       <polygon points={hex(34)} fill="none" stroke="#fff" strokeWidth={0.6 + tier * 0.25} opacity={0.25 + tier * 0.08} strokeDasharray={tier >= 3 ? "4 3" : "0"} style={anim && tier >= 3 ? { transformOrigin: "50px 50px", animation: "rkspin 20s linear infinite" } : null} />
       {tier >= 2 && <polygon points={hex(38, 50, 50, Math.PI / 6)} fill="none" stroke={c2} strokeWidth="1" opacity=".55" />}
-      <text x="50" y="66" textAnchor="middle" fontSize="48" fontWeight="900" fontFamily="'Oxanium', sans-serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.3)} strokeWidth="1.4" paintOrder="stroke" style={anim && tier >= 1 ? { animation: `rkpulse ${3.5 - tier * 0.35}s ease-in-out infinite` } : null}>{rank.id}</text>
+      <text x="50" y="66" textAnchor="middle" fontSize="48" fontWeight="900" fontFamily="'Cinzel', 'Oxanium', serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.3)} strokeWidth="1.4" paintOrder="stroke" style={anim && tier >= 1 ? { animation: `rkpulse ${3.5 - tier * 0.35}s ease-in-out infinite` } : null}>{rank.id}</text>
       {anim && tier >= 1 && <g clipPath={`url(#${id}c)`}><rect x="-60" y="0" width="34" height="100" fill={`url(#${id}s)`} transform="skewX(-22)" style={{ animation: `rkshine ${4.2 - tier * 0.45}s ease-in-out infinite` }} /></g>}
       {sparks > 0 && Array.from({ length: sparks }, (_, i) => {
         const a = (2 * Math.PI * i) / sparks, r = 46 + (i % 3) * 6;
@@ -4513,6 +4518,7 @@ function ExercisePage({ s, name, onBack, openMuscle }) {
 
 /* ---------- Today dashboard + check-in ---------- */
 const SLEEP_OPTS = [5, 6, 7, 8, 9];
+const SCALE_COLORS = ["#FF4D6D", "#FF9340", "#FFD447", "#9BE15D", "#3DF08A"];
 const MOOD_OPTS = ["Wrecked", "Meh", "Good", "Fired up"];
 function Dashboard({ s, setS, goTrain }) {
   const d = today();
@@ -4533,14 +4539,23 @@ function Dashboard({ s, setS, goTrain }) {
         <button onClick={goTrain} className="btn py-2.5 text-sm flex items-center justify-center gap-2"><Dumbbell size={16} />{s.active ? "Resume workout" : "Start training"}</button>
         <button onClick={() => setS((p) => ({ ...p, atGym: atGym ? null : Date.now() }))} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: atGym ? C.green : C.cyan, borderColor: atGym ? C.green : C.border }}><MapPin size={16} />{atGym ? "At the gym ✓" : "Check in at gym"}</button>
       </div>
-      <div className="flex items-center gap-2 flex-wrap body text-xs">
-        <span style={{ color: C.dim }}>Sleep</span>
-        {SLEEP_OPTS.map((h) => <button key={h} onClick={() => setCi("sleep", h)} className="px-2 py-1 font-semibold" style={{ borderRadius: 999, background: ci.sleep === h ? C.blue : C.soft, color: ci.sleep === h ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{h}{h === 9 ? "+" : ""}h</button>)}
-      </div>
-      <div className="flex items-center gap-2 flex-wrap body text-xs">
-        <span style={{ color: C.dim }}>Mood</span>
-        {MOOD_OPTS.map((m) => <button key={m} onClick={() => setCi("mood", m)} className="px-2 py-1 font-semibold" style={{ borderRadius: 999, background: ci.mood === m ? C.blue : C.soft, color: ci.mood === m ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{m}</button>)}
-      </div>
+      {ci.sleep && ci.mood && !ci.edit ? (
+        <button onClick={() => setCi("edit", true)} className="w-full flex items-center justify-between body text-xs px-1">
+          <span style={{ color: C.dim }}>Checked in <Check size={12} className="inline" style={{ color: C.green }} /></span>
+          <span><span style={{ color: SCALE_COLORS[SLEEP_OPTS.indexOf(ci.sleep)] }}>{ci.sleep}{ci.sleep === 9 ? "+" : ""}h sleep</span> · <span style={{ color: SCALE_COLORS[[0, 1, 3, 4][MOOD_OPTS.indexOf(ci.mood)]] }}>{ci.mood}</span></span>
+        </button>
+      ) : (
+        <>
+          <div className="flex items-center gap-1.5 flex-wrap body text-xs">
+            <span className="w-10" style={{ color: C.dim }}>Sleep</span>
+            {SLEEP_OPTS.map((h, i) => { const col = SCALE_COLORS[i], on = ci.sleep === h; return <button key={h} onClick={() => setCi("sleep", h) || setCi("edit", false)} className="px-2.5 py-1 font-bold" style={{ borderRadius: 999, background: on ? col : "transparent", color: on ? "#06101A" : col, border: `1px solid ${col}`, opacity: ci.sleep && !on ? 0.45 : 1 }}>{h}{h === 9 ? "+" : ""}h</button>; })}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap body text-xs">
+            <span className="w-10" style={{ color: C.dim }}>Mood</span>
+            {MOOD_OPTS.map((m, i) => { const col = SCALE_COLORS[[0, 1, 3, 4][i]], on = ci.mood === m; return <button key={m} onClick={() => setCi("mood", m) || setCi("edit", false)} className="px-2.5 py-1 font-bold" style={{ borderRadius: 999, background: on ? col : "transparent", color: on ? "#06101A" : col, border: `1px solid ${col}`, opacity: ci.mood && !on ? 0.45 : 1 }}>{m}</button>; })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -4821,7 +4836,14 @@ function Crew({ s, setS, gainXp, rows, openProfile }) {
         const winner = over && liveMine !== null && theirs !== null ? (liveMine > theirs ? s.playerId : theirs > liveMine ? otherId : "tie") : null;
         return (
           <div key={d.key} className="panel p-3 space-y-1">
-            <div className="flex justify-between items-center"><button onClick={() => openProfile(otherId)} className="font-bold text-sm">vs {other}</button><span className="body text-xs" style={{ color: C.dim }}>week of {new Date(d.ws + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
+            {(() => { const mc = cardOf(s.playerId), oc = cardOf(otherId); return (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 text-right min-w-0"><div className="font-bold text-sm truncate"><FancyName name={s.profile.name} look={s.profile.look} /></div>{mc?.title && <div className="text-xs font-bold uppercase tracking-wider" style={{ color: s.profile.look?.accent || C.cyan }}>{mc.title}</div>}</div>
+                <span className="font-extrabold px-2" style={{ color: "#FF2D6F", fontFamily: "'Cinzel', serif" }}>VS</span>
+                <button onClick={() => openProfile(otherId)} className="flex-1 text-left min-w-0"><div className="font-bold text-sm truncate"><FancyName name={other} look={oc?.look} /></div>{oc?.title && <div className="text-xs font-bold uppercase tracking-wider" style={{ color: oc?.look?.accent || C.cyan }}>{oc.title}</div>}</button>
+              </div>
+            ); })()}
+            <div className="body text-xs text-center" style={{ color: C.dim }}>week of {new Date(d.ws + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
             {d.forfeit && <div className="body text-xs" style={{ color: C.orange }}>Loser: {d.forfeit}</div>}
             {d.status === "pending" && !me && <button onClick={() => accept(d)} className="btn w-full py-2 text-sm">Accept duel</button>}
             {d.status === "pending" && me && <div className="body text-xs" style={{ color: C.dim }}>Waiting for {other} to accept.</div>}
@@ -4931,4 +4953,55 @@ function exportFood(s) {
   const rows = [["date", "food", "servings", "calories", "protein", "carbs", "fat"]];
   Object.keys(s.meals || {}).sort().forEach((d) => (s.meals[d] || []).forEach((m) => rows.push([d, m.name, m.qty, Math.round(m.cal * m.qty), Math.round(m.p * m.qty), Math.round(m.c * m.qty), Math.round(m.f * m.qty)])));
   downloadText("ascend-food.csv", rows.map((r) => r.map(csvCell).join(",")).join("\n"));
+}
+
+/* ---------- Versus (PvP) ---------- */
+function VersusPanel({ s, data, me, id, setS, gainXp }) {
+  const mine = profileCard(s);
+  const them = data;
+  const mr = RANKS.find((r) => r.id === mine.rank) || RANKS[0], tr = RANKS.find((r) => r.id === them.rank) || RANKS[0];
+  const Side = ({ c, r, right }) => (
+    <div className={`flex-1 flex flex-col items-center text-center min-w-0 ${right ? "" : ""}`}>
+      <Avatar src={c.avatar} name={c.name} size={64} ring={c.look?.accent || r.color} />
+      <div className="font-bold mt-2 truncate w-full"><FancyName name={c.name} look={c.look} /></div>
+      {c.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: c.look?.accent || C.cyan }}>{c.title}</div>}
+      <div className="mt-1"><RankBadge rank={r} size={34} /></div>
+      <div className="ranklabel text-sm font-bold" style={{ color: r.color }}>{c.rank}{c.div ? ` ${c.div}` : ""}</div>
+    </div>
+  );
+  const row = (label, a, b, fmt = (v) => v) => {
+    const av = a ?? 0, bv = b ?? 0;
+    return <div key={label} className="grid items-center text-sm" style={{ gridTemplateColumns: "1fr auto 1fr" }}><span className="text-right font-bold" style={{ color: av > bv ? C.green : av < bv ? C.dim : C.text }}>{fmt(av)}</span><span className="body text-xs px-3" style={{ color: C.mute }}>{label}</span><span className="font-bold" style={{ color: bv > av ? C.green : bv < av ? C.dim : C.text }}>{fmt(bv)}</span></div>;
+  };
+  return (
+    <div className="panel p-4 space-y-3" style={{ borderColor: "#FF2D6F" }}>
+      <div className="flex items-center justify-between"><div className="font-bold flex items-center gap-2"><Swords size={18} style={{ color: "#FF2D6F" }} />Versus</div><span className="body text-xs" style={{ color: C.dim }}>duels & mog-offs</span></div>
+      <div className="flex items-center gap-2">
+        <Side c={mine} r={mr} />
+        <div className="text-3xl font-extrabold shrink-0" style={{ color: "#FF2D6F", textShadow: "0 0 14px rgba(255,45,111,.7)", fontFamily: "'Cinzel', serif" }}>VS</div>
+        <Side c={them} r={tr} right />
+      </div>
+      <div className="space-y-1 py-2" style={{ borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
+        {row("level", mine.lvl, them.lvl)}
+        {row("points", mine.points, them.points, (v) => v.toLocaleString())}
+        {row("streak", mine.streak, them.streak, (v) => `${v}d`)}
+        {row("XP this week", mine.weekXp, them.weekOf === mine.weekOf ? them.weekXp : 0, (v) => v.toLocaleString())}
+        {row("workouts", mine.stats?.workouts, them.stats?.workouts)}
+      </div>
+      <DuelButton s={s} targetId={id} targetName={them.name} />
+      <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={them.name} embedded />
+    </div>
+  );
+}
+
+
+function QuestAdd({ unit, onAdd }) {
+  const [v, setV] = useState("");
+  const go = () => { const n = +v; if (n > 0) { onAdd(n); setV(""); } };
+  return (
+    <div className="flex items-center gap-1">
+      <input type="number" inputMode="decimal" className="inp text-sm" style={{ width: 62, padding: "5px 6px" }} placeholder={unit} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} aria-label={`Add ${unit}`} />
+      <button onClick={go} disabled={!(+v > 0)} className="btn px-2.5 py-1.5 text-sm">Add</button>
+    </div>
+  );
 }
