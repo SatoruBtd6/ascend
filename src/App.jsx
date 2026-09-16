@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown } from "lucide-react";
+import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown } from "lucide-react";
 
 /* ---------- Theme ---------- */
 const THEMES = {
@@ -35,9 +35,10 @@ const RANKS = [
   { id: "B", color: "#B14BFF", alt: "#E6BFFF", glow: "rgba(177,75,255,.65)" },
   { id: "A", color: "#FF2D6F", alt: "#FF9A3D", glow: "rgba(255,45,111,.7)" },
   { id: "S", color: "#FFD447", alt: "#FFFFFF", glow: "rgba(255,212,71,.85)" },
+  { id: "SS", color: "#F4FBFF", alt: "#7DF9FF", glow: "rgba(200,240,255,.95)" },
 ];
 const RANK_DARK = RANKS.map((r) => r.color);
-const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#D6194F", "#C28A00"];
+const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#D6194F", "#C28A00", "#0B1220"];
 function applyTheme(settings = {}) {
   const mode = settings.theme === "light" ? "light" : "dark";
   Object.keys(C).forEach((k) => delete C[k]);
@@ -56,6 +57,7 @@ const RANK_INFO = {
   B: ["Strong", "Clearly trained. Stronger than most people in any gym."],
   A: ["Advanced", "Years of serious, disciplined training."],
   S: ["Elite", "Genuinely jacked for your frame. Very few ever get here."],
+  SS: ["Gym God", "Beyond elite. Nobody is supposed to get here."],
 };
 // Minimum strength factor per group so custom lifts (especially machines) can't be rated too easy
 const FACTOR_FLOOR = { Chest: 0.35, Back: 0.4, Legs: 0.5, Shoulders: 0.25, Arms: 0.3, Core: 1.3 };
@@ -340,18 +342,22 @@ function thresholds(ex, p) {
   return RATIO_STEPS.map((r) => Math.round((r * ex.factor * sc * hard) / 5) * 5);
 }
 // Score from 0 to 6: E is 0–1, D 1–2 ... S 5–6 (S I is 15% past the S line)
+// Score 0–7: E 0–1 … S 5–6, and a hidden SS tier 6–7. S I ends 35% past the S line; SS caps at 75% past it.
 function scoreFor(best, steps) {
   if (best < steps[0]) return best / steps[0];
   for (let i = 1; i < steps.length; i++) if (best < steps[i]) return i + (best - steps[i - 1]) / (steps[i] - steps[i - 1]);
-  return Math.min(6, 5 + (best - steps[4]) / (steps[4] * 0.15));
+  const s6 = steps[4] * 1.35, s7 = steps[4] * 1.75;
+  if (best < s6) return 5 + (best - steps[4]) / (s6 - steps[4]);
+  return Math.min(7, 6 + (best - s6) / (s7 - s6));
 }
 function valueAt(t, steps) {
   if (t <= 1) return t * steps[0];
   if (t <= 5) { const i = Math.floor(t); return i === 5 ? steps[4] : steps[i - 1] + (t - i) * (steps[i] - steps[i - 1]); }
-  return steps[4] * (1 + 0.15 * (t - 5));
+  if (t <= 6) return steps[4] * (1 + 0.35 * (t - 5));
+  return steps[4] * (1.35 + 0.4 * (t - 6));
 }
 function rankFromScore(score) {
-  const i = Math.min(5, Math.floor(score));
+  const i = Math.min(6, Math.floor(score));
   const frac = Math.min(0.999, score - i);
   const d = Math.min(2, Math.floor(frac * 3));
   return { rank: RANKS[i], div: DIVS[d], label: `${RANKS[i].id} ${DIVS[d]}`, divPct: Math.round(((frac * 3) - d) * 100) };
@@ -361,8 +367,8 @@ function rankFor(ex, best, p) {
   const score = scoreFor(best, steps);
   const r = rankFromScore(score);
   const nextT = Math.floor(score * 3 + 1e-9) / 3 + 1 / 3;
-  const next = score >= 5.999 ? null : Math.ceil(valueAt(Math.min(6, nextT), steps));
-  const nextLabel = next ? rankFromScore(Math.min(5.999, nextT + 1e-6)).label : null;
+  const next = score >= 6.999 ? null : Math.ceil(valueAt(Math.min(7, nextT), steps));
+  const nextLabel = next ? rankFromScore(Math.min(6.999, nextT + 1e-6)).label : null;
   return { ...r, score, pct: r.divPct, next, nextLabel, steps };
 }
 function levelFromXp(xp) {
@@ -600,8 +606,8 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
-  settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
 /* ---------- App ---------- */
@@ -618,6 +624,11 @@ export default function App() {
   const [musclePick, setMusclePick] = useState("Chest");
   const [muscleFrom, setMuscleFrom] = useState("status");
   const openMuscle = (g, from = "status") => { setMusclePick(g); setMuscleFrom(from); setTab("muscle"); window.scrollTo?.(0, 0); };
+  const [exercisePick, setExercisePick] = useState(null);
+  const [exerciseFrom, setExerciseFrom] = useState("status");
+  const openExercise = (name, from = "status") => { setExercisePick(name); setExerciseFrom(from); setTab("exercise"); window.scrollTo?.(0, 0); };
+  const [ceremony, setCeremony] = useState(null);
+  const [offline, setOffline] = useState(false);
   useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
   const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
   AskRef.current = (message, onYes, yesLabel = "Confirm") => setDialog({ message, onYes, yesLabel });
@@ -656,13 +667,25 @@ export default function App() {
     })();
   }, []);
 
+  // Save state; if it fails (no signal), keep retrying until it lands
+  const dirtyRef = useRef(false);
   useEffect(() => {
     if (!loaded) return;
+    dirtyRef.current = true;
     const t = setTimeout(async () => {
-      try { await window.storage.set("ascend-state", JSON.stringify(s), false); } catch (e) { console.error(e); }
+      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); }
+      catch (e) { setOffline(true); }
     }, 400);
     return () => clearTimeout(t);
   }, [s, loaded]);
+  useEffect(() => {
+    if (!loaded) return;
+    const id = setInterval(async () => {
+      if (!dirtyRef.current) return;
+      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); } catch (e) { setOffline(true); }
+    }, 15000);
+    return () => clearInterval(id);
+  }, [loaded]);
   // Settings also live on this device so colors and fonts survive account or connection hiccups
   useEffect(() => { if (loaded) { try { localStorage.setItem("ascend-settings", JSON.stringify(s.settings)); } catch (e) { /* private mode */ } } }, [s.settings, loaded]);
 
@@ -681,6 +704,7 @@ export default function App() {
     const before = levelFromXp(sRef.current.xp).lvl, after = levelFromXp(Math.max(0, sRef.current.xp + amt)).lvl;
     const d = today();
     setS((p) => ({ ...p, xp: Math.max(0, p.xp + amt), xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), { m: msg, a: amt }].slice(-40) } }));
+    if (after > before) SFX.levelUp();
     setToast(after > before ? { big: true, text: `Level up · Level ${after}` } : { text: `${amt >= 0 ? "+" : ""}${amt} XP · ${msg}` });
     setTimeout(() => setToast(null), 2600);
   };
@@ -694,10 +718,36 @@ export default function App() {
     setS((p) => ({ ...p, xp: p.xp + amt, ach: { ...(p.ach || {}), ...Object.fromEntries(fresh.map((a) => [a.id, d])) },
       xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), ...fresh.map((a) => ({ m: `Achievement: ${a.title}`, a: a.xp }))].slice(-40) } }));
     setToast({ big: true, text: fresh.length === 1 ? `${fresh[0].title} unlocked · +${amt} XP` : `${fresh.length} achievements · +${amt} XP` });
+    SFX.achievement();
+    if (fresh.length <= 3) fresh.forEach((a) => postFeed(s, "ach", `unlocked ${a.title} (${TIER_STYLE[a.tier].name})`));
     setTimeout(() => setToast(null), 3200);
   }, [loaded, s.workouts, s.days, s.xp, s.profile.weight]);
 
+  // Rank-up ceremony: compare current tiers to the last snapshot
+  useEffect(() => {
+    if (!loaded) return;
+    const snap = rankSnapshot(s);
+    if (!s.rankSnap) { setS((p) => ({ ...p, rankSnap: snap })); return; }
+    const prev = s.rankSnap;
+    let cer = null;
+    if (snap.overall > (prev.overall || 0) && snap.overall >= 1) { const r = rankFromScore(snap.overall); cer = { kind: "overall", rank: r.rank, label: `${r.rank.id}-Rank · ${RANK_INFO[r.rank.id][0]}` }; }
+    else { const up = Object.entries(snap.lifts).find(([n, t]) => t > (prev.lifts?.[n] ?? 0) && t >= 1); if (up) { const r = RANKS[Math.min(6, up[1])]; cer = { kind: "lift", name: up[0], rank: r, label: `${r.id}-Rank` }; } }
+    const changed = snap.overall !== prev.overall || JSON.stringify(snap.lifts) !== JSON.stringify(prev.lifts);
+    if (changed) setS((p) => ({ ...p, rankSnap: snap }));
+    if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.label} overall` : `${cer.name} hit ${cer.label}`); }
+  }, [loaded, s.workouts, s.profile.weight, s.custom]);
+
+  // Weekly snapshot for the rank report
+  useEffect(() => {
+    if (!loaded) return;
+    const ws = weekStart();
+    if (s.rankHist?.[ws]) return;
+    const o = overallInfo(s); const lifts = {}; rankedLifts(s).forEach((r) => { lifts[r.e.name] = r.score; });
+    setS((p) => ({ ...p, rankHist: { ...(p.rankHist || {}), [ws]: { overall: o.score, groups: o.groups, lifts, xp: p.xp } } }));
+  }, [loaded, s.workouts]);
+
   applyTheme(s.settings);
+  SFX.enabled = s.settings?.sounds !== false;
   if (!loaded) return <div className="min-h-screen flex items-center justify-center" style={{ background: C.bg, color: C.dim }}><Loader2 className="animate-spin" /></div>;
 
   const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
@@ -765,8 +815,9 @@ export default function App() {
       <div className="bgfx" />
 
       <div className="relative max-w-md mx-auto pb-44 px-4 pt-5">
-        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={() => openProfile(null)} openMuscle={openMuscle} />}
-        {tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} />}
+        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={() => openProfile(null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} />}
+        {tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
+        {tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
         {tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
         {!storageOk && (
           <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
@@ -782,7 +833,7 @@ export default function App() {
         {tab === "fuel" && <Fuel s={s} setS={setS} gainXp={gainXp} />}
         {tab === "calendar" && <Calendar s={s} />}
         {tab === "ranks" && <Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} />}
-        {tab === "board" && <Board s={s} setS={setS} openProfile={openProfile} />}
+        {tab === "board" && <Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} />}
       </div>
 
       {toast && (
@@ -792,6 +843,8 @@ export default function App() {
       )}
 
       {party && <DiscoParty />}
+      {ceremony && <Ceremony c={ceremony} onClose={() => setCeremony(null)} />}
+      {offline && <div className="fixed top-2 right-2 z-50 px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div>}
       {dialog && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.65)" }} onClick={() => setDialog(null)}>
           <div role="dialog" aria-modal="true" className="panel w-full max-w-sm p-5" style={{ background: C.sheet }} onClick={(e) => e.stopPropagation()}>
@@ -854,14 +907,14 @@ function Sheet({ title, onClose, children }) {
 }
 
 /* ---------- Status ---------- */
-function Status({ s, setS, openSettings, openProfile, openMuscle }) {
+function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, goTrain }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
   const overall = overallInfo(s);
   const streak = streakOf(s);
   const g = overall.groups;
-  const stat = (...ks) => Math.round((ks.reduce((a, k) => a + (g[k] || 0), 0) / ks.length) * (100 / 6));
+  const stat = (...ks) => Math.min(100, Math.round((ks.reduce((a, k) => a + (g[k] || 0), 0) / ks.length) * (100 / 6)));
   const [editName, setEditName] = useState(!s.profile.name);
   const oc = overall.rank;
 
@@ -915,6 +968,9 @@ function Status({ s, setS, openSettings, openProfile, openMuscle }) {
         ))}
       </div>
 
+      <Dashboard s={s} setS={setS} goTrain={goTrain} />
+      <Nudges s={s} openExercise={openExercise} goTrain={goTrain} />
+      <WeeklyReport s={s} />
       <MogInbox s={s} openProfile={openProfile} />
 
       <h2 className="text-lg font-bold glowtext">Muscle groups <span className="body text-sm font-normal" style={{ color: C.dim }}>tap one</span></h2>
@@ -936,7 +992,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle }) {
           {ranked.sort((a, b) => b.score - a.score).map(({ e, best, rank, label, pct, next, nextLabel }) => {
             const unit = e.type === "bodyweight" ? " reps" : " lb";
             return (
-              <button key={e.name} onClick={() => openMuscle(e.group)} className="panel p-3 flex items-center gap-4 w-full text-left">
+              <button key={e.name} onClick={() => openExercise(e.name)} className="panel p-3 flex items-center gap-4 w-full text-left">
                 <RankBadge rank={rank} size={34} />
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between gap-2">
@@ -997,6 +1053,8 @@ const setLabel = (def, st) => (def.type === "timed" ? `${st.w ? `${st.w}mi ` : "
 
 function Train({ s, setS, gainXp }) {
   const [picker, setPicker] = useState(false);
+  const [rest, setRest] = useState(null);
+  const [plates, setPlates] = useState(null);
   const [titling, setTitling] = useState(false);
   const [filter, setFilter] = useState("All");
   const [showPresets, setShowPresets] = useState(false);
@@ -1022,8 +1080,12 @@ function Train({ s, setS, gainXp }) {
     const { xp, prs, volume, lines, prBonus } = workoutXp(s, exercises, computeBests(s));
     const d = today();
     const workout = { id: uid(), date: d, title: a.title || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000) };
-    setS((p) => ({ ...addWorkout(p, workout), active: null }));
+    const after = { ...s, workouts: [...s.workouts, workout] };
+    const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
+    setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name) } }));
+    if (prs) { SFX.pr(); postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }); }
     gainXp(xp, prs ? `${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete");
+    setRest(null);
   };
 
   const addExercise = (name) => {
@@ -1062,6 +1124,8 @@ function Train({ s, setS, gainXp }) {
           <div className="panel p-4 space-y-2">
             <div className="font-bold">Workout presets</div>
             {presets.length === 0 && <div className="body text-sm" style={{ color: C.dim }}>None yet. Start a workout, add your exercises, then tap "Save as preset" at the bottom. Next time, load it and just fill in the numbers.</div>}
+            <SharedPresets s={s} setS={setS} />
+            <PlanGenerator s={s} setS={setS} />
             {presets.map((pr) => (
               <div key={pr.id} className="ghost flex items-center">
                 <button onClick={() => startPreset(pr)} className="flex-1 text-left p-3 min-w-0">
@@ -1071,6 +1135,14 @@ function Train({ s, setS, gainXp }) {
                 <button aria-label={`Delete preset ${pr.name}`} onClick={() => ask(`Delete preset "${pr.name}"?`, () => setS((p) => ({ ...p, presets: p.presets.filter((x) => x.id !== pr.id) })), "Delete")} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>
               </div>
             ))}
+          </div>
+        )}
+
+        {s.lastSummary && (
+          <div className="panel p-4 space-y-2" style={{ borderColor: C.green }}>
+            <div className="flex justify-between items-center"><div className="font-bold">Last workout{s.lastSummary.title ? ` · ${s.lastSummary.title}` : ""}</div><button aria-label="Dismiss" onClick={() => setS((p) => ({ ...p, lastSummary: null }))} style={{ color: C.mute }}><X size={16} /></button></div>
+            <div className="body text-sm" style={{ color: C.sub }}>+{s.lastSummary.xp} XP · {Math.round(s.lastSummary.volume).toLocaleString()} lb{s.lastSummary.minutes ? ` · ${s.lastSummary.minutes} min` : ""}{s.lastSummary.prs ? ` · ${s.lastSummary.prs} PR${s.lastSummary.prs > 1 ? "s" : ""} (${s.lastSummary.prNames.join(", ")})` : ""}</div>
+            {s.lastSummary.suggestions.length > 0 && <div className="body text-xs" style={{ color: C.dim }}>Next time: {s.lastSummary.suggestions.map((x) => `${x.name} ${x.next.w}×${x.next.r}`).join(" · ")}</div>}
           </div>
         )}
 
@@ -1089,6 +1161,8 @@ function Train({ s, setS, gainXp }) {
                 <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{w.source && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}</span>
                 <div className="flex items-center gap-3">
                   {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
+                  {!w.source && s.lb && <button aria-label="Share to feed" onClick={() => { postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", ") }); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}><Share2 size={16} /></button>}
+                  {!w.source && s.lb && <SharePreset s={s} workout={w} />}
                   <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
                   <button aria-label="Delete workout" onClick={() => ask("Delete this workout? The XP you earned stays.", () => setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
                 </div>
@@ -1146,17 +1220,21 @@ function Train({ s, setS, gainXp }) {
         const delSet = (si) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.filter((_, j) => j !== si) }) }));
         const cols = showW ? "26px 1fr 1fr 1fr 34px 22px" : "26px 1fr 1fr 34px 22px";
         return (
-          <div key={ei} className="panel p-3">
+          <div key={ei} className="panel p-3" style={ex.ss ? { borderColor: C.green, marginBottom: 0 } : a.exercises[ei - 1]?.ss ? { borderColor: C.green, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 } : null}>
+            {a.exercises[ei - 1]?.ss && <div className="body text-xs font-bold -mt-1 mb-1" style={{ color: C.green }}>⇅ superset with {a.exercises[ei - 1].name}</div>}
             <div className="flex justify-between items-center mb-1">
               <div>
                 <span className="font-bold glowtext" style={{ color: C.cyan }}>{ex.name}</span>
                 <span className="body text-xs ml-2" style={{ color: C.mute }}>{def.group}</span>
+                {def.type === "weighted" && !def.perHand && <button aria-label="Plate calculator" onClick={() => setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135 })} className="ml-1 px-1.5 py-0.5" style={{ color: C.mute }}><CircleDot size={14} /></button>}
+                {ei < a.exercises.length - 1 && <button aria-label={ex.ss ? "Unlink superset" : "Superset with next"} onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i === ei ? { ...e, ss: !e.ss } : e)) }))} className="ml-1 px-1.5 py-0.5" style={{ color: ex.ss ? C.green : C.mute }}><Link2 size={14} /></button>}
                 {def.type === "weighted" && (() => { const mode = ex.wMode || (def.perHand ? "hand" : "total"); return (
                   <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) }))} className="ml-2 px-2 py-0.5 text-xs font-semibold" style={{ borderRadius: 999, background: C.accentBg, color: C.cyan, border: `1px solid ${C.border}` }}>{mode === "hand" ? "per hand" : "total lb"}</button>
                 ); })()}
               </div>
               <button aria-label="Remove exercise" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.filter((_, i) => i !== ei) }))} style={{ color: C.mute }}><X size={18} /></button>
             </div>
+            {(() => { const sg = suggestNext(s, ex.name, a.editId); return sg ? <div className="body text-xs mb-1 font-semibold" style={{ color: C.green }}>Target today: {sg.w}×{sg.r} · {sg.why}</div> : null; })()}
             {past.length > 0 && (
               <div className="body text-xs mb-2 space-y-0.5" style={{ color: C.dim }}>
                 {past.map((ps) => <div key={ps.id} className="truncate"><span style={{ color: C.mute }}>{new Date(ps.date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {ps.sets.map((st) => setLabel(def, st)).join(", ")}</div>)}
@@ -1174,7 +1252,7 @@ function Train({ s, setS, gainXp }) {
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
                   {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
                   <input type="number" inputMode="decimal" className="inp text-center" value={st.r} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
-                  <button aria-label="Mark set done" onClick={() => upd(si, !st.done && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: !st.done })}
+                  <button aria-label="Mark set done" onClick={() => { const turningOn = !st.done; upd(si, turningOn && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: !st.done }); if (turningOn) { SFX.click(); const secs = s.settings?.rest ?? 90; if (secs > 0 && !a.editId) { Beeper.unlock(); setRest({ end: Date.now() + secs * 1000 }); } } }}
                     className="h-8 flex items-center justify-center" style={{ background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
                   <button aria-label="Delete set" onClick={() => delSet(si)} className="h-8 flex items-center justify-center" style={{ color: C.mute }}><X size={14} /></button>
                 </div>
@@ -1186,6 +1264,9 @@ function Train({ s, setS, gainXp }) {
       })}
 
       <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4 }}><Plus size={18} />Add exercise</button>
+
+      {rest && <RestBubble end={rest.end} onDone={() => setRest(null)} onClose={() => setRest(null)} />}
+      {plates && <PlateSheet weight={plates.w} onClose={() => setPlates(null)} />}
 
       <TrainCoach s={s} a={a} onAdd={(name, n) => setActive((w) => w.exercises.some((e) => e.name === name)
         ? { ...w, exercises: w.exercises.map((e) => e.name === name ? { ...e, sets: [...e.sets, ...Array.from({ length: n }, () => ({ w: "", r: "", done: false }))] } : e) }
@@ -1510,6 +1591,10 @@ function Fuel({ s, setS, gainXp }) {
       })()}
       <div className="body text-xs" style={{ color: C.mute }}>Maintenance is about {t.tdee} cal/day from your body stats. Every day's food saves automatically, and you can look back with the arrows or the Log tab.</div>
 
+      {isToday && <WaterTracker s={s} setS={setS} gainXp={gainXp} d={d} />}
+      <NutritionReport s={s} />
+      <DayTemplates s={s} setS={setS} d={d} meals={meals} />
+
       <div className="flex justify-between items-center pt-1">
         <h2 className="text-lg font-bold">{isToday ? "Today's food" : "Food logged"}</h2>
         <button onClick={() => setAdding(true)} className="btn px-3 py-2 text-sm flex items-center gap-1"><Plus size={16} />Add food</button>
@@ -1539,6 +1624,14 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const [found, setFound] = useState(null);
   const [building, setBuilding] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const barRef = useRef(null);
+  const onBarcode = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    setLoading("barcode"); setErr(""); setFound(null);
+    try { const small = await shrinkPhoto(f, 1000); const food = await barcodeLookup(small); setFound({ ...food, r: "Scanned" }); }
+    catch (e2) { setErr(e2.message === "notfound" ? "Barcode read, but that product isn't in the database. Try the AI estimate or a photo of the label." : "Couldn't read the barcode. Fill the frame with it, flat and in focus."); }
+    setLoading(null);
+  };
   const saved = s.savedFoods || [];
 
   // Recent foods from the log, newest first
@@ -1628,10 +1721,13 @@ After searching, reply with ONLY this JSON and nothing else: {"name": "Restauran
 
       <input autoFocus className="inp" placeholder="Search, e.g. P. Terry's double" value={q} onChange={(e) => { setQ(e.target.value); setFound(null); setErr(""); }} />
 
-      <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => setScanning(true)} className="btn py-3 text-sm flex items-center justify-center gap-2"><Camera size={18} />Scan a meal photo</button>
-        <button onClick={() => setBuilding(true)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><ChefHat size={18} />Create a recipe</button>
+      <div className="grid grid-cols-3 gap-2">
+        <button onClick={() => setScanning(true)} className="btn py-3 text-xs flex items-center justify-center gap-1"><Camera size={16} />Meal photo</button>
+        <button onClick={() => barRef.current?.click()} disabled={!!loading} className="ghost py-3 text-xs font-bold flex items-center justify-center gap-1" style={{ color: C.cyan }}>{loading === "barcode" ? <Loader2 size={16} className="animate-spin" /> : <Store size={16} />}Barcode</button>
+        <button onClick={() => setBuilding(true)} className="ghost py-3 text-xs font-bold flex items-center justify-center gap-1" style={{ color: C.cyan }}><ChefHat size={16} />Recipe</button>
       </div>
+      <input ref={barRef} type="file" accept="image/*" capture="environment" onChange={onBarcode} style={{ display: "none" }} />
+      {loading === "barcode" && <div className="body text-xs" style={{ color: C.dim }}>Reading the barcode and looking up the product…</div>}
       {scanning && <PhotoScan onCancel={() => setScanning(false)} onAddAll={(items) => { items.forEach((it) => onAdd({ name: it.name, cal: it.cal, p: it.p, c: it.c, f: it.f })); }} />}
       {q.trim().length > 2 && !found && (
         <div className="grid grid-cols-2 gap-2">
@@ -1810,7 +1906,8 @@ const Stat = ({ label, value, panel }) => (
 );
 
 /* ---------- Leaderboard ---------- */
-function Board({ s, setS, openProfile }) {
+function Board({ s, setS, openProfile, gainXp }) {
+  const [view, setView] = useState("board");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("points");
@@ -1873,20 +1970,26 @@ function Board({ s, setS, openProfile }) {
     <div className="space-y-4">
       <Title right={<button aria-label="Refresh" onClick={load} className="p-2" style={{ color: C.cyan }}><RefreshCw size={18} className={loading ? "animate-spin" : ""} /></button>}>Leaderboard</Title>
 
-      {!s.lb ? (
+      <div className="flex gap-2">
+        {[["board", "Board"], ["feed", "Feed"], ["crew", "Crew"]].map(([id, l]) => <button key={id} onClick={() => setView(id)} className="flex-1 py-2 text-sm font-bold" style={{ borderRadius: 4, background: view === id ? C.blue : C.soft, color: view === id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{l}</button>)}
+      </div>
+      {view === "feed" && <Feed s={s} openProfile={openProfile} />}
+      {view === "crew" && <Crew s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />}
+      {view === "board" && !s.lb ? (
         <div className="panel p-4 space-y-3">
           <div className="font-bold">Join the leaderboard</div>
           <div className="body text-sm" style={{ color: C.dim }}>Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private.</div>
           {!s.profile.name && <input className="inp" placeholder="Your name" onBlur={(e) => setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } }))} />}
           <button onClick={() => setS((p) => ({ ...p, lb: true }))} disabled={!s.profile.name} className="btn w-full py-3" style={!s.profile.name ? { opacity: 0.5 } : null}>Join as {s.profile.name || "…"}</button>
         </div>
-      ) : (
+      ) : view === "board" ? (
         <div className="body text-sm flex justify-between" style={{ color: C.dim }}>
           <span>You're on the board as {s.profile.name}</span>
           <button onClick={leave} className="underline" style={{ color: C.red }}>Leave</button>
         </div>
-      )}
+      ) : null}
 
+      {view === "board" && <>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {Object.entries(SORTS).map(([id, [l]]) => (
           <button key={id} onClick={() => setSort(id)} className="px-3 py-2 text-sm font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 4, background: sort === id ? C.blue : C.soft, color: sort === id ? "#fff" : C.text, border: `1px solid ${C.border}`, boxShadow: sort === id ? "0 0 14px rgba(47,140,255,.5)" : "none" }}>{l}</button>
@@ -1934,7 +2037,7 @@ function Board({ s, setS, openProfile }) {
               <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} />
               <div className="flex-1 min-w-0 ml-1">
                 <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}</div>
-                <div className="body text-xs" style={{ color: C.dim }}>{r.rank}{r.div ? ` ${r.div}` : ""} · Level {r.lvl} · {r.streak} day streak</div>
+                <div className="body text-xs" style={{ color: C.dim }}>{r.title ? <span style={{ color: r.look?.accent || C.cyan }}>{r.title} · </span> : null}{r.rank}{r.div ? ` ${r.div}` : ""} · Level {r.lvl} · {r.streak} day streak{r.atGym && Date.now() - r.atGym < 3 * 3600 * 1000 ? <span style={{ color: C.green }}> · at the gym</span> : null}</div>
               </div>
               <div className="text-right">
                 <div className="font-bold glowtext">{show(r)}</div>
@@ -1945,6 +2048,7 @@ function Board({ s, setS, openProfile }) {
         })}
       </div>
       {sorted.length > 0 && <div className="body text-xs" style={{ color: C.mute }}>Tap anyone to see their profile, achievements, and leave a high-five or comment.</div>}
+      </>}
     </div>
   );
 }
@@ -1985,7 +2089,7 @@ function Ranks({ s, openMuscle }) {
       </div>
 
       <div className="space-y-2">
-        {[...RANKS].reverse().map((r) => {
+        {[...RANKS].reverse().filter((r) => r.id !== "SS" || overall.score >= 6).map((r) => {
           const mine = overall.rank.id === r.id;
           return (
             <div key={r.id} className="panel p-3 flex items-center gap-4" style={mine ? { borderColor: r.color, boxShadow: `0 0 22px ${r.glow}` } : null}>
@@ -2001,13 +2105,13 @@ function Ranks({ s, openMuscle }) {
           );
         })}
       </div>
-      <div className="body text-xs" style={{ color: C.mute }}>Each rank has three divisions: III, II, then I. S I is the top, reached 15% past the S line.</div>
+      <div className="body text-xs" style={{ color: C.mute }}>Each rank has three divisions: III, II, then I. S I sits 35% past the S line. Rumour has it there's something above S.</div>
 
       <h2 className="text-lg font-bold glowtext pt-2">What each rank takes</h2>
       <div className="panel p-3">
         <div className="grid gap-1 pb-1 text-xs font-bold" style={{ gridTemplateColumns: "1.6fr repeat(5, 1fr)" }}>
           <span style={{ color: C.dim }}>Lift</span>
-          {RANKS.slice(1).map((r) => <span key={r.id} className="text-center" style={{ color: r.color, textShadow: `0 0 8px ${r.glow}` }}>{r.id}</span>)}
+          {RANKS.slice(1, 6).map((r) => <span key={r.id} className="text-center" style={{ color: r.color, textShadow: `0 0 8px ${r.glow}` }}>{r.id}</span>)}
         </div>
         {key.map((n) => { const e = all.find((x) => x.name === n); return e ? <Row key={n} e={e} /> : null; })}
         <div className="body text-xs pt-2" style={{ color: C.mute }}>Weighted lifts show estimated one-rep max in lb, so 225 × 5 counts as about a 263 lb max. Lifts marked /hand use the weight in one hand. Pull-ups show strict reps in one set, and added weight counts extra. Shoulders and arms are held to a stricter standard.</div>
@@ -2166,6 +2270,16 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
           </div>
           <Toggle label="Assistant voice" on={!!st.voice} onClick={() => setSet("voice", !st.voice)} />
         </div>
+        <div className="flex items-center gap-3">
+          <Volume2 size={22} style={{ color: C.cyan }} />
+          <div className="flex-1"><div className="font-bold">Sound effects</div><div className="body text-xs" style={{ color: C.dim }}>Set clicks, PR chime, level-up and rank-up fanfares.</div></div>
+          <Toggle label="Sound effects" on={st.sounds !== false} onClick={() => setSet("sounds", st.sounds === false)} />
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <TimerIcon size={22} style={{ color: C.cyan }} />
+          <div className="flex-1"><div className="font-bold">Rest timer</div><div className="body text-xs" style={{ color: C.dim }}>Starts when you check off a set.</div></div>
+          <div className="flex gap-1">{[0, 60, 90, 120, 180].map((v) => <button key={v} onClick={() => setSet("rest", v)} className="px-2 py-1 text-xs font-semibold" style={{ borderRadius: 999, background: (st.rest ?? 90) === v ? C.blue : C.soft, color: (st.rest ?? 90) === v ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{v ? `${v}s` : "Off"}</button>)}</div>
+        </div>
         {st.voice && (
           <div className="flex gap-2 overflow-x-auto pb-1">
             {Object.entries(VOICE_STYLES).map(([id, v]) => (
@@ -2200,6 +2314,12 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
       <div className="panel p-4 space-y-2">
         <div className="body text-sm" style={{ color: C.dim }}>Achievements from the old, easier rank scale were already removed. If anything else looks wrong, recheck: any badge you no longer qualify for is removed and its XP taken back.</div>
         <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); setS(next); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
+      </div>
+
+      <h2 className="text-lg font-bold">Export</h2>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={() => exportWorkouts(s)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Download size={16} />Workouts CSV</button>
+        <button onClick={() => exportFood(s)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Download size={16} />Food log CSV</button>
       </div>
 
       <h2 className="text-lg font-bold">Save files</h2>
@@ -2242,7 +2362,8 @@ Level ${levelFromXp(s.xp).lvl} (${s.xp} XP), overall rank ${o.label}, streak ${s
 Lift ranks: ${lifts || "none logged yet"}.
 Today (${d}) quests: ${quests || "none yet"}.
 Today's food: ${Math.round(tot.cal)}/${t.cal} cal, protein ${Math.round(tot.p)}/${t.protein}g, carbs ${Math.round(tot.c)}/${t.carbs}g, fat ${Math.round(tot.f)}/${t.fat}g.
-Recent workouts:\n${recent || "none yet"}`;
+Recent workouts:\n${recent || "none yet"}
+Today's check-in: ${s.checkins?.[d]?.sleep ? `${s.checkins[d].sleep}h sleep` : "sleep not logged"}, mood ${s.checkins?.[d]?.mood || "not logged"}.`;
 }
 
 const VOICE_STYLES = {
@@ -3014,10 +3135,14 @@ function profileCard(s) {
   const wl = Object.entries(s.weightLog || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-40);
   return {
     id: s.playerId, name: s.profile.name, avatar: s.profile.avatar || null, goal: s.profile.goal, look: s.profile.look || null, song: s.profile.song || null,
+    title: (TITLES.find((t) => t.id === s.profile.title && t.req(s)) || null)?.name || null,
+    weekXp: Object.entries(s.xpLog || {}).filter(([d]) => d >= ws).reduce((a, [, v]) => a + v, 0),
+    prevWeek: (() => { const pw = shift(ws, -7); return { key: pw, xp: Object.entries(s.xpLog || {}).filter(([d]) => d >= pw && d < ws).reduce((a, [, v]) => a + v, 0) }; })(),
+    atGym: s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000 ? s.atGym : null,
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: Object.fromEntries(wl),
-    month: { key: monthKey(), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(monthKey())).reduce((a, [, v]) => a + v, 0) },
+    month: { key: monthKey(), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(monthKey())).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(monthKey()) && w.source !== "quest").length },
     groups: groupScores(s),
     lifts: rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 6).map((r) => ({ name: r.e.name, label: r.label, rank: r.rank.id, best: Math.round(r.best), bw: r.e.type === "bodyweight" })),
   };
@@ -3159,6 +3284,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
+                {data.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: data.look?.accent || C.cyan }}>{data.title}</div>}
                 <div className="body text-sm" style={{ color: rank.color }}>{data.rank}{data.div ? ` ${data.div}` : ""} · Level {data.lvl}</div>
                 <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{(data.points || 0).toLocaleString()} pts · {data.streak} day streak{st?.since ? ` · since ${new Date(st.since + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}</div>
               </div>
@@ -3186,6 +3312,11 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {NAME_FONTS.map((f) => <button key={f.id} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), font: f.id } } }))} className="fancyname px-3 py-2 whitespace-nowrap shrink-0" style={{ fontFamily: f.family, "--nf": f.family, fontSize: f.id === "pixel" ? 11 : 15, borderRadius: 4, background: (s.profile.look?.font || "default") === f.id ? C.blue : C.soft, color: (s.profile.look?.font || "default") === f.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{f.name}</button>)}
               </div>
+              <div className="body text-xs" style={{ color: C.dim }}>Title <span style={{ color: C.mute }}>· {TITLES.filter((t) => t.req(s)).length} of {TITLES.length} unlocked</span></div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {TITLES.map((t) => { const ok = t.req(s), sel = (s.profile.title || "rookie") === t.id; return <button key={t.id} disabled={!ok} title={t.how} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, title: t.id } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 999, background: sel ? C.blue : C.soft, color: sel ? "#fff" : ok ? C.text : C.mute, border: `1px solid ${C.border}`, opacity: ok ? 1 : 0.6 }}>{!ok && <Lock size={10} />}{t.name}</button>; })}
+              </div>
+              <div className="body text-xs" style={{ color: C.mute }}>Locked titles: {TITLES.filter((t) => !t.req(s)).slice(0, 4).map((t) => `${t.name} (${t.how})`).join(", ")}{TITLES.filter((t) => !t.req(s)).length > 4 ? "…" : ""}</div>
               <div className="body text-xs" style={{ color: C.dim }}>Name animation</div>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {NAME_ANIMS.map((a) => <button key={a.id} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), anim: a.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: (s.profile.look?.anim || "none") === a.id ? C.blue : C.soft, color: (s.profile.look?.anim || "none") === a.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{a.name}</button>)}
@@ -3239,6 +3370,13 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
             </div>
           </div>
 
+          {me && (
+            <>
+              <h2 className="text-lg font-bold">Body</h2>
+              <ProgressPhotos s={s} />
+              <Measurements s={s} setS={setS} />
+            </>
+          )}
           <h2 className="text-lg font-bold">Weight over time</h2>
           <div className="panel p-4 space-y-3">
             {me && (
@@ -3261,6 +3399,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
             </>
           )}
 
+          {!me && <DuelButton s={s} targetId={id} targetName={data.name} />}
           <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} />
 
           <h2 className="text-lg font-bold flex items-center gap-2"><MessageCircle size={18} />Comments</h2>
@@ -4084,4 +4223,712 @@ function SongPlayer({ playerId, meta, me }) {
       {state === "playing" ? "Stop" : state === "loading" ? "Loading…" : `Play theme${label ? `: ${label}` : ""}`}
     </button>
   );
+}
+
+/* ---------- Sound effects ---------- */
+const SFX = {
+  ctx: null, enabled: true,
+  ctxGet() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; if (!this.ctx) this.ctx = new AC(); this.ctx.resume(); return this.ctx; } catch (e) { return null; } },
+  tone(f, dur, delay = 0, vol = 0.18, type = "sine") { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02); },
+  click() { this.tone(880, 0.05, 0, 0.12, "square"); },
+  pr() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, i * 0.09, 0.2)); },
+  levelUp() { [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.22, i * 0.1, 0.2, "triangle")); this.tone(1568, 0.6, 0.5, 0.15); },
+  rankUp() { [262, 330, 392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.3, i * 0.12, 0.22, "sawtooth")); [1047, 1319, 1568].forEach((f, i) => this.tone(f, 0.9, 0.75 + i * 0.05, 0.16)); },
+  achievement() { [784, 988, 1175].forEach((f, i) => this.tone(f, 0.25, i * 0.08, 0.18, "triangle")); },
+  water() { this.tone(660, 0.08, 0, 0.1); this.tone(990, 0.12, 0.08, 0.1); },
+};
+
+/* ---------- Rank-up ceremony ---------- */
+function rankSnapshot(s) {
+  const o = overallInfo(s);
+  const lifts = {};
+  rankedLifts(s).forEach((r) => { lifts[r.e.name] = Math.floor(r.score); });
+  return { overall: Math.floor(o.score), lifts };
+}
+function Ceremony({ c, onClose }) {
+  const rank = c.rank;
+  useEffect(() => { SFX.rankUp(); const t = setTimeout(onClose, 9000); return () => clearTimeout(t); }, []);
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center p-6" style={{ background: "radial-gradient(60% 50% at 50% 45%, rgba(0,0,0,.6), rgba(0,0,0,.95))", backdropFilter: "blur(6px)" }} onClick={onClose} role="dialog" aria-label="Rank up">
+      <style>{`@keyframes cerein{0%{transform:scale(.3) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+        @keyframes ceretext{0%{transform:translateY(20px);opacity:0}100%{transform:none;opacity:1}}
+        @keyframes cerespark{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}}`}</style>
+      {Array.from({ length: 26 }, (_, i) => { const a = (i / 26) * Math.PI * 2, d = 120 + (i % 5) * 40; return <span key={i} className="absolute rounded-full" style={{ left: "50%", top: "45%", width: i % 3 ? 6 : 10, height: i % 3 ? 6 : 10, background: i % 2 ? "#fff" : rank.color, boxShadow: `0 0 10px ${rank.color}`, "--dx": `${Math.cos(a) * d}px`, "--dy": `${Math.sin(a) * d}px`, animation: `cerespark ${1.2 + (i % 4) * 0.3}s ${(i % 6) * 0.08}s ease-out forwards` }} />; })}
+      <div style={{ animation: "cerein .9s cubic-bezier(.2,.9,.3,1.3) both" }}><RankBadge rank={rank} size={170} /></div>
+      <div className="text-4xl font-extrabold tracking-widest mt-6" style={{ color: rank.color, textShadow: `0 0 24px ${rank.glow}`, animation: "ceretext .6s .5s ease-out both", fontFamily: "'Oxanium', sans-serif" }}>RANK UP</div>
+      <div className="text-xl font-bold mt-2 text-center" style={{ color: "#fff", animation: "ceretext .6s .7s ease-out both" }}>{c.kind === "overall" ? "Overall rank" : c.name}</div>
+      <div className="text-2xl font-extrabold mt-1" style={{ color: rank.color, animation: "ceretext .6s .85s ease-out both" }}>{c.label}</div>
+      <div className="body text-sm mt-8" style={{ color: "#9DB2CC", animation: "ceretext .6s 1.2s ease-out both" }}>Tap anywhere to continue</div>
+    </div>
+  );
+}
+
+/* ---------- Titles ---------- */
+const TITLES = [
+  { id: "rookie", name: "Rookie", req: () => true, how: "Everyone starts here" },
+  { id: "showup", name: "Regular", req: (s) => !!s.ach?.["workouts-0"], how: "Show Up I" },
+  { id: "roadrunner", name: "Road Runner", req: (s) => !!s.ach?.["miles-1"], how: "Road Runner II" },
+  { id: "cardio", name: "Cardio Menace", req: (s) => !!s.ach?.["miles-2"], how: "Road Runner III" },
+  { id: "iron", name: "Iron Mover", req: (s) => !!s.ach?.["volume-1"], how: "Iron Mover II" },
+  { id: "rep", name: "Rep Machine", req: (s) => !!s.ach?.["reps-1"], how: "Rep Machine II" },
+  { id: "unbroken", name: "Unbroken", req: (s) => !!s.ach?.["streak-1"], how: "Unbroken II (30-day streak)" },
+  { id: "barhanger", name: "Bar Hanger", req: (s) => !!s.ach?.["pullups-1"], how: "Bar Hanger II" },
+  { id: "plates", name: "Two Plates", req: (s) => !!s.ach?.["bench-1"], how: "Bench Club II (225)" },
+  { id: "squatlord", name: "Squat Lord", req: (s) => !!s.ach?.["squat-2"], how: "Squat Club III (405)" },
+  { id: "deadking", name: "Deadlift King", req: (s) => !!s.ach?.["deadlift-2"], how: "Deadlift Club III (405)" },
+  { id: "quester", name: "Quest Hunter", req: (s) => !!s.ach?.["quests-1"], how: "Quest Hunter II" },
+  { id: "ascended", name: "Ascended", req: (s) => !!s.ach?.["rank-2"], how: "First A-rank lift" },
+  { id: "mythic", name: "Mythic", req: (s) => Object.keys(s.ach || {}).some((id) => allAchievements().find((a) => a.id === id)?.tier === 5), how: "Any Mythic achievement" },
+  { id: "elite", name: "Elite", req: (s) => overallInfo(s).score >= 5, how: "Reach S overall" },
+  { id: "gymgod", name: "Gym God", req: (s) => overallInfo(s).score >= 6, how: "????" },
+];
+
+/* ---------- Progression + coaching helpers ---------- */
+function suggestNext(s, name, excludeId) {
+  const def = findEx(s, name);
+  if (def.type !== "weighted") return null;
+  const last = pastSessions(s, name, excludeId, 1)[0];
+  if (!last) return null;
+  const sets = last.sets.filter((st) => +st.r > 0);
+  if (!sets.length) return null;
+  const w = Math.max(...sets.map((st) => +st.w || 0));
+  const reps = sets.filter((st) => (+st.w || 0) === w).map((st) => +st.r);
+  const minR = Math.min(...reps);
+  const big = (def.group === "Legs" || def.group === "Back") && def.factor >= 1;
+  const step = def.perHand ? 5 : big ? 10 : 5;
+  if (minR >= 8) return { w: w + step, r: Math.max(5, minR - 2), why: `all sets hit ${minR}+` };
+  if (minR >= 5) return { w, r: minR + 1, why: "add a rep" };
+  return { w, r: minR, why: "repeat, get every set" };
+}
+function stalledLifts(s) {
+  const out = [];
+  rankedLifts(s).forEach((r) => {
+    const sess = pastSessions(s, r.e.name, null, 3);
+    if (sess.length < 3) return;
+    const bests = sess.map((ps) => Math.max(...ps.sets.map((st) => bestValue(r.e, st, s.profile))));
+    if (bests[0] <= bests[1] && bests[1] <= bests[2]) out.push({ name: r.e.name, best: Math.round(bests[0]) });
+  });
+  return out;
+}
+function daysSinceTraining(s) {
+  const last = [...s.workouts].reverse().find((w) => w.source !== "quest");
+  if (!last) return null;
+  return Math.round((new Date(today() + "T12:00") - new Date(last.date + "T12:00")) / 86400000);
+}
+function Nudges({ s, openExercise, goTrain }) {
+  const stalled = stalledLifts(s).slice(0, 2);
+  const gap = daysSinceTraining(s);
+  const lines = [];
+  if (gap !== null && gap >= 3) lines.push({ text: `Right then. ${gap} days without training. The iron has feelings too.`, action: "Train now", onClick: goTrain });
+  stalled.forEach((x) => lines.push({ text: `${x.name} has been stuck around ${x.best} for 3 sessions. Drop 10%, do 5 sets of 5, rebuild.`, action: "See lift", onClick: () => openExercise(x.name) }));
+  if (!lines.length) return null;
+  return (
+    <div className="panel p-3 space-y-2" style={{ borderColor: C.cyan }}>
+      <div className="font-bold text-sm flex items-center gap-2"><Bot size={16} style={{ color: C.cyan }} />Sterling</div>
+      {lines.map((l, i) => (
+        <div key={i} className="flex items-center gap-2"><div className="body text-sm flex-1" style={{ color: C.sub }}>{l.text}</div><button onClick={l.onClick} className="ghost px-3 py-1.5 text-xs font-bold whitespace-nowrap" style={{ color: C.cyan }}>{l.action}</button></div>
+      ))}
+    </div>
+  );
+}
+function WeeklyReport({ s }) {
+  const [open, setOpen] = useState(false);
+  const keys = Object.keys(s.rankHist || {}).sort();
+  if (keys.length < 2) return null;
+  const cur = s.rankHist[keys[keys.length - 1]], prev = s.rankHist[keys[keys.length - 2]];
+  const ups = [], downs = [];
+  Object.entries(cur.lifts || {}).forEach(([n, sc]) => { const p = prev.lifts?.[n]; if (p === undefined) return; if (sc - p >= 0.34) ups.push(n); else if (p - sc >= 0.34) downs.push(n); });
+  const dOverall = (cur.overall || 0) - (prev.overall || 0);
+  const xpGain = (cur.xp || 0) - (prev.xp || 0);
+  const focus = downs[0] || stalledLifts(s)[0]?.name || Object.entries(GROUP_WEIGHT).sort((a, b) => ((cur.groups?.[a[0]] || 0) - (cur.groups?.[b[0]] || 0)))[0][0];
+  return (
+    <div className="panel">
+      <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><TrendingUp size={16} style={{ color: C.cyan }} />Weekly rank report</span><ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
+      {open && (
+        <div className="px-3 pb-3 body text-sm space-y-1" style={{ color: C.sub }}>
+          <div>Overall score {dOverall >= 0 ? "+" : ""}{dOverall.toFixed(2)} · {xpGain.toLocaleString()} XP earned</div>
+          <div style={{ color: C.green }}>Moved up: {ups.length ? ups.join(", ") : "nothing yet"}</div>
+          <div style={{ color: C.orange }}>Slipping: {downs.length ? downs.join(", ") : "nothing"}</div>
+          <div style={{ color: C.cyan }}>Focus next week: {focus}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Rest timer + plates ---------- */
+function RestBubble({ end, onDone, onClose }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
+  const left = Math.max(0, Math.ceil((end - now) / 1000));
+  useEffect(() => { if (left === 0) { Beeper.unlock(); Beeper.work(); onDone(); } }, [left]);
+  return (
+    <button onClick={onClose} aria-label="Dismiss rest timer" className="fixed z-40 flex items-center gap-2 px-4 py-2 font-bold tabular-nums" style={{ left: 16, bottom: 90, borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}` }}>
+      <TimerIcon size={16} />Rest {fmtClock(left)}
+    </button>
+  );
+}
+function platesFor(total, bar = 45) {
+  let side = (total - bar) / 2;
+  if (side < 0) return null;
+  const out = [];
+  [45, 35, 25, 10, 5, 2.5].forEach((p) => { while (side >= p - 1e-9) { out.push(p); side -= p; } });
+  return out;
+}
+function PlateSheet({ weight, onClose }) {
+  const [w, setW] = useState(weight || 135);
+  const [bar, setBar] = useState(45);
+  const plates = platesFor(+w || 0, bar);
+  return (
+    <Sheet title="Plate calculator" onClose={onClose}>
+      <div className="flex gap-2 items-center">
+        <input type="number" inputMode="decimal" className="inp text-center text-xl font-bold" value={w} onChange={(e) => setW(e.target.value)} aria-label="Total weight" />
+        <span className="body text-sm" style={{ color: C.dim }}>lb total</span>
+      </div>
+      <div className="flex gap-2">{[45, 35, 15].map((b) => <button key={b} onClick={() => setBar(b)} className="flex-1 py-2 text-sm font-semibold" style={{ borderRadius: 4, background: bar === b ? C.blue : C.soft, color: bar === b ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{b} lb bar</button>)}</div>
+      {plates === null ? <div className="body text-sm" style={{ color: C.dim }}>Lighter than the bar.</div> : (
+        <div className="panel p-3">
+          <div className="body text-xs mb-2" style={{ color: C.dim }}>Per side</div>
+          <div className="flex items-end gap-1 justify-center" style={{ height: 90 }}>
+            {plates.length === 0 && <span className="body text-sm" style={{ color: C.dim }}>Just the bar</span>}
+            {plates.map((p, i) => <div key={i} className="flex items-end justify-center font-bold text-xs" style={{ width: p >= 25 ? 22 : 16, height: p >= 45 ? 90 : p >= 35 ? 78 : p >= 25 ? 64 : p >= 10 ? 46 : p >= 5 ? 36 : 28, borderRadius: 4, background: p >= 45 ? "#2F6BFF" : p >= 35 ? "#FFD447" : p >= 25 ? "#3DF08A" : p >= 10 ? "#fff" : p >= 5 ? "#FF2D6F" : "#9AA7BD", color: p >= 10 && p < 25 ? "#000" : "#fff", paddingBottom: 4 }}>{p}</div>)}
+          </div>
+          <div className="text-center font-bold mt-2">{plates.join(" + ") || "0"} each side{plates.length ? ` · ${(+w - bar) / 2} lb per side` : ""}</div>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+/* ---------- Generic line chart + exercise page ---------- */
+function LineChart({ pts, color, unit = "", fmt = (v) => Math.round(v) }) {
+  if (!pts || pts.length < 2) return <div className="body text-sm" style={{ color: C.dim }}>Log this at least twice to see a trend.</div>;
+  const W = 320, H = 130, padL = 38, padR = 10, padT = 12, padB = 22;
+  const vs = pts.map((p) => p.v), lo = Math.min(...vs), hi = Math.max(...vs), span = hi - lo || 1;
+  const x = (i) => padL + (i / (pts.length - 1)) * (W - padL - padR), y = (v) => padT + (1 - (v - lo) / span) * (H - padT - padB);
+  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const fd = (d) => new Date(d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Trend chart">
+      {[lo, (lo + hi) / 2, hi].map((v, i) => <g key={i}><line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke={C.line} strokeDasharray="3 4" /><text x={padL - 6} y={y(v) + 4} textAnchor="end" fontSize="10" fill={C.dim}>{fmt(v)}</text></g>)}
+      <path d={`${path} L${x(pts.length - 1).toFixed(1)},${H - padB} L${padL},${H - padB} Z`} fill={color} opacity=".12" />
+      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 6px ${color})` }} />
+      {pts.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.v)} r="3" fill={C.bg} stroke={color} strokeWidth="2" />)}
+      <text x={padL} y={H - 6} fontSize="10" fill={C.dim}>{fd(pts[0].d)}</text>
+      <text x={W - padR} y={H - 6} fontSize="10" fill={C.dim} textAnchor="end">{fd(pts[pts.length - 1].d)}{unit ? ` · ${unit}` : ""}</text>
+    </svg>
+  );
+}
+async function videoFrames(file, n = 5, size = 360) {
+  const url = URL.createObjectURL(file);
+  try {
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error("video")); setTimeout(() => rej(new Error("timeout")), 8000); });
+    const dur = Math.min(v.duration || 10, 30);
+    const c = document.createElement("canvas");
+    const k = Math.min(1, size / Math.max(v.videoWidth || size, v.videoHeight || size));
+    c.width = Math.round((v.videoWidth || size) * k); c.height = Math.round((v.videoHeight || size) * k);
+    const ctx = c.getContext("2d");
+    const frames = [];
+    for (let i = 0; i < n; i++) {
+      const t = ((i + 0.5) / n) * dur;
+      await new Promise((res, rej) => { v.onseeked = res; v.onerror = () => rej(new Error("seek")); v.currentTime = t; setTimeout(res, 2500); });
+      ctx.drawImage(v, 0, 0, c.width, c.height);
+      frames.push(c.toDataURL("image/jpeg", 0.6));
+    }
+    return frames;
+  } finally { URL.revokeObjectURL(url); }
+}
+function FormCheck({ exercise }) {
+  const ref = useRef(null);
+  const [state, setState] = useState({ status: "idle", text: "" });
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    setState({ status: "loading", text: "" });
+    try {
+      const frames = await videoFrames(f);
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 500, system: STERLING_SYS, messages: [{ role: "user", content: [
+          ...frames.map((fr) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: fr.split(",")[1] } })),
+          { type: "text", text: `These are frames from a short video of someone doing ${exercise}, in time order. Give a form check: what looks good, the one or two most important fixes, and a cue to think about next set. Plain text, 3 to 5 short sentences, no markdown. If the frames don't show the lift clearly, say what angle to film from instead.` },
+        ] }] }),
+      });
+      const data = await res.json();
+      const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
+      if (!text) throw new Error("empty");
+      setState({ status: "done", text });
+    } catch (err) { setState({ status: "error", text: "Couldn't read that video. Try a 5–15 second clip filmed from the side." }); }
+  };
+  return (
+    <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
+      <div className="font-bold flex items-center gap-2"><Video size={18} style={{ color: C.cyan }} />Form check by video</div>
+      <div className="body text-xs" style={{ color: C.dim }}>Film one set from the side, 5–15 seconds. Sterling looks at a few frames and gives cues. Videos aren't stored.</div>
+      <input ref={ref} type="file" accept="video/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
+      <button onClick={() => ref.current?.click()} disabled={state.status === "loading"} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2">{state.status === "loading" ? <><Loader2 size={16} className="animate-spin" />Watching your set…</> : <><Camera size={16} />Record or choose a clip</>}</button>
+      {state.text && <div className="body text-sm" style={{ color: state.status === "error" ? C.red : C.text }}>{state.text}</div>}
+    </div>
+  );
+}
+function ExercisePage({ s, name, onBack, openMuscle }) {
+  const def = findEx(s, name);
+  const p = s.profile;
+  const bw = Math.max(80, +p.weight || 170);
+  const sessions = [];
+  s.workouts.forEach((w) => { const ex = w.exercises.find((e) => e.name === name); if (!ex) return; const sets = ex.sets.filter((st) => +st.r > 0); if (!sets.length) return; const best = def.type === "timed" ? Math.max(...sets.map((st) => +st.r)) : Math.max(...sets.map((st) => bestValue(def, st, p, ex))); const vol = sets.reduce((a, st) => a + (+st.w || 0) * (+st.r || 0), 0); sessions.push({ d: w.date, best, vol, sets, id: w.id, title: w.title }); });
+  const byDay = {};
+  sessions.forEach((x) => { const cur = byDay[x.d]; byDay[x.d] = cur ? { ...cur, best: Math.max(cur.best, x.best), vol: cur.vol + x.vol } : x; });
+  const pts = Object.values(byDay).sort((a, b) => (a.d < b.d ? -1 : 1));
+  const r = rankedLifts(s).find((x) => x.e.name === name);
+  const sug = suggestNext(s, name);
+  const unit = def.type === "bodyweight" ? "reps" : def.type === "timed" ? "min" : "lb";
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <div className="flex-1 min-w-0"><h1 className="text-2xl font-bold glowtext truncate">{name}</h1><button onClick={() => openMuscle(def.group)} className="body text-xs underline" style={{ color: C.dim }}>{def.group}{def.perHand ? " · per hand" : ""} · muscle page</button></div>
+        {r && <RankBadge rank={r.rank} size={44} />}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[["Rank", r ? r.label : "–"], [def.type === "bodyweight" ? "Best reps" : def.type === "timed" ? "Longest" : "Est. max", r ? `${Math.round(r.best)} ${unit}` : pts.length ? `${Math.round(pts[pts.length - 1].best)} ${unit}` : "–"], ["× bodyweight", r && def.type === "weighted" ? `${(r.best / bw).toFixed(2)}×` : "–"], ["Sessions", pts.length], ["Next rank", r?.next ? `${r.next} ${unit}` : r ? "maxed" : "–"], ["Next time", sug ? `${sug.w}×${sug.r}` : "–"]].map(([l, v]) => (
+          <div key={l} className="panel py-3 px-2 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold glowtext">{v}</div></div>
+        ))}
+      </div>
+      {sug && <div className="body text-xs" style={{ color: C.dim }}>Suggested next session: {sug.w}×{sug.r} ({sug.why}).</div>}
+      <div className="panel p-3"><div className="font-bold text-sm mb-1">{def.type === "timed" ? "Minutes per session" : def.type === "bodyweight" ? "Best set (reps)" : "Estimated max"}</div><LineChart pts={pts.map((x) => ({ d: x.d, v: x.best }))} color={C.cyan} unit={unit} /></div>
+      {def.type === "weighted" && <div className="panel p-3"><div className="font-bold text-sm mb-1">Volume per session</div><LineChart pts={pts.map((x) => ({ d: x.d, v: x.vol }))} color={C.green} unit="lb" fmt={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : Math.round(v))} /></div>}
+      <FormCheck exercise={name} />
+      <a href={ytUrl(name)} target="_blank" rel="noreferrer" className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Youtube size={16} />How-to videos</a>
+      <h2 className="text-lg font-bold">History</h2>
+      {[...pts].reverse().slice(0, 15).map((x) => (
+        <div key={x.d} className="panel p-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0"><div className="font-semibold">{fmtDay(x.d)}{x.title ? <span className="body text-xs ml-2" style={{ color: C.dim }}>{x.title}</span> : null}</div><div className="body text-xs truncate" style={{ color: C.sub }}>{sessions.filter((sx) => sx.d === x.d).flatMap((sx) => sx.sets).map((st) => setLabel(def, st)).join(", ")}</div></div>
+          <div className="text-right"><div className="font-bold">{Math.round(x.best)}</div><div className="body text-xs" style={{ color: C.mute }}>{unit}</div></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Today dashboard + check-in ---------- */
+const SLEEP_OPTS = [5, 6, 7, 8, 9];
+const MOOD_OPTS = ["Wrecked", "Meh", "Good", "Fired up"];
+function Dashboard({ s, setS, goTrain }) {
+  const d = today();
+  const t = targets(s.profile), tot = mealTotals(s.meals[d]);
+  const day = s.days?.[d];
+  const qDone = (day?.list || []).filter((q) => q.claimed).length, qAll = Math.max(3, (day?.list || []).length || 3);
+  const ci = s.checkins?.[d] || {};
+  const setCi = (k, v) => setS((p) => ({ ...p, checkins: { ...(p.checkins || {}), [d]: { ...(p.checkins?.[d] || {}), [k]: v } } }));
+  const atGym = s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000;
+  return (
+    <div className="panel p-3 space-y-3">
+      <div className="grid grid-cols-4 gap-2 text-center">
+        {[["Streak", `${streakOf(s)}d`, C.orange], ["Quests", `${qDone}/${qAll}`, C.gold], ["Cal left", Math.max(0, Math.round(t.cal - tot.cal)), C.cyan], ["Protein left", `${Math.max(0, Math.round(t.protein - tot.p))}g`, C.green]].map(([l, v, c]) => (
+          <div key={l}><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold" style={{ color: c }}>{v}</div></div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={goTrain} className="btn py-2.5 text-sm flex items-center justify-center gap-2"><Dumbbell size={16} />{s.active ? "Resume workout" : "Start training"}</button>
+        <button onClick={() => setS((p) => ({ ...p, atGym: atGym ? null : Date.now() }))} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: atGym ? C.green : C.cyan, borderColor: atGym ? C.green : C.border }}><MapPin size={16} />{atGym ? "At the gym ✓" : "Check in at gym"}</button>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap body text-xs">
+        <span style={{ color: C.dim }}>Sleep</span>
+        {SLEEP_OPTS.map((h) => <button key={h} onClick={() => setCi("sleep", h)} className="px-2 py-1 font-semibold" style={{ borderRadius: 999, background: ci.sleep === h ? C.blue : C.soft, color: ci.sleep === h ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{h}{h === 9 ? "+" : ""}h</button>)}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap body text-xs">
+        <span style={{ color: C.dim }}>Mood</span>
+        {MOOD_OPTS.map((m) => <button key={m} onClick={() => setCi("mood", m)} className="px-2 py-1 font-semibold" style={{ borderRadius: 999, background: ci.mood === m ? C.blue : C.soft, color: ci.mood === m ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{m}</button>)}
+      </div>
+    </div>
+  );
+}
+
+
+/* ---------- Fuel extras ---------- */
+const WATER_XP = 25;
+function WaterTracker({ s, setS, gainXp, d }) {
+  const target = Math.max(8, Math.round((+s.profile.weight || 170) / 2 / 8));
+  const w = s.water?.[d] || { n: 0, xp: false };
+  const set = (n) => setS((p) => {
+    const cur = p.water?.[d] || { n: 0, xp: false };
+    const next = { ...cur, n: Math.max(0, n) };
+    let hit = false;
+    if (!cur.xp && next.n >= target) { next.xp = true; hit = true; }
+    if (hit) setTimeout(() => { gainXp(WATER_XP, "Water goal"); SFX.water(); }, 0);
+    return { ...p, water: { ...(p.water || {}), [d]: next } };
+  });
+  return (
+    <div className="panel p-3 flex items-center gap-3">
+      <Droplets size={20} style={{ color: C.cyan }} />
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between text-sm"><span className="font-semibold">Water</span><span className="body" style={{ color: w.n >= target ? C.green : C.dim }}>{w.n} / {target} cups{w.xp ? " · +25 XP" : ""}</span></div>
+        <div className="mt-1"><Bar pct={(w.n / target) * 100} color={C.cyan} /></div>
+      </div>
+      <button aria-label="Less water" onClick={() => set(w.n - 1)} className="ghost w-8 h-8 flex items-center justify-center"><Minus size={14} /></button>
+      <button aria-label="Add a cup" onClick={() => set(w.n + 1)} className="btn w-8 h-8 flex items-center justify-center"><Plus size={14} /></button>
+    </div>
+  );
+}
+function DayTemplates({ s, setS, d, meals }) {
+  const [open, setOpen] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  const tpls = s.dayTemplates || [];
+  const save = () => {
+    const nm = name.trim() || `Day ${tpls.length + 1}`;
+    const items = meals.map(({ id, ...m }) => m);
+    setS((p) => ({ ...p, dayTemplates: [...(p.dayTemplates || []).filter((t) => t.name !== nm), { id: uid(), name: nm, items }] }));
+    setNaming(false); setName("");
+  };
+  const load = (t) => setS((p) => ({ ...p, meals: { ...p.meals, [d]: [...(p.meals[d] || []), ...t.items.map((m) => ({ ...m, id: uid() }))] } }));
+  return (
+    <div className="panel">
+      <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><Layers size={16} style={{ color: C.cyan }} />Day templates{tpls.length ? ` (${tpls.length})` : ""}</span><ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2">
+          {tpls.map((t) => (
+            <div key={t.id} className="ghost flex items-center">
+              <button onClick={() => load(t)} className="flex-1 text-left p-2 min-w-0"><div className="font-semibold text-sm">{t.name}</div><div className="body text-xs truncate" style={{ color: C.dim }}>{t.items.length} items · {Math.round(mealTotals(t.items).cal)} cal · P {Math.round(mealTotals(t.items).p)}</div></button>
+              <button aria-label={`Delete template ${t.name}`} onClick={() => ask(`Delete template "${t.name}"?`, () => setS((p) => ({ ...p, dayTemplates: p.dayTemplates.filter((x) => x.id !== t.id) })), "Delete")} className="px-3" style={{ color: C.mute }}><Trash2 size={14} /></button>
+            </div>
+          ))}
+          {tpls.length === 0 && <div className="body text-xs" style={{ color: C.dim }}>Save a whole day of eating once, then log it in one tap.</div>}
+          {meals.length > 0 && (naming ? (
+            <div className="flex gap-2"><input autoFocus className="inp text-sm" placeholder="Template name, e.g. Work day" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} /><button onClick={save} className="btn px-3 text-sm">Save</button></div>
+          ) : <button onClick={() => setNaming(true)} className="ghost w-full py-2 text-sm font-semibold" style={{ color: C.cyan }}>Save this day as a template</button>)}
+        </div>
+      )}
+    </div>
+  );
+}
+function NutritionReport({ s }) {
+  const [open, setOpen] = useState(false);
+  const t = targets(s.profile);
+  const days = [];
+  for (let i = 6; i >= 0; i--) { const d = shift(today(), -i); const m = s.meals?.[d] || []; if (m.length) days.push({ d, ...mealTotals(m) }); }
+  if (days.length < 2) return null;
+  const avg = (k) => Math.round(days.reduce((a, x) => a + x[k], 0) / days.length);
+  const closeness = (x) => Math.abs(x.cal - t.cal) / t.cal + Math.max(0, t.protein - x.p) / t.protein;
+  const best = [...days].sort((a, b) => closeness(a) - closeness(b))[0], worst = [...days].sort((a, b) => closeness(b) - closeness(a))[0];
+  const dp = avg("p") - t.protein, dc = avg("cal") - t.cal;
+  const tip = dp < -15 ? `Protein runs ${-dp}g short per day. Add a shake or an extra 6 oz of chicken.` : dc > t.cal * 0.1 ? `About ${dc} calories over target on average. Trim the biggest snack.` : dc < -t.cal * 0.1 ? `About ${-dc} calories under. Add a carb source to your post-workout meal.` : "Dialed in this week. Keep it steady.";
+  const fd = (d) => new Date(d + "T12:00").toLocaleDateString(undefined, { weekday: "short" });
+  return (
+    <div className="panel">
+      <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><TrendingUp size={16} style={{ color: C.cyan }} />7-day nutrition report</span><ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
+      {open && (
+        <div className="px-3 pb-3 body text-sm space-y-1" style={{ color: C.sub }}>
+          <div>Average: {avg("cal")} cal · P {avg("p")} · C {avg("c")} · F {avg("f")} ({days.length} days logged)</div>
+          <div style={{ color: C.green }}>Best day: {fd(best.d)} ({Math.round(best.cal)} cal, {Math.round(best.p)}g protein)</div>
+          <div style={{ color: C.orange }}>Roughest day: {fd(worst.d)} ({Math.round(worst.cal)} cal, {Math.round(worst.p)}g protein)</div>
+          <div style={{ color: C.cyan }}>{tip}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+async function barcodeLookup(dataUrl) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
+      { type: "text", text: `Read the barcode number printed under the bars in this photo (UPC/EAN, 8 to 14 digits). Respond ONLY with JSON: {"code": "digits or empty string", "product": "product name if visible or empty"}` },
+    ] }] }),
+  });
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+  const code = String(r.code || "").replace(/\D/g, "");
+  if (code.length < 8) throw new Error("nocode");
+  const off = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments,serving_size`);
+  const j = await off.json();
+  if (!j.product) throw new Error("notfound");
+  const n = j.product.nutriments || {};
+  const per = n["energy-kcal_serving"] != null ? "serving" : "100g";
+  const val = (k) => Math.round(+(n[`${k}_${per}`] ?? n[`${k}_100g`] ?? 0));
+  return { name: `${j.product.brands ? `${j.product.brands} ` : ""}${j.product.product_name || r.product || "Product"} (${per === "serving" ? j.product.serving_size || "1 serving" : "100 g"})`.slice(0, 70), cal: val("energy-kcal"), p: val("proteins"), c: val("carbohydrates"), f: val("fat"), source: "official", note: `Open Food Facts · barcode ${code}` };
+}
+
+/* ---------- Body tracking ---------- */
+function ProgressPhotos({ s }) {
+  const [keys, setKeys] = useState([]);
+  const [imgs, setImgs] = useState({});
+  const [pick, setPick] = useState([]);
+  const [slider, setSlider] = useState(50);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const camRef = useRef(null), libRef = useRef(null);
+  const load = async () => {
+    try { const res = await window.storage.list("photo:", false); const ks = (res?.keys || []).sort().reverse(); setKeys(ks); const out = {}; await Promise.all(ks.slice(0, 12).map(async (k) => { try { const r = await window.storage.get(k, false); if (r?.value) out[k] = r.value; } catch (e) { /* skip */ } })); setImgs(out); } catch (e) { /* offline */ }
+  };
+  useEffect(() => { if (open) load(); }, [open]);
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    setBusy(true);
+    try { const small = await shrinkPhoto(f, 700); const k = `photo:${today()}-${Date.now().toString(36)}`; await window.storage.set(k, small, false); await load(); } catch (err) { /* ignore */ }
+    setBusy(false);
+  };
+  const del = async (k) => { try { await window.storage.delete(k, false); setPick((x) => x.filter((y) => y !== k)); await load(); } catch (e) { /* ignore */ } };
+  const label = (k) => { const m = k.match(/^photo:(\d{4}-\d{2}-\d{2})/); return m ? new Date(m[1] + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" }) : ""; };
+  const [a, b] = pick;
+  return (
+    <div className="panel">
+      <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><ImageIcon size={16} style={{ color: C.cyan }} />Progress photos{keys.length ? ` (${keys.length})` : ""}</span><ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
+      {open && (
+        <div className="px-3 pb-3 space-y-3">
+          <div className="body text-xs" style={{ color: C.dim }}>Private to you. Take one a month in the same spot and light. Tap two to compare.</div>
+          <input ref={camRef} type="file" accept="image/*" capture="user" onChange={onFile} style={{ display: "none" }} />
+          <input ref={libRef} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => camRef.current?.click()} disabled={busy} className="btn py-2.5 text-sm flex items-center justify-center gap-2">{busy ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}Take photo</button>
+            <button onClick={() => libRef.current?.click()} disabled={busy} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Upload size={16} />Choose photo</button>
+          </div>
+          {a && b && imgs[a] && imgs[b] && (
+            <div className="space-y-2">
+              <div className="relative select-none" style={{ aspectRatio: "3/4", borderRadius: 8, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                <img src={imgs[b]} alt="Before" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ position: "absolute", inset: 0, width: `${slider}%`, overflow: "hidden" }}><img src={imgs[a]} alt="After" style={{ width: `${10000 / slider}%`, height: "100%", objectFit: "cover", maxWidth: "none" }} /></div>
+                <div style={{ position: "absolute", top: 0, bottom: 0, left: `${slider}%`, width: 2, background: C.cyan, boxShadow: `0 0 8px ${C.glow}` }} />
+                <span className="absolute top-2 left-2 px-2 py-0.5 text-xs font-bold" style={{ background: "rgba(0,0,0,.6)", color: "#fff", borderRadius: 4 }}>{label(a)}</span>
+                <span className="absolute top-2 right-2 px-2 py-0.5 text-xs font-bold" style={{ background: "rgba(0,0,0,.6)", color: "#fff", borderRadius: 4 }}>{label(b)}</span>
+              </div>
+              <input type="range" min="2" max="98" value={slider} onChange={(e) => setSlider(+e.target.value)} className="w-full" aria-label="Compare slider" style={{ accentColor: C.cyan }} />
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            {keys.slice(0, 12).map((k) => (
+              <div key={k} className="relative">
+                <button onClick={() => setPick((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k].slice(-2)))} className="w-full" style={{ aspectRatio: "3/4", borderRadius: 6, overflow: "hidden", border: `2px solid ${pick.includes(k) ? C.cyan : C.border}`, background: C.soft }}>
+                  {imgs[k] ? <img src={imgs[k]} alt={label(k)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Loader2 size={16} className="animate-spin m-auto" />}
+                </button>
+                <div className="flex justify-between items-center body text-xs mt-0.5" style={{ color: C.dim }}><span>{label(k)}</span><button aria-label="Delete photo" onClick={() => ask("Delete this photo?", () => del(k), "Delete")} style={{ color: C.mute }}><Trash2 size={12} /></button></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+const MEASURES = [["arms", "Arms"], ["chest", "Chest"], ["waist", "Waist"], ["legs", "Thighs"]];
+function Measurements({ s, setS }) {
+  const [open, setOpen] = useState(false);
+  const [vals, setVals] = useState({});
+  const [pick, setPick] = useState("arms");
+  const log = s.measure || {};
+  const dates = Object.keys(log).sort();
+  const last = dates.length ? log[dates[dates.length - 1]] : {};
+  const save = () => {
+    const entry = {}; MEASURES.forEach(([k]) => { if (+vals[k]) entry[k] = +vals[k]; });
+    if (!Object.keys(entry).length) return;
+    setS((p) => ({ ...p, measure: { ...(p.measure || {}), [today()]: { ...(p.measure?.[today()] || {}), ...entry } } })); setVals({});
+  };
+  const pts = dates.filter((d) => log[d][pick]).map((d) => ({ d, v: log[d][pick] }));
+  return (
+    <div className="panel">
+      <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><Ruler size={16} style={{ color: C.cyan }} />Measurements{dates.length ? ` · ${MEASURES.filter(([k]) => last[k]).map(([k, l]) => `${l} ${last[k]}"`).join(", ")}` : ""}</span><ChevronDown size={16} className="shrink-0" style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2">
+          <div className="grid grid-cols-4 gap-2">{MEASURES.map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<input type="number" inputMode="decimal" step="0.25" className="inp text-center mt-0.5" placeholder={last[k] || "in"} value={vals[k] || ""} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} /></label>)}</div>
+          <button onClick={save} className="btn w-full py-2 text-sm">Log today</button>
+          {dates.length > 0 && (
+            <>
+              <div className="flex gap-2">{MEASURES.map(([k, l]) => <button key={k} onClick={() => setPick(k)} className="flex-1 py-1.5 text-xs font-semibold" style={{ borderRadius: 999, background: pick === k ? C.blue : C.soft, color: pick === k ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{l}</button>)}</div>
+              <LineChart pts={pts} color={C.cyan} unit="in" fmt={(v) => v.toFixed(1)} />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Social: feed, crew goal, duels, sharing ---------- */
+function postFeed(s, type, text, extra = {}) {
+  if (!s.lb || !s.profile.name) return;
+  publishShared(`feed:${Date.now()}_${s.playerId}`, { type, text, name: s.profile.name, from: s.playerId, look: s.profile.look || null, t: Date.now(), ...extra });
+}
+async function readShared(prefix) {
+  if (!window.storage?.list) return [];
+  try {
+    const res = await window.storage.list(prefix, true);
+    const items = await Promise.all((res?.keys || []).map(async (k) => { try { const r = await window.storage.get(k, true); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; } }));
+    return items.filter(Boolean);
+  } catch { return []; }
+}
+function Feed({ s, openProfile }) {
+  const [items, setItems] = useState(null);
+  const load = async () => {
+    const all = (await readShared("feed:")).sort((a, b) => (b.t || 0) - (a.t || 0));
+    setItems(all.slice(0, 40));
+    // keep the shared space tidy: anyone who loads the feed clears posts older than 14 days
+    const cutoff = Date.now() - 14 * 86400000;
+    all.filter((x) => (x.t || 0) < cutoff).slice(0, 10).forEach((x) => window.storage.delete(x.key, true).catch(() => {}));
+  };
+  useEffect(() => { load(); }, []);
+  const icon = { pr: "🏆", rank: "⬆️", ach: "🎖️", workout: "🏋️", duel: "⚔️", mog: "🐟", level: "✨" };
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+  return (
+    <div className="space-y-2">
+      {items === null && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading feed…</div>}
+      {items?.length === 0 && <Empty>Nothing yet. PRs, rank-ups, achievements, and shared workouts from the whole crew show up here.</Empty>}
+      {items?.map((it) => (
+        <div key={it.key} className="panel p-3 flex gap-3 items-start">
+          <span className="text-xl">{icon[it.type] || "•"}</span>
+          <div className="flex-1 min-w-0">
+            <button onClick={() => openProfile(it.from)} className="font-bold text-sm"><FancyName name={it.name} look={it.look} /></button>
+            <span className="body text-xs ml-2" style={{ color: C.mute }}>{ago(it.t)}</span>
+            <div className="body text-sm" style={{ color: C.sub }}>{it.text}</div>
+            {it.detail && <div className="body text-xs mt-1 truncate" style={{ color: C.dim }}>{it.detail}</div>}
+          </div>
+          {it.from === s.playerId && <button aria-label="Delete post" onClick={() => ask("Delete this post?", async () => { try { await window.storage.delete(it.key, true); setItems((x) => x.filter((y) => y.key !== it.key)); } catch (e) { /* ignore */ } }, "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+const CREW_PER_PLAYER = 12, CREW_XP = 500, DUEL_XP = 100;
+function Crew({ s, setS, gainXp, rows, openProfile }) {
+  const mk = monthKey(), ws = weekStart();
+  const players = rows.length || 1;
+  const goal = CREW_PER_PLAYER * players;
+  const done = rows.reduce((a, r) => a + (r.month?.key === mk ? r.month.workouts || 0 : 0), 0);
+  const claimed = s.groupClaimed?.[mk];
+  const monthName = new Date(`${mk}-01T12:00`).toLocaleDateString(undefined, { month: "long" });
+  const [duels, setDuels] = useState([]);
+  useEffect(() => { readShared("duel:").then((d) => setDuels(d.filter((x) => x.from === s.playerId || x.to === s.playerId).sort((a, b) => (b.t || 0) - (a.t || 0)))); }, []);
+  const cardOf = (id) => rows.find((r) => r.id === id || r.key === `lb:${id}`);
+  const weekXpOf = (id, key) => { const c = cardOf(id); if (!c) return null; if (c.weekOf === key) return c.weekXp || 0; if (c.prevWeek?.key === key) return c.prevWeek.xp; return null; };
+  const accept = async (d) => { try { await window.storage.set(d.key, JSON.stringify({ ...d, key: undefined, status: "on" }), true); setDuels((x) => x.map((y) => (y.key === d.key ? { ...y, status: "on" } : y))); } catch (e) { /* ignore */ } };
+  const remove = async (d) => { try { await window.storage.delete(d.key, true); setDuels((x) => x.filter((y) => y.key !== d.key)); } catch (e) { /* ignore */ } };
+  return (
+    <div className="space-y-3">
+      <div className="panel p-4 space-y-2">
+        <div className="flex justify-between items-start"><div className="font-bold flex items-center gap-2"><Users size={18} style={{ color: C.cyan }} />Crew goal: {goal} workouts in {monthName}</div><span className="text-sm font-bold" style={{ color: C.gold }}>+{CREW_XP} XP each</span></div>
+        <div className="body text-xs" style={{ color: C.dim }}>{CREW_PER_PLAYER} per person across {players} player{players === 1 ? "" : "s"} on the board. Everyone's workouts count.</div>
+        <Bar pct={(done / goal) * 100} color={C.cyan} />
+        <div className="flex justify-between text-sm"><span className="font-semibold">{done} / {goal}</span>{claimed ? <span style={{ color: C.green }}>Claimed</span> : <button disabled={done < goal} onClick={() => { setS((p) => ({ ...p, groupClaimed: { ...(p.groupClaimed || {}), [mk]: true } })); gainXp(CREW_XP, "Crew goal"); }} className="px-3 py-1 font-bold text-sm" style={{ borderRadius: 4, background: done >= goal ? C.gold : C.soft, color: done >= goal ? "#0A1630" : C.mute }}>Claim</button>}</div>
+      </div>
+      <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} />XP duels</h2>
+      {duels.length === 0 && <Empty>No duels. Open a cousin's profile from the board and challenge them to a 7-day XP duel.</Empty>}
+      {duels.map((d) => {
+        const me = d.from === s.playerId, other = me ? d.toName : d.fromName, otherId = me ? d.to : d.from;
+        const over = ws > d.ws;
+        const mine = weekXpOf(s.playerId, d.ws), theirs = weekXpOf(otherId, d.ws);
+        const liveMine = d.ws === ws ? Object.entries(s.xpLog || {}).filter(([k]) => k >= ws).reduce((a, [, v]) => a + v, 0) : mine;
+        const winner = over && liveMine !== null && theirs !== null ? (liveMine > theirs ? s.playerId : theirs > liveMine ? otherId : "tie") : null;
+        return (
+          <div key={d.key} className="panel p-3 space-y-1">
+            <div className="flex justify-between items-center"><button onClick={() => openProfile(otherId)} className="font-bold text-sm">vs {other}</button><span className="body text-xs" style={{ color: C.dim }}>week of {new Date(d.ws + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
+            {d.forfeit && <div className="body text-xs" style={{ color: C.orange }}>Loser: {d.forfeit}</div>}
+            {d.status === "pending" && !me && <button onClick={() => accept(d)} className="btn w-full py-2 text-sm">Accept duel</button>}
+            {d.status === "pending" && me && <div className="body text-xs" style={{ color: C.dim }}>Waiting for {other} to accept.</div>}
+            {d.status === "on" && !over && <div className="body text-sm">You {liveMine ?? "?"} XP · {other} {theirs ?? "?"} XP <span style={{ color: C.dim }}>(live this week)</span></div>}
+            {d.status === "on" && over && winner === null && <div className="body text-xs" style={{ color: C.dim }}>Waiting for {other} to open the app so their final score posts.</div>}
+            {winner && <div className="font-bold" style={{ color: C.gold }}>{winner === "tie" ? "Dead heat." : winner === s.playerId ? `You won ${liveMine} to ${theirs}` : `${other} won ${theirs} to ${liveMine}`}{winner === s.playerId && !(s.duelClaimed || {})[d.id] && <button onClick={() => { setS((p) => ({ ...p, duelClaimed: { ...(p.duelClaimed || {}), [d.id]: true } })); gainXp(DUEL_XP, "Duel win"); }} className="ml-2 px-3 py-1 text-xs" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{DUEL_XP}</button>}</div>}
+            <button onClick={() => ask("Delete this duel?", () => remove(d), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+function DuelButton({ s, targetId, targetName }) {
+  const [forfeit, setForfeit] = useState("");
+  const [sent, setSent] = useState(false);
+  const [open, setOpen] = useState(false);
+  const send = async () => {
+    if (!s.lb || !s.profile.name) return;
+    const id = uid();
+    try { await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromName: s.profile.name, to: targetId, toName: targetName, ws: weekStart(), forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true); setSent(true); } catch (e) { /* ignore */ }
+  };
+  if (sent) return <div className="body text-sm" style={{ color: C.green }}>Duel sent. Check the Crew tab on the Board for standings.</div>;
+  if (!open) return <button onClick={() => setOpen(true)} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Swords size={16} />Challenge to a 7-day XP duel</button>;
+  return (
+    <div className="panel p-3 space-y-2">
+      <div className="body text-sm" style={{ color: C.sub }}>Most XP earned this week wins {DUEL_XP} XP. Loser owes the forfeit.</div>
+      <input className="inp text-sm" placeholder="Forfeit (optional), e.g. buys the shakes" value={forfeit} onChange={(e) => setForfeit(e.target.value)} />
+      <div className="grid grid-cols-2 gap-2"><button onClick={() => setOpen(false)} className="ghost py-2 text-sm">Cancel</button><button onClick={send} className="btn py-2 text-sm">Send duel</button></div>
+    </div>
+  );
+}
+function SharePreset({ s, workout }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [done, setDone] = useState("");
+  useEffect(() => { if (open) readShared("lb:").then((r) => setRows(r.filter((x) => x.id !== s.playerId && x.name))); }, [open]);
+  const send = async (r) => {
+    const exercises = workout.exercises.map((e) => ({ name: e.name, sets: e.sets.length }));
+    try { await window.storage.set(`preset:${uid()}`, JSON.stringify({ to: r.id, from: s.playerId, fromName: s.profile.name, name: workout.title || `${s.profile.name}'s workout`, exercises, t: Date.now() }), true); setDone(r.name); } catch (e) { /* ignore */ }
+  };
+  if (done) return <span className="body text-xs" style={{ color: C.green }}>Sent to {done}</span>;
+  if (!open) return <button aria-label="Send as preset" onClick={() => setOpen(true)} style={{ color: C.cyan }}><Send size={16} /></button>;
+  return <div className="flex gap-1 flex-wrap">{rows.length === 0 ? <span className="body text-xs" style={{ color: C.dim }}>No one else on the board</span> : rows.map((r) => <button key={r.id} onClick={() => send(r)} className="ghost px-2 py-1 text-xs">{r.name}</button>)}<button onClick={() => setOpen(false)} className="body text-xs" style={{ color: C.mute }}>×</button></div>;
+}
+function SharedPresets({ s, setS }) {
+  const [items, setItems] = useState([]);
+  useEffect(() => { readShared("preset:").then((r) => setItems(r.filter((x) => x.to === s.playerId))); }, []);
+  if (!items.length) return null;
+  const save = async (it) => { setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== it.name), { id: uid(), name: it.name, exercises: it.exercises }] })); try { await window.storage.delete(it.key, true); } catch (e) { /* ignore */ } setItems((x) => x.filter((y) => y.key !== it.key)); };
+  return (
+    <div className="space-y-1">
+      <div className="body text-xs font-bold" style={{ color: C.cyan }}>Shared with you</div>
+      {items.map((it) => <div key={it.key} className="ghost flex items-center"><div className="flex-1 p-2 min-w-0"><div className="font-semibold text-sm">{it.name} <span className="body text-xs font-normal" style={{ color: C.dim }}>from {it.fromName}</span></div><div className="body text-xs truncate" style={{ color: C.dim }}>{it.exercises.map((e) => `${e.name} ×${e.sets}`).join(" · ")}</div></div><button onClick={() => save(it)} className="btn px-3 py-1.5 text-xs mr-2">Save</button></div>)}
+    </div>
+  );
+}
+
+/* ---------- Sterling weekly plan ---------- */
+function PlanGenerator({ s, setS }) {
+  const [state, setState] = useState({ status: "idle", days: [] });
+  const build = async () => {
+    setState({ status: "loading", days: [] });
+    try {
+      const names = allExercises(s).map((e) => e.name).join(", ");
+      const ranks = rankedLifts(s).slice(0, 12).map((r) => `${r.e.name} ${r.label}`).join(", ");
+      const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))].join(", ");
+      const g = groupScores(s);
+      const weak = Object.keys(GROUP_WEIGHT).sort((a, b) => (g[a] || 0) - (g[b] || 0)).slice(0, 2).join(" and ");
+      const r = await askJson(STERLING_SYS, `Write a 4-day training week for this lifter. Ranks: ${ranks || "none yet"}. Weakest groups: ${weak}. Titles they usually use: ${titles || "none"}. Bodyweight ${s.profile.weight} lb. Use exercise names ONLY from this list, spelled exactly: ${names}. 5 to 7 exercises per day, 3 to 4 sets each, sensible splits. Respond ONLY with JSON: {"quip": "one funny line", "days": [{"name": "short day title", "exercises": [{"name": "exact name", "sets": n}]}]}`, 1400);
+      const valid = new Set(allExercises(s).map((e) => e.name));
+      const days = (r.days || []).map((d) => ({ name: String(d.name || "Day").slice(0, 24), exercises: (d.exercises || []).filter((e) => valid.has(e.name)).map((e) => ({ name: e.name, sets: Math.max(1, Math.min(6, +e.sets || 3)) })) })).filter((d) => d.exercises.length);
+      if (!days.length) throw new Error("empty");
+      setState({ status: "done", days, quip: r.quip });
+    } catch (e) { setState({ status: "error", days: [] }); }
+  };
+  const save = () => { setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => !state.days.some((d) => d.name === x.name)), ...state.days.map((d) => ({ id: uid(), name: d.name, exercises: d.exercises }))] })); setState({ status: "saved", days: [] }); };
+  return (
+    <div className="space-y-2">
+      {state.status === "idle" && <button onClick={build} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Bot size={16} />Sterling, build my week</button>}
+      {state.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Drafting a week that respects your weaknesses…</div>}
+      {state.status === "error" && <button onClick={build} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
+      {state.status === "saved" && <div className="body text-sm" style={{ color: C.green }}>Saved as presets. Load one to start.</div>}
+      {state.status === "done" && (
+        <div className="panel p-3 space-y-2">
+          {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
+          {state.days.map((d, i) => <div key={i} className="body text-sm"><span className="font-bold" style={{ color: C.cyan }}>{d.name}:</span> <span style={{ color: C.sub }}>{d.exercises.map((e) => `${e.name} ×${e.sets}`).join(", ")}</span></div>)}
+          <div className="grid grid-cols-2 gap-2"><button onClick={build} className="ghost py-2 text-sm">Redo</button><button onClick={save} className="btn py-2 text-sm">Save all as presets</button></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Export ---------- */
+function downloadText(name, text) {
+  const blob = new Blob([text], { type: "text/csv" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+function exportWorkouts(s) {
+  const rows = [["date", "title", "exercise", "set", "weight", "reps", "workout_xp"]];
+  s.workouts.forEach((w) => w.exercises.forEach((ex) => ex.sets.forEach((st, i) => rows.push([w.date, w.title || "", ex.name, i + 1, st.w ?? "", st.r ?? "", w.xp ?? ""]))));
+  downloadText("ascend-workouts.csv", rows.map((r) => r.map(csvCell).join(",")).join("\n"));
+}
+function exportFood(s) {
+  const rows = [["date", "food", "servings", "calories", "protein", "carbs", "fat"]];
+  Object.keys(s.meals || {}).sort().forEach((d) => (s.meals[d] || []).forEach((m) => rows.push([d, m.name, m.qty, Math.round(m.cal * m.qty), Math.round(m.p * m.qty), Math.round(m.c * m.qty), Math.round(m.f * m.qty)])));
+  downloadText("ascend-food.csv", rows.map((r) => r.map(csvCell).join(",")).join("\n"));
 }
