@@ -1,0 +1,3695 @@
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown } from "lucide-react";
+
+/* ---------- Theme ---------- */
+const THEMES = {
+  dark: {
+    bg: "#000000", text: "#E6F6FF", dim: "#6A86A8", mute: "#33465F", sub: "#A9BDE0",
+    blue: "#0A84FF", cyan: "#00D9FF", soft: "#03080F", line: "rgba(0,217,255,.26)", border: "#10283F",
+    track: "#081530", sheet: "#040A1C", accentBg: "#0C2350", navBg: "rgba(0,0,0,.96)", badgeBg: "rgba(2,6,16,.8)",
+    inpBg: "#000000", panelTop: "rgba(0,34,70,.42)", panelBot: "rgba(0,0,0,.94)", glow: "rgba(0,217,255,.75)",
+    grid: "rgba(0,217,255,.045)", halo: "rgba(0,160,255,.30)",
+    gold: "#FFD447", green: "#39E68F", orange: "#FF9340", red: "#FF4D6D",
+  },
+  light: {
+    bg: "#EEF4FA", text: "#07162A", dim: "#4D6682", mute: "#8DA2BA", sub: "#34506F",
+    blue: "#0070F0", cyan: "#0088CC", soft: "#FFFFFF", line: "rgba(0,120,210,.28)", border: "#C9D9EA",
+    track: "#D6E3F0", sheet: "#FFFFFF", accentBg: "#DDEEFF", navBg: "rgba(255,255,255,.96)", badgeBg: "rgba(255,255,255,.92)",
+    inpBg: "#FFFFFF", panelTop: "rgba(255,255,255,.97)", panelBot: "rgba(230,240,250,.97)", glow: "rgba(0,136,204,.3)",
+    grid: "rgba(0,120,210,.06)", halo: "rgba(0,144,255,.18)",
+    gold: "#D99A00", green: "#12A860", orange: "#E8740C", red: "#E0284A",
+  },
+};
+const ZEST = {
+  dark: { cyan: "#FF5AD9", blue: "#8A5CFF", line: "rgba(255,90,217,.35)", glow: "rgba(255,90,217,.8)", accentBg: "#2A0A3A", track: "#1B0B2C" },
+  light: { cyan: "#D01FAE", blue: "#7A3CFF", line: "rgba(208,31,174,.3)", glow: "rgba(208,31,174,.3)", accentBg: "#FBE3F7", track: "#EBDDF5" },
+};
+const C = { ...THEMES.dark };
+const RAINBOW = "linear-gradient(90deg,#ff3cac,#ffb43c,#f7ff3c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)";
+
+/* ---------- Game data ---------- */
+const RANKS = [
+  { id: "E", color: "#8A96AD", glow: "rgba(138,150,173,.35)" },
+  { id: "D", color: "#4FD18B", glow: "rgba(79,209,139,.4)" },
+  { id: "C", color: "#3FB4FF", glow: "rgba(63,180,255,.5)" },
+  { id: "B", color: "#8E7BFF", glow: "rgba(142,123,255,.5)" },
+  { id: "A", color: "#FF9340", glow: "rgba(255,147,64,.55)" },
+  { id: "S", color: "#FFD447", glow: "rgba(255,212,71,.7)" },
+];
+const RANK_DARK = RANKS.map((r) => r.color);
+const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#EA580C", "#C28A00"];
+function applyTheme(settings = {}) {
+  const mode = settings.theme === "light" ? "light" : "dark";
+  Object.keys(C).forEach((k) => delete C[k]);
+  Object.assign(C, THEMES[mode], settings.zesty ? ZEST[mode] : {}, settings.custom?.on && !settings.zesty ? customTheme(settings.custom) : {});
+  RANKS.forEach((r, i) => { r.color = mode === "light" ? RANK_LIGHT[i] : RANK_DARK[i]; });
+}
+// Bench-equivalent strength multiples for D, C, B, A, S at the reference lifter (180 lb, 5'10", male).
+// S (1.95) is elite territory: about a 350 lb bench for a 180 lb lifter.
+const RATIO_STEPS = [0.72, 1.1, 1.5, 1.95, 2.55];
+const REP_STEPS = [7, 13, 21, 31, 42];
+const DIVS = ["III", "II", "I"];
+const RANK_INFO = {
+  E: ["Awakening", "Just getting started. Everyone begins here."],
+  D: ["Beginner", "The habit is forming and form is dialed in."],
+  C: ["Regular", "Consistent lifter with a real foundation."],
+  B: ["Strong", "Clearly trained. Stronger than most people in any gym."],
+  A: ["Advanced", "Years of serious, disciplined training."],
+  S: ["Elite", "Genuinely jacked for your frame. Very few ever get here."],
+};
+// Minimum strength factor per group so custom lifts (especially machines) can't be rated too easy
+const FACTOR_FLOOR = { Chest: 0.35, Back: 0.4, Legs: 0.5, Shoulders: 0.25, Arms: 0.3, Core: 1.3 };
+// Some muscle groups are held to a stricter standard for rank
+const GROUP_HARD = { Shoulders: 1.25, Arms: 1.1 };
+// How much each muscle group counts toward overall rank; groups you haven't trained count as zero
+const GROUP_WEIGHT = { Legs: 3, Back: 3, Chest: 3, Shoulders: 2, Arms: 1, Core: 1 };
+
+const GROUPS = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio"];
+// type: weighted (lb x reps, ranked vs bodyweight) | bodyweight (reps, ranked by reps) | timed (minutes, no rank)
+// xp: XP per set (weighted/bodyweight) or per minute (timed)
+// perHand: weight is entered per hand (dumbbells, single-arm cables). The factor is for the weight as entered.
+const EXERCISES = [
+  { name: "Bench Press", group: "Chest", type: "weighted", factor: 1, xp: 12 },
+  { name: "Incline Bench Press", group: "Chest", type: "weighted", factor: 0.85, xp: 12 },
+  { name: "Smith Machine Bench Press", group: "Chest", type: "weighted", factor: 1.05, xp: 11 },
+  { name: "Chest Press Machine", group: "Chest", type: "weighted", factor: 1.1, xp: 10 },
+  { name: "Dumbbell Press", group: "Chest", type: "weighted", factor: 0.4, perHand: true, xp: 11 },
+  { name: "Incline Dumbbell Press", group: "Chest", type: "weighted", factor: 0.35, perHand: true, xp: 11 },
+  { name: "Pec Deck", group: "Chest", type: "weighted", factor: 0.75, xp: 8 },
+  { name: "Cable Crossover", group: "Chest", type: "weighted", factor: 0.35, perHand: true, xp: 8 },
+  { name: "Low Cable Fly", group: "Chest", type: "weighted", factor: 0.33, perHand: true, xp: 8 },
+  { name: "Cable Chest Press", group: "Chest", type: "weighted", factor: 0.45, perHand: true, xp: 10 },
+  { name: "Chest Fly (dumbbell)", group: "Chest", type: "weighted", factor: 0.25, perHand: true, xp: 8 },
+  { name: "Push-up", group: "Chest", type: "bodyweight", reps: 2.8, xp: 8 },
+  { name: "Dip", group: "Chest", type: "bodyweight", reps: 1.3, xp: 11 },
+  { name: "Assisted Dip Machine", group: "Chest", type: "weighted", factor: 0.6, xp: 8 },
+  { name: "Deadlift", group: "Back", type: "weighted", factor: 1.5, xp: 18 },
+  { name: "Trap Bar Deadlift", group: "Back", type: "weighted", factor: 1.6, xp: 17 },
+  { name: "Barbell Row", group: "Back", type: "weighted", factor: 0.85, xp: 12 },
+  { name: "T-Bar Row", group: "Back", type: "weighted", factor: 0.9, xp: 12 },
+  { name: "Dumbbell Row", group: "Back", type: "weighted", factor: 0.4, perHand: true, xp: 10 },
+  { name: "Machine Row", group: "Back", type: "weighted", factor: 0.9, xp: 10 },
+  { name: "Seated Cable Row", group: "Back", type: "weighted", factor: 0.8, xp: 10 },
+  { name: "Lat Pulldown", group: "Back", type: "weighted", factor: 0.8, xp: 10 },
+  { name: "Straight-Arm Pulldown", group: "Back", type: "weighted", factor: 0.45, xp: 7 },
+  { name: "Cable Pullover", group: "Back", type: "weighted", factor: 0.45, xp: 7 },
+  { name: "Single-Arm Cable Row", group: "Back", type: "weighted", factor: 0.4, perHand: true, xp: 9 },
+  { name: "Cable Pull-Through", group: "Legs", type: "weighted", factor: 0.7, xp: 8 },
+  { name: "Assisted Pull-up Machine", group: "Back", type: "weighted", factor: 0.6, xp: 9 },
+  { name: "Pull-up", group: "Back", type: "bodyweight", reps: 0.85, xp: 14 },
+  { name: "Chin-up", group: "Back", type: "bodyweight", reps: 0.95, xp: 13 },
+  { name: "Back Extension", group: "Back", type: "bodyweight", reps: 1.2, xp: 6 },
+  { name: "Dead Hang", group: "Back", type: "timed", xp: 5 },
+  { name: "Squat", group: "Legs", type: "weighted", factor: 1.25, xp: 16 },
+  { name: "Front Squat", group: "Legs", type: "weighted", factor: 1, xp: 16 },
+  { name: "Smith Machine Squat", group: "Legs", type: "weighted", factor: 1.3, xp: 14 },
+  { name: "Hack Squat", group: "Legs", type: "weighted", factor: 1.6, xp: 14 },
+  { name: "Leg Press", group: "Legs", type: "weighted", factor: 2.4, xp: 13 },
+  { name: "Romanian Deadlift", group: "Legs", type: "weighted", factor: 1.1, xp: 14 },
+  { name: "Hip Thrust", group: "Legs", type: "weighted", factor: 1.5, xp: 12 },
+  { name: "Bulgarian Split Squat", group: "Legs", type: "weighted", factor: 0.35, perHand: true, xp: 14 },
+  { name: "Goblet Squat", group: "Legs", type: "weighted", factor: 0.55, xp: 12 },
+  { name: "Leg Extension", group: "Legs", type: "weighted", factor: 0.7, xp: 8 },
+  { name: "Leg Curl", group: "Legs", type: "weighted", factor: 0.55, xp: 8 },
+  { name: "Hip Abduction Machine", group: "Legs", type: "weighted", factor: 0.7, xp: 6 },
+  { name: "Hip Adduction Machine", group: "Legs", type: "weighted", factor: 0.7, xp: 6 },
+  { name: "Calf Raise", group: "Legs", type: "weighted", factor: 1.5, xp: 6 },
+  { name: "Seated Calf Raise", group: "Legs", type: "weighted", factor: 0.8, xp: 6 },
+  { name: "Walking Lunge", group: "Legs", type: "bodyweight", reps: 2, xp: 10 },
+  { name: "Air Squat", group: "Legs", type: "bodyweight", reps: 3, xp: 5 },
+  { name: "Overhead Press", group: "Shoulders", type: "weighted", factor: 0.65, xp: 12 },
+  { name: "Shoulder Press Machine", group: "Shoulders", type: "weighted", factor: 0.7, xp: 10 },
+  { name: "Dumbbell Shoulder Press", group: "Shoulders", type: "weighted", factor: 0.28, perHand: true, xp: 11 },
+  { name: "Arnold Press", group: "Shoulders", type: "weighted", factor: 0.25, perHand: true, xp: 11 },
+  { name: "Lateral Raise", group: "Shoulders", type: "weighted", factor: 0.1, perHand: true, xp: 7 },
+  { name: "Cable Lateral Raise", group: "Shoulders", type: "weighted", factor: 0.09, perHand: true, xp: 7 },
+  { name: "Lateral Raise Machine", group: "Shoulders", type: "weighted", factor: 0.5, xp: 7 },
+  { name: "Front Raise", group: "Shoulders", type: "weighted", factor: 0.1, perHand: true, xp: 6 },
+  { name: "Rear Delt Fly (dumbbell)", group: "Shoulders", type: "weighted", factor: 0.09, perHand: true, xp: 7 },
+  { name: "Reverse Fly Machine", group: "Shoulders", type: "weighted", factor: 0.5, xp: 7 },
+  { name: "Face Pull", group: "Shoulders", type: "weighted", factor: 0.4, xp: 7 },
+  { name: "Cable Rear Delt Fly", group: "Shoulders", type: "weighted", factor: 0.35, xp: 7 },
+  { name: "Cable Front Raise", group: "Shoulders", type: "weighted", factor: 0.3, xp: 6 },
+  { name: "Cable Upright Row", group: "Shoulders", type: "weighted", factor: 0.45, xp: 7 },
+  { name: "Cable Shrug", group: "Shoulders", type: "weighted", factor: 1.1, xp: 6 },
+  { name: "Upright Row", group: "Shoulders", type: "weighted", factor: 0.45, xp: 8 },
+  { name: "Shrug", group: "Shoulders", type: "weighted", factor: 1.2, xp: 7 },
+  { name: "Barbell Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 8 },
+  { name: "EZ Bar Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 8 },
+  { name: "Dumbbell Curl", group: "Arms", type: "weighted", factor: 0.17, perHand: true, xp: 7 },
+  { name: "Hammer Curl", group: "Arms", type: "weighted", factor: 0.19, perHand: true, xp: 7 },
+  { name: "Preacher Curl", group: "Arms", type: "weighted", factor: 0.4, xp: 7 },
+  { name: "Cable Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 7 },
+  { name: "Rope Hammer Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 7 },
+  { name: "Rope Pushdown", group: "Arms", type: "weighted", factor: 0.42, xp: 7 },
+  { name: "Cable Overhead Extension", group: "Arms", type: "weighted", factor: 0.4, xp: 7 },
+  { name: "Cable Kickback", group: "Arms", type: "weighted", factor: 0.15, perHand: true, xp: 6 },
+  { name: "Bicep Curl Machine", group: "Arms", type: "weighted", factor: 0.5, xp: 7 },
+  { name: "Tricep Pushdown", group: "Arms", type: "weighted", factor: 0.45, xp: 7 },
+  { name: "Overhead Tricep Extension", group: "Arms", type: "weighted", factor: 0.4, xp: 7 },
+  { name: "Skull Crusher", group: "Arms", type: "weighted", factor: 0.4, xp: 8 },
+  { name: "Tricep Extension Machine", group: "Arms", type: "weighted", factor: 0.55, xp: 7 },
+  { name: "Close-Grip Bench Press", group: "Arms", type: "weighted", factor: 0.85, xp: 11 },
+  { name: "Plank", group: "Core", type: "timed", xp: 8 },
+  { name: "Hanging Leg Raise", group: "Core", type: "bodyweight", reps: 0.8, xp: 9 },
+  { name: "Cable Crunch", group: "Core", type: "weighted", factor: 1.3, xp: 7 },
+  { name: "Cable Woodchop", group: "Core", type: "weighted", factor: 0.45, xp: 7 },
+  { name: "Cable Pallof Press", group: "Core", type: "weighted", factor: 0.3, xp: 6 },
+  { name: "Ab Crunch Machine", group: "Core", type: "weighted", factor: 1.3, xp: 7 },
+  { name: "Russian Twist", group: "Core", type: "bodyweight", reps: 2.5, xp: 5 },
+  { name: "Sit-up", group: "Core", type: "bodyweight", reps: 3, xp: 5 },
+  { name: "Farmer's Carry", group: "Core", type: "weighted", factor: 0.5, perHand: true, xp: 9 },
+  { name: "Running", group: "Cardio", type: "timed", xp: 6 },
+  { name: "Walking", group: "Cardio", type: "timed", xp: 3 },
+  { name: "Incline Walk", group: "Cardio", type: "timed", xp: 4 },
+  { name: "Cycling", group: "Cardio", type: "timed", xp: 5 },
+  { name: "Stairmaster", group: "Cardio", type: "timed", xp: 6 },
+  { name: "Elliptical", group: "Cardio", type: "timed", xp: 5 },
+  { name: "Rowing Machine", group: "Cardio", type: "timed", xp: 6 },
+  { name: "Swimming", group: "Cardio", type: "timed", xp: 7 },
+  { name: "Jump Rope", group: "Cardio", type: "timed", xp: 7 },
+  { name: "Battle Ropes", group: "Cardio", type: "timed", xp: 8 },
+  { name: "Burpee", group: "Cardio", type: "bodyweight", reps: 2, xp: 9 },
+];
+const allExercises = (s) => {
+  const local = [...EXERCISES, ...(s.custom || [])];
+  const names = new Set(local.map((e) => e.name.toLowerCase()));
+  return [...local, ...(s.community?.ex || []).filter((e) => e.name && !names.has(e.name.toLowerCase())).map((e) => ({ ...e, community: true }))].map((e) =>
+  e.type === "weighted" ? { ...e, factor: Math.max(e.factor || 0.5, (FACTOR_FLOOR[e.group] || 0.2) * (e.perHand ? 0.4 : 1)) } : e);
+};
+const findEx = (s, name) => allExercises(s).find((d) => d.name === name) || { name, group: "Core", type: "weighted", factor: 1.2, xp: 8 };
+
+const QUEST_POOL = [
+  { qid: "pushups", title: "push-ups", target: 100, unit: "reps", xp: 60 },
+  { qid: "squats", title: "air squats", target: 100, unit: "reps", xp: 60 },
+  { qid: "situps", title: "sit-ups", target: 100, unit: "reps", xp: 60 },
+  { qid: "run", title: "Run or walk", target: 3, unit: "mi", xp: 80 },
+  { qid: "water", title: "Drink water", target: 16, unit: "cups", xp: 40 },
+  { qid: "plank", title: "Plank (total)", target: 5, unit: "min", xp: 50 },
+  { qid: "pullups", title: "pull-ups", target: 30, unit: "reps", xp: 70 },
+  { qid: "steps", title: "Walk", target: 10000, unit: "steps", xp: 50 },
+  { qid: "stretch", title: "Stretch", target: 15, unit: "min", xp: 30 },
+  { qid: "lunges", title: "walking lunges", target: 60, unit: "reps", xp: 55 },
+  { qid: "burpees", title: "burpees", target: 40, unit: "reps", xp: 70 },
+  { qid: "jumprope", title: "Jump rope", target: 10, unit: "min", xp: 60 },
+  { qid: "dips", title: "dips", target: 40, unit: "reps", xp: 60 },
+  { qid: "hang", title: "Dead hang (total)", target: 3, unit: "min", xp: 45 },
+];
+const DAILY_REROLLS = 3;
+// Which quests are the same as a logged exercise (quest progress and workout sets feed each other)
+const QUEST_EX = { pushups: "Push-up", squats: "Air Squat", situps: "Sit-up", pullups: "Pull-up", plank: "Plank", lunges: "Walking Lunge", burpees: "Burpee", jumprope: "Jump Rope", dips: "Dip", hang: "Dead Hang" };
+const questStep = (q) => (q.target >= 1000 ? 1000 : q.target >= 50 ? 10 : q.unit === "min" ? 1 : 5);
+const FUEL_XP = 75;
+
+const FOODS = [
+  { name: "Chicken breast (4 oz cooked)", cal: 187, p: 35, c: 0, f: 4 },
+  { name: "Ground beef 90/10 (4 oz cooked)", cal: 240, p: 30, c: 0, f: 13 },
+  { name: "Salmon (4 oz cooked)", cal: 233, p: 25, c: 0, f: 14 },
+  { name: "Egg (large)", cal: 72, p: 6, c: 0, f: 5 },
+  { name: "Egg whites (1 cup)", cal: 126, p: 26, c: 2, f: 0 },
+  { name: "Greek yogurt nonfat (1 cup)", cal: 130, p: 23, c: 9, f: 0 },
+  { name: "Whole milk (1 cup)", cal: 150, p: 8, c: 12, f: 8 },
+  { name: "Whey protein (1 scoop)", cal: 120, p: 24, c: 3, f: 1.5 },
+  { name: "White rice (1 cup cooked)", cal: 205, p: 4, c: 45, f: 0 },
+  { name: "Oats (1/2 cup dry)", cal: 150, p: 5, c: 27, f: 3 },
+  { name: "Pasta (1 cup cooked)", cal: 220, p: 8, c: 43, f: 1 },
+  { name: "Potato (medium)", cal: 160, p: 4, c: 37, f: 0 },
+  { name: "Sweet potato (medium)", cal: 112, p: 2, c: 26, f: 0 },
+  { name: "Bread slice", cal: 80, p: 3, c: 15, f: 1 },
+  { name: "Tortilla (flour, 10\")", cal: 210, p: 6, c: 35, f: 5 },
+  { name: "Banana", cal: 105, p: 1, c: 27, f: 0 },
+  { name: "Apple", cal: 95, p: 0, c: 25, f: 0 },
+  { name: "Peanut butter (2 tbsp)", cal: 190, p: 7, c: 7, f: 16 },
+  { name: "Olive oil (1 tbsp)", cal: 120, p: 0, c: 0, f: 14 },
+  { name: "Avocado (half)", cal: 120, p: 1, c: 6, f: 11 },
+  { name: "Cheddar cheese (1 oz)", cal: 115, p: 7, c: 0, f: 9 },
+  { name: "Broccoli (1 cup)", cal: 55, p: 4, c: 11, f: 0 },
+  { name: "Black beans (1/2 cup)", cal: 110, p: 7, c: 20, f: 0 },
+  { name: "Almonds (1 oz)", cal: 165, p: 6, c: 6, f: 14 },
+];
+
+// Restaurant menu items from published nutrition info (checked September 2026). Menus change, so use "Look up online" for anything missing.
+const RESTAURANT_FOODS = [
+  // P. Terry's official nutrition sheet (rev. 3/7/2024)
+  ...[
+    ["Hamburger", 394, 22, 27, 19.5], ["Hamburger lettuce wrap", 255, 19, 9, 16.5], ["Cheeseburger", 464, 26, 28, 25.5], ["Cheeseburger lettuce wrap", 370, 23, 10, 22],
+    ["Double cheeseburger", 743, 51, 29, 45], ["Double cheeseburger lettuce wrap", 588, 48, 11, 41], ["Grilled chicken burger", 406, 31, 27, 15], ["Grilled chicken burger lettuce wrap", 236, 27, 1, 12],
+    ["Crispy chicken burger", 606, 34, 44, 29], ["Spicy crispy chicken burger", 621, 34, 44, 29], ["Crispy chicken bites (8 pc)", 300, 42, 13, 13], ["Veggie burger", 403, 12, 46, 19],
+    ["Egg burger w/ cheese", 280, 13, 28, 12.5], ["Egg burger w/ cheese & bacon", 385, 17.5, 28, 21.5], ["Egg burger w/ cheese & sausage", 450, 20, 28, 28.5], ["French fries", 386, 5, 50, 18],
+    ["Oatmeal chocolate chip cookie", 241, 4, 27, 13], ["Banana bread", 192, 4.5, 45, 1.7], ["Vanilla shake (small)", 555, 16, 91, 14], ["Chocolate shake (small)", 722, 16, 136, 14], ["Oreo shake (small)", 577, 16, 93, 16],
+  ].map(([n, cal, p, c, f]) => ({ r: "P. Terry's", name: `P. Terry's ${n}`, cal, p, c, f })),
+  // Torchy's Tacos 2026 nutritional evaluations
+  ...[
+    ["Trailer Park", 298, 17, 22, 15], ["Trailer Park (trashy)", 355, 19, 23, 20], ["Chicken Fajita", 353, 20, 20, 21], ["Brushfire", 300, 18, 25, 14], ["Tipsy Chick", 453, 22, 40, 22],
+    ["Democrat", 168, 10, 20, 5], ["Crossroads", 346, 20, 18, 22], ["Steak Fajita", 449, 20, 20, 26], ["Republican", 474, 16, 35, 29], ["Green Chile Pork", 217, 11, 26, 10], ["Hogfather", 428, 20, 32, 25],
+    ["Baja Shrimp", 267, 12, 24, 14], ["Grilled Baja Shrimp", 169, 9, 6, 12], ["Mr. Orange", 207, 14, 23, 10], ["Fresh Avocado", 249, 8, 24, 14], ["Fried Avocado", 269, 9, 27, 14],
+    ["Migas taco", 379, 17, 27, 23], ["The Wrangler", 456, 23, 24, 29], ["Ranch Hand", 451, 23, 19, 31], ["Bacon, egg & cheese taco", 383, 21, 17, 25], ["Potato, egg & cheese taco", 384, 18, 25, 22], ["Chorizo, egg & cheese taco", 388, 19, 19, 26],
+    ["Breakfast burrito", 1139, 49, 100, 62], ["Big Tipsy Bowl (fajita chicken)", 990, 39, 111, 43], ["Big Tipsy Bowl (fried chicken)", 999, 44, 116, 39], ["Bonfire bowl (jerk chicken)", 771, 33, 94, 23], ["Bonfire bowl (salmon)", 762, 39, 98, 24],
+    ["Outlaw Bowl (fajita chicken)", 786, 29, 109, 26], ["Outlaw Bowl (fried chicken)", 794, 35, 113, 22], ["Grande burrito", 797, 23, 96, 35], ["Green chile queso & chips", 643, 21, 32, 46], ["Guacamole & chips", 423, 6, 23, 33],
+    ["Street corn", 383, 8, 48, 22], ["Damn Good Tots", 680, 19, 44, 42], ["Refried pinto beans", 198, 12, 35, 1], ["Black beans", 162, 9, 31, 1], ["Mexican rice", 241, 5, 48, 3], ["Trailer Park (hillbilly style)", 560, 31, 24, 36],
+  ].map(([n, cal, p, c, f]) => ({ r: "Torchy's", name: `Torchy's ${n}`, cal, p, c, f })),
+  // Chipotle official nutrition facts (March 2025)
+  ...[
+    ["chicken (4 oz)", 180, 32, 0, 7], ["steak (4 oz)", 150, 21, 1, 6], ["barbacoa (4 oz)", 170, 24, 2, 7], ["carnitas (4 oz)", 210, 23, 0, 12], ["sofritas (4 oz)", 150, 8, 9, 10],
+    ["white rice (4 oz)", 210, 4, 40, 4], ["brown rice (4 oz)", 210, 4, 36, 6], ["black beans (4 oz)", 130, 8, 22, 1.5], ["pinto beans (4 oz)", 130, 8, 21, 1.5], ["fajita veggies", 20, 0, 5, 0],
+    ["burrito tortilla", 320, 8, 50, 9], ["taco flour tortilla", 80, 2, 13, 2.5], ["crispy corn taco shell", 70, 1, 10, 3], ["guacamole (4 oz)", 230, 2, 8, 22],
+  ].map(([n, cal, p, c, f]) => ({ r: "Chipotle", name: `Chipotle ${n}`, cal, p, c, f })),
+  { r: "Chick-fil-A", name: "Chick-fil-A grilled nuggets (8 ct)", cal: 130, p: 25, c: 1, f: 3 },
+  // Raising Cane's: calories published; macro split estimated from published calorie breakdown
+  { r: "Raising Cane's", name: "Raising Cane's chicken finger (1)", cal: 130, p: 12, c: 5, f: 7, approx: true },
+  { r: "Raising Cane's", name: "Raising Cane's Cane's Sauce (1 cup)", cal: 190, p: 0, c: 4, f: 19, approx: true },
+  { r: "Raising Cane's", name: "Raising Cane's crinkle-cut fries", cal: 400, p: 5, c: 52, f: 18, approx: true },
+  { r: "Raising Cane's", name: "Raising Cane's Texas toast", cal: 150, p: 4, c: 18, f: 7, approx: true },
+  // Whataburger: third-party compiled figures, may differ from store
+  { r: "Whataburger", name: "Whataburger (original)", cal: 590, p: 29, c: 52, f: 32, approx: true },
+  { r: "Whataburger", name: "Whataburger Double Meat", cal: 830, p: 47, c: 62, f: 44, approx: true },
+  { r: "Whataburger", name: "Whataburger Honey Butter Chicken Biscuit", cal: 570, p: 18, c: 52, f: 32, approx: true },
+];
+const RESTAURANTS = [...new Set(RESTAURANT_FOODS.map((f) => f.r))];
+
+const ACTIVITY = [
+  { id: 1.2, label: "Mostly sitting" },
+  { id: 1.375, label: "Train 1–3 days/week" },
+  { id: 1.55, label: "Train 3–5 days/week" },
+  { id: 1.725, label: "Train 6–7 days/week" },
+];
+const GOALS = [
+  { id: "cut", label: "Cut", adj: -400 },
+  { id: "maintain", label: "Maintain", adj: 0 },
+  { id: "lean", label: "Lean bulk", adj: 250 },
+  { id: "bulk", label: "Bulk", adj: 450 },
+];
+
+/* ---------- Helpers ---------- */
+// In-app confirm dialog (window.confirm is blocked in published apps)
+const AskRef = { current: (msg, fn) => fn() };
+const ask = (message, onYes, yesLabel) => AskRef.current(message, onYes, yesLabel);
+// Add a finished workout and push its reps into matching daily quests
+function fillQuests(p, d, exercises) {
+  const day = p.days?.[d] || newDay();
+  const list = day.list.map((q) => {
+    const exName = QUEST_EX[q.qid];
+    if (q.claimed || !exName) return q;
+    const amt = exercises.filter((e) => e.name === exName).reduce((a, e) => a + e.sets.reduce((b, st) => b + (+st.r || 0), 0), 0);
+    return amt ? { ...q, progress: q.progress + amt, fromWorkout: (q.fromWorkout || 0) + amt } : q;
+  });
+  return { ...p, days: { ...p.days, [d]: { ...day, list } } };
+}
+function addWorkout(p, workout) {
+  return { ...fillQuests(p, workout.date, workout.exercises), workouts: [...p.workouts, workout] };
+}
+// Add one completed card to today's deck session workout (creates it on the first card)
+function addDeckSet(p, sessionId, name, reps, xp) {
+  const d = today();
+  const set = { w: "", r: reps, done: true };
+  const existing = p.workouts.find((w) => w.id === sessionId);
+  let workouts;
+  if (existing) {
+    workouts = p.workouts.map((w) => {
+      if (w.id !== sessionId) return w;
+      const has = w.exercises.some((e) => e.name === name);
+      const exercises = has ? w.exercises.map((e) => (e.name === name ? { ...e, sets: [...e.sets, set] } : e)) : [...w.exercises, { name, sets: [set] }];
+      return { ...w, exercises, xp: (w.xp || 0) + xp };
+    });
+  } else {
+    workouts = [...p.workouts, { id: sessionId, date: d, source: "deck", exercises: [{ name, sets: [set] }], xp, volume: 0 }];
+  }
+  return { ...fillQuests(p, d, [{ name, sets: [set] }]), workouts };
+}
+
+const dkey = (dt) => dt.toLocaleDateString("en-CA");
+const today = () => dkey(new Date());
+const shift = (d, n) => { const x = new Date(d + "T12:00"); x.setDate(x.getDate() + n); return dkey(x); };
+const uid = () => Math.random().toString(36).slice(2, 10);
+const e1rm = (w, r) => (r <= 0 ? 0 : w * (1 + r / 30));
+const fmtDay = (d) => new Date(d + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
+// Strength scale in lb for this person. Heavier lifters need more (but not linearly, since strength
+// grows slower than bodyweight), and taller frames need more because a jacked physique at that height carries more muscle.
+function strengthScale(p) {
+  const bw = Math.max(80, +p.weight || 170), h = Math.max(48, +p.height || 70) * 0.0254;
+  const frameLb = 24 * h * h * 2.2046; // bodyweight of a very muscular build at this height
+  const mass = 0.65 * bw + 0.35 * frameLb;
+  return 180 * Math.pow(mass / 180, 0.67) * (p.sex === "f" ? 0.65 : 1);
+}
+function thresholds(ex, p) {
+  if (ex.type === "bodyweight") return REP_STEPS.map((r) => Math.round(r * (ex.reps || 1) * (p.sex === "f" ? 0.6 : 1)));
+  const sc = strengthScale(p);
+  const hard = GROUP_HARD[ex.group] || 1;
+  return RATIO_STEPS.map((r) => Math.round((r * ex.factor * sc * hard) / 5) * 5);
+}
+// Score from 0 to 6: E is 0–1, D 1–2 ... S 5–6 (S I is 15% past the S line)
+function scoreFor(best, steps) {
+  if (best < steps[0]) return best / steps[0];
+  for (let i = 1; i < steps.length; i++) if (best < steps[i]) return i + (best - steps[i - 1]) / (steps[i] - steps[i - 1]);
+  return Math.min(6, 5 + (best - steps[4]) / (steps[4] * 0.15));
+}
+function valueAt(t, steps) {
+  if (t <= 1) return t * steps[0];
+  if (t <= 5) { const i = Math.floor(t); return i === 5 ? steps[4] : steps[i - 1] + (t - i) * (steps[i] - steps[i - 1]); }
+  return steps[4] * (1 + 0.15 * (t - 5));
+}
+function rankFromScore(score) {
+  const i = Math.min(5, Math.floor(score));
+  const frac = Math.min(0.999, score - i);
+  const d = Math.min(2, Math.floor(frac * 3));
+  return { rank: RANKS[i], div: DIVS[d], label: `${RANKS[i].id} ${DIVS[d]}`, divPct: Math.round(((frac * 3) - d) * 100) };
+}
+function rankFor(ex, best, p) {
+  const steps = thresholds(ex, p);
+  const score = scoreFor(best, steps);
+  const r = rankFromScore(score);
+  const nextT = Math.floor(score * 3 + 1e-9) / 3 + 1 / 3;
+  const next = score >= 5.999 ? null : Math.ceil(valueAt(Math.min(6, nextT), steps));
+  const nextLabel = next ? rankFromScore(Math.min(5.999, nextT + 1e-6)).label : null;
+  return { ...r, score, pct: r.divPct, next, nextLabel, steps };
+}
+function levelFromXp(xp) {
+  let lvl = 1, need = 100, left = xp;
+  while (left >= need) { left -= need; lvl++; need = Math.round(100 * Math.pow(lvl, 1.25)); }
+  return { lvl, into: left, need };
+}
+
+// Weight as the exercise's factor expects it: per hand for dumbbell-style moves, total for bars and machines
+function effW(def, ex, w) {
+  const userHand = ex?.wMode ? ex.wMode === "hand" : !!def.perHand;
+  if (userHand === !!def.perHand) return w;
+  return def.perHand ? w / 2 : w * 2;
+}
+function bestValue(def, st, p, ex) {
+  if (def.type === "bodyweight") return (+st.r || 0) * (1 + (+st.w || 0) / Math.max(80, +p.weight || 170));
+  return e1rm(effW(def, ex, +st.w || 0), +st.r);
+}
+function computeBests(s) {
+  const b = {};
+  s.workouts.forEach((w) => w.exercises.forEach((ex) => {
+    const def = findEx(s, ex.name);
+    if (def.type === "timed") return;
+    ex.sets.forEach((st) => {
+      const v = bestValue(def, st, s.profile, ex);
+      if (v > (b[ex.name] || 0)) b[ex.name] = v;
+    });
+  }));
+  return b;
+}
+function rankedLifts(s) {
+  const bests = computeBests(s);
+  return allExercises(s).filter((e) => e.type !== "timed" && bests[e.name]).map((e) => ({ e, best: bests[e.name], ...rankFor(e, bests[e.name], s.profile) }));
+}
+function groupScores(s) {
+  const g = {};
+  rankedLifts(s).forEach((r) => { if (GROUP_WEIGHT[r.e.group]) g[r.e.group] = Math.max(g[r.e.group] || 0, r.score); });
+  return g;
+}
+function overallInfo(s) {
+  const g = groupScores(s);
+  const total = Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0);
+  const score = Object.entries(GROUP_WEIGHT).reduce((a, [k, w]) => a + (g[k] || 0) * w, 0) / total;
+  return { score, groups: g, ...rankFromScore(score) };
+}
+const overallRank = (s) => overallInfo(s).rank;
+// Leaderboard points: all workout XP + points for the rank of every lift
+function pointsOf(s) {
+  const fromWorkouts = s.workouts.reduce((a, w) => a + (w.xp || 0), 0);
+  const fromRanks = rankedLifts(s).reduce((a, r) => a + Math.round(r.score * r.score * 30), 0);
+  return fromWorkouts + fromRanks;
+}
+function activeDays(s) {
+  const days = new Set(s.workouts.map((w) => w.date));
+  Object.entries(s.days || {}).forEach(([d, v]) => v.list?.some((q) => q.claimed) && days.add(d));
+  return days;
+}
+function streakOf(s) {
+  const days = activeDays(s);
+  let n = 0, d = today();
+  if (!days.has(d)) d = shift(d, -1);
+  while (days.has(d)) { n++; d = shift(d, -1); }
+  return n;
+}
+function weekStart() { const x = new Date(); x.setDate(x.getDate() - x.getDay()); return dkey(x); }
+
+function targets(p) {
+  const kg = p.weight * 0.4536, cm = p.height * 2.54;
+  const bmr = 10 * kg + 6.25 * cm - 5 * p.age + (p.sex === "m" ? 5 : -161);
+  const tdee = Math.round(bmr * p.activity);
+  const goal = GOALS.find((g) => g.id === p.goal) || GOALS[1];
+  const cal = tdee + goal.adj;
+  const protein = Math.round(p.weight * (p.goal === "cut" ? 1 : 0.85));
+  const fat = Math.round((cal * 0.25) / 9);
+  const carbs = Math.max(0, Math.round((cal - protein * 4 - fat * 9) / 4));
+  return { tdee, cal, protein, fat, carbs };
+}
+const mealTotals = (meals = []) => meals.reduce((a, m) => ({ cal: a.cal + m.cal * m.qty, p: a.p + m.p * m.qty, c: a.c + m.c * m.qty, f: a.f + m.f * m.qty }), { cal: 0, p: 0, c: 0, f: 0 });
+
+function makeQuest(exclude = [], tier = 1) {
+  const pool = QUEST_POOL.filter((q) => !exclude.includes(q.qid));
+  const q = pool[Math.floor(Math.random() * pool.length)] || QUEST_POOL[0];
+  const mult = tier === 1 ? 1 : 1 + 0.5 * (tier - 1);
+  const target = q.target >= 1000 ? Math.round((q.target * mult) / 1000) * 1000 : Math.round(q.target * mult);
+  return { id: uid(), qid: q.qid, title: q.title, target, unit: q.unit, xp: Math.round(q.xp * mult), progress: 0, claimed: false, tier };
+}
+const newDay = () => {
+  const list = [];
+  while (list.length < 3) list.push(makeQuest(list.map((q) => q.qid)));
+  return { list, rerolls: 0, bonuses: 0 };
+};
+
+/* ---------- XP, achievements, community ---------- */
+const publishShared = async (key, obj) => { try { if (window.storage?.set) await window.storage.set(key, JSON.stringify(obj), true); } catch (e) { /* offline or preview */ } };
+const slug = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+async function loadCommunity() {
+  if (!window.storage?.list) return null;
+  const read = async (prefix) => {
+    const res = await window.storage.list(prefix, true);
+    const items = await Promise.all((res?.keys || []).map(async (k) => { try { const r = await window.storage.get(k, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; } }));
+    return items.filter((x) => x && x.name);
+  };
+  return { ex: await read("ex:"), foods: await read("food:") };
+}
+
+// XP for one set: effort (how much work relative to your personal S-rank line) × difficulty (which rank the set lands in)
+function setXp(s, def, st, ex) {
+  const p = s.profile, r = +st.r || 0, w = def.type === "weighted" ? effW(def, ex, +st.w || 0) : +st.w || 0;
+  if (r <= 0) return { xp: 0, note: "" };
+  if (def.type === "timed") {
+    const mi = def.group === "Cardio" ? w : 0;
+    return { xp: Math.round(r * def.xp + mi * 10), note: `${r} min × ${def.xp}${mi ? ` + ${mi} mi × 10` : ""}` };
+  }
+  const steps = thresholds(def, p), sTop = steps[4];
+  const bw = Math.max(80, +p.weight || 170);
+  const val = def.type === "bodyweight" ? r * (1 + w / bw) : e1rm(w, r);
+  const effort = def.type === "bodyweight" ? (val / sTop) * 6 : (w * r) / sTop;
+  const score = scoreFor(val, steps);
+  const mult = 0.5 + score * 0.3;
+  const xp = Math.max(Math.ceil(def.xp / 2), Math.round(def.xp * 0.7 * effort * mult));
+  return { xp, note: `${rankFromScore(score).label}-level set`, score };
+}
+function workoutXp(s, exercises, bests) {
+  let xp = 0, prs = 0, volume = 0, sets = 0;
+  const lines = [];
+  exercises.forEach((ex) => {
+    const def = findEx(s, ex.name);
+    const line = { name: ex.name, xp: 0, sets: [] };
+    ex.sets.forEach((st) => {
+      sets++;
+      const { xp: sx, note } = setXp(s, def, st, ex);
+      line.xp += sx; xp += sx;
+      const label = def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`;
+      let pr = false;
+      if (def.type !== "timed") {
+        volume += (+st.w || 0) * (+st.r || 0);
+        const v = bestValue(def, st, s.profile, ex);
+        if (bests && v > (bests[ex.name] || 0)) { prs++; pr = true; bests[ex.name] = v; }
+      }
+      line.sets.push({ label, xp: sx, note, pr });
+    });
+    lines.push(line);
+  });
+  return { xp: xp + prs * 40, prs, volume, sets, lines, prBonus: prs * 40 };
+}
+
+const TIER_STYLE = [null,
+  { name: "Bronze", color: "#D08A4A", glow: "rgba(208,138,74,.55)", xp: 100 },
+  { name: "Silver", color: "#D9E2EE", glow: "rgba(217,226,238,.6)", xp: 250 },
+  { name: "Gold", color: "#FFD447", glow: "rgba(255,212,71,.7)", xp: 600 },
+  { name: "Platinum", color: "#7CF0FF", glow: "rgba(124,240,255,.75)", xp: 1500 },
+  { name: "Mythic", color: "#FF5AD9", glow: "rgba(255,90,217,.85)", xp: 4000 },
+];
+const ACH_ICONS = { Footprints, Weight, Repeat, CalendarCheck, Flame, Activity, Zap, Dumbbell, Shield, Swords, Star };
+const ACH_SERIES = [
+  { key: "miles", icon: "Footprints", title: "Road Runner", unit: "miles", steps: [10, 50, 100, 250, 1000], get: (st) => st.miles },
+  { key: "volume", icon: "Weight", title: "Iron Mover", unit: "lb lifted", steps: [50000, 250000, 1000000, 5000000, 20000000], get: (st) => st.volume },
+  { key: "reps", icon: "Repeat", title: "Rep Machine", unit: "total reps", steps: [1000, 5000, 25000, 100000, 500000], get: (st) => st.reps },
+  { key: "workouts", icon: "CalendarCheck", title: "Show Up", unit: "workouts", steps: [10, 50, 150, 365, 1000], get: (st) => st.workouts },
+  { key: "streak", icon: "Flame", title: "Unbroken", unit: "day streak", steps: [7, 30, 100, 365], get: (st) => st.longestStreak },
+  { key: "pushups", icon: "Activity", title: "Push-up King", unit: "push-ups", steps: [500, 2500, 10000, 50000], get: (st) => st.pushups },
+  { key: "pullups", icon: "Zap", title: "Bar Hanger", unit: "pull-ups", steps: [100, 1000, 5000, 25000], get: (st) => st.pullups },
+  { key: "bench", icon: "Dumbbell", title: "Bench Club", unit: "lb bench (est. max)", steps: [135, 225, 315, 405, 495], get: (st) => st.bench },
+  { key: "squat", icon: "Dumbbell", title: "Squat Club", unit: "lb squat (est. max)", steps: [225, 315, 405, 495, 600], get: (st) => st.squat },
+  { key: "deadlift", icon: "Dumbbell", title: "Deadlift Club", unit: "lb deadlift (est. max)", steps: [225, 315, 405, 495, 600], get: (st) => st.deadlift },
+  { key: "rank", icon: "Shield", title: "Ascension", labels: ["First C-rank lift", "First B-rank lift", "First A-rank lift", "First S-rank lift", "Overall S-rank"], steps: [1, 2, 3, 4, 5], get: (st) => st.rankTier },
+  { key: "quests", icon: "Swords", title: "Quest Hunter", unit: "quests cleared", steps: [10, 50, 250, 1000], get: (st) => st.quests },
+  { key: "level", icon: "Star", title: "Leveler", unit: "level", steps: [10, 25, 50, 100], get: (st) => st.level },
+];
+const ROMAN = ["I", "II", "III", "IV", "V"];
+function allAchievements() {
+  return ACH_SERIES.flatMap((series) => series.steps.map((v, i) => ({ id: `${series.key}-${i}`, series, tier: i + 1, value: v, title: `${series.title} ${ROMAN[i]}`, desc: series.labels ? series.labels[i] : `${v.toLocaleString()} ${series.unit}`, xp: TIER_STYLE[i + 1].xp })));
+}
+function lifetimeStats(s) {
+  let miles = 0, volume = 0, reps = 0, workouts = 0, pushups = 0, pullups = 0;
+  const bests = computeBests(s);
+  s.workouts.forEach((w) => {
+    if (w.source !== "quest") workouts++;
+    w.exercises.forEach((ex) => {
+      const def = findEx(s, ex.name);
+      ex.sets.forEach((st) => {
+        const r = +st.r || 0, wt = +st.w || 0;
+        if (def.type === "timed") { if (def.group === "Cardio") miles += wt; return; }
+        reps += r; volume += wt * r;
+        if (/push-?up/i.test(ex.name)) pushups += r;
+        if (/pull-?up|chin-?up/i.test(ex.name)) pullups += r;
+      });
+    });
+  });
+  let quests = 0;
+  Object.values(s.days || {}).forEach((day) => (day.list || []).forEach((q) => { if (q.claimed) { quests++; if (q.qid === "run") miles += q.progress || q.target || 0; } }));
+  const days = [...activeDays(s)].sort();
+  let longest = 0, run = 0, prev = null;
+  days.forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; longest = Math.max(longest, run); prev = d; });
+  const ranked = rankedLifts(s);
+  const maxScore = ranked.reduce((a, r) => Math.max(a, r.score), 0);
+  const overall = overallInfo(s).score;
+  const rankTier = overall >= 5 ? 5 : maxScore >= 5 ? 4 : maxScore >= 4 ? 3 : maxScore >= 3 ? 2 : maxScore >= 2 ? 1 : 0;
+  return {
+    miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts, pushups, pullups, quests, longestStreak: longest,
+    bench: Math.round(bests["Bench Press"] || 0), squat: Math.round(bests["Squat"] || 0), deadlift: Math.round(bests["Deadlift"] || 0),
+    rankTier, level: levelFromXp(s.xp).lvl, since: s.workouts[0]?.date || null,
+  };
+}
+// Drop achievements that no longer hold up (e.g. ranks earned under the old, easier scale) and take back their XP
+function reconcileAchievements(s, rankOnly = false) {
+  const earned = new Set(earnedAchievements(s).map((a) => a.id));
+  const all = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
+  const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && (!rankOnly || id.startsWith("rank-")));
+  if (!lost.length) return { ...s, achV: 2 };
+  const refund = lost.reduce((a, id) => a + (all[id]?.xp || 0), 0);
+  const ach = { ...s.ach }; lost.forEach((id) => delete ach[id]);
+  return { ...s, ach, achV: 2, xp: Math.max(0, s.xp - refund) };
+}
+function earnedAchievements(s) {
+  const st = lifetimeStats(s);
+  return allAchievements().filter((a) => a.series.get(st) >= a.value);
+}
+
+// Custom RGB theme: derive every color from three picks
+const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const rgbaOf = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const mixRgb = (a, b, t) => `rgb(${a.map((x, i) => Math.round(x + (b[i] - x) * t)).join(",")})`;
+function customTheme(cu) {
+  const cy = hexRgb(cu.cyan), bl = hexRgb(cu.blue), bg = hexRgb(cu.bg);
+  if (!cy || !bl || !bg) return {};
+  const light = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) / 255 > 0.5;
+  const fg = light ? [7, 22, 42] : [230, 246, 255];
+  return {
+    bg: mixRgb(bg, bg, 0), text: mixRgb(fg, fg, 0), dim: mixRgb(fg, bg, 0.5), mute: mixRgb(fg, bg, 0.72), sub: mixRgb(fg, bg, 0.25),
+    cyan: cu.cyan, blue: cu.blue, soft: mixRgb(bg, cy, 0.05), sheet: mixRgb(bg, cy, 0.06), accentBg: mixRgb(bg, cy, 0.18), track: mixRgb(bg, cy, 0.12), border: mixRgb(bg, cy, 0.24), inpBg: mixRgb(bg, bg, 0),
+    line: rgbaOf(cy, 0.3), glow: rgbaOf(cy, light ? 0.35 : 0.75), grid: rgbaOf(cy, 0.05), halo: rgbaOf(bl, light ? 0.18 : 0.3), navBg: rgbaOf(bg, 0.96), badgeBg: rgbaOf(bg, 0.85), panelTop: rgbaOf(cy, 0.12), panelBot: rgbaOf(bg, 0.94),
+  };
+}
+
+const DEFAULT = {
+  profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 2, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
+};
+
+/* ---------- App ---------- */
+export default function App() {
+  const [s, setS] = useState(DEFAULT);
+  const sRef = useRef(s); sRef.current = s;
+  const [loaded, setLoaded] = useState(false);
+  const [tab, setTab] = useState("status");
+  const [toast, setToast] = useState(null);
+  const [storageOk, setStorageOk] = useState(true);
+  const [dialog, setDialog] = useState(null);
+  const [profileId, setProfileId] = useState(null);
+  const songPushed = useRef(false);
+  useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
+  const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
+  AskRef.current = (message, onYes, yesLabel = "Confirm") => setDialog({ message, onYes, yesLabel });
+  const [party, setPartyState] = useState(false);
+  const setParty = (on) => { if (on) Groove.start(); else Groove.stop(); setPartyState(on); };
+  useEffect(() => { if (!s.settings?.zesty && party) setParty(false); }, [s.settings?.zesty]);
+  useEffect(() => () => Groove.stop(), []);
+  // Load fonts with <link> tags too, in case the @import inside the style tag is ignored
+  useEffect(() => {
+    const fams = ["Oxanium:wght@400;500;600;700;800", "Inter:wght@400;500;600", "Lexend:wght@400;600;800", "Orbitron:wght@700;900", "Bangers", "Cinzel:wght@700;900", "Permanent+Marker", "Press+Start+2P", "Pacifico", "Creepster"];
+    fams.forEach((f) => {
+      const href = `https://fonts.googleapis.com/css2?family=${f}&display=swap`;
+      if (document.querySelector(`link[href="${href}"]`)) return;
+      const l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; document.head.appendChild(l);
+    });
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      let st = DEFAULT;
+      try {
+        const r = await window.storage.get("ascend-state", false);
+        if (r?.value) { const v = JSON.parse(r.value); st = { ...DEFAULT, ...v, settings: { ...DEFAULT.settings, ...(v.settings || {}) } }; }
+      } catch (e) { /* first run */ }
+      if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
+      if ((st.achV || 1) < 2) st = reconcileAchievements(st, true);
+      let ok = !!window.storage?.set;
+      if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
+      setStorageOk(ok);
+      setS(st); setLoaded(true);
+      loadCommunity().then((c) => { if (c) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(async () => {
+      try { await window.storage.set("ascend-state", JSON.stringify(s), false); } catch (e) { console.error(e); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [s, loaded]);
+
+  // Push leaderboard card whenever progress changes
+  useEffect(() => {
+    if (!loaded || !s.lb || !s.profile.name) return;
+    const t = setTimeout(async () => {
+      const card = profileCard(s);
+      if (s.profile.song?.type === "clip" && !songPushed.current) { try { const r = await window.storage.get("ascend-song", false); if (r?.value) { await window.storage.set(`song:${s.playerId}`, r.value, true); songPushed.current = true; } } catch (e) { /* skip */ } }
+      try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog]);
+
+  const gainXp = (amt, msg) => {
+    const before = levelFromXp(sRef.current.xp).lvl, after = levelFromXp(Math.max(0, sRef.current.xp + amt)).lvl;
+    const d = today();
+    setS((p) => ({ ...p, xp: Math.max(0, p.xp + amt), xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), { m: msg, a: amt }].slice(-40) } }));
+    setToast(after > before ? { big: true, text: `Level up · Level ${after}` } : { text: `${amt >= 0 ? "+" : ""}${amt} XP · ${msg}` });
+    setTimeout(() => setToast(null), 2600);
+  };
+
+  // Award achievements as soon as they're earned
+  useEffect(() => {
+    if (!loaded) return;
+    const fresh = earnedAchievements(s).filter((a) => !(s.ach || {})[a.id]);
+    if (!fresh.length) return;
+    const amt = fresh.reduce((a, x) => a + x.xp, 0), d = today();
+    setS((p) => ({ ...p, xp: p.xp + amt, ach: { ...(p.ach || {}), ...Object.fromEntries(fresh.map((a) => [a.id, d])) },
+      xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), ...fresh.map((a) => ({ m: `Achievement: ${a.title}`, a: a.xp }))].slice(-40) } }));
+    setToast({ big: true, text: fresh.length === 1 ? `${fresh[0].title} unlocked · +${amt} XP` : `${fresh.length} achievements · +${amt} XP` });
+    setTimeout(() => setToast(null), 3200);
+  }, [loaded, s.workouts, s.days, s.xp, s.profile.weight]);
+
+  applyTheme(s.settings);
+  if (!loaded) return <div className="min-h-screen flex items-center justify-center" style={{ background: C.bg, color: C.dim }}><Loader2 className="animate-spin" /></div>;
+
+  const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
+
+  return (
+    <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} style={{ background: C.bg, color: C.text, fontFamily: "'Oxanium', system-ui, sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Lexend:wght@400;600;800&family=Orbitron:wght@700;900&family=Bangers&family=Cinzel:wght@700;900&family=Permanent+Marker&family=Press+Start+2P&family=Pacifico&family=Creepster&display=swap');
+        .body{font-family:'Inter',system-ui,sans-serif}
+        .dys,.dys *,.dys .body{font-family:'Lexend',system-ui,sans-serif!important;letter-spacing:.03em;word-spacing:.08em}
+        .fancyname,.fancyname *,.dys .fancyname,.dys .fancyname *{font-family:var(--nf)!important;letter-spacing:normal}
+        .bgfx{position:fixed;inset:0;pointer-events:none;background:
+          radial-gradient(70% 38% at 50% -8%, ${C.halo}, transparent 70%),
+          linear-gradient(${C.grid} 1px, transparent 1px) 0 0/28px 28px,
+          linear-gradient(90deg, ${C.grid} 1px, transparent 1px) 0 0/28px 28px, ${C.bg}}
+        .panel{position:relative;background:linear-gradient(180deg,${C.panelTop},${C.panelBot} 70%);border:1px solid ${C.line};border-radius:4px;box-shadow:0 0 18px ${C.line}, inset 0 1px 0 ${C.line}}
+        .panel::before,.panel::after{content:"";position:absolute;width:14px;height:14px;border-color:${C.cyan};pointer-events:none;filter:drop-shadow(0 0 4px ${C.cyan})}
+        .panel::before{top:-1px;left:-1px;border-top:2px solid;border-left:2px solid}
+        .panel::after{bottom:-1px;right:-1px;border-bottom:2px solid;border-right:2px solid}
+        .inp{background:${C.inpBg};border:1px solid ${C.border};border-radius:3px;padding:8px 10px;color:${C.text};width:100%}
+        .inp:focus,button:focus-visible{outline:2px solid ${C.cyan};outline-offset:1px;box-shadow:0 0 12px ${C.glow}}
+        .btn{background:linear-gradient(180deg,${C.cyan},${C.blue});box-shadow:0 0 22px ${C.glow}, inset 0 1px 0 rgba(255,255,255,.35);border-radius:3px;color:#001018;font-weight:800;letter-spacing:.02em}
+        .ghost{background:${C.soft};border:1px solid ${C.border};border-radius:3px;color:${C.text}}
+        .glowtext{text-shadow:0 0 10px ${C.glow}, 0 0 28px ${C.glow}}
+        .neonline{height:1px;background:linear-gradient(90deg,transparent,${C.cyan},transparent);box-shadow:0 0 8px ${C.cyan}}
+        @keyframes breathe{0%,100%{filter:drop-shadow(0 0 6px var(--g))}50%{filter:drop-shadow(0 0 20px var(--g))}}
+        .breathe{animation:breathe 3.2s ease-in-out infinite}
+        @keyframes rainbow{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+        @keyframes eq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+        .zesty .bgfx{background:
+          radial-gradient(55% 32% at 8% 0%, rgba(255,60,172,.30), transparent 70%),
+          radial-gradient(55% 32% at 95% 12%, rgba(60,200,255,.28), transparent 70%),
+          radial-gradient(70% 38% at 50% 105%, rgba(155,92,255,.30), transparent 70%),
+          radial-gradient(45% 28% at 0% 70%, rgba(60,255,158,.18), transparent 70%),
+          linear-gradient(${C.grid} 1px, transparent 1px) 0 0/28px 28px,
+          linear-gradient(90deg, ${C.grid} 1px, transparent 1px) 0 0/28px 28px, ${C.bg}}
+        .zesty .panel{border:1.5px solid transparent;background:linear-gradient(180deg,${C.panelTop},${C.panelBot} 70%) padding-box, ${RAINBOW} border-box;background-size:100% 100%, 200% 100%;animation:rainbow 6s linear infinite;box-shadow:0 0 18px rgba(255,60,172,.18)}
+        .zesty .panel::before{border-color:#ffb43c}.zesty .panel::after{border-color:#3cc8ff}
+        .zesty .glowtext{background:${RAINBOW};background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:rainbow 4s linear infinite;text-shadow:none}
+        .zesty .btn{background:${RAINBOW};background-size:200% auto;animation:rainbow 3s linear infinite;color:#1a0020;box-shadow:0 0 22px rgba(255,60,172,.45)}
+        .zesty .neonline{background:${RAINBOW};box-shadow:0 0 10px rgba(255,60,172,.7)}
+        .zesty .barfill{background-image:${RAINBOW}!important;background-size:200% auto!important;animation:rainbow 5s linear infinite;box-shadow:0 0 10px rgba(255,60,172,.6)!important}
+        @keyframes rkspin{to{transform:rotate(360deg)}}
+        @keyframes rkshine{0%,60%{transform:skewX(-20deg) translateX(0)}100%{transform:skewX(-20deg) translateX(190px)}}
+        @keyframes nm-pulse{0%,100%{text-shadow:0 0 6px var(--nc)}50%{text-shadow:0 0 22px var(--nc),0 0 40px var(--nc)}}
+        .nm-pulse{animation:nm-pulse 1.6s ease-in-out infinite}
+        .nm-rainbow{background:${RAINBOW};background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:rainbow 3s linear infinite;text-shadow:none}
+        @keyframes nm-wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        @keyframes nm-shake{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(1px,-1px) rotate(2deg)}75%{transform:translate(-1px,1px) rotate(-2deg)}}
+        @keyframes nm-wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+        .nm-wobble{animation:nm-wobble 1.2s ease-in-out infinite;transform-origin:center}
+        @keyframes nm-flicker{0%,19%,21%,23%,54%,56%,100%{opacity:1;text-shadow:0 0 10px var(--nc),0 0 24px var(--nc)}20%,22%,55%{opacity:.35;text-shadow:none}}
+        .nm-flicker{animation:nm-flicker 3s linear infinite}
+        @keyframes nm-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}
+        .nm-float{animation:nm-float 2.4s ease-in-out infinite}
+        @keyframes pop{0%{transform:translate(-50%,-14px) scale(.96);opacity:0}100%{transform:translate(-50%,0) scale(1);opacity:1}}
+        @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}`}</style>
+      <div className="bgfx" />
+
+      <div className="relative max-w-md mx-auto pb-44 px-4 pt-5">
+        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={() => openProfile(null)} />}
+        {tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
+        {!storageOk && (
+          <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
+            Progress can't save right now. Check your connection, or sign out and back in from Settings.
+          </div>
+        )}
+        {tab === "settings" && <SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} />}
+        <IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} />
+        <CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} />
+        {tab === "assistant" && <Assistant s={s} setS={setS} onBack={() => setTab("status")} />}
+        {tab === "train" && <Train s={s} setS={setS} gainXp={gainXp} />}
+        {tab === "quests" && <Quests s={s} setS={setS} gainXp={gainXp} />}
+        {tab === "fuel" && <Fuel s={s} setS={setS} gainXp={gainXp} />}
+        {tab === "calendar" && <Calendar s={s} />}
+        {tab === "ranks" && <Ranks s={s} />}
+        {tab === "board" && <Board s={s} setS={setS} openProfile={openProfile} />}
+      </div>
+
+      {toast && (
+        <div className="fixed top-4 left-1/2 z-50 px-5 py-2.5 text-sm font-bold" style={{ transform: "translateX(-50%)", animation: "pop .3s ease-out", borderRadius: 4, whiteSpace: "nowrap",
+          background: toast.big ? C.gold : C.sheet, color: toast.big ? "#0A1630" : C.cyan, border: `1px solid ${toast.big ? C.gold : C.blue}`,
+          boxShadow: toast.big ? "0 0 30px rgba(255,212,71,.6)" : `0 0 22px ${C.glow}` }}>{toast.text}</div>
+      )}
+
+      {party && <DiscoParty />}
+      {dialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.65)" }} onClick={() => setDialog(null)}>
+          <div role="dialog" aria-modal="true" className="panel w-full max-w-sm p-5" style={{ background: C.sheet }} onClick={(e) => e.stopPropagation()}>
+            <div className="body text-base" style={{ color: C.text }}>{dialog.message}</div>
+            <div className="grid grid-cols-2 gap-2 mt-5">
+              <button autoFocus onClick={() => setDialog(null)} className="ghost py-3 font-bold">Cancel</button>
+              <button onClick={() => { const fn = dialog.onYes; setDialog(null); fn(); }} className="py-3 font-bold" style={{ borderRadius: 3, background: C.red, color: "#fff", boxShadow: `0 0 16px ${C.red}66` }}>{dialog.yesLabel}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {s.settings?.zesty && tab !== "assistant" && (
+        <button aria-label={party ? "Stop the disco" : "Start the disco"} onClick={() => setParty(!party)} className="fixed z-40 flex items-center justify-center" style={{ right: 20, bottom: 148, width: 44, height: 44, borderRadius: 999, background: party ? RAINBOW : C.soft, backgroundSize: "200% auto", animation: party ? "rainbow 2s linear infinite" : "none", border: `1px solid ${C.border}`, boxShadow: "0 0 18px rgba(255,60,172,.5)" }}>
+          <DiscoIcon size={24} spinning={party} />
+        </button>
+      )}
+      {tab !== "assistant" && (
+        <button aria-label="Open voice assistant" onClick={() => setTab("assistant")} className="btn fixed z-40 flex items-center justify-center" style={{ right: 16, bottom: 86, width: 52, height: 52, borderRadius: 999 }}>
+          <Bot size={24} />
+        </button>
+      )}
+
+      <nav className="fixed bottom-0 inset-x-0 z-40" style={{ background: C.navBg, backdropFilter: "blur(10px)" }}>
+        <div className="neonline" />
+        <div className="max-w-md mx-auto grid grid-cols-7">
+          {tabs.map(([id, Icon, label]) => (
+            <button key={id} onClick={() => setTab(id)} className="pt-2.5 pb-3 flex flex-col items-center gap-1 relative" style={{ fontSize: 10, color: tab === id ? C.cyan : C.mute, filter: tab === id ? `drop-shadow(0 0 6px ${C.glow})` : "none" }}>
+              {tab === id && <span className="absolute top-0 left-1/4 right-1/4" style={{ height: 2, background: C.cyan, boxShadow: `0 0 10px ${C.cyan}` }} />}
+              <Icon size={19} strokeWidth={tab === id ? 2.4 : 1.8} />{label}
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+/* ---------- Shared bits ---------- */
+const Bar = ({ pct, color = C.blue }) => (
+  <div className="h-2 overflow-hidden" style={{ background: C.track, borderRadius: 2 }}>
+    <div className="h-full barfill" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color, boxShadow: `0 0 10px ${color}`, transition: "width .5s", borderRadius: 2 }} />
+  </div>
+);
+const Title = ({ children, right }) => (
+  <div className="flex justify-between items-center">
+    <h1 className="text-2xl font-bold tracking-wide glowtext" style={{ color: C.text }}>{children}</h1>{right}
+  </div>
+);
+const Empty = ({ children }) => <div className="panel p-5 body text-sm" style={{ color: C.dim }}>{children}</div>;
+
+function Sheet({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,.7)" }} onClick={onClose}>
+      <div className="w-full max-w-md mx-auto p-4 max-h-[80vh] overflow-y-auto" style={{ background: C.sheet, borderTop: `1px solid ${C.blue}`, boxShadow: `0 -10px 40px ${C.line}` }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-3"><h3 className="text-lg font-bold">{title}</h3><button aria-label="Close" onClick={onClose}><X /></button></div>
+        <div className="space-y-2">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Status ---------- */
+function Status({ s, setS, openSettings, openProfile }) {
+  const { lvl, into, need } = levelFromXp(s.xp);
+  const ranked = rankedLifts(s);
+  const points = pointsOf(s);
+  const overall = overallInfo(s);
+  const streak = streakOf(s);
+  const g = overall.groups;
+  const stat = (...ks) => Math.round((ks.reduce((a, k) => a + (g[k] || 0), 0) / ks.length) * (100 / 6));
+  const [editName, setEditName] = useState(!s.profile.name);
+  const oc = overall.rank;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        {editName ? (
+          <input autoFocus className="inp text-lg font-bold" style={{ maxWidth: 220 }} placeholder="Your name" defaultValue={s.profile.name}
+            onBlur={(e) => { setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } })); setEditName(false); }} />
+        ) : (
+          <div className="flex items-center gap-3 min-w-0">
+            <button aria-label="Open your profile" onClick={openProfile}><Avatar src={s.profile.avatar} name={s.profile.name} size={44} ring={oc.color} /></button>
+            <button onClick={() => setEditName(true)} className="text-2xl font-bold tracking-wide truncate">{s.profile.name ? <FancyName name={s.profile.name} look={s.profile.look} className="glowtext" /> : "Set your name"}</button>
+          </div>
+        )}
+        <div className="flex items-center gap-1 font-semibold" style={{ color: C.orange, textShadow: "0 0 10px rgba(255,147,64,.6)" }}><Flame size={20} />{streak}
+          <button aria-label="Settings" onClick={openSettings} className="ml-3 p-1.5 ghost" style={{ color: C.cyan }}><Gear size={18} /></button></div>
+      </div>
+
+      <div className="panel p-5 overflow-hidden">
+        <div className="absolute -right-4 -top-10 font-extrabold select-none" style={{ fontSize: 170, color: oc.color, opacity: 0.07, lineHeight: 1 }}>{oc.id}</div>
+        <div className="flex items-center gap-5 relative">
+          <div className="breathe" style={{ "--g": oc.glow }}><RankBadge rank={oc} size={66} /></div>
+          <div className="flex-1">
+            <div className="text-sm body" style={{ color: C.dim }}>Overall rank · {RANK_INFO[oc.id][0]}</div>
+            <div className="text-4xl font-extrabold" style={{ color: oc.color, textShadow: `0 0 18px ${oc.glow}` }}>{overall.label}</div>
+          </div>
+        </div>
+        <div className="mt-3 relative"><Bar pct={overall.divPct} color={oc.color} /></div>
+        <button onClick={openProfile} className="mt-3 body text-sm underline relative" style={{ color: C.cyan }}>View profile, achievements & weight chart</button>
+        <div className="body text-xs mt-1 relative" style={{ color: C.mute }}>Overall counts every muscle group. Groups you haven't trained count as zero.</div>
+
+        <div className="neonline my-4" />
+        <div className="flex justify-between items-baseline relative">
+          <span className="text-xl font-bold">Level {lvl}</span>
+          <span className="text-sm body" style={{ color: C.dim }}>{into} / {need} XP</span>
+        </div>
+        <div className="mt-2"><Bar pct={(into / need) * 100} color={C.cyan} /></div>
+        <div className="mt-4 flex justify-between items-baseline relative">
+          <span className="body text-sm" style={{ color: C.dim }}>Leaderboard points</span>
+          <span className="text-xl font-bold" style={{ color: C.gold, textShadow: "0 0 12px rgba(255,212,71,.5)" }}>{points.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
+        {[["STR", stat("Legs", "Back")], ["PWR", stat("Chest", "Shoulders")], ["ARM", stat("Arms")], ["CORE", stat("Core")]].map(([k, v]) => (
+          <div key={k} className="panel py-3 text-center">
+            <div className="text-xs" style={{ color: C.dim }}>{k}</div>
+            <div className="text-2xl font-bold glowtext">{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <MogInbox s={s} openProfile={openProfile} />
+
+      <h2 className="text-lg font-bold glowtext">Lift ranks</h2>
+      {ranked.length === 0 ? (
+        <Empty>Log a workout in Train to get ranked on each lift. Check the Ranks tab to see what every rank takes for your height and weight.</Empty>
+      ) : (
+        <div className="space-y-2">
+          {ranked.sort((a, b) => b.score - a.score).map(({ e, best, rank, label, pct, next, nextLabel }) => {
+            const unit = e.type === "bodyweight" ? " reps" : " lb";
+            return (
+              <div key={e.name} className="panel p-3 flex items-center gap-4">
+                <RankBadge rank={rank} size={34} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between gap-2">
+                    <span className="font-semibold truncate">{e.name}</span>
+                    <span className="font-bold whitespace-nowrap" style={{ color: rank.color }}>{label}</span>
+                  </div>
+                  <div className="mt-1.5"><Bar pct={pct} color={rank.color} /></div>
+                  <div className="text-xs body mt-1 flex justify-between gap-2" style={{ color: C.mute }}>
+                    <span>Best {Math.round(best)}{e.type === "bodyweight" ? " reps" : " lb est. max"}</span>
+                    <span>{next ? `${nextLabel} at ${next}${unit}` : "Maxed out"}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <Profile s={s} setS={setS} />
+    </div>
+  );
+}
+
+function Profile({ s, setS }) {
+  const [open, setOpen] = useState(false);
+  const p = s.profile;
+  const set = (k, v) => setS((x) => ({ ...x, profile: { ...x.profile, [k]: v } }));
+  return (
+    <div className="panel">
+      <button onClick={() => setOpen(!open)} className="w-full p-4 flex justify-between items-center font-semibold">
+        Body stats <ChevronDown size={18} style={{ transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 grid grid-cols-2 gap-3 body text-sm">
+          <label>Weight (lb)<input type="number" className="inp mt-1" value={p.weight} onChange={(e) => { const w = +e.target.value; set("weight", w); if (w > 50) setS((x) => ({ ...x, weightLog: { ...(x.weightLog || {}), [today()]: w } })); }} /></label>
+          <label>Height (in)<input type="number" className="inp mt-1" value={p.height} onChange={(e) => set("height", +e.target.value)} /></label>
+          <label>Age<input type="number" className="inp mt-1" value={p.age} onChange={(e) => set("age", +e.target.value)} /></label>
+          <label>Sex<select className="inp mt-1" value={p.sex} onChange={(e) => set("sex", e.target.value)}><option value="m">Male</option><option value="f">Female</option></select></label>
+          <label className="col-span-2">Activity<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
+          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings }), "Reset")}>Reset all progress</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Train ---------- */
+function pastSessions(s, name, excludeId, n = 3) {
+  const out = [];
+  for (let i = s.workouts.length - 1; i >= 0 && out.length < n; i--) {
+    const w = s.workouts[i];
+    if (w.id === excludeId) continue;
+    const ex = w.exercises.find((e) => e.name === name);
+    if (ex) out.push({ date: w.date, sets: ex.sets, id: w.id });
+  }
+  return out;
+}
+const setLabel = (def, st) => (def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`);
+
+function Train({ s, setS, gainXp }) {
+  const [picker, setPicker] = useState(false);
+  const [titling, setTitling] = useState(false);
+  const [filter, setFilter] = useState("All");
+  const [showPresets, setShowPresets] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [open, setOpen] = useState({});
+  const a = s.active;
+  const setActive = (fn) => setS((p) => ({ ...p, active: fn(p.active) }));
+  const lastSets = (name) => pastSessions(s, name, a?.editId, 1)[0]?.sets || [];
+  const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
+
+  const finish = () => {
+    const exercises = cleaned(a.exercises);
+    if (!exercises.length) { setS((p) => ({ ...p, active: null })); return; }
+    if (a.editId) {
+      const old = s.workouts.find((w) => w.id === a.editId);
+      const res = workoutXp(s, exercises, computeBests({ ...s, workouts: s.workouts.filter((w) => w.id !== a.editId) }));
+      const delta = res.xp - (old?.xp || 0);
+      setS((p) => ({ ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus } : w) }));
+      gainXp(delta, "Workout updated");
+      return;
+    }
+    const { xp, prs, volume, lines, prBonus } = workoutXp(s, exercises, computeBests(s));
+    const d = today();
+    const workout = { id: uid(), date: d, title: a.title || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000) };
+    setS((p) => ({ ...addWorkout(p, workout), active: null }));
+    gainXp(xp, prs ? `${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete");
+  };
+
+  const addExercise = (name) => {
+    setActive((w) => ({ ...w, exercises: [...w.exercises, { name, sets: [{ w: "", r: "", done: false }] }] }));
+    setPicker(false);
+    window.scrollTo?.(0, 0);
+  };
+  const startPreset = (pr) => {
+    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, exercises: pr.exercises.map((e) => ({ name: e.name, sets: Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
+    setShowPresets(false); window.scrollTo?.(0, 0);
+  };
+  const savePreset = () => {
+    const name = presetName.trim() || `Preset ${(s.presets || []).length + 1}`;
+    const exercises = a.exercises.map((e) => ({ name: e.name, sets: e.sets.length }));
+    setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== name), { id: uid(), name, exercises }] }));
+    setNaming(false); setPresetName("");
+  };
+  const editWorkout = (w) => {
+    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true })) })) } }));
+    window.scrollTo?.(0, 0);
+  };
+
+  if (a && picker) return <ExercisePicker s={s} setS={setS} onPick={addExercise} onBack={() => setPicker(false)} />;
+  if (!a && titling) return <TitlePicker onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { start: Date.now(), title, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
+
+  if (!a) {
+    const presets = s.presets || [];
+    return (
+      <div className="space-y-4">
+        <Title>Train</Title>
+        <div className="grid gap-2" style={{ gridTemplateColumns: "2fr 1fr" }}>
+          <button onClick={() => setTitling(true)} className="btn py-4 text-lg">Start workout</button>
+          <button onClick={() => setShowPresets(!showPresets)} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: showPresets ? C.cyan : C.text, borderColor: showPresets ? C.cyan : C.border }}><Layers size={18} />Presets</button>
+        </div>
+        {showPresets && (
+          <div className="panel p-4 space-y-2">
+            <div className="font-bold">Workout presets</div>
+            {presets.length === 0 && <div className="body text-sm" style={{ color: C.dim }}>None yet. Start a workout, add your exercises, then tap "Save as preset" at the bottom. Next time, load it and just fill in the numbers.</div>}
+            {presets.map((pr) => (
+              <div key={pr.id} className="ghost flex items-center">
+                <button onClick={() => startPreset(pr)} className="flex-1 text-left p-3 min-w-0">
+                  <div className="font-semibold">{pr.name}</div>
+                  <div className="body text-xs truncate" style={{ color: C.dim }}>{pr.exercises.map((e) => `${e.name} ×${e.sets}`).join(" · ")}</div>
+                </button>
+                <button aria-label={`Delete preset ${pr.name}`} onClick={() => ask(`Delete preset "${pr.name}"?`, () => setS((p) => ({ ...p, presets: p.presets.filter((x) => x.id !== pr.id) })), "Delete")} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h2 className="text-lg font-bold pt-2">History</h2>
+        {(() => { const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))]; return titles.length ? (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {["All", ...titles].map((t) => <button key={t} onClick={() => setFilter(t)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: filter === t ? C.blue : C.soft, color: filter === t ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{t}</button>)}
+          </div>
+        ) : null; })()}
+        {s.workouts.length === 0 && <Empty>No workouts yet. XP comes from how much you lift and how many reps you do, scaled to your body and rank.</Empty>}
+        {[...s.workouts].reverse().filter((w) => filter === "All" || w.title === filter).slice(0, 25).map((w) => {
+          const isOpen = !!open[w.id];
+          return (
+            <div key={w.id} className="panel p-4">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{w.source && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}</span>
+                <div className="flex items-center gap-3">
+                  {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
+                  <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
+                  <button aria-label="Delete workout" onClick={() => ask("Delete this workout? The XP you earned stays.", () => setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
+                </div>
+              </div>
+              <div className="body text-sm mt-1 space-y-0.5" style={{ color: C.sub }}>
+                {w.exercises.map((ex, i) => {
+                  const def = findEx(s, ex.name);
+                  return <div key={i}>{ex.name}: {ex.sets.map((st) => setLabel(def, st)).join(", ")}</div>;
+                })}
+              </div>
+              {isOpen && (
+                <div className="mt-3 pt-3 body text-xs space-y-1" style={{ borderTop: `1px solid ${C.line}`, color: C.dim }}>
+                  <div className="font-bold" style={{ color: C.text }}>XP breakdown</div>
+                  {w.lines ? w.lines.map((l, i) => (
+                    <div key={i}>
+                      <div className="flex justify-between font-semibold" style={{ color: C.sub }}><span>{l.name}</span><span style={{ color: C.gold }}>+{l.xp}</span></div>
+                      {l.sets.map((st, j) => <div key={j} className="flex justify-between pl-3"><span>{st.label} · {st.note}{st.pr ? " · PR" : ""}</span><span>+{st.xp}</span></div>)}
+                    </div>
+                  )) : <div>Logged before detailed breakdowns existed.</div>}
+                  {w.prBonus ? <div className="flex justify-between font-semibold" style={{ color: C.green }}><span>PR bonus</span><span>+{w.prBonus}</span></div> : null}
+                  {w.volume ? <div className="pt-1">Volume {Math.round(w.volume).toLocaleString()} lb{w.minutes ? ` · ${w.minutes} min` : ""}</div> : null}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const live = workoutXp(s, cleaned(a.exercises), computeBests(a.editId ? { ...s, workouts: s.workouts.filter((w) => w.id !== a.editId) } : s));
+  const hasWork = a.exercises.some((e) => e.sets.some((st) => st.done));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          {a.editId ? <div className="text-xl font-bold glowtext">Editing {fmtDay(a.date)}</div> : <Timer start={a.start} />}
+          <input className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} placeholder="Workout title" value={a.title || ""} onChange={(e) => setActive((w) => ({ ...w, title: e.target.value }))} aria-label="Workout title" />
+          <div className="text-sm font-bold" style={{ color: C.gold }}>≈ {live.xp} XP{live.prs ? ` · ${live.prs} PR${live.prs > 1 ? "s" : ""}` : ""}</div>
+        </div>
+        <button onClick={finish} className="px-5 py-2.5 text-sm font-bold" style={{ background: C.green, color: "#02040B", borderRadius: 4, boxShadow: "0 0 16px rgba(79,209,139,.5)" }}>{a.editId ? "Save changes" : "Finish"}</button>
+      </div>
+
+      {a.exercises.length === 0 && <Empty>Add your first exercise. Check off each set as you finish it, and only checked sets count.</Empty>}
+
+      {a.exercises.map((ex, ei) => {
+        const def = findEx(s, ex.name);
+        const timed = def.type === "timed";
+        const cardio = timed && def.group === "Cardio";
+        const showW = !timed || cardio;
+        const prev = lastSets(ex.name);
+        const past = pastSessions(s, ex.name, a.editId, 3);
+        const upd = (si, patch) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.map((st, j) => j !== si ? st : { ...st, ...patch }) }) }));
+        const delSet = (si) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.filter((_, j) => j !== si) }) }));
+        const cols = showW ? "26px 1fr 1fr 1fr 34px 22px" : "26px 1fr 1fr 34px 22px";
+        return (
+          <div key={ei} className="panel p-3">
+            <div className="flex justify-between items-center mb-1">
+              <div>
+                <span className="font-bold glowtext" style={{ color: C.cyan }}>{ex.name}</span>
+                <span className="body text-xs ml-2" style={{ color: C.mute }}>{def.group}</span>
+                {def.type === "weighted" && (() => { const mode = ex.wMode || (def.perHand ? "hand" : "total"); return (
+                  <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) }))} className="ml-2 px-2 py-0.5 text-xs font-semibold" style={{ borderRadius: 999, background: C.accentBg, color: C.cyan, border: `1px solid ${C.border}` }}>{mode === "hand" ? "per hand" : "total lb"}</button>
+                ); })()}
+              </div>
+              <button aria-label="Remove exercise" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.filter((_, i) => i !== ei) }))} style={{ color: C.mute }}><X size={18} /></button>
+            </div>
+            {past.length > 0 && (
+              <div className="body text-xs mb-2 space-y-0.5" style={{ color: C.dim }}>
+                {past.map((ps) => <div key={ps.id} className="truncate"><span style={{ color: C.mute }}>{new Date(ps.date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {ps.sets.map((st) => setLabel(def, st)).join(", ")}</div>)}
+              </div>
+            )}
+            <div className="grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
+              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "bodyweight" ? "+lb" : (ex.wMode || (def.perHand ? "hand" : "total")) === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
+            </div>
+            {ex.sets.map((st, si) => {
+              const pv = prev[si];
+              const cmp = st.done && pv && +st.r > 0 ? ((+st.w || 0) * (+st.r || 0) || +st.r) - ((+pv.w || 0) * (+pv.r || 0) || +pv.r) : null;
+              return (
+                <div key={si} className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3 }}>
+                  <span className="font-semibold text-center">{si + 1}</span>
+                  <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
+                  {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
+                  <input type="number" inputMode="decimal" className="inp text-center" value={st.r} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
+                  <button aria-label="Mark set done" onClick={() => upd(si, !st.done && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: !st.done })}
+                    className="h-8 flex items-center justify-center" style={{ background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
+                  <button aria-label="Delete set" onClick={() => delSet(si)} className="h-8 flex items-center justify-center" style={{ color: C.mute }}><X size={14} /></button>
+                </div>
+              );
+            })}
+            <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: [...e.sets, { w: e.sets.at(-1)?.w || "", r: "", done: false }] }) }))} className="ghost w-full mt-2 py-2 text-sm font-semibold">Add set</button>
+          </div>
+        );
+      })}
+
+      <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4 }}><Plus size={18} />Add exercise</button>
+
+      <TrainCoach s={s} a={a} onAdd={(name, n) => setActive((w) => w.exercises.some((e) => e.name === name)
+        ? { ...w, exercises: w.exercises.map((e) => e.name === name ? { ...e, sets: [...e.sets, ...Array.from({ length: n }, () => ({ w: "", r: "", done: false }))] } : e) }
+        : { ...w, exercises: [...w.exercises, { name, sets: Array.from({ length: n }, () => ({ w: "", r: "", done: false })) }] })} />
+
+      {a.exercises.length > 0 && !a.editId && (
+        naming ? (
+          <div className="panel p-3 flex gap-2 items-center">
+            <input autoFocus className="inp" placeholder="Preset name, e.g. Push day" value={presetName} onChange={(e) => setPresetName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && savePreset()} />
+            <button onClick={savePreset} className="btn px-4 py-2 text-sm">Save</button>
+            <button aria-label="Cancel" onClick={() => setNaming(false)} className="ghost px-3 py-2"><X size={16} /></button>
+          </div>
+        ) : (
+          <button onClick={() => { setPresetName(a.preset || ""); setNaming(true); }} className="ghost w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Bookmark size={18} />Save as preset</button>
+        )
+      )}
+
+      <div style={{ height: 40 }} />
+      <button
+        onClick={() => { const discard = () => setS((p) => ({ ...p, active: null })); if (a.editId || !hasWork) discard(); else ask("Are you sure you want to discard this workout? (Aidan lock in)", discard, "Discard"); }}
+        className="w-full py-4 font-extrabold text-lg tracking-wide"
+        style={{ borderRadius: 4, background: "#0A0004", color: "#FF2A55", border: "2px solid #FF2A55", boxShadow: "0 0 24px rgba(255,42,85,.7), inset 0 0 18px rgba(255,42,85,.25)", textShadow: "0 0 10px rgba(255,42,85,.9)" }}>
+        {a.editId ? "Cancel editing" : "Discard workout"}
+      </button>
+    </div>
+  );
+}
+
+// Full page (not a popup) so it scrolls normally on phones
+function ExercisePicker({ s, setS, onPick, onBack }) {
+  const [q, setQ] = useState("");
+  const [group, setGroup] = useState("All");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [draft, setDraft] = useState(null);
+
+  const list = allExercises(s).filter((e) =>
+    (group === "All" || (group === "Custom" ? e.custom : group === "Community" ? e.community : e.group === group)) && e.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const exact = allExercises(s).some((e) => e.name.toLowerCase() === q.trim().toLowerCase());
+
+  const estimate = async () => {
+    setLoading(true); setErr(""); setDraft(null);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: `A gym app needs details for this exercise: "${q.trim()}".
+Respond ONLY with JSON, no markdown:
+{"name": clean title-case exercise name,
+ "group": one of "Chest","Back","Legs","Shoulders","Arms","Core","Cardio",
+ "type": "weighted" (tracked as lb x reps), "bodyweight" (tracked as reps), or "timed" (tracked in minutes, e.g. cardio, holds, sports),
+ "perHand": true if people normally count the weight per hand (dumbbells, kettlebells, single-arm cables), false for barbells, machines, two-handed cables, and plate-loaded stacks,
+ "factor": for weighted only, how an elite lifter's one-rep max on this exercise compares to their bench press max, using the weight as it is entered (per hand if perHand is true). Examples: bench press = 1.0, squat = 1.25, deadlift = 1.45, overhead press = 0.63, barbell curl = 0.45, dumbbell curl per hand = 0.2, lateral raise per hand = 0.1, reverse fly machine = 0.5, rear delt dumbbell fly per hand = 0.09, machine crunch = 1.3, leg press = 2.4, chest press machine = 1.1. Machines with light-feeling stacks should get higher factors. Use 0 if not weighted,
+ "xp": XP value. For weighted/bodyweight: XP per set from 5 (small isolation) to 20 (heavy full-body compound). For timed: XP per minute from 3 (easy) to 10 (very intense),
+ "why": one short sentence explaining the XP value}` }],
+        }),
+      });
+      const data = await res.json();
+      const text = data.content.map((i) => i.text || "").join("").replace(/```json|```/g, "").trim();
+      const r = JSON.parse(text);
+      const type = ["weighted", "bodyweight", "timed"].includes(r.type) ? r.type : "weighted";
+      setDraft({
+        name: String(r.name || q).slice(0, 40), group: GROUPS.includes(r.group) ? r.group : "Core", type,
+        factor: type === "weighted" ? Math.min(3, Math.max(0.1, +r.factor || 0.5)) : undefined, reps: type === "bodyweight" ? 1 : undefined, perHand: type === "weighted" && !!r.perHand,
+        xp: Math.round(Math.min(type === "timed" ? 10 : 20, Math.max(type === "timed" ? 2 : 4, +r.xp || 8))),
+        why: r.why || "", custom: true,
+      });
+    } catch (e) {
+      setErr("Couldn't estimate that one. Try a clearer name, like \"cable lateral raise\".");
+    }
+    setLoading(false);
+  };
+
+  const saveDraft = () => {
+    const name = allExercises(s).some((e) => e.name.toLowerCase() === draft.name.toLowerCase()) ? `${draft.name} (custom)` : draft.name;
+    const ex = { ...draft, name };
+    delete ex.why;
+    setS((p) => ({ ...p, custom: [...(p.custom || []), ex] }));
+    publishShared(`ex:${slug(name)}`, { ...ex, custom: false, by: s.profile.name || "a player", t: Date.now() });
+    onPick(name);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back to workout" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext">Add exercise</h1>
+      </div>
+
+      <input autoFocus className="inp" placeholder="Search, or type any exercise" value={q} onChange={(e) => { setQ(e.target.value); setDraft(null); setErr(""); }} />
+
+      {q.trim().length > 2 && !exact && !draft && (
+        <button onClick={estimate} disabled={loading} className="w-full p-3 flex items-center gap-2 font-semibold text-left" style={{ background: C.accentBg, color: C.cyan, border: `1px solid ${C.blue}`, borderRadius: 4 }}>
+          {loading ? <Loader2 size={18} className="animate-spin shrink-0" /> : <Sparkles size={18} className="shrink-0" />}
+          {loading ? "Rating this exercise…" : `Create "${q.trim()}" and estimate its XP`}
+        </button>
+      )}
+      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
+
+      {draft && (
+        <div className="panel p-4 space-y-3" style={{ borderColor: C.cyan }}>
+          <input className="inp font-bold" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} aria-label="Exercise name" />
+          <div className="grid grid-cols-2 gap-2 body text-sm">
+            <label>Muscle group<select className="inp mt-1" value={draft.group} onChange={(e) => setDraft({ ...draft, group: e.target.value })}>{GROUPS.map((g) => <option key={g}>{g}</option>)}</select></label>
+            <label>Tracked as<select className="inp mt-1" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, factor: e.target.value === "weighted" ? draft.factor || 0.5 : undefined })}>
+              <option value="weighted">Weight × reps</option><option value="bodyweight">Reps</option><option value="timed">Minutes</option></select></label>
+          </div>
+          {draft.type === "weighted" && (
+            <div className="grid grid-cols-2 gap-2">
+              {[[false, "Total weight (bar / machine)"], [true, "Per hand (dumbbells)"]].map(([v, l]) => (
+                <button key={String(v)} onClick={() => setDraft({ ...draft, perHand: v, factor: draft.perHand === v ? draft.factor : (v ? draft.factor / 2 : draft.factor * 2) })} className="py-2 text-xs font-semibold" style={{ borderRadius: 4, background: !!draft.perHand === v ? C.blue : C.soft, color: !!draft.perHand === v ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{l}</button>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-between items-baseline">
+            <span className="body text-sm" style={{ color: C.dim }}>Worth</span>
+            <span className="text-xl font-bold" style={{ color: C.gold }}>{draft.xp} XP per {draft.type === "timed" ? "minute" : "set"}</span>
+          </div>
+          {draft.why && <div className="body text-xs" style={{ color: C.dim }}>{draft.why}</div>}
+          <button onClick={saveDraft} disabled={!draft.name.trim()} className="btn w-full py-3">Save and add to workout</button>
+        </div>
+      )}
+
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
+        {["All", ...GROUPS, "Custom", "Community"].map((g) => (
+          <button key={g} onClick={() => setGroup(g)} className="px-3 py-1.5 text-sm font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 4, background: group === g ? C.blue : C.soft, color: group === g ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{g}</button>
+        ))}
+      </div>
+
+      {list.length === 0 && <Empty>{group === "Custom" && !q ? "No custom exercises yet. Type any exercise above to create one." : group === "Community" && !q ? "Nothing shared yet. Custom exercises anyone creates show up here for everyone." : "No match. Tap create above to add it as a custom exercise."}</Empty>}
+      <div className="space-y-2">
+        {list.map((e) => (
+          <div key={e.name} className="ghost flex items-center">
+            <button onClick={() => onPick(e.name)} className="flex-1 text-left p-3 flex justify-between items-center gap-2">
+              <span className="font-semibold">{e.name}</span>
+              <span className="body text-xs whitespace-nowrap" style={{ color: C.mute }}>{e.group}{e.perHand ? " · per hand" : ""}{e.community && e.by ? ` · by ${e.by}` : ""}</span>
+            </button>
+            <a href={ytUrl(e.name)} target="_blank" rel="noreferrer" aria-label={`How to do ${e.name} on YouTube`} className="px-2" style={{ color: C.mute }}><Youtube size={16} /></a>
+            {e.custom && (
+              <button aria-label={`Delete ${e.name}`} onClick={() => ask(`Delete custom exercise "${e.name}"? Past workouts keep it.`, () => setS((p) => ({ ...p, custom: p.custom.filter((c) => c.name !== e.name) })), "Delete")} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Timer({ start }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const sec = Math.floor((now - start) / 1000);
+  const f = (n) => String(n).padStart(2, "0");
+  return <span className="text-3xl font-bold tabular-nums glowtext">{f(Math.floor(sec / 3600))}:{f(Math.floor(sec / 60) % 60)}:{f(sec % 60)}</span>;
+}
+
+/* ---------- Quests ---------- */
+function Quests({ s, setS, gainXp }) {
+  const d = today();
+  const day = s.days?.[d];
+  useEffect(() => { if (!day) setS((p) => ({ ...p, days: { ...p.days, [d]: newDay() } })); }, [day, d]);
+  if (!day) return null;
+
+  const updDay = (fn) => setS((p) => ({ ...p, days: { ...p.days, [d]: fn(p.days[d]) } }));
+  const setProg = (id, v) => updDay((x) => ({ ...x, list: x.list.map((q) => q.id === id ? { ...q, progress: Math.max(0, v) } : q) }));
+  const reroll = (id) => updDay((x) => {
+    const old = x.list.find((q) => q.id === id);
+    const fresh = makeQuest(x.list.map((q) => q.qid), old.tier);
+    return { ...x, rerolls: x.rerolls + 1, list: x.list.map((q) => q.id === id ? fresh : q) };
+  });
+  const claim = (q) => {
+    const exName = QUEST_EX[q.qid];
+    const extra = Math.max(0, q.progress - (q.fromWorkout || 0));
+    let logged = null;
+    if (exName && extra > 0) {
+      const def = findEx(s, exName);
+      const sets = [];
+      if (def.type === "timed") sets.push({ w: "", r: extra, done: true });
+      else { const size = questStep(q); let left = extra; while (left > 0) { sets.push({ w: "", r: Math.min(size, left), done: true }); left -= size; } }
+      logged = { id: uid(), date: d, source: "quest", xp: 0, volume: 0, exercises: [{ name: exName, sets }] };
+    }
+    setS((p) => ({
+      ...p,
+      workouts: logged ? [...p.workouts, logged] : p.workouts,
+      days: { ...p.days, [d]: { ...p.days[d], list: p.days[d].list.map((y) => y.id === q.id ? { ...y, claimed: true } : y) } },
+    }));
+    gainXp(q.xp, "Quest cleared");
+  };
+
+  const tiers = [...new Set(day.list.map((q) => q.tier))];
+  const topTier = Math.max(...tiers);
+  const tierDone = (t) => day.list.filter((q) => q.tier === t).every((q) => q.claimed);
+  const canBonus = tierDone(topTier) && day.bonuses < topTier;
+  const canMore = tierDone(topTier) && day.bonuses >= topTier;
+  const rerollsLeft = DAILY_REROLLS - day.rerolls;
+
+  const ws = weekStart();
+  const weekWorkouts = s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length;
+  const weekClaimed = s.weekly?.[ws];
+
+  return (
+    <div className="space-y-4">
+      <Title right={<span className="text-sm body flex items-center gap-1" style={{ color: C.dim }}><RefreshCw size={14} />{rerollsLeft} left</span>}>Daily quests</Title>
+      <div className="body text-sm" style={{ color: C.dim }}>Don't like a quest? Reroll it (3 per day). Clear a full set to unlock a harder one. Exercise quests link to your workouts both ways.</div>
+
+      {tiers.map((t) => (
+        <div key={t} className="space-y-3">
+          {t > 1 && <h2 className="text-lg font-bold pt-2" style={{ color: t >= 3 ? C.gold : C.cyan }}>Bonus set {t - 1} · {1 + 0.5 * (t - 1)}× difficulty</h2>}
+          {day.list.filter((q) => q.tier === t).map((q) => {
+            const done = q.progress >= q.target;
+            const step = questStep(q);
+            const exName = QUEST_EX[q.qid];
+            const label = /^[a-z]/.test(q.title) ? `${q.target.toLocaleString()} ${q.title}` : `${q.title} ${q.target.toLocaleString()} ${q.unit}`;
+            return (
+              <div key={q.id} className="panel p-4" style={q.claimed ? { borderColor: "rgba(79,209,139,.55)" } : null}>
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <div className="font-bold">{label}</div>
+                    <div className="body text-sm" style={{ color: C.dim }}>{q.progress.toLocaleString()} / {q.target.toLocaleString()} {q.unit}</div>
+                  </div>
+                  <span className="text-sm font-bold whitespace-nowrap" style={{ color: C.gold }}>+{q.xp} XP</span>
+                </div>
+                <div className="my-3"><Bar pct={(q.progress / q.target) * 100} color={q.claimed ? C.green : C.blue} /></div>
+                {exName && !q.claimed && <div className="body text-xs -mt-1 mb-3" style={{ color: C.mute }}>Linked to {exName}: logging it in Train fills this quest, and claiming logs these {q.unit === "min" ? "minutes" : `reps in sets of ${step}`} to your history.{q.fromWorkout ? ` ${q.fromWorkout} already came from workouts.` : ""}</div>}
+                {q.claimed ? (
+                  <div className="text-sm font-semibold flex items-center gap-1" style={{ color: C.green }}><Check size={16} />Cleared</div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button aria-label="Reroll quest" disabled={rerollsLeft <= 0 || q.progress > 0} onClick={() => reroll(q.id)} className="ghost px-3 py-2" style={{ color: rerollsLeft > 0 && q.progress === 0 ? C.cyan : C.mute }}><RefreshCw size={16} /></button>
+                    <button onClick={() => setProg(q.id, q.progress - step)} className="ghost px-3 py-2 font-bold">−{step.toLocaleString()}</button>
+                    <button onClick={() => setProg(q.id, q.progress + step)} className="ghost px-3 py-2 font-bold">+{step.toLocaleString()}</button>
+                    <button disabled={!done} onClick={() => claim(q)} className="flex-1 py-2 font-bold" style={{ borderRadius: 4, background: done ? C.gold : C.soft, color: done ? "#0A1630" : C.mute, boxShadow: done ? "0 0 16px rgba(255,212,71,.5)" : "none" }}>Claim</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+
+      {canBonus && (
+        <button onClick={() => { updDay((x) => ({ ...x, bonuses: x.bonuses + 1 })); gainXp(100 * topTier, "Set cleared"); }} className="w-full py-3 font-bold flex items-center justify-center gap-2" style={{ background: C.gold, color: "#0A1630", borderRadius: 4, boxShadow: "0 0 22px rgba(255,212,71,.55)" }}>
+          <Sparkles size={18} />Claim set bonus +{100 * topTier} XP
+        </button>
+      )}
+      {canMore && (
+        <button onClick={() => updDay((x) => { const add = []; while (add.length < 3) add.push(makeQuest([...x.list.filter((q) => q.tier === topTier).map((q) => q.qid), ...add.map((q) => q.qid)], topTier + 1)); return { ...x, list: [...x.list, ...add] }; })} className="btn w-full py-3 flex items-center justify-center gap-2">
+          <Swords size={18} />Take on 3 harder quests
+        </button>
+      )}
+
+      <h2 className="text-lg font-bold pt-2">Weekly challenge</h2>
+      <div className="panel p-4">
+        <div className="flex justify-between items-start">
+          <div className="flex gap-3 items-center"><Trophy style={{ color: C.orange }} /><div><div className="font-bold">Train 4 times this week</div><div className="body text-sm" style={{ color: C.dim }}>{Math.min(weekWorkouts, 4)} / 4 workouts logged</div></div></div>
+          <span className="text-sm font-bold" style={{ color: C.gold }}>+300 XP</span>
+        </div>
+        <div className="my-3"><Bar pct={(weekWorkouts / 4) * 100} color={C.orange} /></div>
+        {weekClaimed ? <div className="text-sm font-semibold" style={{ color: C.green }}>Cleared</div> :
+          <button disabled={weekWorkouts < 4} onClick={() => { setS((p) => ({ ...p, weekly: { ...p.weekly, [ws]: true } })); gainXp(300, "Weekly challenge"); }} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: weekWorkouts >= 4 ? C.gold : C.soft, color: weekWorkouts >= 4 ? "#0A1630" : C.mute }}>Claim</button>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Fuel ---------- */
+function Fuel({ s, setS, gainXp }) {
+  const [d, setD] = useState(today());
+  const p = s.profile;
+  const meals = s.meals[d] || [];
+  const [adding, setAdding] = useState(false);
+  const t = targets(p);
+  const tot = mealTotals(meals);
+  const isToday = d === today();
+  const addMeal = (food) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: [...(x.meals[d] || []), { ...food, id: uid(), qty: 1 }] } }));
+  const pct = Math.min(100, (tot.cal / t.cal) * 100);
+  if (adding) return <AddFood s={s} setS={setS} dayLabel={isToday ? "today" : fmtDay(d)} onClose={() => setAdding(false)} onAdd={(f) => { addMeal(f); setAdding(false); window.scrollTo?.(0, 0); }} />;
+
+  return (
+    <div className="space-y-4">
+      <Title>Fuel</Title>
+
+      <div className="panel p-2 flex items-center justify-between">
+        <button aria-label="Previous day" onClick={() => setD(shift(d, -1))} className="p-2" style={{ color: C.cyan }}><ChevronLeft /></button>
+        <button onClick={() => setD(today())} className="font-semibold">{isToday ? "Today" : fmtDay(d)}</button>
+        <button aria-label="Next day" disabled={isToday} onClick={() => setD(shift(d, 1))} className="p-2" style={{ color: isToday ? C.mute : C.cyan }}><ChevronRight /></button>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto">
+        {GOALS.map((g) => (
+          <button key={g.id} onClick={() => setS((x) => ({ ...x, profile: { ...x.profile, goal: g.id } }))} className="px-4 py-2 text-sm font-semibold whitespace-nowrap" style={{ borderRadius: 4, background: p.goal === g.id ? C.blue : C.soft, color: p.goal === g.id ? "#fff" : C.text, boxShadow: p.goal === g.id ? "0 0 14px rgba(47,140,255,.55)" : "none", border: `1px solid ${C.border}` }}>{g.label}</button>
+        ))}
+      </div>
+
+      <div className="panel p-5 flex items-center gap-5">
+        <svg width="110" height="110" viewBox="0 0 110 110" className="shrink-0">
+          <circle cx="55" cy="55" r="46" fill="none" stroke={C.track} strokeWidth="10" />
+          <circle cx="55" cy="55" r="46" fill="none" stroke={tot.cal > t.cal + 150 ? C.orange : C.cyan} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 289} 289`} transform="rotate(-90 55 55)" style={{ filter: "drop-shadow(0 0 6px rgba(124,211,255,.8))" }} />
+          <text x="55" y="54" textAnchor="middle" fill={C.text} fontSize="22" fontWeight="700">{Math.round(tot.cal)}</text>
+          <text x="55" y="72" textAnchor="middle" fill={C.dim} fontSize="11">of {t.cal}</text>
+        </svg>
+        <div className="flex-1 space-y-2 body text-sm">
+          {[["Protein", tot.p, t.protein, C.cyan], ["Carbs", tot.c, t.carbs, C.green], ["Fat", tot.f, t.fat, C.orange]].map(([n, v, tg, c]) => (
+            <div key={n}>
+              <div className="flex justify-between"><span>{n}</span><span style={{ color: C.dim }}>{Math.round(v)} / {tg}g</span></div>
+              <div className="mt-1"><Bar pct={(v / tg) * 100} color={c} /></div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {isToday && <FuelCoach s={s} setS={setS} t={t} tot={tot} onAdd={addMeal} />}
+      {isToday && (() => {
+        const calHit = meals.length > 0 && Math.abs(tot.cal - t.cal) <= t.cal * 0.1;
+        const pHit = tot.p >= t.protein;
+        const claimed = s.fuelClaimed?.[d];
+        const ready = calHit && pHit && !claimed;
+        return (
+          <div className="panel p-4">
+            <div className="flex justify-between items-center">
+              <span className="font-bold">Daily fuel goal</span>
+              <span className="text-sm font-bold" style={{ color: C.gold }}>+{FUEL_XP} XP</span>
+            </div>
+            <div className="body text-sm mt-2 space-y-1">
+              <div className="flex items-center gap-2" style={{ color: calHit ? C.green : C.dim }}><Check size={15} style={{ opacity: calHit ? 1 : 0.3 }} />Calories within 10% of {t.cal} ({Math.round(tot.cal)} now)</div>
+              <div className="flex items-center gap-2" style={{ color: pHit ? C.green : C.dim }}><Check size={15} style={{ opacity: pHit ? 1 : 0.3 }} />Protein at least {t.protein}g ({Math.round(tot.p)}g now)</div>
+            </div>
+            {claimed ? <div className="text-sm font-semibold mt-3" style={{ color: C.green }}>Claimed for today</div> :
+              <button disabled={!ready} onClick={() => { setS((x) => ({ ...x, fuelClaimed: { ...(x.fuelClaimed || {}), [d]: true } })); gainXp(FUEL_XP, "Fuel goal hit"); }} className="w-full mt-3 py-2 font-bold" style={{ borderRadius: 4, background: ready ? C.gold : C.soft, color: ready ? "#0A1630" : C.mute, border: `1px solid ${C.border}` }}>Claim</button>}
+          </div>
+        );
+      })()}
+      <div className="body text-xs" style={{ color: C.mute }}>Maintenance is about {t.tdee} cal/day from your body stats. Every day's food saves automatically, and you can look back with the arrows or the Log tab.</div>
+
+      <div className="flex justify-between items-center pt-1">
+        <h2 className="text-lg font-bold">{isToday ? "Today's food" : "Food logged"}</h2>
+        <button onClick={() => setAdding(true)} className="btn px-3 py-2 text-sm flex items-center gap-1"><Plus size={16} />Add food</button>
+      </div>
+      {meals.length === 0 && <Empty>Nothing logged {isToday ? "today" : "this day"}. Add food from the list, or type any meal and get an estimate.</Empty>}
+      {meals.map((m) => (
+        <div key={m.id} className="panel p-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate">{m.meal ? "🥤 " : ""}{m.name}</div>
+            <div className="body text-xs" style={{ color: C.dim }}>{Math.round(m.cal * m.qty)} cal · P {Math.round(m.p * m.qty)} · C {Math.round(m.c * m.qty)} · F {Math.round(m.f * m.qty)}</div>
+            {m.meal && m.ingredients?.length > 0 && <details className="body text-xs mt-1" style={{ color: C.mute }}><summary style={{ cursor: "pointer" }}>{m.ingredients.length} ingredients</summary>{m.ingredients.map((it, i) => <div key={i} className="pl-2">{it.qty !== 1 ? `${it.qty}× ` : ""}{it.name} · {Math.round(it.cal * it.qty)} cal</div>)}</details>}
+          </div>
+          <input type="number" step="0.5" min="0.5" aria-label="Servings" className="inp text-center" style={{ width: 58 }} value={m.qty}
+            onChange={(e) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].map((y) => y.id === m.id ? { ...y, qty: +e.target.value || 0 } : y) } }))} />
+          <button aria-label="Remove food" onClick={() => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].filter((y) => y.id !== m.id) } }))} style={{ color: C.mute }}><Trash2 size={16} /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(null); // "estimate" | "lookup"
+  const [err, setErr] = useState("");
+  const [src, setSrc] = useState("All");
+  const [found, setFound] = useState(null);
+  const [building, setBuilding] = useState(false);
+  const saved = s.savedFoods || [];
+
+  // Recent foods from the log, newest first
+  const recent = useMemo(() => {
+    const seen = new Set(), out = [];
+    Object.keys(s.meals || {}).sort().reverse().forEach((d) => [...(s.meals[d] || [])].reverse().forEach((m) => {
+      if (!seen.has(m.name) && out.length < 12) { seen.add(m.name); out.push({ name: m.name, cal: m.cal, p: m.p, c: m.c, f: m.f, r: m.r }); }
+    }));
+    return out;
+  }, [s.meals]);
+
+  const community = (s.community?.foods || []).map((f) => ({ ...f, r: f.r || "Community", community: true }));
+  const pool = src === "All" ? [...saved, ...community, ...RESTAURANT_FOODS, ...FOODS] : src === "Saved" ? saved : src === "Basics" ? FOODS : src === "Community" ? community : src === "Meals" ? [...saved, ...community].filter((f) => f.meal) : RESTAURANT_FOODS.filter((f) => f.r === src);
+  const needle = q.trim().toLowerCase().replace(/[’']/g, "");
+  const list = pool.filter((f) => f.name.toLowerCase().replace(/[’']/g, "").includes(needle));
+
+  const callClaude = async (prompt, useWeb) => {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }],
+        ...(useWeb ? { tools: [{ type: "web_search_20250305", name: "web_search" }] } : {}),
+      }),
+    });
+    const data = await res.json();
+    const texts = (data.content || []).filter((b) => b.type === "text").map((b) => b.text);
+    const joined = texts.join("\n").replace(/```json|```/g, "");
+    const match = joined.match(/\{[\s\S]*\}/g);
+    if (!match) throw new Error("no json");
+    return JSON.parse(match[match.length - 1]);
+  };
+
+  const estimate = async () => {
+    setLoading("estimate"); setErr(""); setFound(null);
+    try {
+      const food = await callClaude(`Estimate nutrition for this food or meal as one serving: "${q}". Use typical US portions if none given. Respond ONLY with JSON, no markdown: {"name": short descriptive name with portion, "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}`, false);
+      onAdd({ name: food.name, cal: +food.cal || 0, p: +food.p || 0, c: +food.c || 0, f: +food.f || 0 });
+    } catch (e) {
+      setErr("Couldn't get an estimate. Try describing it differently, like \"2 slices pepperoni pizza\".");
+    }
+    setLoading(null);
+  };
+
+  const lookup = async () => {
+    setLoading("lookup"); setErr(""); setFound(null);
+    try {
+      const food = await callClaude(`Find the published nutrition facts for this restaurant menu item: "${q}". The user is in Austin, Texas, so local chains like P. Terry's, Torchy's, Whataburger, Tacodeli, Chuy's, Kerbey Lane, Pluckers, Tumble 22 and Taco Cabana are likely. Search the web and prefer the restaurant's own nutrition page or PDF. If the restaurant doesn't publish nutrition, give your best estimate from similar items and say so.
+After searching, reply with ONLY this JSON and nothing else: {"name": "Restaurant item name (portion)", "restaurant": "Restaurant", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat, "source": "official" or "third-party" or "estimate", "note": "under 12 words about where the numbers came from"}`, true);
+      setFound({ name: String(food.name || q).slice(0, 70), r: food.restaurant || "", cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), source: food.source, note: food.note });
+    } catch (e) {
+      setErr("Couldn't find that one online. Try adding the restaurant name, like \"Tacodeli Cowboy taco\".");
+    }
+    setLoading(null);
+  };
+
+  const saveAndAdd = (food) => {
+    const clean = { name: food.name, r: food.r, cal: food.cal, p: food.p, c: food.c, f: food.f, approx: food.source !== "official" };
+    setS((x) => ({ ...x, savedFoods: [clean, ...(x.savedFoods || []).filter((y) => y.name !== clean.name)].slice(0, 60) }));
+    publishShared(`food:${slug(clean.name)}`, { ...clean, by: s.profile.name || "a player", t: Date.now() });
+    onAdd(clean);
+  };
+
+  if (building) return <MealBuilder s={s} setS={setS} pool={[...saved, ...community, ...RESTAURANT_FOODS, ...FOODS]} onBack={() => setBuilding(false)} onDone={(meal) => { setBuilding(false); onAdd(meal); }} />;
+
+  const Row = ({ f, onDelete }) => (
+    <div className="ghost flex items-center">
+      <button onClick={() => onAdd(f)} className="flex-1 text-left p-3 min-w-0">
+        <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
+      </button>
+      {onDelete && <button aria-label={`Remove ${f.name} from saved`} onClick={onDelete} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back to Fuel" onClick={onClose} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <div>
+          <h1 className="text-2xl font-bold glowtext">Add food</h1>
+          <div className="body text-xs" style={{ color: C.dim }}>Adding to {dayLabel}</div>
+        </div>
+      </div>
+
+      <input autoFocus className="inp" placeholder="Search, e.g. P. Terry's double" value={q} onChange={(e) => { setQ(e.target.value); setFound(null); setErr(""); }} />
+
+      <button onClick={() => setBuilding(true)} className="ghost w-full py-3 font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><ChefHat size={18} />Create a meal or shake recipe</button>
+      {q.trim().length > 2 && !found && (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={lookup} disabled={!!loading} className="p-3 flex items-center gap-2 font-semibold text-left text-sm" style={{ background: C.accentBg, color: C.cyan, border: `1px solid ${C.blue}`, borderRadius: 4 }}>
+            {loading === "lookup" ? <Loader2 size={18} className="animate-spin shrink-0" /> : <Globe size={18} className="shrink-0" />}
+            {loading === "lookup" ? "Searching menus…" : "Look up restaurant online"}
+          </button>
+          <button onClick={estimate} disabled={!!loading} className="ghost p-3 flex items-center gap-2 font-semibold text-left text-sm" style={{ color: C.text }}>
+            {loading === "estimate" ? <Loader2 size={18} className="animate-spin shrink-0" /> : <Sparkles size={18} className="shrink-0" />}
+            {loading === "estimate" ? "Estimating…" : "Quick AI estimate"}
+          </button>
+        </div>
+      )}
+      {loading === "lookup" && <div className="body text-xs" style={{ color: C.dim }}>Checking restaurant nutrition pages. This can take 10–20 seconds.</div>}
+      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
+
+      {found && (
+        <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
+          <div className="font-bold">{found.name}</div>
+          <div className="grid grid-cols-4 gap-2 text-center">
+            {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => (
+              <label key={k} className="body text-xs" style={{ color: C.dim }}>{l}
+                <input type="number" className="inp text-center mt-1 font-bold" value={found[k]} onChange={(e) => setFound({ ...found, [k]: +e.target.value || 0 })} />
+              </label>
+            ))}
+          </div>
+          <div className="body text-xs" style={{ color: found.source === "official" ? C.green : C.orange }}>
+            {found.source === "official" ? "From the restaurant's published nutrition" : found.source === "third-party" ? "From a third-party nutrition site" : "Estimate, since this restaurant doesn't publish nutrition"}{found.note ? ` · ${found.note}` : ""}
+          </div>
+          <button onClick={() => saveAndAdd(found)} className="btn w-full py-3">Add and save for next time</button>
+        </div>
+      )}
+
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {["All", "Meals", ...(saved.length ? ["Saved"] : []), "Community", ...RESTAURANTS, "Basics"].map((g) => (
+          <button key={g} onClick={() => setSrc(g)} className="px-3 py-1.5 text-sm font-semibold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 4, background: src === g ? C.blue : C.soft, color: src === g ? "#fff" : C.text, border: `1px solid ${C.border}` }}>
+            {RESTAURANTS.includes(g) && <Store size={13} />}{g}
+          </button>
+        ))}
+      </div>
+
+      {!needle && src === "All" && recent.length > 0 && (
+        <>
+          <div className="body text-xs font-semibold pt-1" style={{ color: C.dim }}>Recent</div>
+          <div className="space-y-2">{recent.map((f) => <Row key={`r-${f.name}`} f={f} />)}</div>
+          <div className="body text-xs font-semibold pt-2" style={{ color: C.dim }}>Everything</div>
+        </>
+      )}
+
+      {list.length === 0 && <Empty>No match here. Tap "Look up restaurant online" to search the restaurant's nutrition info.</Empty>}
+      <div className="space-y-2">
+        {list.map((f) => (
+          <Row key={`${f.r || "b"}-${f.name}`} f={f} onDelete={saved.includes(f) ? () => setS((x) => ({ ...x, savedFoods: (x.savedFoods || []).filter((y) => y.name !== f.name) })) : null} />
+        ))}
+      </div>
+      <div className="body text-xs pt-2" style={{ color: C.mute }}>Built-in restaurant numbers come from published nutrition info as of September 2026. Items marked approx. are less certain, and portions vary by location.</div>
+    </div>
+  );
+}
+
+/* ---------- Calendar ---------- */
+function Calendar({ s }) {
+  const now = new Date();
+  const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
+  const [sel, setSel] = useState(today());
+  const t = targets(s.profile);
+
+  const info = (d) => {
+    const ws = s.workouts.filter((w) => w.date === d);
+    const meals = s.meals[d] || [];
+    const tot = mealTotals(meals);
+    const quests = (s.days?.[d]?.list || []).filter((q) => q.claimed).length;
+    return {
+      ws, quests, meals, tot, xp: s.xpLog?.[d] || 0,
+      volume: ws.reduce((a, w) => a + (w.volume ?? w.exercises.reduce((b, e) => b + e.sets.reduce((c, st) => c + (+st.w || 0) * +st.r, 0), 0)), 0),
+      hit: meals.length > 0 && Math.abs(tot.cal - t.cal) <= t.cal * 0.1,
+    };
+  };
+
+  const first = new Date(ym.y, ym.m, 1);
+  const daysIn = new Date(ym.y, ym.m + 1, 0).getDate();
+  const cells = [...Array(first.getDay()).fill(null), ...Array.from({ length: daysIn }, (_, i) => dkey(new Date(ym.y, ym.m, i + 1)))];
+  const monthDays = cells.filter(Boolean).map((d) => ({ d, ...info(d) }));
+  const logged = monthDays.filter((x) => x.meals.length);
+  const sum = {
+    workouts: monthDays.reduce((a, x) => a + x.ws.length, 0),
+    quests: monthDays.reduce((a, x) => a + x.quests, 0),
+    xp: monthDays.reduce((a, x) => a + x.xp, 0),
+    volume: monthDays.reduce((a, x) => a + x.volume, 0),
+    avgCal: logged.length ? Math.round(logged.reduce((a, x) => a + x.tot.cal, 0) / logged.length) : 0,
+    avgP: logged.length ? Math.round(logged.reduce((a, x) => a + x.tot.p, 0) / logged.length) : 0,
+    hits: monthDays.filter((x) => x.hit).length,
+  };
+  const move = (n) => setYm(({ y, m }) => { const x = new Date(y, m + n, 1); return { y: x.getFullYear(), m: x.getMonth() }; });
+  const di = info(sel);
+  const td = today();
+
+  return (
+    <div className="space-y-4">
+      <Title>Log</Title>
+      <div className="panel p-3">
+        <div className="flex items-center justify-between mb-2">
+          <button aria-label="Previous month" onClick={() => move(-1)} className="p-1" style={{ color: C.cyan }}><ChevronLeft /></button>
+          <span className="font-bold">{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+          <button aria-label="Next month" onClick={() => move(1)} className="p-1" style={{ color: C.cyan }}><ChevronRight /></button>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1" style={{ color: C.mute }}>
+          {["S", "M", "T", "W", "T", "F", "S"].map((x, i) => <span key={i}>{x}</span>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((d, i) => {
+            if (!d) return <span key={i} />;
+            const x = info(d);
+            const future = d > td;
+            return (
+              <button key={d} onClick={() => setSel(d)} disabled={future} className="aspect-square flex flex-col items-center justify-center gap-1"
+                style={{ borderRadius: 3, background: sel === d ? "rgba(47,140,255,.28)" : x.ws.length ? "rgba(47,140,255,.1)" : "transparent", border: d === td ? `1px solid ${C.cyan}` : "1px solid transparent", opacity: future ? 0.3 : 1 }}>
+                <span className="text-sm font-semibold">{+d.slice(8)}</span>
+                <span className="flex gap-0.5 h-1.5">
+                  {x.ws.length > 0 && <i className="w-1.5 h-1.5 rounded-full" style={{ background: C.blue, boxShadow: `0 0 4px ${C.blue}` }} />}
+                  {x.quests > 0 && <i className="w-1.5 h-1.5 rounded-full" style={{ background: C.gold }} />}
+                  {x.meals.length > 0 && <i className="w-1.5 h-1.5 rounded-full" style={{ background: x.hit ? C.green : C.orange }} />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 body text-xs" style={{ color: C.dim }}>
+          <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full" style={{ background: C.blue }} />Workout</span>
+          <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full" style={{ background: C.gold }} />Quests</span>
+          <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full" style={{ background: C.green }} />Calories on target</span>
+          <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full" style={{ background: C.orange }} />Off target</span>
+        </div>
+      </div>
+
+      <div className="panel p-4">
+        <div className="font-bold mb-3">{sel === td ? "Today" : fmtDay(sel)}</div>
+        <div className="grid grid-cols-2 gap-3 body text-sm">
+          <Stat label="XP earned" value={di.xp} />
+          <Stat label="Quests cleared" value={di.quests} />
+          <Stat label="Calories" value={di.meals.length ? `${Math.round(di.tot.cal)} / ${t.cal}` : "–"} />
+          <Stat label="Protein" value={di.meals.length ? `${Math.round(di.tot.p)}g` : "–"} />
+        </div>
+        {(s.xpDetail?.[sel] || []).length > 0 && (
+          <div className="mt-3 pt-3 body text-xs space-y-0.5" style={{ borderTop: `1px solid ${C.line}` }}>
+            <div className="font-bold" style={{ color: C.text }}>XP breakdown</div>
+            {s.xpDetail[sel].map((x, i) => <div key={i} className="flex justify-between" style={{ color: C.dim }}><span>{x.m}</span><span style={{ color: x.a >= 0 ? C.gold : C.orange }}>{x.a >= 0 ? "+" : ""}{x.a}</span></div>)}
+          </div>
+        )}
+        {di.ws.length > 0 ? di.ws.map((w) => (
+          <div key={w.id} className="mt-3 body text-sm" style={{ color: C.sub }}>
+            {w.exercises.map((ex) => <div key={ex.name}><span style={{ color: C.cyan }}>{ex.name}</span>: {ex.sets.map((st) => (st.w ? `${st.w}×${st.r}` : `${st.r}`)).join(", ")}</div>)}
+          </div>
+        )) : <div className="mt-3 body text-sm" style={{ color: C.mute }}>No workout this day.</div>}
+      </div>
+
+      <h2 className="text-lg font-bold">This month</h2>
+      <div className="grid grid-cols-2 gap-3 body text-sm">
+        <Stat panel label="Workouts" value={sum.workouts} />
+        <Stat panel label="Quests cleared" value={sum.quests} />
+        <Stat panel label="XP earned" value={sum.xp.toLocaleString()} />
+        <Stat panel label="Volume lifted" value={`${Math.round(sum.volume / 1000)}k lb`} />
+        <Stat panel label="Avg calories" value={sum.avgCal || "–"} />
+        <Stat panel label="Avg protein" value={sum.avgP ? `${sum.avgP}g` : "–"} />
+        <Stat panel label="Days food logged" value={logged.length} />
+        <Stat panel label="Days on target" value={sum.hits} />
+      </div>
+    </div>
+  );
+}
+const Stat = ({ label, value, panel }) => (
+  <div className={panel ? "panel p-3" : ""}>
+    <div className="text-xs" style={{ color: C.dim }}>{label}</div>
+    <div className="text-lg font-bold" style={{ fontFamily: "'Oxanium',sans-serif" }}>{value}</div>
+  </div>
+);
+
+/* ---------- Leaderboard ---------- */
+function Board({ s, setS, openProfile }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState("points");
+  const [err, setErr] = useState("");
+
+  const load = async () => {
+    setLoading(true); setErr("");
+    if (!window.storage?.list) {
+      setErr("The leaderboard needs a connection. Check your signal and tap refresh.");
+      setLoading(false); return;
+    }
+    const readCard = async (k) => {
+      try { const r = await window.storage.get(k, true); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; }
+    };
+    let keys = null;
+    for (let attempt = 0; attempt < 2 && keys === null; attempt++) {
+      try { const res = await window.storage.list("lb:", true); keys = res?.keys || []; }
+      catch (e) { if (attempt === 0) await new Promise((r) => setTimeout(r, 800)); }
+    }
+    if (keys === null) {
+      const mine = s.lb ? await readCard(`lb:${s.playerId}`) : null;
+      setRows(mine ? [mine] : []);
+      setErr("Couldn't reach the shared leaderboard. Check your connection and tap refresh in a moment.");
+    } else {
+      const cards = await Promise.all(keys.map(readCard));
+      setRows(cards.filter(Boolean));
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const leave = async () => {
+    setS((p) => ({ ...p, lb: false }));
+    try { await window.storage.delete(`lb:${s.playerId}`, true); } catch (e) { /* not listed */ }
+    setRows((r) => r.filter((x) => x.key !== `lb:${s.playerId}`));
+  };
+
+  const ws = weekStart();
+  const SORTS = { points: ["Points", "pts", (r) => r.points || 0], xp: ["XP", "XP", (r) => r.xp || 0], streak: ["Streak", "days", (r) => r.streak || 0], week: ["Week", "workouts", (r) => (r.weekOf === ws ? r.week : 0)] };
+  const [, unit, val] = SORTS[sort];
+  const sorted = [...rows].sort((a, b) => val(b) - val(a));
+  const top = sorted.slice(0, 3), rest = sorted.slice(3);
+  const isMe = (r) => r.key === `lb:${s.playerId}`;
+
+  const podiumOrder = [top[1], top[0], top[2]];
+  const PLACES = [
+    { place: 2, h: 92, color: "#C9D6EA", glow: "rgba(201,214,234,.45)" },
+    { place: 1, h: 128, color: C.gold, glow: "rgba(255,212,71,.6)" },
+    { place: 3, h: 70, color: C.orange, glow: "rgba(255,147,64,.5)" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <Title right={<button aria-label="Refresh" onClick={load} className="p-2" style={{ color: C.cyan }}><RefreshCw size={18} className={loading ? "animate-spin" : ""} /></button>}>Leaderboard</Title>
+
+      {!s.lb ? (
+        <div className="panel p-4 space-y-3">
+          <div className="font-bold">Join the leaderboard</div>
+          <div className="body text-sm" style={{ color: C.dim }}>Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private.</div>
+          {!s.profile.name && <input className="inp" placeholder="Your name" onBlur={(e) => setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } }))} />}
+          <button onClick={() => setS((p) => ({ ...p, lb: true }))} disabled={!s.profile.name} className="btn w-full py-3" style={!s.profile.name ? { opacity: 0.5 } : null}>Join as {s.profile.name || "…"}</button>
+        </div>
+      ) : (
+        <div className="body text-sm flex justify-between" style={{ color: C.dim }}>
+          <span>You're on the board as {s.profile.name}</span>
+          <button onClick={leave} className="underline" style={{ color: C.red }}>Leave</button>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {Object.entries(SORTS).map(([id, [l]]) => (
+          <button key={id} onClick={() => setSort(id)} className="flex-1 py-2 text-sm font-semibold" style={{ borderRadius: 4, background: sort === id ? C.blue : C.soft, color: sort === id ? "#fff" : C.text, border: `1px solid ${C.border}`, boxShadow: sort === id ? "0 0 14px rgba(47,140,255,.5)" : "none" }}>{l}</button>
+        ))}
+      </div>
+      {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Points come from all XP earned in workouts, plus a bonus for the rank of every lift that grows fast as you climb (about 1,000 for a maxed S lift).</div>}
+
+      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
+      {!loading && !err && sorted.length === 0 && <Empty>No one's on the board yet. Join and send your cousins the link.</Empty>}
+
+      {top.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 items-end pt-6">
+          {podiumOrder.map((r, i) => {
+            const P = PLACES[i];
+            if (!r) return <div key={i} />;
+            const rank = RANKS.find((x) => x.id === r.rank) || RANKS[0];
+            return (
+              <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="flex flex-col items-center">
+                {P.place === 1 && <Crown size={26} style={{ color: C.gold, filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} className="mb-1" />}
+                <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} />
+                <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} /></div>
+                <div className="text-xs body mb-2" style={{ color: C.dim }}>{val(r).toLocaleString()} {unit}</div>
+                <div className="w-full flex items-start justify-center pt-2" style={{ height: P.h, borderRadius: "4px 4px 0 0", background: PROFILE_BGS.find((b) => b.id === r.look?.bg)?.css ? `linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.6)), ${PROFILE_BGS.find((b) => b.id === r.look?.bg).css}` : `linear-gradient(180deg, ${P.glow}, ${C.bg})`, backgroundSize: "cover", border: `1px solid ${r.look?.accent || P.color}`, borderBottom: "none", boxShadow: `0 0 20px ${P.glow}` }}>
+                  <span className="text-3xl font-extrabold" style={{ color: P.color, textShadow: `0 0 12px ${P.glow}` }}>{P.place}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {rest.map((r, i) => {
+          const rank = RANKS.find((x) => x.id === r.rank) || RANKS[0];
+          return (
+            <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="panel p-3 flex items-center gap-3 w-full text-left" style={{ ...(lookStyle(r.look, 0.6) || {}), ...(isMe(r) ? { boxShadow: "0 0 20px rgba(124,211,255,.3)" } : {}) }}>
+              <span className="w-7 text-center text-lg font-extrabold" style={{ color: C.dim }}>{i + 4}</span>
+              <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} />
+              <div className="flex-1 min-w-0 ml-1">
+                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}</div>
+                <div className="body text-xs" style={{ color: C.dim }}>{r.rank}{r.div ? ` ${r.div}` : ""} · Level {r.lvl} · {r.streak} day streak</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold glowtext">{val(r).toLocaleString()}</div>
+                <div className="body text-xs" style={{ color: C.mute }}>{unit}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {sorted.length > 0 && <div className="body text-xs" style={{ color: C.mute }}>Tap anyone to see their profile, achievements, and leave a high-five or comment.</div>}
+    </div>
+  );
+}
+
+/* ---------- Ranks guide ---------- */
+function Ranks({ s }) {
+  const p = s.profile;
+  const [pick, setPick] = useState("Bench Press");
+  const overall = overallInfo(s);
+  const key = ["Bench Press", "Squat", "Deadlift", "Overhead Press", "Barbell Row", "Pull-up"];
+  const all = allExercises(s).filter((e) => e.type !== "timed");
+  const bests = computeBests(s);
+  const ft = Math.floor(p.height / 12), inch = Math.round(p.height % 12);
+  const totalW = Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0);
+
+  const Row = ({ e }) => {
+    const steps = thresholds(e, p);
+    const cur = bests[e.name] ? rankFor(e, bests[e.name], p) : null;
+    return (
+      <div className="grid items-center gap-1 py-2 text-sm" style={{ gridTemplateColumns: "1.6fr repeat(5, 1fr)", borderTop: `1px solid rgba(0,217,255,.10)` }}>
+        <div className="min-w-0">
+          <div className="font-semibold truncate">{e.name}{e.perHand ? <span className="body text-xs font-normal" style={{ color: C.mute }}> /hand</span> : null}</div>
+          <div className="body text-xs" style={{ color: cur ? cur.rank.color : C.mute }}>{cur ? `You: ${cur.label}` : "Not logged"}</div>
+        </div>
+        {steps.map((v, i) => {
+          const reached = cur && cur.score >= i + 1;
+          return <div key={i} className="text-center font-semibold tabular-nums" style={{ color: reached ? RANKS[i + 1].color : C.sub, textShadow: reached ? `0 0 8px ${RANKS[i + 1].glow}` : "none" }}>{v}</div>;
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold tracking-wide glowtext">Ranks</h1>
+      <div className="body text-sm" style={{ color: C.dim }}>
+        Targets are built for you: {p.weight} lb, {ft}'{inch}", {p.sex === "f" ? "female" : "male"}. Heavier lifters need to lift more, and taller frames need more too, because being jacked at your height means carrying more muscle. Update your body stats on the Status tab whenever they change.
+      </div>
+
+      <div className="space-y-2">
+        {[...RANKS].reverse().map((r) => {
+          const mine = overall.rank.id === r.id;
+          return (
+            <div key={r.id} className="panel p-3 flex items-center gap-4" style={mine ? { borderColor: r.color, boxShadow: `0 0 22px ${r.glow}` } : null}>
+              <RankBadge rank={r} size={36} />
+              <div className="flex-1 ml-1">
+                <div className="flex justify-between items-baseline">
+                  <span className="font-bold" style={{ color: r.color }}>{r.id}-Rank · {RANK_INFO[r.id][0]}</span>
+                  {mine && <span className="text-xs font-bold" style={{ color: r.color }}>You · {overall.label}</span>}
+                </div>
+                <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{RANK_INFO[r.id][1]}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="body text-xs" style={{ color: C.mute }}>Each rank has three divisions: III, II, then I. S I is the top, reached 15% past the S line.</div>
+
+      <h2 className="text-lg font-bold glowtext pt-2">What each rank takes</h2>
+      <div className="panel p-3">
+        <div className="grid gap-1 pb-1 text-xs font-bold" style={{ gridTemplateColumns: "1.6fr repeat(5, 1fr)" }}>
+          <span style={{ color: C.dim }}>Lift</span>
+          {RANKS.slice(1).map((r) => <span key={r.id} className="text-center" style={{ color: r.color, textShadow: `0 0 8px ${r.glow}` }}>{r.id}</span>)}
+        </div>
+        {key.map((n) => { const e = all.find((x) => x.name === n); return e ? <Row key={n} e={e} /> : null; })}
+        <div className="body text-xs pt-2" style={{ color: C.mute }}>Weighted lifts show estimated one-rep max in lb, so 225 × 5 counts as about a 263 lb max. Lifts marked /hand use the weight in one hand. Pull-ups show strict reps in one set, and added weight counts extra. Shoulders and arms are held to a stricter standard.</div>
+      </div>
+
+      <div className="panel p-3 space-y-2">
+        <label className="body text-sm block" style={{ color: C.dim }}>Look up any exercise
+          <select className="inp mt-1" value={pick} onChange={(e) => setPick(e.target.value)}>
+            {GROUPS.filter((g) => g !== "Cardio").map((g) => (
+              <optgroup key={g} label={g}>{all.filter((e) => e.group === g).map((e) => <option key={e.name}>{e.name}</option>)}</optgroup>
+            ))}
+          </select>
+        </label>
+        {all.find((e) => e.name === pick) && <Row e={all.find((e) => e.name === pick)} />}
+      </div>
+
+      <h2 className="text-lg font-bold glowtext pt-2">How overall rank works</h2>
+      <div className="panel p-4 space-y-3">
+        <div className="body text-sm" style={{ color: C.dim }}>Your best lift in each muscle group counts, weighted like this. To be overall S, you need to be elite across your whole body, not on one machine.</div>
+        {Object.entries(GROUP_WEIGHT).map(([k, w]) => {
+          const sc = overall.groups[k] || 0;
+          const r = rankFromScore(sc);
+          return (
+            <div key={k}>
+              <div className="flex justify-between text-sm">
+                <span className="font-semibold">{k} <span className="body text-xs" style={{ color: C.mute }}>counts {Math.round((w / totalW) * 100)}%</span></span>
+                <span className="font-bold" style={{ color: sc ? r.rank.color : C.mute }}>{sc ? r.label : "Untrained"}</span>
+              </div>
+              <div className="mt-1"><Bar pct={(sc / 6) * 100} color={sc ? r.rank.color : C.mute} /></div>
+            </div>
+          );
+        })}
+        <div className="body text-xs" style={{ color: C.mute }}>Cardio and timed exercises earn XP but don't affect rank.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Settings ---------- */
+async function encodeSave(s) {
+  const data = { ...s, active: null, community: undefined, chat: undefined };
+  const raw = new TextEncoder().encode(JSON.stringify({ app: "ascend", v: 2, saved: Date.now(), data }));
+  if (typeof CompressionStream !== "undefined") {
+    try {
+      const gz = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+      return "ASC2-" + b64url(gz);
+    } catch (e) { /* fall back to plain */ }
+  }
+  return "ASC1-" + b64url(raw);
+}
+async function decodeSave(code) {
+  const t = code.trim().replace(/\s+/g, "");
+  let bytes;
+  if (t.startsWith("ASC2-")) bytes = new Uint8Array(await new Response(new Blob([fromB64url(t.slice(5))]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+  else if (t.startsWith("ASC1-")) bytes = fromB64url(t.slice(5));
+  else bytes = Uint8Array.from(atob(t.replace(/^ASCEND-/, "")), (c) => c.charCodeAt(0));
+  const parsed = JSON.parse(new TextDecoder().decode(bytes));
+  if (parsed.app !== "ascend" || !parsed.data?.profile || !Array.isArray(parsed.data.workouts)) throw new Error("bad save");
+  return parsed;
+}
+
+function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
+  const st = s.settings || {};
+  const setSet = (k, v) => setS((p) => ({ ...p, settings: { ...p.settings, [k]: v } }));
+  const [code, setCode] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [paste, setPaste] = useState("");
+  const [msg, setMsg] = useState(null);
+
+  const makeSave = async () => {
+    const c = await encodeSave(s);
+    setCode(c); setCopied(false);
+    try { await navigator.clipboard.writeText(c); setCopied(true); } catch (e) { /* user can copy manually */ }
+  };
+  const shareSave = async () => {
+    const c = code || await encodeSave(s);
+    setCode(c);
+    try { await navigator.share({ title: "Ascend save code", text: c }); } catch (e) { try { await navigator.clipboard.writeText(c); setCopied(true); } catch (e2) { /* manual copy */ } }
+  };
+  const load = async () => {
+    try {
+      const { data, saved } = await decodeSave(paste);
+      const when = new Date(saved).toLocaleString();
+      ask(`Load save from ${when}? This replaces everything currently in the app.`, () => {
+        setS({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId });
+        setPaste(""); setMsg({ ok: true, text: `Save loaded: level ${levelFromXp(data.xp || 0).lvl}, ${data.workouts.length} workouts.` });
+      }, "Load");
+    } catch (e) {
+      setMsg({ ok: false, text: "That code didn't work. Make sure you copied the whole thing, starting with ASC2-, ASC1-, or ASCEND-." });
+    }
+  };
+
+  const Toggle = ({ on, onClick, label }) => (
+    <button role="switch" aria-checked={on} aria-label={label} onClick={onClick} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: on ? C.cyan : C.track, border: `1px solid ${C.border}`, boxShadow: on ? `0 0 12px ${C.glow}` : "none", transition: "background .2s" }}>
+      <span className="absolute top-0.5" style={{ left: on ? 24 : 2, width: 22, height: 22, borderRadius: 999, background: "#fff", transition: "left .2s" }} />
+    </button>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext">Settings</h1>
+      </div>
+
+      <h2 className="text-lg font-bold">Appearance</h2>
+      <div className="panel p-4 space-y-4">
+        <div className="grid grid-cols-2 gap-2">
+          {[["dark", Moon, "Dark"], ["light", Sun, "Light"]].map(([id, Icon, l]) => (
+            <button key={id} onClick={() => setSet("theme", id)} className="py-3 flex items-center justify-center gap-2 font-bold" style={{ borderRadius: 4, background: (st.theme || "dark") === id ? C.blue : C.soft, color: (st.theme || "dark") === id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>
+              <Icon size={18} />{l}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <Palette size={22} style={{ color: C.cyan }} />
+          <div className="flex-1">
+            <div className="font-bold">Zesty mode</div>
+            <div className="body text-xs" style={{ color: C.dim }}>Rainbow everything, plus disco music and a disco ball. Tap the disco ball button to start or stop the party.</div>
+          </div>
+          <Toggle label="Zesty mode" on={!!st.zesty} onClick={() => { const on = !st.zesty; setSet("zesty", on); setParty(on); }} />
+        </div>
+        <div className="flex items-center gap-3">
+          <Type size={22} style={{ color: C.cyan }} />
+          <div className="flex-1">
+            <div className="font-bold">Easy-read font</div>
+            <div className="body text-xs" style={{ color: C.dim }}>Switches everything to Lexend, a rounder font with wider spacing that's easier to read for dyslexia.</div>
+          </div>
+          <Toggle label="Easy-read font" on={!!st.dysFont} onClick={() => setSet("dysFont", !st.dysFont)} />
+        </div>
+        <div className="flex items-center gap-3">
+          <Palette size={22} style={{ color: C.cyan }} />
+          <div className="flex-1">
+            <div className="font-bold">Custom colors</div>
+            <div className="body text-xs" style={{ color: C.dim }}>Pick your own accent, secondary, and background. Zesty mode overrides this while it's on.</div>
+          </div>
+          <Toggle label="Custom colors" on={!!st.custom?.on} onClick={() => setSet("custom", { ...(st.custom || DEFAULT.settings.custom), on: !st.custom?.on })} />
+        </div>
+        {st.custom?.on && (
+          <div className="grid grid-cols-3 gap-2 body text-sm">
+            {[["cyan", "Accent"], ["blue", "Secondary"], ["bg", "Background"]].map(([k, l]) => (
+              <label key={k} className="flex flex-col items-center gap-1">
+                <input type="color" value={st.custom[k] || DEFAULT.settings.custom[k]} onChange={(e) => setSet("custom", { ...st.custom, [k]: e.target.value })} aria-label={`${l} color`} style={{ width: "100%", height: 44, border: `1px solid ${C.border}`, borderRadius: 4, background: "transparent" }} />
+                <span style={{ color: C.dim }}>{l}</span>
+              </label>
+            ))}
+            <button onClick={() => setSet("custom", { ...DEFAULT.settings.custom, on: true })} className="col-span-3 ghost py-2 text-sm">Reset colors</button>
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          {st.voice ? <Volume2 size={22} style={{ color: C.cyan }} /> : <VolumeX size={22} style={{ color: C.mute }} />}
+          <div className="flex-1">
+            <div className="font-bold">Assistant voice</div>
+            <div className="body text-xs" style={{ color: C.dim }}>Sterling reads his replies out loud.</div>
+          </div>
+          <Toggle label="Assistant voice" on={!!st.voice} onClick={() => setSet("voice", !st.voice)} />
+        </div>
+        {st.voice && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {Object.entries(VOICE_STYLES).map(([id, v]) => (
+              <button key={id} onClick={() => setSet("voiceStyle", id)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: (st.voiceStyle || "goblin") === id ? C.blue : C.soft, color: (st.voiceStyle || "goblin") === id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{v.name}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <h2 className="text-lg font-bold">Workout tools</h2>
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={() => openTool("timer")} className="panel p-4 text-left">
+          <TimerIcon size={26} style={{ color: C.cyan }} />
+          <div className="font-bold mt-2">Interval timer</div>
+          <div className="body text-xs mt-0.5" style={{ color: C.dim }}>Beeps for work and rest</div>
+        </button>
+        <button onClick={() => openTool("cards")} className="panel p-4 text-left">
+          <Layers size={26} style={{ color: C.cyan }} />
+          <div className="font-bold mt-2">Deck of cards</div>
+          <div className="body text-xs mt-0.5" style={{ color: C.dim }}>Draw a card, do the reps</div>
+        </button>
+      </div>
+
+      {window.ascendAuth && (
+        <div className="panel p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0"><div className="font-bold">Account</div><div className="body text-xs truncate" style={{ color: C.dim }}>{window.ascendAuth.email}</div></div>
+          <button onClick={() => ask("Sign out on this device? Your progress stays saved in your account.", () => window.ascendAuth.signOut(), "Sign out")} className="ghost px-4 py-2 text-sm font-bold" style={{ color: C.red }}>Sign out</button>
+        </div>
+      )}
+
+      <h2 className="text-lg font-bold">Achievements</h2>
+      <div className="panel p-4 space-y-2">
+        <div className="body text-sm" style={{ color: C.dim }}>Achievements from the old, easier rank scale were already removed. If anything else looks wrong, recheck: any badge you no longer qualify for is removed and its XP taken back.</div>
+        <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); setS(next); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
+      </div>
+
+      <h2 className="text-lg font-bold">Save files</h2>
+      <div className="panel p-4 space-y-3">
+        <div className="body text-sm" style={{ color: C.dim }}>Before switching to a new version of the app, make a save code and keep it somewhere like your Notes app. Then paste it into the new version to get all your progress back. Only load your own save, since it includes your leaderboard identity.</div>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={makeSave} className="btn py-3 flex items-center justify-center gap-2"><Save size={18} />Copy save code</button>
+          <button onClick={shareSave} className="ghost py-3 font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Share2 size={18} />Share…</button>
+        </div>
+        <div className="body text-xs" style={{ color: C.mute }}>Codes are compressed now, so they're a fraction of the old length. "Share…" opens your phone's share sheet so you can drop it straight into Notes or a text to yourself. Old ASCEND- codes still load.</div>
+        {code && (
+          <>
+            <textarea readOnly value={code} onFocus={(e) => e.target.select()} className="inp body text-xs" rows={3} aria-label="Save code" style={{ wordBreak: "break-all" }} />
+            <div className="body text-xs" style={{ color: C.dim }}>{code.length.toLocaleString()} characters</div>
+            <div className="body text-xs flex items-center gap-2" style={{ color: copied ? C.green : C.dim }}>
+              {copied ? <><Check size={14} />Copied. Paste it somewhere safe.</> : <><Copy size={14} />Tap the box, select all, and copy it.</>}
+            </div>
+          </>
+        )}
+        <div className="neonline" />
+        <textarea value={paste} onChange={(e) => { setPaste(e.target.value); setMsg(null); }} className="inp body text-xs" rows={3} placeholder="Paste a save code here" aria-label="Paste save code" />
+        <button onClick={load} disabled={!paste.trim()} className="ghost w-full py-3 font-bold flex items-center justify-center gap-2" style={{ color: paste.trim() ? C.cyan : C.mute }}><Upload size={18} />Load save</button>
+        {msg && <div className="body text-sm" style={{ color: msg.ok ? C.green : C.red }}>{msg.text}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Voice assistant ---------- */
+function buildContext(s) {
+  const p = s.profile, d = today(), t = targets(p);
+  const o = overallInfo(s);
+  const lifts = rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 12)
+    .map((r) => `${r.e.name}: ${r.label} (best ${Math.round(r.best)}${r.e.type === "bodyweight" ? " reps" : " lb est. 1RM"}${r.next ? `, next ${r.nextLabel} at ${r.next}` : ""})`).join("; ");
+  const quests = (s.days?.[d]?.list || []).map((q) => `${q.title} ${q.progress}/${q.target} ${q.unit}${q.claimed ? " (cleared)" : ""}`).join("; ");
+  const tot = mealTotals(s.meals[d]);
+  const recent = s.workouts.filter((w) => w.source !== "quest").slice(-5).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => `${e.name} ${e.sets.map((x) => (x.w ? `${x.w}x${x.r}` : x.r)).join(",")}`).join(" | ")}`).join("\n");
+  return `Name: ${p.name || "unknown"}. Bodyweight ${p.weight} lb, height ${p.height} in, age ${p.age}, ${p.sex === "f" ? "female" : "male"}. Goal: ${GOALS.find((g) => g.id === p.goal)?.label}.
+Level ${levelFromXp(s.xp).lvl} (${s.xp} XP), overall rank ${o.label}, streak ${streakOf(s)} days, leaderboard points ${pointsOf(s)}.
+Lift ranks: ${lifts || "none logged yet"}.
+Today (${d}) quests: ${quests || "none yet"}.
+Today's food: ${Math.round(tot.cal)}/${t.cal} cal, protein ${Math.round(tot.p)}/${t.protein}g, carbs ${Math.round(tot.c)}/${t.carbs}g, fat ${Math.round(tot.f)}/${t.fat}g.
+Recent workouts:\n${recent || "none yet"}`;
+}
+
+const VOICE_STYLES = {
+  goblin: { name: "Unhinged goblin", seq: [[2, 1.3], [0.3, 0.8], [1.9, 1.5], [0.6, 1.05]] },
+  chipmunk: { name: "Chipmunk", seq: [[2, 1.4]] },
+  deep: { name: "Deep bloke", seq: [[0.15, 0.8]] },
+  pints: { name: "Two pints in", seq: [[0.7, 0.6]] },
+  hyper: { name: "Hyper", seq: [[1.4, 1.9]] },
+  posh: { name: "Posh butler (normal)", seq: [[0.92, 1.02]] },
+};
+const YT_RE = /\[\[yt:([^\]]+)\]\]/g;
+const ytUrl = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(`how to ${q} proper form`)}`;
+const stripYt = (t) => t.replace(YT_RE, "").replace(/\s{2,}/g, " ").trim();
+function pickBritishVoice() {
+  const vs = window.speechSynthesis?.getVoices?.() || [];
+  const gb = vs.filter((v) => /en[-_]GB/i.test(v.lang));
+  return gb.find((v) => /daniel|arthur|oliver|george|uk english male|male/i.test(v.name)) || gb[0] || null;
+}
+
+function Assistant({ s, setS, onBack }) {
+  const chat = s.chat || [];
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [note, setNote] = useState("");
+  const recRef = useRef(null);
+  const endRef = useRef(null);
+  const SR = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+  const voiceOn = s.settings?.voice !== false;
+
+  useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }); }, [chat.length, busy]);
+  useEffect(() => {
+    window.speechSynthesis?.getVoices?.();
+    return () => { try { window.speechSynthesis?.cancel(); recRef.current?.abort?.(); } catch (e) { /* ignore */ } };
+  }, []);
+
+  const speak = (text) => {
+    if (!window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      const style = VOICE_STYLES[s.settings?.voiceStyle] || VOICE_STYLES.goblin;
+      const v = pickBritishVoice();
+      const parts = stripYt(text).split(/(?<=[.!?])\s+/).filter(Boolean);
+      parts.forEach((part, i) => {
+        const u = new SpeechSynthesisUtterance(part);
+        if (v) u.voice = v;
+        const [pitch, rate] = style.seq[i % style.seq.length];
+        u.lang = "en-GB"; u.pitch = pitch; u.rate = rate;
+        if (i === 0) u.onstart = () => setSpeaking(true);
+        if (i === parts.length - 1) u.onend = () => setSpeaking(false);
+        u.onerror = () => setSpeaking(false);
+        window.speechSynthesis.speak(u);
+      });
+    } catch (e) { setSpeaking(false); }
+  };
+
+  const send = async (textArg) => {
+    const text = (textArg ?? input).trim();
+    if (!text || busy) return;
+    // Unlock speech on iPhone while we still have the tap
+    if (voiceOn && window.speechSynthesis) { try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) { /* ignore */ } }
+    const next = [...chat, { role: "user", content: text }].slice(-20);
+    setS((p) => ({ ...p, chat: next }));
+    setInput(""); setBusy(true); setNote("");
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          system: `You are Sterling, the built-in AI coach inside Ascend, a leveling-style gym tracking app. You are a deeply unhinged British butler: posh vocabulary, wildly over-the-top hype, dramatic exclamations like "GOOD HEAVENS" and "by the barbell", occasional absurd similes, and you treat every set like a matter of national importance. Be funny, but the training and nutrition advice underneath must stay accurate and practical. Your replies are read aloud in a silly voice, so keep them to 1 to 3 short sentences unless asked for detail, and never use markdown, bullet points, or emojis. Whenever the user asks how to do an exercise, its form, or technique, give one or two key cues and then add a tag at the very end in exactly this format: [[yt:Exercise Name]] (the app turns it into a YouTube how-to button, so never mention the tag or the word YouTube yourself). Give practical, accurate training and nutrition guidance using the user's real data below. If they mention pain, injury, or a medical issue, advise seeing a qualified professional. App facts: ranks go E, D, C, B, A, S with divisions III, II, I; lift ranks use estimated one-rep max scaled to bodyweight and height; overall rank weights legs, back and chest most; daily quests link to logged exercises; hitting calories within 10% plus the protein target earns ${FUEL_XP} XP.\n\nUser data:\n${buildContext(s)}`,
+          messages: next.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = await res.json();
+      const reply = (data.content || []).map((i) => i.text || "").join("").trim() || "Terribly sorry, I seem to have lost my train of thought. Do ask again.";
+      setS((p) => ({ ...p, chat: [...(p.chat || []), { role: "assistant", content: reply }].slice(-20) }));
+      if (voiceOn) speak(reply);
+    } catch (e) {
+      setNote("Sterling couldn't connect. Check your connection and try again.");
+    }
+    setBusy(false);
+  };
+
+  const toggleMic = () => {
+    if (listening) { try { recRef.current?.stop(); } catch (e) { /* ignore */ } return; }
+    if (!SR) { setNote("Voice input isn't supported here, so type your question instead."); return; }
+    try {
+      window.speechSynthesis?.cancel();
+      const rec = new SR();
+      rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
+      let finalText = "";
+      rec.onresult = (e) => {
+        let txt = "";
+        for (let i = 0; i < e.results.length; i++) { txt += e.results[i][0].transcript; if (e.results[i].isFinal) finalText = txt; }
+        setInput(txt);
+      };
+      rec.onerror = (e) => { setListening(false); setNote(e.error === "not-allowed" || e.error === "service-not-allowed" ? "The mic is blocked in this app, so type your question instead." : "Didn't catch that. Try again or type it."); };
+      rec.onend = () => { setListening(false); if (finalText.trim()) send(finalText); };
+      recRef.current = rec;
+      rec.start(); setListening(true); setNote("");
+    } catch (e) {
+      setListening(false); setNote("Voice input isn't available here, so type your question instead.");
+    }
+  };
+
+  const suggestions = ["What should I train today?", "How close am I to my next rank?", "What should I eat to hit my protein?"];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={() => { window.speechSynthesis?.cancel(); onBack(); }} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold glowtext">Sterling</h1>
+          <div className="body text-xs" style={{ color: C.dim }}>Your AI coach</div>
+        </div>
+        {speaking && (
+          <button aria-label="Stop speaking" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }} className="flex items-end gap-0.5 h-6 px-2">
+            {[0, 1, 2, 3].map((i) => <span key={i} className="w-1 h-full barfill" style={{ background: C.cyan, borderRadius: 2, transformOrigin: "bottom", animation: `eq .8s ${i * 0.12}s ease-in-out infinite` }} />)}
+          </button>
+        )}
+        <button aria-label={voiceOn ? "Mute voice" : "Unmute voice"} onClick={() => { if (voiceOn) window.speechSynthesis?.cancel(); setS((p) => ({ ...p, settings: { ...p.settings, voice: !voiceOn } })); }} className="ghost p-2" style={{ color: voiceOn ? C.cyan : C.mute }}>
+          {voiceOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+        </button>
+      </div>
+
+      {chat.length === 0 && (
+        <div className="panel p-4 space-y-3">
+          <div className="body text-sm" style={{ color: C.sub }}>Good day. I can see your ranks, quests, workouts and today's food, so ask me anything about your training.</div>
+          <div className="flex flex-col gap-2">
+            {suggestions.map((q) => <button key={q} onClick={() => send(q)} className="ghost text-left p-3 body text-sm" style={{ color: C.cyan }}>{q}</button>)}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {chat.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            {m.role === "user" ? (
+              <div className="max-w-[80%] px-3 py-2 body text-sm" style={{ background: C.blue, color: "#fff", borderRadius: "10px 10px 2px 10px" }}>{m.content}</div>
+            ) : (
+              <div className="panel max-w-[85%] px-3 py-2">
+                <div className="body text-sm" style={{ color: C.text }}>{stripYt(m.content)}</div>
+                {[...m.content.matchAll(YT_RE)].map((mm, k) => <a key={k} href={ytUrl(mm[1].trim())} target="_blank" rel="noreferrer" className="btn mt-2 px-3 py-1.5 text-xs inline-flex items-center gap-1 mr-2"><Youtube size={14} />How to: {mm[1].trim()}</a>)}
+                <button aria-label="Play reply" onClick={() => speak(m.content)} className="mt-1 flex items-center gap-1 text-xs" style={{ color: C.dim }}><Volume2 size={13} />Play</button>
+              </div>
+            )}
+          </div>
+        ))}
+        {busy && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={16} className="animate-spin" />Sterling is thinking…</div>}
+        <div ref={endRef} />
+      </div>
+
+      {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
+
+      <div className="panel p-2 flex items-center gap-2">
+        <button aria-label={listening ? "Stop listening" : "Speak your question"} onClick={toggleMic} className="shrink-0 flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 999, background: listening ? C.red : C.soft, color: listening ? "#fff" : C.cyan, border: `1px solid ${C.border}`, boxShadow: listening ? "0 0 18px rgba(255,77,109,.6)" : "none" }}>
+          <Mic size={20} />
+        </button>
+        <input className="inp" placeholder={listening ? "Listening…" : "Ask Sterling"} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(); }} />
+        <button aria-label="Send" onClick={() => send()} disabled={!input.trim() || busy} className="btn shrink-0 flex items-center justify-center" style={{ width: 44, height: 44, opacity: !input.trim() || busy ? 0.5 : 1 }}><Send size={18} /></button>
+      </div>
+      {chat.length > 0 && <button onClick={() => { window.speechSynthesis?.cancel(); setS((p) => ({ ...p, chat: [] })); }} className="body text-xs underline" style={{ color: C.mute }}>Clear conversation</button>}
+    </div>
+  );
+}
+
+/* ---------- Zesty disco: original synthesized funk loop ---------- */
+const Groove = {
+  ctx: null, master: null, timer: null, step: 0, nextTime: 0, noise: null,
+  bpm: 114,
+  start() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!this.ctx) {
+        this.ctx = new AC();
+        const comp = this.ctx.createDynamicsCompressor();
+        comp.threshold.value = -14; comp.ratio.value = 4;
+        this.master = this.ctx.createGain(); this.master.gain.value = 0.5;
+        this.master.connect(comp); comp.connect(this.ctx.destination);
+        const len = this.ctx.sampleRate;
+        this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = this.noise.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      }
+      this.ctx.resume();
+      if (this.timer) return;
+      this.step = 0; this.nextTime = this.ctx.currentTime + 0.08;
+      this.timer = setInterval(() => this.schedule(), 25);
+    } catch (e) { /* audio not available */ }
+  },
+  stop() {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    try { this.ctx?.suspend(); } catch (e) { /* ignore */ }
+  },
+  schedule() {
+    const sixteenth = 60 / this.bpm / 4;
+    while (this.nextTime < this.ctx.currentTime + 0.12) {
+      // light swing on the off 16ths
+      const t = this.nextTime + (this.step % 2 ? sixteenth * 0.12 : 0);
+      this.playStep(this.step, t, sixteenth);
+      this.nextTime += sixteenth;
+      this.step = (this.step + 1) % 64;
+    }
+  },
+  playStep(st, t, s16) {
+    const b = st % 16, bar = Math.floor(st / 16);
+    if (b % 4 === 0) this.kick(t);
+    if (b === 4 || b === 12) this.clap(t);
+    if (b % 4 === 2) this.hat(t, 0.16, 0.09);
+    else if (b % 2 === 1) this.hat(t, 0.05, 0.03);
+    // bass: syncopated octave line over Em7 / Am7 / Em7 / B7
+    const roots = [28, 33, 28, 35]; // E1, A1, E1, B1
+    const pat = { 0: 0, 3: 12, 6: 0, 7: 10, 10: 12, 11: 7, 14: 10 };
+    if (pat[b] !== undefined) this.bass(t, roots[bar] + 12 + pat[b], s16 * (b === 0 ? 2.5 : 1.4));
+    // chord stabs on the offbeats
+    const chords = [[52, 55, 59, 62, 66], [57, 60, 64, 67, 71], [52, 55, 59, 62, 66], [59, 63, 66, 69]];
+    if (b === 2 || b === 7 || b === 10) this.stab(t, chords[bar], s16 * 1.2);
+    // shimmer arpeggio every other bar
+    if (bar % 2 === 1 && b % 2 === 0) this.bell(t, chords[bar][(b / 2) % chords[bar].length] + 12);
+  },
+  hz: (m) => 440 * Math.pow(2, (m - 69) / 12),
+  env(g, t, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dec); },
+  kick(t) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
+    this.env(g, t, 0.9, 0.32); o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.35);
+  },
+  noiseHit(t, type, freq, peak, dec) {
+    const n = this.ctx.createBufferSource(); n.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+    const g = this.ctx.createGain(); this.env(g, t, peak, dec);
+    n.connect(f); f.connect(g); g.connect(this.master); n.start(t, Math.random() * 0.5); n.stop(t + dec + 0.02);
+  },
+  clap(t) { [0, 0.012, 0.024].forEach((d, i) => this.noiseHit(t + d, "bandpass", 1400, i === 2 ? 0.5 : 0.25, i === 2 ? 0.16 : 0.03)); },
+  hat(t, peak, dec) { this.noiseHit(t, "highpass", 7500, peak, dec); },
+  bass(t, midi, dur) {
+    const o = this.ctx.createOscillator(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    o.type = "sawtooth"; o.frequency.value = this.hz(midi);
+    f.type = "lowpass"; f.Q.value = 9; f.frequency.setValueAtTime(1600, t); f.frequency.exponentialRampToValueAtTime(220, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  },
+  stab(t, notes, dur) {
+    const f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    f.type = "lowpass"; f.Q.value = 6; f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(600, t + dur);
+    this.env(g, t, 0.07, dur); f.connect(g); g.connect(this.master);
+    notes.forEach((m, i) => {
+      const o = this.ctx.createOscillator(); o.type = "square"; o.frequency.value = this.hz(m); o.detune.value = i % 2 ? 6 : -6;
+      o.connect(f); o.start(t); o.stop(t + dur + 0.02);
+    });
+  },
+  bell(t, midi) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = "triangle"; o.frequency.value = this.hz(midi);
+    this.env(g, t, 0.05, 0.25); o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.28);
+  },
+};
+
+function DiscoIcon({ size = 24, spinning }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ animation: spinning ? "discospin 2s linear infinite" : "none" }}>
+      <defs><radialGradient id="dball" cx="35%" cy="30%"><stop offset="0" stopColor="#fff" /><stop offset=".6" stopColor="#b9c6d6" /><stop offset="1" stopColor="#5d6b7d" /></radialGradient></defs>
+      <circle cx="12" cy="12" r="10" fill="url(#dball)" stroke="#fff" strokeWidth=".6" />
+      {[-6, -2, 2, 6].map((y) => <line key={y} x1="2.5" x2="21.5" y1={12 + y} y2={12 + y} stroke="#3a4656" strokeWidth=".5" />)}
+      {[-6, -2, 2, 6].map((x) => <ellipse key={x} cx="12" cy="12" rx={Math.abs(x) + 0.01} ry="10" fill="none" stroke="#3a4656" strokeWidth=".5" />)}
+    </svg>
+  );
+}
+
+function DiscoParty() {
+  const spots = ["#ff3cac", "#3cc8ff", "#f7ff3c", "#3cff9e", "#9b5cff", "#ffb43c", "#ff3cac", "#3cc8ff"];
+  const tiles = [];
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+    const x = 6 + c * 12, y = 6 + r * 12;
+    if ((x - 54) ** 2 + (y - 54) ** 2 < 50 * 50) tiles.push([x, y, (r * 7 + c * 3) % 5]);
+  }
+  return (
+    <div className="fixed inset-0 z-30 pointer-events-none overflow-hidden" aria-hidden="true">
+      <style>{`
+        @keyframes discodrop{0%{transform:translate(-50%,-260px)}70%{transform:translate(-50%,12px)}100%{transform:translate(-50%,0)}}
+        @keyframes discospin{to{transform:rotate(360deg)}}
+        @keyframes sparkle{0%,100%{opacity:.25}50%{opacity:1}}
+        @keyframes sweep{0%{transform:translate(-10vw,10vh) scale(1)}25%{transform:translate(70vw,40vh) scale(1.4)}50%{transform:translate(30vw,85vh) scale(.9)}75%{transform:translate(85vw,15vh) scale(1.2)}100%{transform:translate(-10vw,10vh) scale(1)}}
+        @keyframes beams{to{transform:translateX(-50%) rotate(360deg)}}
+        .dspot{position:absolute;top:0;left:0;width:120px;height:120px;border-radius:999px;mix-blend-mode:screen;filter:blur(18px);opacity:.55}
+      `}</style>
+      <div className="absolute left-1/2 top-0" style={{ width: 600, height: 600, marginTop: -180, transform: "translateX(-50%)", animation: "beams 9s linear infinite",
+        background: "repeating-conic-gradient(from 0deg, rgba(255,255,255,.10) 0deg 4deg, transparent 4deg 22deg)", maskImage: "radial-gradient(circle, black 20%, transparent 70%)", WebkitMaskImage: "radial-gradient(circle, black 20%, transparent 70%)" }} />
+      {spots.map((c, i) => (
+        <div key={i} className="dspot" style={{ background: c, animation: `sweep ${7 + i * 1.3}s ${-i * 1.7}s ease-in-out infinite` }} />
+      ))}
+      <div className="absolute left-1/2 top-0 flex flex-col items-center" style={{ animation: "discodrop .9s cubic-bezier(.2,.8,.3,1.2) both" }}>
+        <div style={{ width: 2, height: 46, background: "linear-gradient(#999,#ddd)" }} />
+        <svg width="108" height="108" viewBox="0 0 108 108" style={{ animation: "discospin 6s linear infinite", filter: "drop-shadow(0 0 22px rgba(255,255,255,.7)) drop-shadow(0 0 40px rgba(255,60,172,.5))" }}>
+          <defs>
+            <radialGradient id="ballbase" cx="38%" cy="32%"><stop offset="0" stopColor="#ffffff" /><stop offset=".55" stopColor="#aab6c5" /><stop offset="1" stopColor="#3b4655" /></radialGradient>
+            <clipPath id="ballclip"><circle cx="54" cy="54" r="50" /></clipPath>
+          </defs>
+          <circle cx="54" cy="54" r="50" fill="url(#ballbase)" />
+          <g clipPath="url(#ballclip)">
+            {tiles.map(([x, y, k], i) => (
+              <rect key={i} x={x - 5.5} y={y - 5.5} width="11" height="11" rx="1" fill={spots[k]} opacity=".35" style={{ animation: `sparkle ${0.6 + k * 0.25}s ${i * 0.05}s ease-in-out infinite`, mixBlendMode: "screen" }} />
+            ))}
+            {[...Array(9)].map((_, i) => <line key={`h${i}`} x1="0" x2="108" y1={i * 12} y2={i * 12} stroke="rgba(30,40,55,.55)" strokeWidth="1" />)}
+            {[...Array(9)].map((_, i) => <line key={`v${i}`} y1="0" y2="108" x1={i * 12} x2={i * 12} stroke="rgba(30,40,55,.55)" strokeWidth="1" />)}
+          </g>
+          <circle cx="38" cy="34" r="9" fill="#fff" opacity=".8" style={{ animation: "sparkle 1.1s ease-in-out infinite" }} />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Beeps ---------- */
+const Beeper = {
+  ctx: null,
+  unlock() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!this.ctx) this.ctx = new AC();
+      this.ctx.resume();
+    } catch (e) { /* no audio */ }
+  },
+  tone(freq, dur = 0.15, delay = 0, vol = 0.5) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + delay;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = "square"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+  },
+  tick() { this.tone(660, 0.08, 0, 0.3); },
+  work() { this.tone(1046, 0.14); this.tone(1318, 0.22, 0.16); },
+  rest() { this.tone(523, 0.3); },
+  done() { [0, 0.2, 0.4].forEach((d) => this.tone(1318, 0.16, d)); this.tone(1760, 0.5, 0.6); },
+};
+
+const fmtClock = (sec) => `${Math.floor(sec / 60)}:${String(Math.max(0, sec) % 60).padStart(2, "0")}`;
+
+/* ---------- Interval timer ---------- */
+function IntervalTimer({ visible, onBack, onOpen }) {
+  const [work, setWork] = useState(20);
+  const [rest, setRest] = useState(10);
+  const [rounds, setRounds] = useState(8);
+  const [run, setRun] = useState(null); // { phase, left, round, paused }
+  const runRef = useRef(null); runRef.current = run;
+  const cfgRef = useRef({}); cfgRef.current = { work, rest, rounds };
+  const wakeRef = useRef(null);
+
+  useEffect(() => {
+    if (!run || run.paused || run.phase === "done") return;
+    const id = setInterval(() => {
+      const r = runRef.current, cfg = cfgRef.current;
+      if (!r || r.paused) return;
+      let { phase, left, round } = r;
+      left -= 1;
+      if (left > 0) {
+        if (left <= 3) Beeper.tick();
+        setRun({ ...r, left });
+        return;
+      }
+      if (phase === "ready" || (phase === "rest")) {
+        if (phase === "rest") round += 1;
+        Beeper.work(); setRun({ phase: "work", left: cfg.work, round, paused: false });
+      } else if (phase === "work") {
+        if (cfg.rounds > 0 && round >= cfg.rounds) { Beeper.done(); setRun({ phase: "done", left: 0, round, paused: false }); releaseWake(); }
+        else if (cfg.rest > 0) { Beeper.rest(); setRun({ phase: "rest", left: cfg.rest, round, paused: false }); }
+        else { Beeper.work(); setRun({ phase: "work", left: cfg.work, round: round + 1, paused: false }); }
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [run?.paused, run?.phase, !!run]);
+
+  const releaseWake = () => { try { wakeRef.current?.release(); } catch (e) { /* ignore */ } wakeRef.current = null; };
+  useEffect(() => () => releaseWake(), []);
+
+  const start = async () => {
+    Beeper.unlock(); Beeper.tick();
+    setRun({ phase: "ready", left: 3, round: 1, paused: false });
+    try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* not supported */ }
+  };
+  const stop = () => { setRun(null); releaseWake(); };
+
+  const phaseColor = !run ? C.cyan : run.phase === "work" ? C.green : run.phase === "rest" ? C.orange : run.phase === "done" ? C.gold : C.cyan;
+  const phaseTotal = !run ? work : run.phase === "work" ? work : run.phase === "rest" ? rest : 3;
+  const pct = run && run.phase !== "done" ? run.left / phaseTotal : 1;
+  const R = 110, CIRC = 2 * Math.PI * R;
+  const totalTime = rounds > 0 ? rounds * work + (rounds - 1) * rest : null;
+
+  const Stepper = ({ label, value, set, step, min, max, fmt }) => (
+    <div className="panel p-3">
+      <div className="body text-xs" style={{ color: C.dim }}>{label}</div>
+      <div className="flex items-center justify-between mt-1">
+        <button aria-label={`Less ${label}`} disabled={!!run} onClick={() => set(Math.max(min, value - step))} className="ghost w-9 h-9 flex items-center justify-center"><Minus size={16} /></button>
+        <span className="text-xl font-bold tabular-nums">{fmt(value)}</span>
+        <button aria-label={`More ${label}`} disabled={!!run} onClick={() => set(Math.min(max, value + step))} className="ghost w-9 h-9 flex items-center justify-center"><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+
+  // Floating mini timer on other pages while it's running
+  if (!visible) {
+    if (!run || run.phase === "done") return null;
+    return (
+      <button onClick={onOpen} aria-label="Open interval timer" className="fixed z-40 flex items-center gap-2 px-3 py-2 font-bold tabular-nums" style={{ left: 16, bottom: 90, borderRadius: 999, background: C.sheet, color: phaseColor, border: `1px solid ${phaseColor}`, boxShadow: `0 0 16px ${phaseColor}66` }}>
+        <TimerIcon size={16} />{run.phase === "work" ? "Work" : run.phase === "rest" ? "Rest" : "Ready"} {fmtClock(run.left)}{run.paused ? " ❚❚" : ""}
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext">Interval timer</h1>
+      </div>
+
+      <div className="panel p-5 flex flex-col items-center">
+        <svg width="250" height="250" viewBox="0 0 250 250" role="img" aria-label={run ? `${run.phase} ${run.left} seconds` : "Timer ready"}>
+          <circle cx="125" cy="125" r={R} fill="none" stroke={C.track} strokeWidth="14" />
+          <circle cx="125" cy="125" r={R} fill="none" stroke={phaseColor} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${CIRC * pct} ${CIRC}`} transform="rotate(-90 125 125)" style={{ transition: "stroke-dasharray 1s linear", filter: `drop-shadow(0 0 8px ${phaseColor})` }} />
+          <text x="125" y="108" textAnchor="middle" fill={phaseColor} fontSize="20" fontWeight="700" style={{ letterSpacing: 3 }}>{!run ? "READY" : run.phase === "done" ? "DONE" : run.phase.toUpperCase()}</text>
+          <text x="125" y="160" textAnchor="middle" fill={C.text} fontSize="58" fontWeight="800" style={{ fontVariantNumeric: "tabular-nums" }}>{run ? (run.phase === "done" ? "✓" : fmtClock(run.left)) : fmtClock(work)}</text>
+          <text x="125" y="190" textAnchor="middle" fill={C.dim} fontSize="14">{run ? `Round ${run.round}${rounds > 0 ? ` of ${rounds}` : ""}` : rounds > 0 ? `${rounds} rounds · ${fmtClock(totalTime)} total` : "Endless rounds"}</text>
+        </svg>
+
+        <div className="flex gap-3 mt-3 w-full">
+          {!run || run.phase === "done" ? (
+            <button onClick={start} className="btn flex-1 py-4 text-lg flex items-center justify-center gap-2"><Play size={20} />Start</button>
+          ) : (
+            <>
+              <button onClick={() => { Beeper.unlock(); setRun({ ...run, paused: !run.paused }); }} className="btn flex-1 py-4 text-lg flex items-center justify-center gap-2">{run.paused ? <><Play size={20} />Resume</> : <><Pause size={20} />Pause</>}</button>
+              <button onClick={stop} aria-label="Reset timer" className="ghost px-5 flex items-center justify-center"><RotateCcw size={20} /></button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="body text-xs" style={{ color: C.dim }}>Quick picks</div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {[["Tabata", 20, 10, 8], ["30 / 15", 30, 15, 10], ["40 / 20", 40, 20, 8], ["Every 10s", 10, 0, 0], ["EMOM", 60, 0, 10]].map(([n, w, r, rd]) => (
+          <button key={n} disabled={!!run} onClick={() => { setWork(w); setRest(r); setRounds(rd); }} className="ghost px-3 py-2 text-sm font-semibold whitespace-nowrap shrink-0" style={{ color: work === w && rest === r && rounds === rd ? C.cyan : C.text, borderColor: work === w && rest === r && rounds === rd ? C.cyan : C.border }}>{n}</button>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Stepper label="Work" value={work} set={setWork} step={5} min={5} max={600} fmt={fmtClock} />
+        <Stepper label="Rest" value={rest} set={setRest} step={5} min={0} max={300} fmt={(v) => (v ? fmtClock(v) : "None")} />
+        <Stepper label="Rounds" value={rounds} set={setRounds} step={1} min={0} max={99} fmt={(v) => (v ? v : "∞")} />
+      </div>
+      <div className="body text-xs" style={{ color: C.mute }}>It beeps when each work or rest period starts, with a countdown tick for the last 3 seconds. Set rest to None to beep every interval nonstop. The timer keeps running if you switch tabs. Turn off silent mode to hear the beeps.</div>
+    </div>
+  );
+}
+
+/* ---------- Deck of cards ---------- */
+const SUITS = [
+  { id: "S", sym: "♠", name: "Spades", red: false },
+  { id: "H", sym: "♥", name: "Hearts", red: true },
+  { id: "D", sym: "♦", name: "Diamonds", red: true },
+  { id: "C", sym: "♣", name: "Clubs", red: false },
+];
+const FACES = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+function freshDeck(jokers) {
+  const d = [];
+  SUITS.forEach((su) => FACES.forEach((f, i) => d.push({ suit: su.id, face: f, rank: i + 1 })));
+  if (jokers) { d.push({ suit: "J", face: "JOKER", rank: 0 }); d.push({ suit: "J", face: "JOKER", rank: 0 }); }
+  for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; }
+  return d;
+}
+
+function CardDeck({ visible, s, setS, gainXp, onBack }) {
+  const [cfg, setCfg] = useState({ S: "Burpee", H: "Push-up", D: "Air Squat", C: "Sit-up", faces: "ten", aces: 11, jokers: false, jokerReps: 20, jokerEx: "Burpee" });
+  const [deck, setDeck] = useState(() => freshDeck(false));
+  const [current, setCurrent] = useState(null); // { card, status: "open" }
+  const [log, setLog] = useState([]); // completed or skipped cards
+  const [flip, setFlip] = useState(0);
+  const [sessionId, setSessionId] = useState(uid);
+  const all = allExercises(s).filter((e) => e.type !== "timed");
+
+  const repsFor = (card) => {
+    if (card.suit === "J") return cfg.jokerReps;
+    if (card.rank === 1) return cfg.aces;
+    if (card.rank > 10) return cfg.faces === "ten" ? 10 : card.rank;
+    return card.rank;
+  };
+  const exFor = (card) => (card.suit === "J" ? cfg.jokerEx : cfg[card.suit]);
+  const xpFor = (card) => workoutXp(s, [{ name: exFor(card), sets: [{ w: "", r: repsFor(card) }] }], null).xp;
+
+  const draw = () => {
+    if (!deck.length || current) return;
+    const [card, ...rest] = deck;
+    setDeck(rest); setCurrent(card); setFlip((f) => f + 1);
+  };
+
+  const complete = () => {
+    if (!current) return;
+    const name = exFor(current), reps = repsFor(current);
+    const { xp, prs } = workoutXp(s, [{ name, sets: [{ w: "", r: reps }] }], computeBests(s));
+    const lastCard = deck.length === 0;
+    const bonus = lastCard ? 150 : 0;
+    setS((p) => addDeckSet(p, sessionId, name, reps, xp + bonus));
+    gainXp(xp + bonus, lastCard ? "Full deck cleared! +150 bonus" : prs ? `New ${name} PR` : `${reps} ${name}`);
+    setLog((l) => [...l, { card: current, name, reps, xp: xp + bonus, done: true }]);
+    setCurrent(null);
+  };
+
+  const skip = () => {
+    if (!current) return;
+    setLog((l) => [...l, { card: current, name: exFor(current), reps: repsFor(current), xp: 0, done: false }]);
+    setCurrent(null);
+  };
+
+  const reshuffle = () => { setDeck(freshDeck(cfg.jokers)); setCurrent(null); setLog([]); setSessionId(uid()); };
+
+  if (!visible) return null;
+
+  const doneCards = log.filter((x) => x.done);
+  const totals = {};
+  doneCards.forEach((x) => { totals[x.name] = (totals[x.name] || 0) + x.reps; });
+  const sessionXp = doneCards.reduce((a, x) => a + x.xp, 0);
+  const card = current || (log.length ? log[log.length - 1].card : null);
+  const suit = card && SUITS.find((x) => x.id === card.suit);
+  const cardColor = card ? (card.suit === "J" ? "#9b5cff" : suit.red ? "#E0284A" : "#0B1220") : C.text;
+  const finished = !deck.length && !current;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext flex-1">Deck of cards</h1>
+        <span className="body text-sm" style={{ color: C.dim }}>{deck.length + (current ? 1 : 0)} left</span>
+      </div>
+
+      <style>{`@keyframes cardin{0%{transform:translateY(-30px) rotateY(90deg) scale(.9);opacity:0}100%{transform:none;opacity:1}}`}</style>
+      <div className="flex justify-center" style={{ perspective: 800 }}>
+        {current ? (
+          <div key={flip} className="relative flex flex-col justify-between p-3" style={{ width: 210, height: 294, borderRadius: 14, background: "#FDFDFB", color: cardColor, boxShadow: `0 0 28px ${C.glow}, 0 10px 30px rgba(0,0,0,.4)`, animation: "cardin .35s ease-out", fontFamily: "Georgia, serif" }}>
+            <div className="text-left leading-none"><div className="text-3xl font-bold">{card.suit === "J" ? "★" : card.face}</div><div className="text-2xl">{suit ? suit.sym : ""}</div></div>
+            <div className="absolute inset-0 flex items-center justify-center"><div style={{ fontSize: card.suit === "J" ? 64 : 88, lineHeight: 1 }}>{card.suit === "J" ? "🃏" : suit.sym}</div></div>
+            <div className="text-right leading-none" style={{ transform: "rotate(180deg)" }}><div className="text-3xl font-bold">{card.suit === "J" ? "★" : card.face}</div><div className="text-2xl">{suit ? suit.sym : ""}</div></div>
+          </div>
+        ) : (
+          <button onClick={finished ? reshuffle : draw} aria-label={finished ? "Start a new deck" : "Draw a card"} className="relative flex items-center justify-center" style={{ width: 210, height: 294, borderRadius: 14, background: `repeating-linear-gradient(45deg, ${C.blue} 0 10px, ${C.accentBg} 10px 20px)`, border: `4px solid ${C.soft}`, boxShadow: `0 0 28px ${C.glow}` }}>
+            <span className="px-4 py-2 font-extrabold text-lg" style={{ background: C.sheet, color: C.cyan, borderRadius: 4 }}>{finished ? "New deck" : "Tap to draw"}</span>
+          </button>
+        )}
+      </div>
+
+      {current && (
+        <div className="panel p-4 text-center">
+          <div className="text-4xl font-extrabold glowtext">{repsFor(current)} reps</div>
+          <div className="text-xl font-bold mt-1" style={{ color: C.cyan }}>{exFor(current)}</div>
+          <div className="body text-sm mt-1 font-bold" style={{ color: C.gold }}>Worth +{xpFor(current)} XP{deck.length === 0 ? " · +150 for the last card" : ""}</div>
+        </div>
+      )}
+
+      {current ? (
+        <div className="grid grid-cols-3 gap-2">
+          <button onClick={complete} className="btn col-span-2 py-4 text-lg flex items-center justify-center gap-2"><Check size={20} />Done</button>
+          <button onClick={skip} className="ghost py-4 font-bold flex items-center justify-center gap-1"><SkipForward size={18} />Skip</button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={finished ? reshuffle : draw} className="btn py-4 text-lg">{finished ? "New deck" : log.length ? "Next card" : "Draw card"}</button>
+          <button onClick={() => (log.length ? ask("Start a fresh deck? Reps you already finished stay saved.", reshuffle, "Reshuffle") : reshuffle())} className="ghost py-4 font-bold flex items-center justify-center gap-2"><RotateCcw size={18} />Reshuffle</button>
+        </div>
+      )}
+      <div className="body text-xs" style={{ color: C.mute }}>Tap Done after each card. Every finished card saves right away, earns XP, counts toward that exercise's rank, and fills matching daily quests. Skipped cards earn nothing.</div>
+
+      {log.length > 0 && (
+        <div className="panel p-4 space-y-2">
+          <div className="flex justify-between font-bold"><span>This deck</span><span style={{ color: C.gold }}>+{sessionXp} XP</span></div>
+          <div className="body text-xs" style={{ color: C.dim }}>{doneCards.length} done{log.length - doneCards.length ? ` · ${log.length - doneCards.length} skipped` : ""}</div>
+          {Object.entries(totals).map(([n, r]) => (
+            <div key={n} className="flex justify-between body text-sm" style={{ color: C.sub }}><span>{n}</span><span>{r} reps</span></div>
+          ))}
+        </div>
+      )}
+
+      <h2 className="text-lg font-bold pt-2">Your deck</h2>
+      <div className="panel p-4 space-y-3">
+        {SUITS.map((su) => (
+          <label key={su.id} className="flex items-center gap-3 body text-sm">
+            <span className="w-8 text-2xl text-center" style={{ color: su.red ? C.red : C.text }}>{su.sym}</span>
+            <select className="inp" value={cfg[su.id]} onChange={(e) => setCfg({ ...cfg, [su.id]: e.target.value })} aria-label={`${su.name} exercise`}>
+              {all.map((e) => <option key={e.name}>{e.name}</option>)}
+            </select>
+          </label>
+        ))}
+        <div className="grid grid-cols-2 gap-2 body text-sm">
+          <label>J, Q, K count as<select className="inp mt-1" value={cfg.faces} onChange={(e) => setCfg({ ...cfg, faces: e.target.value })}><option value="ten">10 reps</option><option value="rank">11, 12, 13</option></select></label>
+          <label>Aces count as<select className="inp mt-1" value={cfg.aces} onChange={(e) => setCfg({ ...cfg, aces: +e.target.value })}><option value={1}>1 rep</option><option value={11}>11 reps</option><option value={15}>15 reps</option></select></label>
+        </div>
+        <label className="flex items-center gap-3 body text-sm">
+          <input type="checkbox" checked={cfg.jokers} onChange={(e) => setCfg({ ...cfg, jokers: e.target.checked })} style={{ width: 20, height: 20, accentColor: C.cyan }} />
+          <span className="flex-1">Add 2 jokers (applies on next reshuffle)</span>
+        </label>
+        {cfg.jokers && (
+          <div className="grid grid-cols-2 gap-2 body text-sm">
+            <label>Joker exercise<select className="inp mt-1" value={cfg.jokerEx} onChange={(e) => setCfg({ ...cfg, jokerEx: e.target.value })}>{all.map((e) => <option key={e.name}>{e.name}</option>)}</select></label>
+            <label>Joker reps<input type="number" className="inp mt-1" value={cfg.jokerReps} onChange={(e) => setCfg({ ...cfg, jokerReps: Math.max(1, +e.target.value || 1) })} /></label>
+          </div>
+        )}
+        <div className="body text-xs" style={{ color: C.mute }}>A full deck with these settings is about {(() => { let t = 0; FACES.forEach((f, i) => { const r = i + 1; t += 4 * (r === 1 ? cfg.aces : r > 10 ? (cfg.faces === "ten" ? 10 : r) : r); }); return t + (cfg.jokers ? 2 * cfg.jokerReps : 0); })()} total reps.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Profile looks, theme songs, comment photos ---------- */
+const PROFILE_BGS = [
+  { id: "none", name: "Default", css: null },
+  { id: "sunset", name: "Sunset", css: "linear-gradient(135deg,#ff6a3d 0%,#ff3c8e 50%,#7b2ff7 100%)" },
+  { id: "ocean", name: "Ocean", css: "linear-gradient(135deg,#00c6ff,#0072ff 60%,#001a4d)" },
+  { id: "ember", name: "Ember", css: "radial-gradient(circle at 30% 20%,#ffb347,#ff2a2a 45%,#2a0000)" },
+  { id: "aurora", name: "Aurora", css: "linear-gradient(135deg,#00ffa3,#00c2ff 45%,#6a00ff)" },
+  { id: "galaxy", name: "Galaxy", css: "radial-gradient(circle at 70% 30%,#8a2be2,#1a0533 50%,#000)" },
+  { id: "gold", name: "Gold", css: "linear-gradient(135deg,#f9d976,#c79a1a 50%,#5a3a00)" },
+  { id: "carbon", name: "Carbon", css: "repeating-linear-gradient(45deg,#151515 0 6px,#2a2a2a 6px 12px)" },
+  { id: "toxic", name: "Toxic", css: "linear-gradient(135deg,#a8ff78,#39ff14 50%,#004d00)" },
+  { id: "rainbow", name: "Rainbow", css: "linear-gradient(90deg,#ff3cac,#ffb43c,#f7ff3c,#3cff9e,#3cc8ff,#9b5cff)" },
+];
+function lookStyle(look, strength = 0.55) {
+  const bg = PROFILE_BGS.find((b) => b.id === look?.bg);
+  const st = {};
+  if (bg?.css) { st.background = `linear-gradient(rgba(0,0,0,${strength}),rgba(0,0,0,${strength + 0.15})), ${bg.css}`; st.backgroundSize = "cover"; }
+  if (look?.accent) st.borderColor = look.accent;
+  return Object.keys(st).length ? st : null;
+}
+// Keeps a photo's shape but limits its size, for comment pictures
+function shrinkPhoto(file, max = 400) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode"));
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/jpeg", 0.62));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+// Turns an uploaded song into a small 20-second mono WAV clip that plays on every phone
+async function makeClip(file, seconds = 20, rate = 11025) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) throw new Error("no audio");
+  const ctx = new AC();
+  const buf = await file.arrayBuffer();
+  const decoded = await new Promise((res, rej) => { try { const r = ctx.decodeAudioData(buf, res, rej); if (r?.then) r.then(res, rej); } catch (e) { rej(e); } });
+  const n = Math.min(decoded.length, Math.floor(seconds * decoded.sampleRate));
+  const chans = decoded.numberOfChannels, data = Array.from({ length: chans }, (_, c) => decoded.getChannelData(c));
+  const step = decoded.sampleRate / rate, outLen = Math.floor(n / step);
+  const tmp = new Float32Array(outLen);
+  let peak = 0;
+  for (let i = 0; i < outLen; i++) {
+    const a = Math.floor(i * step), b = Math.min(n, Math.max(a + 1, Math.floor((i + 1) * step)));
+    let sum = 0, cnt = 0;
+    for (let j = a; j < b; j++) for (let c = 0; c < chans; c++) { sum += data[c][j]; cnt++; }
+    tmp[i] = cnt ? sum / cnt : 0; peak = Math.max(peak, Math.abs(tmp[i]));
+  }
+  const g = peak > 0 ? 0.95 / peak : 1;
+  const pcm = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) { let v = tmp[i] * g; const rem = outLen - i; if (rem < rate) v *= rem / rate; if (i < rate / 4) v *= i / (rate / 4); pcm[i] = Math.max(-32768, Math.min(32767, Math.round(v * 32767))); }
+  const bytes = new Uint8Array(44 + outLen * 2), dv = new DataView(bytes.buffer);
+  const wstr = (o, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(o + i, str.charCodeAt(i)); };
+  wstr(0, "RIFF"); dv.setUint32(4, 36 + outLen * 2, true); wstr(8, "WAVE"); wstr(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); wstr(36, "data"); dv.setUint32(40, outLen * 2, true);
+  bytes.set(new Uint8Array(pcm.buffer), 44);
+  try { ctx.close?.(); } catch (e) { /* ignore */ }
+  return "data:audio/wav;base64," + b64(bytes);
+}
+const b64 = (bytes) => { let bin = ""; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); return btoa(bin); };
+const b64url = (bytes) => b64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromB64url = (t) => { const s = t.replace(/-/g, "+").replace(/_/g, "/"); return Uint8Array.from(atob(s + "=".repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0)); };
+const songLinkLabel = (url) => (/youtu\.?be/i.test(url) ? "YouTube" : /spotify/i.test(url) ? "Spotify" : /apple/i.test(url) ? "Apple Music" : /soundcloud/i.test(url) ? "SoundCloud" : "Link");
+
+function SongPlayer({ playerId, meta, me }) {
+  const [state, setState] = useState("idle"); // idle | loading | playing
+  const audioRef = useRef(null);
+  useEffect(() => () => { try { audioRef.current?.pause(); } catch (e) { /* ignore */ } }, []);
+  if (!meta) return null;
+  if (meta.type === "link") {
+    return <a href={meta.url} target="_blank" rel="noreferrer" className="btn px-4 py-2 text-sm inline-flex items-center gap-2"><Music size={16} />Play on {songLinkLabel(meta.url)}</a>;
+  }
+  const play = async () => {
+    if (state === "playing") { audioRef.current?.pause(); setState("idle"); return; }
+    setState("loading");
+    try {
+      let src = null;
+      if (me) { try { const r = await window.storage.get("ascend-song", false); src = r?.value; } catch (e) { /* fall through */ } }
+      if (!src) { const r = await window.storage.get(`song:${playerId}`, true); src = r?.value; }
+      if (!src) throw new Error("missing");
+      const a = new Audio(src); audioRef.current = a;
+      a.onended = () => setState("idle"); a.onerror = () => setState("idle");
+      await a.play(); setState("playing");
+    } catch (e) { setState("idle"); }
+  };
+  return (
+    <button onClick={play} className="btn px-4 py-2 text-sm inline-flex items-center gap-2">
+      {state === "loading" ? <Loader2 size={16} className="animate-spin" /> : state === "playing" ? <Pause size={16} /> : <Music size={16} />}
+      {state === "playing" ? "Stop" : state === "loading" ? "Loading…" : `Play theme${meta.name ? `: ${meta.name}` : ""}`}
+    </button>
+  );
+}
+
+/* ---------- Profiles ---------- */
+function Avatar({ src, name, size = 48, ring }) {
+  const color = ring || C.cyan;
+  return src ? (
+    <img src={src} alt="" style={{ width: size, height: size, borderRadius: 999, objectFit: "cover", border: `2px solid ${color}`, boxShadow: `0 0 12px ${C.glow}`, flexShrink: 0 }} />
+  ) : (
+    <div className="flex items-center justify-center font-extrabold shrink-0" style={{ width: size, height: size, borderRadius: 999, background: C.accentBg, color, border: `2px solid ${color}`, fontSize: size * 0.42 }}>{((name || "?").trim()[0] || "?").toUpperCase()}</div>
+  );
+}
+
+// Shrinks an uploaded photo to a small square JPEG so it fits in storage and loads fast on the board
+function shrinkImage(file, size = 112) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode"));
+      img.onload = () => {
+        const c = document.createElement("canvas"); c.width = size; c.height = size;
+        const ctx = c.getContext("2d");
+        const m = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, size, size);
+        resolve(c.toDataURL("image/jpeg", 0.72));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function AchBadge({ a, earned, size = 60, onClick }) {
+  const t = TIER_STYLE[a.tier];
+  const Icon = ACH_ICONS[a.series.icon] || Award;
+  const mythic = a.tier === 5;
+  return (
+    <button onClick={onClick} className="flex flex-col items-center gap-1" style={{ width: size + 16 }} aria-label={`${a.title}: ${a.desc}${earned ? ", earned" : ", locked"}`}>
+      <div className="flex items-center justify-center relative" style={{ width: size, height: size, borderRadius: a.tier >= 4 ? 12 : 999, transform: a.tier >= 4 ? "rotate(45deg)" : "none",
+        background: earned ? (mythic ? RAINBOW : `radial-gradient(circle at 35% 30%, ${t.color}, ${C.bg} 85%)`) : C.soft, backgroundSize: mythic ? "300% auto" : undefined,
+        border: `2px solid ${earned ? t.color : C.border}`, boxShadow: earned ? `0 0 ${8 + a.tier * 5}px ${t.glow}` : "none", opacity: earned ? 1 : 0.45, animation: earned && mythic ? "rainbow 3s linear infinite" : "none" }}>
+        <div style={{ transform: a.tier >= 4 ? "rotate(-45deg)" : "none", color: earned ? (a.tier === 2 ? "#0B1220" : mythic ? "#fff" : "#0B1220") : C.mute }}>
+          {earned ? <Icon size={size * 0.45} strokeWidth={2.2} /> : <Lock size={size * 0.38} />}
+        </div>
+        {earned && a.tier >= 3 && !mythic && <span className="absolute" style={{ top: -4, right: -4, transform: a.tier >= 4 ? "rotate(-45deg)" : "none" }}><Sparkle size={14} style={{ color: t.color, filter: `drop-shadow(0 0 4px ${t.color})` }} /></span>}
+      </div>
+      <div className="text-xs font-bold text-center leading-tight" style={{ color: earned ? t.color : C.mute }}>{a.title}</div>
+    </button>
+  );
+}
+
+function WeightChart({ log, target }) {
+  const pts = Object.entries(log || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-60).map(([d, w]) => ({ d, w: +w })).filter((p) => p.w > 0);
+  if (pts.length < 2) return <div className="body text-sm" style={{ color: C.dim }}>Log your weight on at least two days to see a trend line.</div>;
+  const W = 320, H = 130, padL = 34, padR = 10, padT = 12, padB = 22;
+  const ws = pts.map((p) => p.w), lo = Math.floor(Math.min(...ws) - 2), hi = Math.ceil(Math.max(...ws) + 2);
+  const x = (i) => padL + (i / (pts.length - 1)) * (W - padL - padR);
+  const y = (w) => padT + (1 - (w - lo) / (hi - lo)) * (H - padT - padB);
+  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.w).toFixed(1)}`).join(" ");
+  const first = pts[0], last = pts[pts.length - 1];
+  const diff = Math.round((last.w - first.w) * 10) / 10;
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Weight from ${first.w} to ${last.w} lb`}>
+        {[lo, (lo + hi) / 2, hi].map((v) => <g key={v}><line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke={C.line} strokeDasharray="3 4" /><text x={padL - 6} y={y(v) + 4} textAnchor="end" fontSize="10" fill={C.dim}>{Math.round(v)}</text></g>)}
+        <path d={`${path} L${x(pts.length - 1).toFixed(1)},${H - padB} L${padL},${H - padB} Z`} fill={C.cyan} opacity=".12" />
+        <path d={path} fill="none" stroke={C.cyan} strokeWidth="2.5" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 6px ${C.glow})` }} />
+        {pts.map((p, i) => <circle key={p.d} cx={x(i)} cy={y(p.w)} r="3" fill={C.bg} stroke={C.cyan} strokeWidth="2" />)}
+        <text x={padL} y={H - 6} fontSize="10" fill={C.dim}>{new Date(first.d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</text>
+        <text x={W - padR} y={H - 6} fontSize="10" fill={C.dim} textAnchor="end">{new Date(last.d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</text>
+      </svg>
+      <div className="body text-xs flex justify-between" style={{ color: C.dim }}>
+        <span>{pts.length} entries</span>
+        <span style={{ color: diff === 0 ? C.dim : (target === "cut" ? diff < 0 : diff > 0) ? C.green : C.orange }}>{diff > 0 ? "+" : ""}{diff} lb since {new Date(first.d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+      </div>
+    </div>
+  );
+}
+
+function profileCard(s) {
+  const ws = weekStart();
+  const st = lifetimeStats(s);
+  const wl = Object.entries(s.weightLog || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-40);
+  return {
+    id: s.playerId, name: s.profile.name, avatar: s.profile.avatar || null, goal: s.profile.goal, look: s.profile.look || null, song: s.profile.song || null,
+    xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
+    streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length, weekOf: ws, updated: Date.now(),
+    ach: Object.keys(s.ach || {}), stats: st, weightLog: Object.fromEntries(wl),
+    lifts: rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 6).map((r) => ({ name: r.e.name, label: r.label, rank: r.rank.id, best: Math.round(r.best), bw: r.e.type === "bodyweight" })),
+  };
+}
+
+function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
+  const me = !targetId || targetId === s.playerId;
+  const [card, setCard] = useState(null);
+  const [loading, setLoading] = useState(!me);
+  const [social, setSocial] = useState({ fives: [], comments: [] });
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [wIn, setWIn] = useState("");
+  const [pick, setPick] = useState(null);
+  const fileRef = useRef(null);
+  const id = me ? s.playerId : targetId;
+  const data = me ? profileCard(s) : card;
+
+  const loadSocial = async () => {
+    if (!window.storage?.list) return;
+    const read = async (prefix) => {
+      try {
+        const res = await window.storage.list(prefix, true);
+        const items = await Promise.all((res?.keys || []).map(async (k) => { try { const r = await window.storage.get(k, true); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; } }));
+        return items.filter(Boolean);
+      } catch { return []; }
+    };
+    const [fives, comments] = await Promise.all([read(`hf:${id}:`), read(`cm:${id}:`)]);
+    setSocial({ fives, comments: comments.sort((a, b) => (b.t || 0) - (a.t || 0)) });
+  };
+  useEffect(() => {
+    (async () => {
+      if (!me) {
+        try { const r = await window.storage.get(`lb:${targetId}`, true); setCard(r?.value ? JSON.parse(r.value) : null); } catch { setCard(null); }
+        setLoading(false);
+      }
+      loadSocial();
+    })();
+  }, [targetId]);
+
+  const highFive = async () => {
+    if (!s.lb || !s.profile.name) { setNote("Join the leaderboard first so people know who the high-five is from."); return; }
+    setBusy(true);
+    const key = `hf:${id}:${s.playerId}`;
+    const mine = social.fives.find((f) => f.key === key);
+    const rec = { n: (mine?.n || 0) + 1, name: s.profile.name, from: s.playerId, t: Date.now() };
+    try { await window.storage.set(key, JSON.stringify(rec), true); setSocial((x) => ({ ...x, fives: [...x.fives.filter((f) => f.key !== key), { key, ...rec }] })); }
+    catch { setNote("Couldn't send that. Check your connection."); }
+    setBusy(false);
+  };
+  const postComment = async () => {
+    const text = comment.trim().slice(0, 140);
+    if (!text && !cImg) return;
+    if (!s.lb || !s.profile.name) { setNote("Join the leaderboard first so your name shows on comments."); return; }
+    setBusy(true);
+    const t = Date.now(), key = `cm:${id}:${t}_${s.playerId}`;
+    const rec = { text, img: cImg || null, name: s.profile.name, from: s.playerId, t };
+    try { await window.storage.set(key, JSON.stringify(rec), true); setSocial((x) => ({ ...x, comments: [{ key, ...rec }, ...x.comments] })); setComment(""); setCImg(null); }
+    catch { setNote("Couldn't post that. Check your connection."); }
+    setBusy(false);
+  };
+  const deleteComment = async (c) => {
+    try { await window.storage.delete(c.key, true); setSocial((x) => ({ ...x, comments: x.comments.filter((y) => y.key !== c.key) })); } catch { /* ignore */ }
+  };
+  const logWeight = () => {
+    const w = +wIn; if (!w) return;
+    const d = today();
+    setS((p) => ({ ...p, profile: { ...p.profile, weight: w }, weightLog: { ...(p.weightLog || {}), [d]: w } }));
+    setWIn("");
+  };
+  const [songBusy, setSongBusy] = useState(false);
+  const [songLink, setSongLink] = useState("");
+  const songRef = useRef(null);
+  const onSong = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setSongBusy(true); setNote("");
+    try {
+      const clip = await makeClip(f);
+      await window.storage.set("ascend-song", clip, false);
+      if (s.lb) await window.storage.set(`song:${s.playerId}`, clip, true);
+      setS((p) => ({ ...p, profile: { ...p.profile, song: { type: "clip", name: f.name.replace(/\.[^.]+$/, "").slice(0, 40) } } }));
+    } catch (err) { setNote("Couldn't make a clip from that file. Try an mp3 or m4a."); }
+    setSongBusy(false); e.target.value = "";
+  };
+  const saveLink = () => {
+    const url = songLink.trim(); if (!/^https?:\/\//i.test(url)) return;
+    setS((p) => ({ ...p, profile: { ...p.profile, song: { type: "link", url, name: songLinkLabel(url) } } })); setSongLink("");
+  };
+  const removeSong = async () => {
+    setS((p) => ({ ...p, profile: { ...p.profile, song: null } }));
+    try { await window.storage.delete("ascend-song", false); } catch (e) { /* none */ }
+    try { await window.storage.delete(`song:${s.playerId}`, true); } catch (e) { /* none */ }
+  };
+  const [cImg, setCImg] = useState(null);
+  const cImgRef = useRef(null);
+  const onCommentPhoto = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    try { setCImg(await shrinkPhoto(f)); } catch (err) { setNote("Couldn't read that photo."); }
+    e.target.value = "";
+  };
+  const [bigImg, setBigImg] = useState(null);
+  const onPhoto = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    try { const src = await shrinkImage(f); setS((p) => ({ ...p, profile: { ...p.profile, avatar: src } })); }
+    catch { setNote("Couldn't read that photo. Try a different one."); }
+    e.target.value = "";
+  };
+
+  const fives = social.fives.reduce((a, f) => a + (f.n || 0), 0);
+  const all = allAchievements();
+  const earnedIds = new Set(data?.ach || []);
+  const earned = all.filter((a) => earnedIds.has(a.id)), locked = all.filter((a) => !earnedIds.has(a.id));
+  const rank = data ? RANKS.find((r) => r.id === data.rank) || RANKS[0] : RANKS[0];
+  const st = data?.stats;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext">{me ? "Your profile" : "Profile"}</h1>
+      </div>
+
+      {loading && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={16} className="animate-spin" />Loading profile…</div>}
+      {!loading && !data && <Empty>This player isn't on the leaderboard anymore.</Empty>}
+
+      {data && (
+        <>
+          <div className="panel p-5" style={lookStyle(data.look)}>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} />
+                {me && (
+                  <>
+                    <button aria-label="Change profile photo" onClick={() => fileRef.current?.click()} className="absolute flex items-center justify-center" style={{ right: -4, bottom: -4, width: 28, height: 28, borderRadius: 999, background: C.cyan, color: "#001018" }}><Camera size={15} /></button>
+                    <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
+                  </>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
+                <div className="body text-sm" style={{ color: rank.color }}>{data.rank}{data.div ? ` ${data.div}` : ""} · Level {data.lvl}</div>
+                <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{(data.points || 0).toLocaleString()} pts · {data.streak} day streak{st?.since ? ` · since ${new Date(st.since + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}</div>
+              </div>
+            </div>
+            {me && data.avatar && <button onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, avatar: null } }))} className="body text-xs underline mt-3" style={{ color: C.mute }}>Remove photo</button>}
+            <div className="flex items-center gap-3 flex-wrap mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+              <div className="flex items-center gap-1 font-bold" style={{ color: C.gold }}><Hand size={18} />{fives} high-five{fives === 1 ? "" : "s"}</div>
+              {!me && <button onClick={highFive} disabled={busy} className="btn px-4 py-2 text-sm flex items-center gap-1"><Hand size={16} />High five</button>}
+              <SongPlayer playerId={id} meta={data.song} me={me} />
+            </div>
+          </div>
+
+          {me && (
+            <div className="panel p-4 space-y-3">
+              <div className="font-bold">Customize your look</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {PROFILE_BGS.map((b) => (
+                  <button key={b.id} aria-label={`${b.name} background`} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), bg: b.id } } }))} className="shrink-0 flex flex-col items-center gap-1">
+                    <span style={{ width: 52, height: 36, borderRadius: 6, background: b.css || C.soft, border: `2px solid ${(s.profile.look?.bg || "none") === b.id ? C.cyan : C.border}` }} />
+                    <span className="body text-xs" style={{ color: C.dim }}>{b.name}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="body text-xs" style={{ color: C.dim }}>Name font</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {NAME_FONTS.map((f) => <button key={f.id} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), font: f.id } } }))} className="fancyname px-3 py-2 whitespace-nowrap shrink-0" style={{ fontFamily: f.family, "--nf": f.family, fontSize: f.id === "pixel" ? 11 : 15, borderRadius: 4, background: (s.profile.look?.font || "default") === f.id ? C.blue : C.soft, color: (s.profile.look?.font || "default") === f.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{f.name}</button>)}
+              </div>
+              <div className="body text-xs" style={{ color: C.dim }}>Name animation</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {NAME_ANIMS.map((a) => <button key={a.id} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), anim: a.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: (s.profile.look?.anim || "none") === a.id ? C.blue : C.soft, color: (s.profile.look?.anim || "none") === a.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{a.name}</button>)}
+              </div>
+              <div className="flex items-center gap-3 body text-sm">
+                <span style={{ color: C.dim }}>Name color</span>
+                <input type="color" value={s.profile.look?.accent || "#00D9FF"} onChange={(e) => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), accent: e.target.value } } }))} aria-label="Accent color" style={{ width: 44, height: 32, border: `1px solid ${C.border}`, borderRadius: 4, background: "transparent" }} />
+                {s.profile.look?.accent && <button onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), accent: null } } }))} className="underline text-xs" style={{ color: C.mute }}>Reset</button>}
+              </div>
+              <div className="neonline" />
+              <div className="font-bold flex items-center gap-2"><Music size={16} />Theme song</div>
+              {s.profile.song && <div className="body text-sm" style={{ color: C.sub }}>Current: {s.profile.song.type === "link" ? `${songLinkLabel(s.profile.song.url)} link` : `${s.profile.song.name || "clip"} (20 sec clip)`} <button onClick={removeSong} className="underline ml-2" style={{ color: C.red }}>Remove</button></div>}
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => songRef.current?.click()} disabled={songBusy} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}>{songBusy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{songBusy ? "Making clip…" : "Upload mp3"}</button>
+                <input ref={songRef} type="file" accept="audio/*" onChange={onSong} style={{ display: "none" }} />
+                <div className="flex gap-1">
+                  <input className="inp text-sm" placeholder="YouTube / Spotify link" value={songLink} onChange={(e) => setSongLink(e.target.value)} />
+                  <button onClick={saveLink} disabled={!/^https?:\/\//i.test(songLink.trim())} className="btn px-3 text-sm">Set</button>
+                </div>
+              </div>
+              <div className="body text-xs" style={{ color: C.mute }}>Uploads keep the first 20 seconds as a small clip (phone-call quality) so it fits in storage. Links open in the music app instead.</div>
+            </div>
+          )}
+
+          {st && (
+            <div className="grid grid-cols-3 gap-2">
+              {[["Workouts", st.workouts], ["Lifted", `${st.volume >= 1000000 ? `${(st.volume / 1000000).toFixed(1)}M` : `${Math.round(st.volume / 1000)}k`} lb`], ["Reps", st.reps.toLocaleString()], ["Miles", st.miles], ["Longest streak", `${st.longestStreak}d`], ["Quests", st.quests], ["Bench", st.bench ? `${st.bench} lb` : "–"], ["Squat", st.squat ? `${st.squat} lb` : "–"], ["Deadlift", st.deadlift ? `${st.deadlift} lb` : "–"]].map(([l, v]) => (
+                <div key={l} className="panel py-3 px-2 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold glowtext">{v}</div></div>
+              ))}
+            </div>
+          )}
+
+          <h2 className="text-lg font-bold">Achievements <span className="body text-sm font-normal" style={{ color: C.dim }}>{earned.length} / {all.length}</span></h2>
+          {pick && (
+            <div className="panel p-3 body text-sm" style={{ borderColor: TIER_STYLE[pick.tier].color }}>
+              <div className="font-bold" style={{ color: TIER_STYLE[pick.tier].color }}>{pick.title} · {TIER_STYLE[pick.tier].name}</div>
+              <div>{pick.desc}</div>
+              <div className="text-xs mt-1" style={{ color: C.gold }}>+{pick.xp} XP{earnedIds.has(pick.id) ? " · earned" : ""}</div>
+            </div>
+          )}
+          <div className="panel p-3">
+            {earned.length === 0 && <div className="body text-sm mb-2" style={{ color: C.dim }}>Nothing earned yet. Tap a locked badge to see what it takes.</div>}
+            <div className="flex flex-wrap gap-1 justify-center">
+              {[...earned.sort((a, b) => b.tier - a.tier), ...locked].map((a) => <AchBadge key={a.id} a={a} earned={earnedIds.has(a.id)} onClick={() => setPick(a)} />)}
+            </div>
+          </div>
+
+          <h2 className="text-lg font-bold">Weight over time</h2>
+          <div className="panel p-4 space-y-3">
+            {me && (
+              <div className="flex gap-2 items-center">
+                <input type="number" inputMode="decimal" className="inp" placeholder={`Today's weight (now ${s.profile.weight} lb)`} value={wIn} onChange={(e) => setWIn(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logWeight()} />
+                <button onClick={logWeight} disabled={!+wIn} className="btn px-4 py-2 text-sm whitespace-nowrap" style={!+wIn ? { opacity: 0.5 } : null}>Log</button>
+              </div>
+            )}
+            <WeightChart log={data.weightLog} target={data.goal} />
+          </div>
+
+          {data.lifts?.length > 0 && (
+            <>
+              <h2 className="text-lg font-bold">Top lifts</h2>
+              <div className="space-y-2">
+                {data.lifts.map((l) => { const r = RANKS.find((x) => x.id === l.rank) || RANKS[0]; return (
+                  <div key={l.name} className="panel p-3 flex items-center gap-3"><RankBadge rank={r} size={30} /><span className="flex-1 font-semibold ml-1">{l.name}</span><span className="font-bold" style={{ color: r.color }}>{l.label}</span><span className="body text-xs" style={{ color: C.dim }}>{l.best}{l.bw ? " reps" : " lb"}</span></div>
+                ); })}
+              </div>
+            </>
+          )}
+
+          <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} />
+
+          <h2 className="text-lg font-bold flex items-center gap-2"><MessageCircle size={18} />Comments</h2>
+          {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
+          {!me && (
+            <div className="panel p-2 space-y-2">
+              {cImg && <div className="flex items-center gap-2"><img src={cImg} alt="" style={{ height: 64, borderRadius: 6 }} /><button onClick={() => setCImg(null)} aria-label="Remove photo" className="ghost p-1"><X size={14} /></button></div>}
+              <div className="flex gap-2">
+                <button aria-label="Add a photo" onClick={() => cImgRef.current?.click()} className="ghost px-3 flex items-center" style={{ color: cImg ? C.green : C.cyan }}><ImageIcon size={18} /></button>
+                <input ref={cImgRef} type="file" accept="image/*" onChange={onCommentPhoto} style={{ display: "none" }} />
+                <input className="inp" placeholder="Say something (140 max)" maxLength={140} value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && postComment()} />
+                <button onClick={postComment} disabled={busy || (!comment.trim() && !cImg)} className="btn px-4 py-2 text-sm">Post</button>
+              </div>
+            </div>
+          )}
+          {social.comments.length === 0 && <Empty>{me ? "No comments yet. When your cousins visit your profile from the Board tab, they can leave one." : "Be the first to leave a comment."}</Empty>}
+          <div className="space-y-2">
+            {social.comments.map((c) => (
+              <div key={c.key} className="panel p-3">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="font-bold text-sm">{c.name}<span className="body text-xs font-normal ml-2" style={{ color: C.mute }}>{new Date(c.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
+                  {(me || c.from === s.playerId) && <button aria-label="Delete comment" onClick={() => ask("Delete this comment?", () => deleteComment(c), "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
+                </div>
+                {c.text && <div className="body text-sm mt-1" style={{ color: C.sub }}>{c.text}</div>}
+                {c.img && <button onClick={() => setBigImg(bigImg === c.key ? null : c.key)} className="mt-2 block"><img src={c.img} alt="Photo in comment" style={{ maxHeight: bigImg === c.key ? 400 : 120, maxWidth: "100%", borderRadius: 6, border: `1px solid ${C.border}` }} /></button>}
+              </div>
+            ))}
+          </div>
+          {social.fives.length > 0 && <div className="body text-xs" style={{ color: C.mute }}>High-fives from {social.fives.map((f) => `${f.name} (${f.n})`).join(", ")}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Name fonts + animations ---------- */
+const NAME_FONTS = [
+  { id: "default", name: "Ascend", family: "'Oxanium', sans-serif" },
+  { id: "orbitron", name: "Orbitron", family: "'Orbitron', sans-serif" },
+  { id: "bangers", name: "Comic", family: "'Bangers', cursive" },
+  { id: "cinzel", name: "Royal", family: "'Cinzel', serif" },
+  { id: "marker", name: "Marker", family: "'Permanent Marker', cursive" },
+  { id: "pixel", name: "Pixel", family: "'Press Start 2P', monospace" },
+  { id: "pacifico", name: "Script", family: "'Pacifico', cursive" },
+  { id: "creepster", name: "Creepy", family: "'Creepster', cursive" },
+];
+const NAME_ANIMS = [
+  { id: "none", name: "None" }, { id: "pulse", name: "Pulse" }, { id: "rainbow", name: "Rainbow" }, { id: "wave", name: "Wave" },
+  { id: "wobble", name: "Wobble" }, { id: "flicker", name: "Flicker" }, { id: "float", name: "Float" }, { id: "shake", name: "Shake" },
+];
+function FancyName({ name, look, className = "", style = {}, size }) {
+  const font = NAME_FONTS.find((f) => f.id === look?.font) || NAME_FONTS[0];
+  const anim = look?.anim && look.anim !== "none" ? look.anim : null;
+  const color = look?.accent || style.color;
+  const base = { ...style, fontFamily: font.family, "--nf": font.family, color, fontSize: size, display: "inline-block", maxWidth: "100%" };
+  className = `fancyname ${className}`;
+  if (look?.font === "pixel") base.fontSize = size ? size * 0.7 : "0.8em";
+  const text = name || "Unnamed";
+  if (anim === "wave" || anim === "shake") {
+    return (
+      <span className={className} style={base} aria-label={text}>
+        {[...text].map((ch, i) => <span key={i} aria-hidden="true" style={{ display: "inline-block", whiteSpace: "pre", animation: `nm-${anim} ${anim === "wave" ? 1.6 : 0.5}s ${i * (anim === "wave" ? 0.08 : 0.03)}s ease-in-out infinite` }}>{ch}</span>)}
+      </span>
+    );
+  }
+  const cls = anim ? `nm-${anim}` : "";
+  if (anim === "rainbow") return <span className={`${className} ${cls}`} style={{ ...base, color: undefined }}>{text}</span>;
+  return <span className={`${className} ${cls}`} style={{ ...base, "--nc": color || C.cyan }}>{text}</span>;
+}
+
+/* ---------- Rank emblems ---------- */
+const darken = (hex, k = 0.45) => { const c = hexRgb(hex); return c ? `rgb(${c.map((v) => Math.round(v * k)).join(",")})` : hex; };
+function RankBadge({ rank, size = 44, still = false }) {
+  const tier = Math.max(0, RANKS.indexOf(rank));
+  const id = `rk${rank.id}`;
+  const hex = (r, cx = 50, cy = 50) => Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i - Math.PI / 2; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
+  const spin = !still && tier >= 2, rays = !still && tier >= 4, orbit = !still && tier >= 5, shine = !still && tier >= 1;
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" className="shrink-0" role="img" aria-label={`${rank.id} rank`} style={{ filter: `drop-shadow(0 0 ${5 + tier * 2}px ${rank.glow})`, overflow: "visible" }}>
+      <defs>
+        <linearGradient id={`${id}f`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={rank.color} stopOpacity=".6" /><stop offset=".5" stopColor="#04070f" /><stop offset="1" stopColor={rank.color} stopOpacity=".4" /></linearGradient>
+        <linearGradient id={`${id}m`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset=".42" stopColor={rank.color} /><stop offset=".58" stopColor={darken(rank.color)} /><stop offset="1" stopColor="#ffffff" stopOpacity=".9" /></linearGradient>
+        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".55" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
+        <clipPath id={`${id}c`}><polygon points={hex(44)} /></clipPath>
+      </defs>
+      {rays && (
+        <g style={{ transformOrigin: "50px 50px", animation: "rkspin 14s linear infinite", opacity: 0.55 }}>
+          {Array.from({ length: 12 }, (_, i) => <line key={i} x1="50" y1="50" x2={50 + 62 * Math.cos((Math.PI / 6) * i)} y2={50 + 62 * Math.sin((Math.PI / 6) * i)} stroke={rank.color} strokeWidth={i % 2 ? 1 : 2.5} strokeLinecap="round" opacity={i % 2 ? 0.5 : 0.9} />)}
+        </g>
+      )}
+      <polygon points={hex(49)} fill="none" stroke={rank.color} strokeWidth="1.2" opacity=".45" style={spin ? { transformOrigin: "50px 50px", animation: "rkspin 9s linear infinite reverse" } : null} strokeDasharray={spin ? "10 6" : "0"} />
+      <polygon points={hex(44)} fill={`url(#${id}f)`} stroke={rank.color} strokeWidth="3" strokeLinejoin="round" />
+      <polygon points={hex(36)} fill="none" stroke={rank.color} strokeWidth="1" opacity=".55" />
+      {tier >= 3 && <polygon points={hex(40)} fill="none" stroke="#fff" strokeWidth=".6" opacity=".35" />}
+      <text x="50" y="65" textAnchor="middle" fontSize="46" fontWeight="900" fontFamily="'Oxanium', sans-serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.35)} strokeWidth="1.2" paintOrder="stroke">{rank.id}</text>
+      {shine && <g clipPath={`url(#${id}c)`}><rect x="-60" y="0" width="40" height="100" fill={`url(#${id}s)`} transform="skewX(-20)" style={{ animation: `rkshine ${4 - tier * 0.4}s ease-in-out infinite` }} /></g>}
+      {orbit && (
+        <g style={{ transformOrigin: "50px 50px", animation: "rkspin 5s linear infinite" }}>
+          {[0, 1, 2].map((i) => <circle key={i} cx={50 + 52 * Math.cos((2 * Math.PI / 3) * i)} cy={50 + 52 * Math.sin((2 * Math.PI / 3) * i)} r="3" fill="#fff" style={{ filter: `drop-shadow(0 0 4px ${rank.color})` }} />)}
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/* ---------- Meal builder ---------- */
+function MealBuilder({ s, setS, pool, onDone, onBack }) {
+  const [name, setName] = useState("");
+  const [items, setItems] = useState([]);
+  const [q, setQ] = useState("");
+  const [desc, setDesc] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const matches = q.trim().length > 1 ? pool.filter((f) => !f.meal && f.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8) : [];
+  const tot = items.reduce((a, it) => ({ cal: a.cal + it.cal * it.qty, p: a.p + it.p * it.qty, c: a.c + it.c * it.qty, f: a.f + it.f * it.qty }), { cal: 0, p: 0, c: 0, f: 0 });
+  const add = (f, qty = 1) => { setItems((x) => [...x, { name: f.name, cal: +f.cal || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0, qty }]); setQ(""); };
+  const build = async () => {
+    setBusy(true); setErr("");
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: `Turn this description into a recipe with per-ingredient nutrition: "${desc}". Use typical US portions and standard nutrition values. Respond ONLY with JSON, no markdown: {"name": short meal name, "ingredients": [{"name": "ingredient with portion, e.g. Whey protein (1 scoop)", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}]}` }] }),
+      });
+      const data = await res.json();
+      const text = (data.content || []).map((i) => i.text || "").join("").replace(/```json|```/g, "").trim();
+      const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+      if (!name.trim() && r.name) setName(String(r.name).slice(0, 50));
+      (r.ingredients || []).forEach((it) => add(it, 1));
+      setDesc("");
+    } catch (e) { setErr("Couldn't build that. Try listing the ingredients, like \"2 scoops whey, banana, cup of milk, tbsp peanut butter\"."); }
+    setBusy(false);
+  };
+  const save = () => {
+    const meal = { name: name.trim() || "My meal", meal: true, ingredients: items, cal: Math.round(tot.cal), p: Math.round(tot.p), c: Math.round(tot.c), f: Math.round(tot.f), r: "Meals" };
+    setS((x) => ({ ...x, savedFoods: [meal, ...(x.savedFoods || []).filter((y) => y.name !== meal.name)].slice(0, 80) }));
+    publishShared(`food:${slug(meal.name)}`, { ...meal, by: s.profile.name || "a player", t: Date.now() });
+    onDone(meal);
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext">Create a meal</h1>
+      </div>
+      <div className="body text-sm" style={{ color: C.dim }}>Build a shake or a full meal once, and it saves with all its ingredients. It's shared with everyone, so your cousins can log it in one tap too.</div>
+      <input className="inp font-bold" placeholder="Meal name, e.g. Post-workout shake" value={name} onChange={(e) => setName(e.target.value)} />
+
+      <div className="panel p-3 space-y-2">
+        <div className="font-bold text-sm">Describe it and let AI fill the ingredients</div>
+        <div className="flex gap-2">
+          <input className="inp" placeholder="e.g. 2 scoops whey, banana, oats, milk" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={(e) => e.key === "Enter" && desc.trim() && build()} />
+          <button onClick={build} disabled={busy || desc.trim().length < 3} className="btn px-3 text-sm flex items-center gap-1">{busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}Build</button>
+        </div>
+        {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
+      </div>
+
+      <div className="panel p-3 space-y-2">
+        <div className="font-bold text-sm">Or add ingredients from the food list</div>
+        <input className="inp" placeholder="Search ingredients" value={q} onChange={(e) => setQ(e.target.value)} />
+        {matches.map((f) => <button key={f.name} onClick={() => add(f)} className="ghost w-full text-left p-2 text-sm flex justify-between"><span>{f.name}</span><span style={{ color: C.dim }}>{f.cal} cal</span></button>)}
+      </div>
+
+      {items.length > 0 && (
+        <div className="panel p-3 space-y-2">
+          {items.map((it, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <div className="flex-1 min-w-0"><div className="truncate font-semibold">{it.name}</div><div className="body text-xs" style={{ color: C.dim }}>{Math.round(it.cal * it.qty)} cal · P {Math.round(it.p * it.qty)} · C {Math.round(it.c * it.qty)} · F {Math.round(it.f * it.qty)}</div></div>
+              <input type="number" step="0.5" min="0.5" className="inp text-center" style={{ width: 56 }} value={it.qty} aria-label="Quantity" onChange={(e) => setItems((x) => x.map((y, j) => j === i ? { ...y, qty: +e.target.value || 0 } : y))} />
+              <button aria-label="Remove ingredient" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
+            </div>
+          ))}
+          <div className="flex justify-between font-bold pt-2" style={{ borderTop: `1px solid ${C.line}` }}><span>Total</span><span style={{ color: C.gold }}>{Math.round(tot.cal)} cal · P {Math.round(tot.p)} · C {Math.round(tot.c)} · F {Math.round(tot.f)}</span></div>
+        </div>
+      )}
+      <button onClick={save} disabled={!items.length} className="btn w-full py-3" style={!items.length ? { opacity: 0.5 } : null}>Save meal, share it, and log it</button>
+    </div>
+  );
+}
+
+/* ---------- Mog-off ---------- */
+const MOG_XP = 10;
+async function rateMog(dataUrl) {
+  const b64data = dataUrl.split(",")[1];
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6", max_tokens: 400,
+      messages: [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64data } },
+        { type: "text", text: `This is a silly game between friends called a mog-off. Judge ONLY the facial expression performance, never the person's looks. The goal is the classic fashion-model "Blue Steel" face: dead-serious stare, puffed fishy pouty lips, intense eyebrows, chin up, zero smile. Score each 0-20 as integers: pucker (fishy lips), brows (intensity), stare (seriousness of the eyes), jaw (chin/jaw drama), commitment (how fully they sold it, laughing or smiling loses points). Respond ONLY with JSON: {"pucker": n, "brows": n, "stare": n, "jaw": n, "commitment": n, "quip": "one short playful judge comment, under 12 words"}` },
+      ] }],
+    }),
+  });
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+  const clamp = (v) => Math.max(0, Math.min(20, Math.round(+v || 0)));
+  const parts = { pucker: clamp(r.pucker), brows: clamp(r.brows), stare: clamp(r.stare), jaw: clamp(r.jaw), commitment: clamp(r.commitment) };
+  return { ...parts, total: Object.values(parts).reduce((a, b) => a + b, 0), quip: String(r.quip || "The judges have spoken.").slice(0, 80) };
+}
+function MogSection({ s, setS, gainXp, me, targetId, targetName }) {
+  const [list, setList] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [open, setOpen] = useState(null);
+  const camRef = useRef(null);
+  const pendingRef = useRef(null); // challenge being accepted, or null for a new challenge
+  const load = async () => {
+    if (!window.storage?.list) return;
+    try {
+      const res = await window.storage.list("mog:", true);
+      const items = await Promise.all((res?.keys || []).map(async (k) => { try { const r = await window.storage.get(k, true); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; } }));
+      setList(items.filter((m) => m && (m.from === s.playerId || m.to === s.playerId)).sort((a, b) => (b.t || 0) - (a.t || 0)));
+    } catch { /* offline */ }
+  };
+  useEffect(() => { load(); }, [targetId]);
+
+  const snap = (pending) => { if (!s.lb || !s.profile.name) { setNote("Join the leaderboard first so the challenge has your name on it."); return; } pendingRef.current = pending; camRef.current?.click(); };
+  const onShot = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    setBusy(true); setNote("");
+    try {
+      const img = await shrinkPhoto(f, 260);
+      let score;
+      try { score = await rateMog(img); } catch { const seed = img.length % 37; score = { pucker: 8 + seed % 9, brows: 6 + seed % 11, stare: 7 + seed % 10, jaw: 5 + seed % 12, commitment: 9 + seed % 8, quip: "The judge blinked, so this one's on vibes.", total: 0 }; score.total = score.pucker + score.brows + score.stare + score.jaw + score.commitment; }
+      const entry = { ...score, img, name: s.profile.name, t: Date.now() };
+      const pending = pendingRef.current;
+      if (pending) {
+        const winner = entry.total > pending.a.total ? s.playerId : entry.total < pending.a.total ? pending.from : "tie";
+        const rec = { ...pending, b: entry, status: "done", winner };
+        delete rec.key;
+        await window.storage.set(pending.key, JSON.stringify(rec), true);
+      } else {
+        const id = uid();
+        const rec = { id, from: s.playerId, fromName: s.profile.name, to: targetId, toName: targetName, t: Date.now(), a: entry, b: null, status: "pending" };
+        await window.storage.set(`mog:${id}`, JSON.stringify(rec), true);
+      }
+      await load();
+    } catch (err) { setNote("Couldn't process that photo. Try again in better light."); }
+    setBusy(false);
+  };
+  const claim = (m) => {
+    setS((p) => ({ ...p, mogClaimed: { ...(p.mogClaimed || {}), [m.id]: true } }));
+    gainXp(MOG_XP, "Mog-off win");
+  };
+  const remove = async (m) => { try { await window.storage.delete(m.key, true); setList((l) => l.filter((x) => x.key !== m.key)); } catch { /* ignore */ } };
+  const Face = ({ e, label, win }) => (
+    <div className="flex-1 text-center">
+      <img src={e.img} alt={`${label}'s mog`} style={{ width: "100%", maxWidth: 140, aspectRatio: "1", objectFit: "cover", borderRadius: 8, margin: "0 auto", border: `2px solid ${win ? C.gold : C.border}`, boxShadow: win ? `0 0 16px ${C.gold}` : "none" }} />
+      <div className="font-bold text-sm mt-1 truncate">{label}</div>
+      <div className="text-2xl font-extrabold glowtext" style={{ color: win ? C.gold : C.text }}>{e.total}</div>
+      <div className="body text-xs" style={{ color: C.dim }}>lips {e.pucker} · brows {e.brows} · stare {e.stare} · jaw {e.jaw} · commit {e.commitment}</div>
+      <div className="body text-xs italic mt-1" style={{ color: C.sub }}>"{e.quip}"</div>
+    </div>
+  );
+  const rows = me ? list : list.filter((m) => (m.from === targetId || m.to === targetId));
+  return (
+    <div className="space-y-2">
+      <h2 className="text-lg font-bold flex items-center gap-2">🐟 Mog-off</h2>
+      <input ref={camRef} type="file" accept="image/*" capture="user" onChange={onShot} style={{ display: "none" }} />
+      {!me && (
+        <div className="panel p-4 space-y-2">
+          <div className="body text-sm" style={{ color: C.sub }}>Challenge {targetName || "them"} to a mog-off. Look into the camera, dead serious, fishy lips, eyebrows locked in. The AI judge scores the face. Winner gets {MOG_XP} XP.</div>
+          <button onClick={() => snap(null)} disabled={busy} className="btn w-full py-3 flex items-center justify-center gap-2">{busy ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}{busy ? "Judging your mog…" : "Take your mog shot"}</button>
+        </div>
+      )}
+      {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
+      {me && rows.length === 0 && <Empty>No mog-offs yet. Open a cousin's profile from the Board tab and challenge them. When someone challenges you, it shows here and on your Status tab.</Empty>}
+      {!s.lb && me && <div className="body text-xs" style={{ color: C.orange }}>Join the leaderboard (Board tab) to send and receive mog-offs.</div>}
+      {rows.map((m) => {
+        const iAmTarget = m.to === s.playerId, iAmFrom = m.from === s.playerId;
+        const isOpen = open === m.key;
+        return (
+          <div key={m.key} className="panel p-3 space-y-2">
+            <div className="flex justify-between items-center gap-2">
+              <div className="font-bold text-sm truncate">{m.fromName} vs {m.toName}</div>
+              <div className="body text-xs" style={{ color: C.dim }}>{new Date(m.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
+            </div>
+            {m.status === "pending" && iAmTarget && (
+              <button onClick={() => snap(m)} disabled={busy} className="btn w-full py-3 flex items-center justify-center gap-2">{busy ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}{busy ? "Judging…" : `Accept: mog back at ${m.fromName}`}</button>
+            )}
+            {m.status === "pending" && !iAmTarget && <div className="body text-sm" style={{ color: C.dim }}>Waiting for {m.toName} to accept. Your score: {m.a.total}.</div>}
+            {m.status === "pending" && iAmTarget && <div className="body text-xs" style={{ color: C.dim }}>{m.fromName} scored {m.a.total}. Beat it to win {MOG_XP} XP.</div>}
+            {m.status === "done" && (
+              <>
+                <div className="text-center font-extrabold" style={{ color: C.gold }}>{m.winner === "tie" ? "It's a tie. Both mogged equally hard." : `${m.winner === m.from ? m.fromName : m.toName} wins the mog-off`}</div>
+                <button onClick={() => setOpen(isOpen ? null : m.key)} className="body text-xs underline w-full" style={{ color: C.cyan }}>{isOpen ? "Hide faces" : "Show the faces and scores"}</button>
+                {isOpen && <div className="flex gap-3"><Face e={m.a} label={m.fromName} win={m.winner === m.from} /><Face e={m.b} label={m.toName} win={m.winner === m.to} /></div>}
+                {m.winner === s.playerId && !(s.mogClaimed || {})[m.id] && <button onClick={() => claim(m)} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{MOG_XP} XP</button>}
+              </>
+            )}
+            {(iAmFrom || iAmTarget) && me && <button onClick={() => ask("Delete this mog-off?", () => remove(m), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Sterling coaching cards ---------- */
+async function askJson(system, user, maxTokens = 900) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] }),
+  });
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  return JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+}
+const STERLING_SYS = "You are Sterling, the wildly over-the-top but genuinely competent British butler coach inside the Ascend gym app. Be brief and funny in the quip fields, but keep every recommendation accurate and practical.";
+
+// Pops up on the Fuel tab once most of the day's calories are in, with foods that finish the macros
+function FuelCoach({ s, setS, t, tot, onAdd }) {
+  const [state, setState] = useState({ status: "idle", picks: [], quip: "" });
+  const [hidden, setHidden] = useState(false);
+  const remCal = Math.round(t.cal - tot.cal), remP = Math.round(t.protein - tot.p), remC = Math.round(t.carbs - tot.c), remF = Math.round(t.fat - tot.f);
+  const close = tot.cal >= t.cal * 0.55 && remCal > 80;
+  const key = `${Math.round(tot.cal / 150)}-${Math.round(tot.p / 15)}`;
+  const fetchedKey = useRef(null);
+  const fetchPicks = async () => {
+    setState((x) => ({ ...x, status: "loading" }));
+    const menu = [...(s.savedFoods || []), ...(s.community?.foods || []), ...FOODS].map((f) => `${f.name} (${f.cal} cal, P${f.p} C${f.c} F${f.f})`).slice(0, 90).join("; ");
+    try {
+      const r = await askJson(STERLING_SYS, `The user has ${remCal} calories, ${remP}g protein, ${remC}g carbs and ${remF}g fat left today (negative means over). Goal: ${GOALS.find((g) => g.id === s.profile.goal)?.label}. Suggest 3 things to eat that land them close to their targets, preferring items from this list when they fit: ${menu}. You may also suggest simple common foods. Respond ONLY with JSON: {"quip": "one short funny line", "picks": [{"name": "food with portion", "cal": n, "p": n, "c": n, "f": n, "why": "under 10 words"}]}`);
+      setState({ status: "done", picks: (r.picks || []).slice(0, 3).map((p) => ({ name: String(p.name).slice(0, 60), cal: Math.round(+p.cal || 0), p: Math.round(+p.p || 0), c: Math.round(+p.c || 0), f: Math.round(+p.f || 0), why: p.why || "" })), quip: r.quip || "" });
+    } catch (e) { setState({ status: "error", picks: [], quip: "" }); }
+  };
+  useEffect(() => { if (close && !hidden && fetchedKey.current !== key) { fetchedKey.current = key; fetchPicks(); } }, [close, key, hidden]);
+  if (!close || hidden) return null;
+  return (
+    <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
+      <div className="flex justify-between items-center">
+        <div className="font-bold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling: finish your macros</div>
+        <button aria-label="Hide" onClick={() => setHidden(true)} style={{ color: C.mute }}><X size={16} /></button>
+      </div>
+      <div className="body text-xs" style={{ color: C.dim }}>Left today: {remCal} cal · P {remP}g · C {remC}g · F {remF}g</div>
+      {state.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is rummaging through the pantry…</div>}
+      {state.status === "error" && <button onClick={fetchPicks} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
+      {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
+      {state.picks.map((p, i) => (
+        <div key={i} className="ghost p-2 flex items-center gap-2">
+          <div className="flex-1 min-w-0"><div className="font-semibold text-sm truncate">{p.name}</div><div className="body text-xs" style={{ color: C.dim }}>{p.cal} cal · P {p.p} · C {p.c} · F {p.f}{p.why ? ` · ${p.why}` : ""}</div></div>
+          <button onClick={() => onAdd(p)} className="btn px-3 py-1.5 text-xs">Log</button>
+        </div>
+      ))}
+      {state.status === "done" && <button onClick={fetchPicks} className="body text-xs underline" style={{ color: C.mute }}>Different ideas</button>}
+    </div>
+  );
+}
+
+// Shows during a workout with what to do next and a form-check video when it matters
+function TrainCoach({ s, a, onAdd }) {
+  const [state, setState] = useState({ status: "idle", next: [], tip: "", form: null, quip: "" });
+  const [hidden, setHidden] = useState(false);
+  const doneEx = a.exercises.filter((e) => e.sets.some((st) => st.done && +st.r > 0));
+  const key = `${a.title || ""}|${doneEx.map((e) => `${e.name}:${e.sets.filter((st) => st.done).length}`).join(",")}`;
+  const fetchedKey = useRef(null);
+  const fetchNext = async () => {
+    setState((x) => ({ ...x, status: "loading" }));
+    const done = doneEx.map((e) => { const def = findEx(s, e.name); return `${e.name}: ${e.sets.filter((st) => st.done).map((st) => setLabel(def, st)).join(", ")}`; }).join(" | ");
+    const names = allExercises(s).map((e) => e.name).join(", ");
+    const history = s.workouts.filter((w) => w.source !== "quest").slice(-6).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => e.name).join(", ")}`).join("\n");
+    const ranks = rankedLifts(s).slice(0, 10).map((r) => `${r.e.name} ${r.label}`).join(", ");
+    try {
+      const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Done so far this session: ${done || "nothing yet"}. Recent workouts:\n${history || "none"}\nLift ranks: ${ranks || "none"}. Bodyweight ${s.profile.weight} lb.
+Recommend what to do next to make this workout as effective as possible for the stated title (balance muscle groups, sensible order, reasonable volume, don't repeat what's done unless more sets are warranted). Choose exercise names ONLY from this list, spelled exactly: ${names}.
+Respond ONLY with JSON: {"quip": "one short funny line", "tip": "one sentence of practical advice about the session so far", "next": [{"exercise": "exact name from list", "sets": n, "reps": "e.g. 8-10", "why": "under 10 words"}], "form": "exact exercise name from what they've done that most commonly needs form correction, or null"}`);
+      const valid = new Set(allExercises(s).map((e) => e.name));
+      setState({ status: "done", quip: r.quip || "", tip: r.tip || "", form: valid.has(r.form) ? r.form : null, next: (r.next || []).filter((n) => valid.has(n.exercise)).slice(0, 3) });
+    } catch (e) { setState({ status: "error", next: [], tip: "", form: null, quip: "" }); }
+  };
+  useEffect(() => {
+    if (hidden || doneEx.length === 0 || fetchedKey.current === key) return;
+    const t = setTimeout(() => { fetchedKey.current = key; fetchNext(); }, 2500);
+    return () => clearTimeout(t);
+  }, [key, hidden]);
+  if (hidden || doneEx.length === 0 || a.editId) return null;
+  return (
+    <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
+      <div className="flex justify-between items-center">
+        <div className="font-bold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling: what's next</div>
+        <button aria-label="Hide" onClick={() => setHidden(true)} style={{ color: C.mute }}><X size={16} /></button>
+      </div>
+      {state.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is consulting the ancient scrolls…</div>}
+      {state.status === "error" && <button onClick={fetchNext} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
+      {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
+      {state.tip && <div className="body text-sm" style={{ color: C.text }}>{state.tip}</div>}
+      {state.next.map((n, i) => {
+        const already = a.exercises.some((e) => e.name === n.exercise);
+        return (
+          <div key={i} className="ghost p-2 flex items-center gap-2">
+            <div className="flex-1 min-w-0"><div className="font-semibold text-sm truncate">{n.exercise}</div><div className="body text-xs" style={{ color: C.dim }}>{n.sets} × {n.reps}{n.why ? ` · ${n.why}` : ""}</div></div>
+            <a href={ytUrl(n.exercise)} target="_blank" rel="noreferrer" aria-label={`How to ${n.exercise}`} className="px-2" style={{ color: C.mute }}><Youtube size={16} /></a>
+            <button onClick={() => onAdd(n.exercise, +n.sets || 3)} className="btn px-3 py-1.5 text-xs">{already ? "Add sets" : "Add"}</button>
+          </div>
+        );
+      })}
+      {state.form && <a href={ytUrl(state.form)} target="_blank" rel="noreferrer" className="ghost w-full py-2 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: C.orange }}><Youtube size={16} />Form check: {state.form}</a>}
+    </div>
+  );
+}
+
+const WORKOUT_TITLES = ["Push", "Pull", "Legs", "Upper", "Lower", "Full body", "Chest & back", "Arms", "Shoulders", "Core", "Cardio"];
+function TitlePicker({ onPick, onBack }) {
+  const [custom, setCustom] = useState("");
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold glowtext">What are you training?</h1>
+      </div>
+      <div className="body text-sm" style={{ color: C.dim }}>The title helps Sterling plan your next moves and keeps your history sorted.</div>
+      <div className="grid grid-cols-3 gap-2">
+        {WORKOUT_TITLES.map((t) => <button key={t} onClick={() => onPick(t)} className="ghost py-3 font-bold text-sm">{t}</button>)}
+      </div>
+      <div className="flex gap-2">
+        <input autoFocus className="inp" placeholder="Or type your own" value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onPick(custom.trim())} />
+        <button onClick={() => onPick(custom.trim())} className="btn px-4 text-sm">Go</button>
+      </div>
+      <button onClick={() => onPick("")} className="body text-sm underline w-full" style={{ color: C.mute }}>Skip, no title</button>
+    </div>
+  );
+}
+
+// Pending mog-off challenges, shown on the Status tab so nobody misses one
+function MogInbox({ s, openProfile }) {
+  const [pending, setPending] = useState([]);
+  useEffect(() => {
+    (async () => {
+      if (!window.storage?.list || !s.lb) return;
+      try {
+        const res = await window.storage.list("mog:", true);
+        const items = await Promise.all((res?.keys || []).map(async (k) => { try { const r = await window.storage.get(k, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; } }));
+        setPending(items.filter((m) => m && m.status === "pending" && m.to === s.playerId));
+      } catch { /* offline */ }
+    })();
+  }, [s.lb, s.playerId]);
+  if (!pending.length) return null;
+  return (
+    <button onClick={() => openProfile()} className="panel p-3 w-full text-left flex items-center gap-3" style={{ borderColor: C.gold }}>
+      <span className="text-2xl">🐟</span>
+      <div className="flex-1">
+        <div className="font-bold" style={{ color: C.gold }}>{pending.length === 1 ? `${pending[0].fromName} challenged you to a mog-off` : `${pending.length} mog-off challenges waiting`}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>Tap to open your profile and mog back.</div>
+      </div>
+      <ChevronRight size={18} style={{ color: C.gold }} />
+    </button>
+  );
+}
