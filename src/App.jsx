@@ -4,7 +4,7 @@ import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Do
 /* ---------- Theme ---------- */
 const THEMES = {
   dark: {
-    bg: "#000000", text: "#E6F6FF", dim: "#6A86A8", mute: "#33465F", sub: "#A9BDE0",
+    bg: "#000000", text: "#F2F8FF", dim: "#A3B6CF", mute: "#71869F", sub: "#CFDCEE",
     blue: "#0A84FF", cyan: "#00D9FF", soft: "#03080F", line: "rgba(0,217,255,.26)", border: "#10283F",
     track: "#081530", sheet: "#040A1C", accentBg: "#0C2350", navBg: "rgba(0,0,0,.96)", badgeBg: "rgba(2,6,16,.8)",
     inpBg: "#000000", panelTop: "rgba(0,34,70,.42)", panelBot: "rgba(0,0,0,.94)", glow: "rgba(0,217,255,.75)",
@@ -12,7 +12,7 @@ const THEMES = {
     gold: "#FFD447", green: "#39E68F", orange: "#FF9340", red: "#FF4D6D",
   },
   light: {
-    bg: "#EEF4FA", text: "#07162A", dim: "#4D6682", mute: "#8DA2BA", sub: "#34506F",
+    bg: "#EEF4FA", text: "#07162A", dim: "#3F5873", mute: "#6F849C", sub: "#2A4461",
     blue: "#0070F0", cyan: "#0088CC", soft: "#FFFFFF", line: "rgba(0,120,210,.28)", border: "#C9D9EA",
     track: "#D6E3F0", sheet: "#FFFFFF", accentBg: "#DDEEFF", navBg: "rgba(255,255,255,.96)", badgeBg: "rgba(255,255,255,.92)",
     inpBg: "#FFFFFF", panelTop: "rgba(255,255,255,.97)", panelBot: "rgba(230,240,250,.97)", glow: "rgba(0,136,204,.3)",
@@ -598,7 +598,7 @@ function customTheme(cu) {
   const light = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) / 255 > 0.5;
   const fg = light ? [7, 22, 42] : [230, 246, 255];
   return {
-    bg: mixRgb(bg, bg, 0), text: mixRgb(fg, fg, 0), dim: mixRgb(fg, bg, 0.5), mute: mixRgb(fg, bg, 0.72), sub: mixRgb(fg, bg, 0.25),
+    bg: mixRgb(bg, bg, 0), text: mixRgb(fg, fg, 0), dim: mixRgb(fg, bg, 0.34), mute: mixRgb(fg, bg, 0.52), sub: mixRgb(fg, bg, 0.16),
     cyan: cu.cyan, blue: cu.blue, soft: mixRgb(bg, cy, 0.05), sheet: mixRgb(bg, cy, 0.06), accentBg: mixRgb(bg, cy, 0.18), track: mixRgb(bg, cy, 0.12), border: mixRgb(bg, cy, 0.24), inpBg: mixRgb(bg, bg, 0),
     line: rgbaOf(cy, 0.3), glow: rgbaOf(cy, light ? 0.35 : 0.75), grid: rgbaOf(cy, 0.05), halo: rgbaOf(bl, light ? 0.18 : 0.3), navBg: rgbaOf(bg, 0.96), badgeBg: rgbaOf(bg, 0.85), panelTop: rgbaOf(cy, 0.12), panelBot: rgbaOf(bg, 0.94),
   };
@@ -719,7 +719,7 @@ export default function App() {
       xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), ...fresh.map((a) => ({ m: `Achievement: ${a.title}`, a: a.xp }))].slice(-40) } }));
     setToast({ big: true, text: fresh.length === 1 ? `${fresh[0].title} unlocked · +${amt} XP` : `${fresh.length} achievements · +${amt} XP` });
     SFX.achievement();
-    if (fresh.length <= 3) fresh.forEach((a) => postFeed(s, "ach", `unlocked ${a.title} (${TIER_STYLE[a.tier].name})`));
+    if (fresh.length <= 3) fresh.forEach((a) => postFeed(s, "ach", `unlocked ${a.title} (${TIER_STYLE[a.tier].name})`, {}, `ach_${a.id}`));
     setTimeout(() => setToast(null), 3200);
   }, [loaded, s.workouts, s.days, s.xp, s.profile.weight]);
 
@@ -734,7 +734,7 @@ export default function App() {
     else { const up = Object.entries(snap.lifts).find(([n, t]) => t > (prev.lifts?.[n] ?? 0) && t >= 1); if (up) { const r = RANKS[Math.min(6, up[1])]; cer = { kind: "lift", name: up[0], rank: r, label: `${r.id}-Rank` }; } }
     const changed = snap.overall !== prev.overall || JSON.stringify(snap.lifts) !== JSON.stringify(prev.lifts);
     if (changed) setS((p) => ({ ...p, rankSnap: snap }));
-    if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.label} overall` : `${cer.name} hit ${cer.label}`); }
+    if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.label} overall` : `${cer.name} hit ${cer.label}`, {}, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.rank.id}`); }
   }, [loaded, s.workouts, s.profile.weight, s.custom]);
 
   // Weekly snapshot for the rank report
@@ -755,7 +755,8 @@ export default function App() {
   return (
     <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} style={{ background: C.bg, color: C.text, fontFamily: "'Oxanium', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Lexend:wght@400;600;800&family=Orbitron:wght@700;900&family=Bangers&family=Cinzel:wght@700;900&family=Permanent+Marker&family=Press+Start+2P&family=Pacifico&family=Creepster&display=swap');
-        .body{font-family:'Inter',system-ui,sans-serif}
+        .body{font-family:'Inter',system-ui,sans-serif;line-height:1.45;letter-spacing:.005em}
+        h1,h2{letter-spacing:.01em}
         .dys,.dys *,.dys .body{font-family:'Lexend',system-ui,sans-serif!important;letter-spacing:.03em;word-spacing:.08em}
         .fancyname,.fancyname *,.dys .fancyname,.dys .fancyname *{font-family:var(--nf)!important;letter-spacing:normal}
         .bgfx{position:fixed;inset:0;pointer-events:none;background:
@@ -1084,7 +1085,7 @@ function Train({ s, setS, gainXp }) {
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name) } }));
-    if (prs) { SFX.pr(); postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }); }
+    if (prs) { SFX.pr(); postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
     gainXp(xp, prs ? `${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete");
     setRest(null);
   };
@@ -1162,7 +1163,7 @@ function Train({ s, setS, gainXp }) {
                 <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{w.source && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}</span>
                 <div className="flex items-center gap-3">
                   {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
-                  {!w.source && s.lb && <button aria-label="Share to feed" onClick={() => { postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", ") }); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}><Share2 size={16} /></button>}
+                  {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", ") }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
                   {!w.source && s.lb && <SharePreset s={s} workout={w} />}
                   <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
                   <button aria-label="Delete workout" onClick={() => ask("Delete this workout? The XP you earned stays.", () => setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
@@ -4761,9 +4762,10 @@ function Measurements({ s, setS }) {
 }
 
 /* ---------- Social: feed, crew goal, duels, sharing ---------- */
-function postFeed(s, type, text, extra = {}) {
+function postFeed(s, type, text, extra = {}, eventId = null) {
   if (!s.lb || !s.profile.name) return;
-  publishShared(`feed:${Date.now()}_${s.playerId}`, { type, text, name: s.profile.name, from: s.playerId, look: s.profile.look || null, t: Date.now(), ...extra });
+  const key = eventId ? `feed:${s.playerId}_${eventId}` : `feed:${Date.now()}_${s.playerId}`;
+  publishShared(key, { type, text, name: s.profile.name, from: s.playerId, look: s.profile.look || null, t: Date.now(), ...extra });
 }
 async function readShared(prefix) {
   if (!window.storage?.list) return [];
@@ -4777,30 +4779,44 @@ function Feed({ s, openProfile }) {
   const [items, setItems] = useState(null);
   const load = async () => {
     const all = (await readShared("feed:")).sort((a, b) => (b.t || 0) - (a.t || 0));
-    setItems(all.slice(0, 40));
-    // keep the shared space tidy: anyone who loads the feed clears posts older than 14 days
+    const seen = new Map(), keep = [], dupes = [];
+    all.forEach((x) => {
+      const sig = `${x.from}|${x.type}|${(x.text || "").replace(/\+\d+ XP/, "")}|${x.detail || ""}`;
+      const prev = seen.get(sig);
+      if (prev && Math.abs((prev.t || 0) - (x.t || 0)) < 24 * 3600 * 1000) { dupes.push(x); return; }
+      seen.set(sig, x); keep.push(x);
+    });
+    setItems(keep.slice(0, 40));
+    dupes.filter((x) => x.from === s.playerId).slice(0, 25).forEach((x) => window.storage.delete(x.key, true).catch(() => {}));
     const cutoff = Date.now() - 14 * 86400000;
     all.filter((x) => (x.t || 0) < cutoff).slice(0, 10).forEach((x) => window.storage.delete(x.key, true).catch(() => {}));
   };
   useEffect(() => { load(); }, []);
   const icon = { pr: "🏆", rank: "⬆️", ach: "🎖️", workout: "🏋️", duel: "⚔️", mog: "🐟", level: "✨" };
-  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+  const tint = { pr: C.gold, rank: "#B14BFF", ach: C.orange, workout: C.cyan, duel: "#FF2D6F", mog: C.green, level: C.gold };
+  const ago = (t) => { const m = Math.max(1, Math.round((Date.now() - t) / 60000)); return m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
   return (
-    <div className="space-y-2">
+    <div>
       {items === null && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading feed…</div>}
       {items?.length === 0 && <Empty>Nothing yet. PRs, rank-ups, achievements, and shared workouts from the whole crew show up here.</Empty>}
-      {items?.map((it) => (
-        <div key={it.key} className="panel p-3 flex gap-3 items-start">
-          <span className="text-xl">{icon[it.type] || "•"}</span>
-          <div className="flex-1 min-w-0">
-            <button onClick={() => openProfile(it.from)} className="font-bold text-sm"><FancyName name={it.name} look={it.look} /></button>
-            <span className="body text-xs ml-2" style={{ color: C.mute }}>{ago(it.t)}</span>
-            <div className="body text-sm" style={{ color: C.sub }}>{it.text}</div>
-            {it.detail && <div className="body text-xs mt-1 truncate" style={{ color: C.dim }}>{it.detail}</div>}
-          </div>
-          {it.from === s.playerId && <button aria-label="Delete post" onClick={() => ask("Delete this post?", async () => { try { await window.storage.delete(it.key, true); setItems((x) => x.filter((y) => y.key !== it.key)); } catch (e) { /* ignore */ } }, "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
+      {items?.length > 0 && (
+        <div className="panel overflow-hidden">
+          {items.map((it, i) => (
+            <div key={it.key} className="flex gap-3 items-start px-3 py-3" style={i ? { borderTop: `1px solid ${C.border}` } : null}>
+              <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 36, height: 36, borderRadius: 999, background: `${tint[it.type] || C.cyan}22`, border: `1px solid ${tint[it.type] || C.cyan}55` }}>{icon[it.type] || "•"}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <button onClick={() => openProfile(it.from)} className="font-bold text-sm truncate"><FancyName name={it.name} look={it.look} /></button>
+                  <span className="body text-xs shrink-0" style={{ color: C.mute }}>{ago(it.t)}</span>
+                </div>
+                <div className="body text-sm" style={{ color: C.text }}>{it.text}</div>
+                {it.detail && <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{it.detail}</div>}
+              </div>
+              {it.from === s.playerId && <button aria-label="Delete post" onClick={() => ask("Delete this post?", async () => { try { await window.storage.delete(it.key, true); setItems((x) => x.filter((y) => y.key !== it.key)); } catch (e) { /* ignore */ } }, "Delete")} className="p-1 shrink-0" style={{ color: C.mute }}><Trash2 size={14} /></button>}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
