@@ -46,8 +46,8 @@ function applyTheme(settings = {}) {
 }
 // Bench-equivalent strength multiples for D, C, B, A, S at the reference lifter (180 lb, 5'10", male).
 // S (1.95) is elite territory: about a 350 lb bench for a 180 lb lifter.
-const RATIO_STEPS = [0.72, 1.1, 1.5, 1.95, 2.55];
-const REP_STEPS = [7, 13, 21, 31, 42];
+const RATIO_STEPS = [1.0, 1.35, 1.7, 2.1, 2.55];
+const REP_STEPS = [10, 17, 24, 33, 42];
 const DIVS = ["III", "II", "I"];
 const RANK_INFO = {
   E: ["Awakening", "Just getting started. Everyone begins here."],
@@ -123,10 +123,10 @@ const EXERCISES = [
   { name: "Arnold Press", group: "Shoulders", type: "weighted", factor: 0.25, perHand: true, xp: 11 },
   { name: "Lateral Raise", group: "Shoulders", type: "weighted", factor: 0.1, perHand: true, xp: 7 },
   { name: "Cable Lateral Raise", group: "Shoulders", type: "weighted", factor: 0.09, perHand: true, xp: 7 },
-  { name: "Lateral Raise Machine", group: "Shoulders", type: "weighted", factor: 0.5, xp: 7 },
+  { name: "Lateral Raise Machine", group: "Shoulders", type: "weighted", factor: 0.55, xp: 7 },
   { name: "Front Raise", group: "Shoulders", type: "weighted", factor: 0.1, perHand: true, xp: 6 },
   { name: "Rear Delt Fly (dumbbell)", group: "Shoulders", type: "weighted", factor: 0.09, perHand: true, xp: 7 },
-  { name: "Reverse Fly Machine", group: "Shoulders", type: "weighted", factor: 0.5, xp: 7 },
+  { name: "Reverse Fly Machine", group: "Shoulders", type: "weighted", factor: 0.6, xp: 7 },
   { name: "Face Pull", group: "Shoulders", type: "weighted", factor: 0.4, xp: 7 },
   { name: "Cable Rear Delt Fly", group: "Shoulders", type: "weighted", factor: 0.35, xp: 7 },
   { name: "Cable Front Raise", group: "Shoulders", type: "weighted", factor: 0.3, xp: 6 },
@@ -172,7 +172,8 @@ const EXERCISES = [
   { name: "Burpee", group: "Cardio", type: "bodyweight", reps: 2, xp: 9 },
 ];
 const allExercises = (s) => {
-  const local = [...EXERCISES, ...(s.custom || [])];
+  const seen = new Set();
+  const local = [...EXERCISES, ...(s.custom || [])].filter((e) => { const k = e.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
   const names = new Set(local.map((e) => e.name.toLowerCase()));
   return [...local, ...(s.community?.ex || []).filter((e) => e.name && !names.has(e.name.toLowerCase())).map((e) => ({ ...e, community: true }))].map((e) =>
   e.type === "weighted" ? { ...e, factor: Math.max(e.factor || 0.5, (FACTOR_FLOOR[e.group] || 0.2) * (e.perHand ? 0.4 : 1)) } : e);
@@ -571,10 +572,10 @@ function reconcileAchievements(s, rankOnly = false) {
   const earned = new Set(earnedAchievements(s).map((a) => a.id));
   const all = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
   const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && (!rankOnly || id.startsWith("rank-")));
-  if (!lost.length) return { ...s, achV: 2 };
+  if (!lost.length) return { ...s, achV: 3 };
   const refund = lost.reduce((a, id) => a + (all[id]?.xp || 0), 0);
   const ach = { ...s.ach }; lost.forEach((id) => delete ach[id]);
-  return { ...s, ach, achV: 2, xp: Math.max(0, s.xp - refund) };
+  return { ...s, ach, achV: 3, xp: Math.max(0, s.xp - refund) };
 }
 function earnedAchievements(s) {
   const st = lifetimeStats(s);
@@ -599,7 +600,7 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 2, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
@@ -646,7 +647,7 @@ export default function App() {
         if (ls && (ls.savedAt || 0) > (st.settings?.savedAt || 0)) st = { ...st, settings: { ...st.settings, ...ls } };
       } catch (e) { /* first run */ }
       if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
-      if ((st.achV || 1) < 2) st = reconcileAchievements(st, true);
+      if ((st.achV || 1) < 3) st = reconcileAchievements(st, true);
       let ok = !!window.storage?.set;
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
       setStorageOk(ok);
@@ -747,6 +748,8 @@ export default function App() {
         @keyframes rkshine{0%,60%{transform:skewX(-20deg) translateX(0)}100%{transform:skewX(-20deg) translateX(190px)}}
         @keyframes nm-pulse{0%,100%{text-shadow:0 0 4px var(--nc)}50%{text-shadow:0 0 12px var(--nc)}}
         .fancyname{background:transparent}
+        .fancyname:not(.nm-rainbow),.zesty .fancyname:not(.nm-rainbow){background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;-webkit-text-fill-color:currentColor!important}
+        .fancyname.nm-wave,.fancyname.nm-shake{text-shadow:none!important}
         .nm-pulse{animation:nm-pulse 1.6s ease-in-out infinite}
         .nm-rainbow{background:${RAINBOW};background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:rainbow 3s linear infinite;text-shadow:none}
         @keyframes nm-wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
@@ -1535,6 +1538,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const [src, setSrc] = useState("All");
   const [found, setFound] = useState(null);
   const [building, setBuilding] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const saved = s.savedFoods || [];
 
   // Recent foods from the log, newest first
@@ -1624,7 +1628,11 @@ After searching, reply with ONLY this JSON and nothing else: {"name": "Restauran
 
       <input autoFocus className="inp" placeholder="Search, e.g. P. Terry's double" value={q} onChange={(e) => { setQ(e.target.value); setFound(null); setErr(""); }} />
 
-      <button onClick={() => setBuilding(true)} className="ghost w-full py-3 font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><ChefHat size={18} />Create a meal or shake recipe</button>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={() => setScanning(true)} className="btn py-3 text-sm flex items-center justify-center gap-2"><Camera size={18} />Scan a meal photo</button>
+        <button onClick={() => setBuilding(true)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><ChefHat size={18} />Create a recipe</button>
+      </div>
+      {scanning && <PhotoScan onCancel={() => setScanning(false)} onAddAll={(items) => { items.forEach((it) => onAdd({ name: it.name, cal: it.cal, p: it.p, c: it.c, f: it.f })); }} />}
       {q.trim().length > 2 && !found && (
         <div className="grid grid-cols-2 gap-2">
           <button onClick={lookup} disabled={!!loading} className="p-3 flex items-center gap-2 font-semibold text-left text-sm" style={{ background: C.accentBg, color: C.cyan, border: `1px solid ${C.blue}`, borderRadius: 4 }}>
@@ -2922,35 +2930,6 @@ const b64url = (bytes) => b64(bytes).replace(/\+/g, "-").replace(/\//g, "_").rep
 const fromB64url = (t) => { const s = t.replace(/-/g, "+").replace(/_/g, "/"); return Uint8Array.from(atob(s + "=".repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0)); };
 const songLinkLabel = (url) => (/youtu\.?be/i.test(url) ? "YouTube" : /spotify/i.test(url) ? "Spotify" : /apple/i.test(url) ? "Apple Music" : /soundcloud/i.test(url) ? "SoundCloud" : "Link");
 
-function SongPlayer({ playerId, meta, me }) {
-  const [state, setState] = useState("idle"); // idle | loading | playing
-  const audioRef = useRef(null);
-  useEffect(() => () => { try { audioRef.current?.pause(); } catch (e) { /* ignore */ } }, []);
-  if (!meta) return null;
-  if (meta.type === "link") {
-    return <a href={meta.url} target="_blank" rel="noreferrer" className="btn px-4 py-2 text-sm inline-flex items-center gap-2"><Music size={16} />Play on {songLinkLabel(meta.url)}</a>;
-  }
-  const play = async () => {
-    if (state === "playing") { audioRef.current?.pause(); setState("idle"); return; }
-    setState("loading");
-    try {
-      let src = null;
-      if (me) { try { const r = await window.storage.get("ascend-song", false); src = r?.value; } catch (e) { /* fall through */ } }
-      if (!src) { const r = await window.storage.get(`song:${playerId}`, true); src = r?.value; }
-      if (!src) throw new Error("missing");
-      const a = new Audio(src); audioRef.current = a;
-      a.onended = () => setState("idle"); a.onerror = () => setState("idle");
-      await a.play(); setState("playing");
-    } catch (e) { setState("idle"); }
-  };
-  return (
-    <button onClick={play} className="btn px-4 py-2 text-sm inline-flex items-center gap-2">
-      {state === "loading" ? <Loader2 size={16} className="animate-spin" /> : state === "playing" ? <Pause size={16} /> : <Music size={16} />}
-      {state === "playing" ? "Stop" : state === "loading" ? "Loading…" : `Play theme${meta.name ? `: ${meta.name}` : ""}`}
-    </button>
-  );
-}
-
 /* ---------- Profiles ---------- */
 function Avatar({ src, name, size = 48, ring }) {
   const color = ring || C.cyan;
@@ -3218,16 +3197,22 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
               </div>
               <div className="neonline" />
               <div className="font-bold flex items-center gap-2"><Music size={16} />Theme song</div>
-              {s.profile.song && <div className="body text-sm" style={{ color: C.sub }}>Current: {s.profile.song.type === "link" ? `${songLinkLabel(s.profile.song.url)} link` : `${s.profile.song.name || "clip"} (20 sec clip)`} <button onClick={removeSong} className="underline ml-2" style={{ color: C.red }}>Remove</button></div>}
+              {s.profile.song && <div className="body text-sm" style={{ color: C.sub }}>Current: {s.profile.song.type === "link" ? `${songLinkLabel(s.profile.song.url)} link` : s.profile.song.type === "theme" ? `${s.profile.song.name} (built-in)` : `${s.profile.song.name || "clip"} (20 sec clip)`} <button onClick={removeSong} className="underline ml-2" style={{ color: C.red }}>Remove</button></div>}
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => songRef.current?.click()} disabled={songBusy} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}>{songBusy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{songBusy ? "Making clip…" : "Upload mp3"}</button>
-                <input ref={songRef} type="file" accept="audio/*" onChange={onSong} style={{ display: "none" }} />
+                <input ref={songRef} type="file" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/*" onChange={onSong} style={{ display: "none" }} />
                 <div className="flex gap-1">
-                  <input className="inp text-sm" placeholder="YouTube / Spotify link" value={songLink} onChange={(e) => setSongLink(e.target.value)} />
+                  <input className="inp text-sm" placeholder="YouTube / Spotify / Apple Music link" value={songLink} onChange={(e) => setSongLink(e.target.value)} />
                   <button onClick={saveLink} disabled={!/^https?:\/\//i.test(songLink.trim())} className="btn px-3 text-sm">Set</button>
                 </div>
               </div>
-              <div className="body text-xs" style={{ color: C.mute }}>Uploads keep the first 20 seconds as a small clip (phone-call quality) so it fits in storage. Links open in the music app instead.</div>
+              <div className="body text-xs" style={{ color: C.dim }}>Or pick a built-in theme (tap to preview, tap again to stop):</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {Object.entries(THEMES_MUSIC).map(([id, t]) => { const sel = s.profile.song?.type === "theme" && s.profile.song.id === id; return (
+                  <button key={id} onClick={() => { if (Jingle.id === id) { Jingle.stop(); } else { Jingle.start(id); } setS((p) => ({ ...p, profile: { ...p.profile, song: { type: "theme", id, name: t.name } } })); }} className="px-3 py-2 text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 999, background: sel ? C.blue : C.soft, color: sel ? "#fff" : C.text, border: `1px solid ${C.border}` }}><Music size={12} />{t.name}</button>
+                ); })}
+              </div>
+              <div className="body text-xs" style={{ color: C.mute }}>Uploads keep the first 20 seconds as a small clip. YouTube, Spotify, and Apple Music links play right inside your profile.</div>
             </div>
           )}
 
@@ -3332,6 +3317,7 @@ function FancyName({ name, look, className = "", style = {}, size }) {
   const color = look?.accent || style.color;
   const base = { ...style, fontFamily: font.family, "--nf": font.family, color, fontSize: size, display: "inline-block", maxWidth: "100%" };
   className = `fancyname ${className}`;
+  if (anim) className = className.replace("glowtext", "").trim();
   if (look?.font === "pixel") base.fontSize = size ? size * 0.7 : "0.8em";
   const text = name || "Unnamed";
   if (anim === "wave" || anim === "shake") {
@@ -3342,7 +3328,6 @@ function FancyName({ name, look, className = "", style = {}, size }) {
     );
   }
   const cls = anim ? `nm-${anim}` : "";
-  if (anim) className = className.replace("glowtext", "");
   if (anim === "rainbow") return <span className={`${className} ${cls}`} style={{ ...base, color: undefined }}>{text}</span>;
   return <span className={`${className} ${cls}`} style={{ ...base, "--nc": color || C.cyan }}>{text}</span>;
 }
@@ -3920,5 +3905,183 @@ function Challenges({ s, setS, gainXp }) {
       {monthly.map((c) => <ChallengeCard key={c.id} c={c} value={c.get(mst)} claimed={!!mClaimed[c.id]} onClaim={() => claimM(c)} color="#B14BFF" />)}
       <div className="body text-xs" style={{ color: C.mute }}>Weekly and monthly progress is tracked automatically from your workouts, quests, fuel goals, and weigh-ins. New ones roll in every week and month.</div>
     </>
+  );
+}
+
+/* ---------- Photo meal scanner ---------- */
+async function scanMealPhoto(dataUrl) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6", max_tokens: 900,
+      messages: [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
+        { type: "text", text: `Identify the food in this photo and estimate nutrition for what is visible, as one serving each. Use typical US portions and standard nutrition values. Be practical, not cautious. If it's a packaged product with a label, read the label. Respond ONLY with JSON: {"items": [{"name": "food with portion, e.g. Grilled chicken breast (6 oz)", "cal": n, "p": n, "c": n, "f": n}], "note": "under 12 words about confidence or what you assumed"}` },
+      ] }],
+    }),
+  });
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+  return { note: r.note || "", items: (r.items || []).map((it) => ({ name: String(it.name || "Food").slice(0, 60), cal: Math.round(+it.cal || 0), p: Math.round(+it.p || 0), c: Math.round(+it.c || 0), f: Math.round(+it.f || 0) })) };
+}
+function PhotoScan({ onAddAll, onCancel }) {
+  const camRef = useRef(null), libRef = useRef(null);
+  const [img, setImg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [items, setItems] = useState(null);
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    setBusy(true); setErr(""); setItems(null);
+    try {
+      const small = await shrinkPhoto(f, 900);
+      setImg(small);
+      const r = await scanMealPhoto(small);
+      if (!r.items.length) throw new Error("nothing");
+      setItems(r.items); setNote(r.note);
+    } catch (e2) { setErr("Couldn't read a meal from that photo. Try a clearer shot from above with good light."); }
+    setBusy(false);
+  };
+  const tot = (items || []).reduce((a, it) => ({ cal: a.cal + it.cal, p: a.p + it.p, c: a.c + it.c, f: a.f + it.f }), { cal: 0, p: 0, c: 0, f: 0 });
+  const upd = (i, k, v) => setItems((x) => x.map((it, j) => (j === i ? { ...it, [k]: k === "name" ? v : +v || 0 } : it)));
+  return (
+    <div className="panel p-4 space-y-3" style={{ borderColor: C.cyan }}>
+      <div className="flex justify-between items-center"><div className="font-bold flex items-center gap-2"><Camera size={18} style={{ color: C.cyan }} />Scan a meal</div><button aria-label="Close" onClick={onCancel} style={{ color: C.mute }}><X size={18} /></button></div>
+      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
+      <input ref={libRef} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+      {!items && !busy && (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => camRef.current?.click()} className="btn py-3 text-sm flex items-center justify-center gap-2"><Camera size={16} />Take photo</button>
+          <button onClick={() => libRef.current?.click()} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><ImageIcon size={16} />Choose photo</button>
+        </div>
+      )}
+      {busy && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={16} className="animate-spin" />Looking at your food…</div>}
+      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
+      {img && <img src={img} alt="Your meal" style={{ width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 6, border: `1px solid ${C.border}` }} />}
+      {items && (
+        <>
+          <div className="body text-sm" style={{ color: C.sub }}>Here's what I think you're eating. Fix anything that's off, then add it.{note ? <span style={{ color: C.dim }}> ({note})</span> : null}</div>
+          {items.map((it, i) => (
+            <div key={i} className="ghost p-2 space-y-1">
+              <div className="flex gap-2 items-center">
+                <input className="inp text-sm font-semibold" value={it.name} onChange={(e) => upd(i, "name", e.target.value)} aria-label="Food name" />
+                <button aria-label="Remove item" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<input type="number" inputMode="numeric" className="inp text-center mt-0.5" value={it[k]} onChange={(e) => upd(i, k, e.target.value)} /></label>)}
+              </div>
+            </div>
+          ))}
+          <button onClick={() => setItems((x) => [...x, { name: "Something else", cal: 0, p: 0, c: 0, f: 0 }])} className="body text-xs underline" style={{ color: C.cyan }}>+ Add something the scan missed</button>
+          <div className="flex justify-between font-bold pt-2" style={{ borderTop: `1px solid ${C.line}` }}><span>Total</span><span style={{ color: C.gold }}>{tot.cal} cal · P {tot.p} · C {tot.c} · F {tot.f}</span></div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => { setItems(null); setImg(null); }} className="ghost py-3 text-sm font-bold">Rescan</button>
+            <button onClick={() => onAddAll(items.filter((it) => it.name.trim()))} disabled={!items.length} className="btn py-3 text-sm">Add {items.length} item{items.length === 1 ? "" : "s"} to today</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Built-in synth themes (original, no licensing) ---------- */
+const THEMES_MUSIC = {
+  epic: { name: "Epic entrance", bpm: 92, wave: "sawtooth", bass: [36, 36, 43, 43, 41, 41, 39, 39], lead: [60, 63, 67, 72, 70, 67, 63, 60, 62, 65, 69, 74, 72, 69, 65, 62], drums: "kick" },
+  hype: { name: "Hype trap", bpm: 140, wave: "square", bass: [33, 33, 33, 33, 31, 31, 36, 36], lead: [57, 60, 64, 60, 57, 60, 64, 67, 55, 59, 62, 59, 55, 59, 62, 66], drums: "trap" },
+  bit: { name: "8-bit boss", bpm: 150, wave: "square", bass: [40, 40, 47, 47, 45, 45, 43, 43], lead: [64, 67, 71, 76, 74, 71, 67, 64, 66, 69, 73, 78, 76, 73, 69, 66], drums: "kick" },
+  disco: { name: "Disco strut", bpm: 118, wave: "triangle", bass: [28, 40, 28, 40, 33, 45, 33, 45], lead: [64, 67, 71, 74, 69, 72, 76, 79, 64, 67, 71, 74, 71, 74, 78, 81], drums: "disco" },
+  dark: { name: "Dark arrival", bpm: 80, wave: "sawtooth", bass: [29, 29, 29, 29, 32, 32, 27, 27], lead: [53, 56, 60, 56, 53, 51, 48, 51, 53, 56, 60, 63, 60, 56, 53, 51], drums: "kick" },
+  lofi: { name: "Chill lo-fi", bpm: 84, wave: "triangle", bass: [38, 38, 41, 41, 43, 43, 36, 36], lead: [62, 65, 69, 72, 69, 65, 62, 60, 62, 65, 69, 74, 72, 69, 65, 62], drums: "soft" },
+};
+const Jingle = {
+  ctx: null, timer: null, master: null, id: null,
+  hz: (m) => 440 * Math.pow(2, (m - 69) / 12),
+  start(id, onEnd) {
+    this.stop();
+    const T = THEMES_MUSIC[id]; if (!T) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      if (!this.ctx) this.ctx = new AC();
+      this.ctx.resume();
+      this.master = this.ctx.createGain(); this.master.gain.value = 0.35; this.master.connect(this.ctx.destination);
+      this.id = id;
+      const step = 60 / T.bpm / 2, t0 = this.ctx.currentTime + 0.05, total = 32;
+      for (let i = 0; i < total; i++) {
+        const t = t0 + i * step;
+        this.note(T.wave, T.lead[i % T.lead.length], t, step * 0.9, 0.16);
+        if (i % 2 === 0) this.note("sawtooth", T.bass[(i / 2) % T.bass.length], t, step * 1.6, 0.22, 500);
+        if (i % 4 === 0) this.kick(t);
+        if (T.drums === "trap" && i % 2 === 1) this.hat(t, 0.05);
+        if (T.drums === "disco" && i % 2 === 1) this.hat(t, 0.08);
+        if ((T.drums === "kick" || T.drums === "disco") && i % 8 === 4) this.snare(t);
+        if (T.drums === "soft" && i % 8 === 4) this.hat(t, 0.06);
+      }
+      if (id === "epic") { for (let i = 0; i < 4; i++) this.note("sawtooth", 48 + [0, 3, 7, 12][i], t0 + total * step - 1.2, 1.6, 0.14, 1400); }
+      this.timer = setTimeout(() => { this.stop(); onEnd?.(); }, (total * step + 1.8) * 1000);
+    } catch (e) { onEnd?.(); }
+  },
+  stop() { if (this.timer) { clearTimeout(this.timer); this.timer = null; } try { this.master?.disconnect(); } catch (e) { /* ignore */ } this.master = null; this.id = null; },
+  note(wave, midi, t, dur, vol, cutoff = 2600) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain(), f = this.ctx.createBiquadFilter();
+    o.type = wave; o.frequency.value = this.hz(midi); f.type = "lowpass"; f.frequency.value = cutoff;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.05);
+  },
+  kick(t) { const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12); g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.32); },
+  noise(t, dur, vol, type, freq) { const b = this.ctx.createBuffer(1, this.ctx.sampleRate * dur, this.ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const n = this.ctx.createBufferSource(); n.buffer = b; const f = this.ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; const g = this.ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); n.connect(f); f.connect(g); g.connect(this.master); n.start(t); },
+  hat(t, vol) { this.noise(t, 0.05, vol, "highpass", 7000); },
+  snare(t) { this.noise(t, 0.16, 0.35, "bandpass", 1800); },
+};
+const embedFor = (url) => {
+  const yt = url.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);
+  if (yt) return { kind: "YouTube", src: `https://www.youtube.com/embed/${yt[1]}?rel=0`, h: 200 };
+  const sp = url.match(/open\.spotify\.com\/(track|album|playlist|episode)\/([A-Za-z0-9]+)/);
+  if (sp) return { kind: "Spotify", src: `https://open.spotify.com/embed/${sp[1]}/${sp[2]}?theme=0`, h: sp[1] === "track" || sp[1] === "episode" ? 152 : 352 };
+  const am = url.match(/music\.apple\.com\/(.+)/);
+  if (am) return { kind: "Apple Music", src: `https://embed.music.apple.com/${am[1]}`, h: 175 };
+  return null;
+};
+function SongPlayer({ playerId, meta, me }) {
+  const [state, setState] = useState("idle"); // idle | loading | playing
+  const [open, setOpen] = useState(false);
+  const audioRef = useRef(null);
+  useEffect(() => () => { try { audioRef.current?.pause(); } catch (e) { /* ignore */ } if (Jingle.id) Jingle.stop(); }, []);
+  if (!meta) return null;
+  if (meta.type === "link") {
+    const emb = embedFor(meta.url);
+    if (!emb) return <a href={meta.url} target="_blank" rel="noreferrer" className="btn px-4 py-2 text-sm inline-flex items-center gap-2"><Music size={16} />Open theme link</a>;
+    return (
+      <div className="w-full">
+        {!open ? <button onClick={() => setOpen(true)} className="btn px-4 py-2 text-sm inline-flex items-center gap-2"><Music size={16} />Play theme on {emb.kind}</button> : (
+          <div className="space-y-1">
+            <iframe title={`${emb.kind} theme song`} src={emb.src} width="100%" height={emb.h} style={{ border: 0, borderRadius: 8 }} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen loading="lazy" />
+            <button onClick={() => setOpen(false)} className="body text-xs underline" style={{ color: C.mute }}>Hide player</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  const play = async () => {
+    if (state === "playing") { audioRef.current?.pause(); Jingle.stop(); setState("idle"); return; }
+    if (meta.type === "theme") { setState("playing"); Jingle.start(meta.id, () => setState("idle")); return; }
+    setState("loading");
+    try {
+      let src = null;
+      if (me) { try { const r = await window.storage.get("ascend-song", false); src = r?.value; } catch (e) { /* fall through */ } }
+      if (!src) { const r = await window.storage.get(`song:${playerId}`, true); src = r?.value; }
+      if (!src) throw new Error("missing");
+      const a = new Audio(src); audioRef.current = a;
+      a.onended = () => setState("idle"); a.onerror = () => setState("idle");
+      await a.play(); setState("playing");
+    } catch (e) { setState("idle"); }
+  };
+  const label = meta.type === "theme" ? THEMES_MUSIC[meta.id]?.name || "theme" : meta.name;
+  return (
+    <button onClick={play} className="btn px-4 py-2 text-sm inline-flex items-center gap-2">
+      {state === "loading" ? <Loader2 size={16} className="animate-spin" /> : state === "playing" ? <Pause size={16} /> : <Music size={16} />}
+      {state === "playing" ? "Stop" : state === "loading" ? "Loading…" : `Play theme${label ? `: ${label}` : ""}`}
+    </button>
   );
 }
