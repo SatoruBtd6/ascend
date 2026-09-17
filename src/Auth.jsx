@@ -114,6 +114,6 @@ export default function Auth() {
   installStorage(supabase, session.user.id);
   installClaudeProxy(supabase);
   window.ascendUserId = session.user.id;
-  window.ascendAuth = { email: session.user.email, signOut: () => supabase.auth.signOut().then(() => window.location.reload()) };
+  window.ascendAuth = { email: session.user.email, token: async () => (await supabase.auth.getSession()).data.session?.access_token || "", signOut: () => supabase.auth.signOut().then(() => window.location.reload()) };
   return <App key={session.user.id} />;
 }

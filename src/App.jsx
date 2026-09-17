@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -84,7 +84,7 @@ const EXERCISES = [
   { name: "Chest Fly (dumbbell)", group: "Chest", type: "weighted", factor: 0.25, perHand: true, xp: 8 },
   { name: "Push-up", group: "Chest", type: "bodyweight", reps: 2.8, xp: 8 },
   { name: "Dip", group: "Chest", type: "bodyweight", reps: 1.3, xp: 11 },
-  { name: "Assisted Dip Machine", group: "Chest", type: "weighted", factor: 0.6, xp: 8 },
+  { name: "Assisted Dip Machine", group: "Chest", type: "assisted", rankAs: "Dip", xp: 9 },
   { name: "Deadlift", group: "Back", type: "weighted", factor: 1.5, xp: 18 },
   { name: "Trap Bar Deadlift", group: "Back", type: "weighted", factor: 1.6, xp: 17 },
   { name: "Barbell Row", group: "Back", type: "weighted", factor: 0.85, xp: 12 },
@@ -97,7 +97,7 @@ const EXERCISES = [
   { name: "Cable Pullover", group: "Back", type: "weighted", factor: 0.45, xp: 7 },
   { name: "Single-Arm Cable Row", group: "Back", type: "weighted", factor: 0.4, perHand: true, xp: 9 },
   { name: "Cable Pull-Through", group: "Legs", type: "weighted", factor: 0.7, xp: 8 },
-  { name: "Assisted Pull-up Machine", group: "Back", type: "weighted", factor: 0.6, xp: 9 },
+  { name: "Assisted Pull-up Machine", group: "Back", type: "assisted", rankAs: "Pull-up", xp: 10 },
   { name: "Pull-up", group: "Back", type: "bodyweight", reps: 0.85, xp: 14 },
   { name: "Chin-up", group: "Back", type: "bodyweight", reps: 0.95, xp: 13 },
   { name: "Back Extension", group: "Back", type: "bodyweight", reps: 1.2, xp: 6 },
@@ -336,6 +336,7 @@ function strengthScale(p) {
   return 180 * Math.pow(mass / 180, 0.67) * (p.sex === "f" ? 0.65 : 1);
 }
 function thresholds(ex, p) {
+  if (ex.type === "assisted") return REP_STEPS.map((r) => Math.round(r * (p.sex === "f" ? 0.6 : 1)));
   if (ex.type === "bodyweight") return REP_STEPS.map((r) => Math.round(r * (ex.reps || 1) * (p.sex === "f" ? 0.6 : 1)));
   const sc = strengthScale(p);
   const hard = GROUP_HARD[ex.group] || 1;
@@ -383,7 +384,11 @@ function effW(def, ex, w) {
   if (userHand === !!def.perHand) return w;
   return def.perHand ? w / 2 : w * 2;
 }
+// Assisted machines: the weight entered is the help you got. What you actually moved is bodyweight minus that.
+const movedLb = (p, assist) => Math.max(0, Math.max(80, +p.weight || 170) - (+assist || 0));
+const assistedReps = (p, st) => (+st.r || 0) * (movedLb(p, st.w) / Math.max(80, +p.weight || 170));
 function bestValue(def, st, p, ex) {
+  if (def.type === "assisted") return assistedReps(p, st);
   if (def.type === "bodyweight") return (+st.r || 0) * (1 + (+st.w || 0) / Math.max(80, +p.weight || 170));
   return e1rm(effW(def, ex, +st.w || 0), +st.r);
 }
@@ -394,7 +399,8 @@ function computeBests(s) {
     if (def.type === "timed") return;
     ex.sets.forEach((st) => {
       const v = bestValue(def, st, s.profile, ex);
-      if (v > (b[ex.name] || 0)) b[ex.name] = v;
+      const k = def.type === "assisted" ? def.rankAs : ex.name;
+      if (v > (b[k] || 0)) b[k] = v;
     });
   }));
   return b;
@@ -476,6 +482,11 @@ async function loadCommunity() {
 
 // XP for one set: effort (how much work relative to your personal S-rank line) × difficulty (which rank the set lands in)
 function setXp(s, def, st, ex) {
+  if (def.type === "assisted") {
+    const base = findEx(s, def.rankAs), eq = assistedReps(s.profile, st);
+    const out = setXp(s, { ...base, xp: def.xp }, { r: eq, w: 0 }, ex);
+    return { ...out, note: `${Math.round(movedLb(s.profile, st.w))} lb moved · ${out.note}` };
+  }
   const p = s.profile, r = +st.r || 0, w = def.type === "weighted" ? effW(def, ex, +st.w || 0) : +st.w || 0;
   if (r <= 0) return { xp: 0, note: "" };
   if (def.type === "timed") {
@@ -501,12 +512,13 @@ function workoutXp(s, exercises, bests) {
       sets++;
       const { xp: sx, note } = setXp(s, def, st, ex);
       line.xp += sx; xp += sx;
-      const label = def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`;
+      const label = def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`;
       let pr = false;
       if (def.type !== "timed") {
-        volume += (+st.w || 0) * (+st.r || 0);
+        volume += (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0);
         const v = bestValue(def, st, s.profile, ex);
-        if (bests && v > (bests[ex.name] || 0)) { prs++; pr = true; bests[ex.name] = v; }
+        const k = def.type === "assisted" ? def.rankAs : ex.name;
+        if (bests && v > (bests[k] || 0)) { prs++; pr = true; bests[k] = v; }
       }
       line.sets.push({ label, xp: sx, note, pr });
     });
@@ -537,13 +549,19 @@ const ACH_SERIES = [
   { key: "rank", icon: "Shield", title: "Ascension", labels: ["First C-rank lift", "First B-rank lift", "First A-rank lift", "First S-rank lift", "Overall S-rank"], steps: [1, 2, 3, 4, 5], get: (st) => st.rankTier },
   { key: "quests", icon: "Swords", title: "Quest Hunter", unit: "quests cleared", steps: [10, 50, 250, 1000], get: (st) => st.quests },
   { key: "level", icon: "Star", title: "Leveler", unit: "level", steps: [10, 25, 50, 100], get: (st) => st.level },
+  { key: "yogurt", icon: "Star", title: "Yogurt Male", names: ["Yogurt Male"], unit: "yogurts logged", steps: [100], tierOffset: 2, get: (st) => st.yogurt || 0 },
 ];
 const ROMAN = ["I", "II", "III", "IV", "V"];
 function allAchievements() {
-  return ACH_SERIES.flatMap((series) => series.steps.map((v, i) => ({ id: `${series.key}-${i}`, series, tier: i + 1, value: v, title: `${series.title} ${ROMAN[i]}`, desc: series.labels ? series.labels[i] : `${v.toLocaleString()} ${series.unit}`, xp: TIER_STYLE[i + 1].xp })));
+  return ACH_SERIES.flatMap((series) => series.steps.map((v, i) => ({ id: `${series.key}-${i}`, series, tier: i + 1 + (series.tierOffset || 0), value: v, title: series.names ? series.names[i] : `${series.title} ${ROMAN[i]}`, desc: series.labels ? series.labels[i] : `${v.toLocaleString()} ${series.unit}`, xp: TIER_STYLE[i + 1 + (series.tierOffset || 0)].xp })));
 }
 function lifetimeStats(s) {
-  let miles = 0, volume = 0, reps = 0, workouts = 0, pushups = 0, pullups = 0;
+  let miles = 0, volume = 0, reps = 0, workouts = 0, pushups = 0, pullups = 0, yogurt = 0;
+  Object.values(s.meals || {}).forEach((list) => (list || []).forEach((m) => {
+    const q = +m.qty || 0;
+    if (/yogh?urt/i.test(m.name || "")) yogurt += q;
+    else if (m.ingredients) m.ingredients.forEach((it) => { if (/yogh?urt/i.test(it.name || "")) yogurt += q * (+it.qty || 1); });
+  }));
   const bests = computeBests(s);
   s.workouts.forEach((w) => {
     if (w.source !== "quest") workouts++;
@@ -552,7 +570,7 @@ function lifetimeStats(s) {
       ex.sets.forEach((st) => {
         const r = +st.r || 0, wt = +st.w || 0;
         if (def.type === "timed") { if (def.group === "Cardio") miles += wt; return; }
-        reps += r; volume += wt * r;
+        reps += r; volume += (def.type === "assisted" ? movedLb(s.profile, wt) : wt) * r;
         if (/push-?up/i.test(ex.name)) pushups += r;
         if (/pull-?up|chin-?up/i.test(ex.name)) pullups += r;
       });
@@ -568,7 +586,7 @@ function lifetimeStats(s) {
   const overall = overallInfo(s).score;
   const rankTier = overall >= 5 ? 5 : maxScore >= 5 ? 4 : maxScore >= 4 ? 3 : maxScore >= 3 ? 2 : maxScore >= 2 ? 1 : 0;
   return {
-    miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts, pushups, pullups, quests, longestStreak: longest,
+    yogurt: Math.round(yogurt * 10) / 10, miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts, pushups, pullups, quests, longestStreak: longest,
     bench: Math.round(bests["Bench Press"] || 0), squat: Math.round(bests["Squat"] || 0), deadlift: Math.round(bests["Deadlift"] || 0),
     rankTier, level: levelFromXp(s.xp).lvl, since: s.workouts[0]?.date || null,
   };
@@ -670,6 +688,10 @@ export default function App() {
       } catch (e) { /* first run */ }
       if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
       if ((st.achV || 1) < 3) st = reconcileAchievements(st, true);
+      if (!st.assistV) {
+        const bw = Math.max(80, +st.profile?.weight || 170);
+        st = { ...st, assistV: 1, workouts: (st.workouts || []).map((w) => ({ ...w, exercises: w.exercises.map((ex) => (/^Assisted (Dip|Pull-up) Machine$/.test(ex.name) ? { ...ex, sets: ex.sets.map((x) => (+x.w >= bw * 0.5 ? { ...x, w: Math.max(0, Math.round(bw - +x.w)) } : x)) } : ex)) })) };
+      }
       let ok = !!window.storage?.set;
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
       setStorageOk(ok);
@@ -777,6 +799,9 @@ export default function App() {
         .panel::before,.panel::after{content:none}
         .space-y-4>:not([hidden])~:not([hidden]){margin-top:1.15rem}
         h1{font-weight:700;letter-spacing:-.01em} h2{font-weight:650;letter-spacing:-.005em}
+        @keyframes auraorbit{from{transform:rotate(var(--a)) translate(var(--r)) rotate(calc(-1 * var(--a)))}to{transform:rotate(calc(var(--a) + 360deg)) translate(var(--r)) rotate(calc(-1 * var(--a) - 360deg))}}
+        @keyframes aurabob{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-70%) scale(1.15)}}
+        @keyframes musclein{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
         @keyframes aurapulse{0%,100%{opacity:.5;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}
         @keyframes juiceflash{0%{opacity:1}100%{opacity:0}}
         @keyframes juicespark{0%{transform:translate(0,0) rotate(0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(.2);opacity:0}}
@@ -1074,7 +1099,7 @@ function pastSessions(s, name, excludeId, n = 3) {
   }
   return out;
 }
-const setLabel = (def, st) => (def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`);
+const setLabel = (def, st) => (def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`);
 
 function Train({ s, setS, gainXp }) {
   const [picker, setPicker] = useState(false);
@@ -1270,13 +1295,14 @@ function Train({ s, setS, gainXp }) {
               </div>
             )}
             <div className="grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
-              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "bodyweight" ? "+lb" : (ex.wMode || (def.perHand ? "hand" : "total")) === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
+              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : (ex.wMode || (def.perHand ? "hand" : "total")) === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
             </div>
             {ex.sets.map((st, si) => {
               const pv = prev[si];
               const cmp = st.done && pv && +st.r > 0 ? ((+st.w || 0) * (+st.r || 0) || +st.r) - ((+pv.w || 0) * (+pv.r || 0) || +pv.r) : null;
               return (
-                <div key={si} className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3 }}>
+                <React.Fragment key={si}>
+                <div className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3 }}>
                   <span className="font-semibold text-center">{si + 1}</span>
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
                   {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
@@ -1285,6 +1311,8 @@ function Train({ s, setS, gainXp }) {
                     className="h-8 flex items-center justify-center" style={{ background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
                   <button aria-label="Delete set" onClick={() => delSet(si)} className="h-8 flex items-center justify-center" style={{ color: C.mute }}><X size={14} /></button>
                 </div>
+                {def.type === "assisted" && (+st.w > 0 || +st.r > 0) && <div className="body text-xs pl-9 -mt-0.5 mb-1" style={{ color: C.dim }}>You moved <span style={{ color: C.text, fontWeight: 600 }}>{Math.round(movedLb(s.profile, st.w))} lb</span> ({Math.round(Math.max(80, +s.profile.weight || 170))} − {+st.w || 0}){+st.r > 0 ? ` · counts as ${Math.round(assistedReps(s.profile, st) * 10) / 10} ${def.rankAs.toLowerCase()}s` : ""}</div>}
+                </React.Fragment>
               );
             })}
             <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: [...e.sets, { w: e.sets.at(-1)?.w || "", r: "", done: false }] }) }))} className="ghost w-full mt-2 py-2 text-sm font-semibold">Add set</button>
@@ -2100,7 +2128,7 @@ function Ranks({ s, openMuscle }) {
   const [pick, setPick] = useState("Bench Press");
   const overall = overallInfo(s);
   const key = ["Bench Press", "Squat", "Deadlift", "Overhead Press", "Barbell Row", "Pull-up"];
-  const all = allExercises(s).filter((e) => e.type !== "timed");
+  const all = allExercises(s).filter((e) => e.type !== "timed" && e.type !== "assisted");
   const bests = computeBests(s);
   const ft = Math.floor(p.height / 12), inch = Math.round(p.height % 12);
   const totalW = Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0);
@@ -2350,6 +2378,9 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
           <button onClick={() => ask("Sign out on this device? Your progress stays saved in your account.", () => window.ascendAuth.signOut(), "Sign out")} className="ghost px-4 py-2 text-sm font-bold" style={{ color: C.red }}>Sign out</button>
         </div>
       )}
+
+      <h2 className="text-lg font-bold">Contact support</h2>
+      <SupportForm s={s} />
 
       <h2 className="text-lg font-bold">Achievements</h2>
       <div className="panel p-4 space-y-2">
@@ -3187,7 +3218,7 @@ function profileCard(s) {
   const wl = Object.entries(s.weightLog || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-40);
   return {
     id: s.playerId, name: s.profile.name, avatar: s.profile.avatar || null, goal: s.profile.goal, look: s.profile.look || null, song: s.profile.song || null,
-    title: (TITLES.find((t) => t.id === s.profile.title && t.req(s)) || null)?.name || null,
+    title: (TITLES.find((t) => t.id === ({ wyrmslayer: "boss_wyrm", icebreaker: "boss_colossus", gravebane: "boss_gravemaw" }[s.profile.title] || s.profile.title) && t.req(s)) || null)?.name || null,
     weekXp: Object.entries(s.xpLog || {}).filter(([d]) => d >= ws).reduce((a, [, v]) => a + v, 0),
     prevWeek: (() => { const pw = shift(ws, -7); return { key: pw, xp: Object.entries(s.xpLog || {}).filter(([d]) => d >= pw && d < ws).reduce((a, [, v]) => a + v, 0) }; })(),
     atGym: s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000 ? s.atGym : null,
@@ -3431,6 +3462,9 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
               <div className="font-bold" style={{ color: TIER_STYLE[pick.tier].color }}>{pick.title} · {TIER_STYLE[pick.tier].name}</div>
               <div>{pick.desc}</div>
               <div className="text-xs mt-1" style={{ color: C.gold }}>+{pick.xp} XP{earnedIds.has(pick.id) ? " · earned" : ""}</div>
+              {!earnedIds.has(pick.id) && st && typeof pick.series.get(st) === "number" && (
+                <div className="mt-2"><Bar pct={(pick.series.get(st) / pick.value) * 100} color={TIER_STYLE[pick.tier].color} /><div className="text-xs mt-1" style={{ color: C.dim }}>{Math.floor(pick.series.get(st)).toLocaleString()} / {pick.value.toLocaleString()} {pick.series.unit}</div></div>
+              )}
             </div>
           )}
           <div className="panel p-3">
@@ -3973,6 +4007,7 @@ function MuscleFigure({ group, score, color }) {
   );
 }
 function MusclePage({ s, group, onBack, openExercise }) {
+  const [preview, setPreview] = useState(null);
   const info = MUSCLE_INFO[group] || { name: group, key: [], tips: [] };
   const sc = groupScores(s)[group] || 0;
   const r = rankFromScore(sc);
@@ -3997,12 +4032,13 @@ function MusclePage({ s, group, onBack, openExercise }) {
         <span className="font-extrabold text-xl" style={{ color: sc ? r.rank.color : C.mute, textShadow: `0 0 12px ${r.rank.glow}` }}>{sc ? r.label : "Untrained"}</span>
       </div>
       <div className="panel p-3">
-        <Physique tier={sc} height={260} caption={`${info.name} at ${sc ? r.label : "untrained"}`} />
+        <MusclePhoto group={group} tier={preview ?? sc} height={300} />
+        <div className="body text-xs text-center mb-2" style={{ color: preview !== null ? C.cyan : C.dim }}>{preview !== null ? `Preview: ${RANKS[preview].id}-rank ${info.name.toLowerCase()} · tap again to go back` : `Your ${info.name.toLowerCase()} at ${sc ? r.label : "untrained"} · tap a rank to preview`}</div>
         <div className="flex justify-between items-center px-1">
-          {steps.map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <div key={t} className="flex flex-col items-center gap-1" style={{ opacity: reached ? 1 : 0.35 }}><RankBadge rank={rk} size={26} still /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></div>; })}
+          {[0, 1, 2, 3, 4, 5, 6].map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <button key={t} onClick={() => setPreview(preview === t ? null : t)} className="flex flex-col items-center gap-1" style={{ opacity: reached || preview === t ? 1 : 0.4, transform: preview === t ? "scale(1.15)" : "none", transition: "transform .2s" }}><RankBadge rank={rk} size={26} still /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></button>; })}
         </div>
         <div className="mt-2"><Bar pct={(sc / 6) * 100} color={sc ? r.rank.color : C.mute} /></div>
-        <div className="body text-xs mt-1" style={{ color: C.dim }}>The figure fills out as your best lift in this group climbs. Group rank = your best-ranked lift here.</div>
+        <div className="body text-xs mt-1" style={{ color: C.dim }}>The photo grows as your best lift in this group climbs. Group rank = your best-ranked lift here.</div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[["Sessions (30d)", sessions30.size], ["Sets (30d)", sets30], ["Volume (30d)", `${Math.round(vol30 / 1000)}k lb`], ["Lifetime volume", volAll >= 1000000 ? `${(volAll / 1000000).toFixed(1)}M lb` : `${Math.round(volAll / 1000)}k lb`], ["Lifts ranked", lifts.length], ["Counts toward overall", `${Math.round(((GROUP_WEIGHT[group] || 0) / Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0)) * 100)}%`]].map(([l, v]) => (
@@ -4353,9 +4389,19 @@ const TITLES = [
   { id: "mythic", name: "Mythic", req: (s) => Object.keys(s.ach || {}).some((id) => allAchievements().find((a) => a.id === id)?.tier === 5), how: "Any Mythic achievement" },
   { id: "elite", name: "Elite", req: (s) => overallInfo(s).score >= 5, how: "Reach S overall" },
   { id: "gymgod", name: "Gym God", req: (s) => overallInfo(s).score >= 6, how: "????" },
-  { id: "wyrmslayer", name: "Wyrmslayer", req: (s) => (s.loot?.bosses || []).includes("wyrm"), how: "Defeat the Iron Wyrm" },
-  { id: "icebreaker", name: "Icebreaker", req: (s) => (s.loot?.bosses || []).includes("colossus"), how: "Defeat the Frost Colossus" },
-  { id: "gravebane", name: "Gravebane", req: (s) => (s.loot?.bosses || []).includes("gravemaw"), how: "Defeat the Gravemaw" },
+  { id: "boss_wyrm", name: "Wyrmslayer", req: (s) => (s.loot?.bosses || []).includes("wyrm"), how: "Defeat The Iron Wyrm" },
+  { id: "boss_colossus", name: "Icebreaker", req: (s) => (s.loot?.bosses || []).includes("colossus"), how: "Defeat Frost Colossus" },
+  { id: "boss_gravemaw", name: "Gravebane", req: (s) => (s.loot?.bosses || []).includes("gravemaw"), how: "Defeat Gravemaw" },
+  { id: "boss_chud", name: "Chud King", req: (s) => (s.loot?.bosses || []).includes("chud"), how: "Defeat The Chud King" },
+  { id: "boss_rust", name: "Titanbreaker", req: (s) => (s.loot?.bosses || []).includes("rust"), how: "Defeat The Rust Titan" },
+  { id: "boss_harpy", name: "Stormbound", req: (s) => (s.loot?.bosses || []).includes("harpy"), how: "Defeat Stormcaller Harpy" },
+  { id: "boss_warden", name: "Wardenbane", req: (s) => (s.loot?.bosses || []).includes("warden"), how: "Defeat The Hollow Warden" },
+  { id: "boss_leviathan", name: "Tidebreaker", req: (s) => (s.loot?.bosses || []).includes("leviathan"), how: "Defeat Leviathan of the Deep" },
+  { id: "boss_behemoth", name: "Magmaforged", req: (s) => (s.loot?.bosses || []).includes("behemoth"), how: "Defeat Molten Behemoth" },
+  { id: "boss_ratlord", name: "Ratcatcher", req: (s) => (s.loot?.bosses || []).includes("ratlord"), how: "Defeat The Plague Rat Lord" },
+  { id: "boss_pharaoh", name: "Sunbreaker", req: (s) => (s.loot?.bosses || []).includes("pharaoh"), how: "Defeat Sandstorm Pharaoh" },
+  { id: "boss_void", name: "Voidwalker", req: (s) => (s.loot?.bosses || []).includes("void"), how: "Defeat The Void Sovereign" },
+  { id: "yogurtmale", name: "Yogurt Male", req: (s) => !!s.ach?.["yogurt-0"], how: "Log 100 yogurts" },
   { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
   { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
 ];
@@ -5113,6 +5159,16 @@ const AURAS = [
   { id: "wyrm", name: "Wyrmfire", how: "Defeat the Iron Wyrm", loot: "wyrm", colors: ["#3DF08A", "#FFD447"] },
   { id: "frost", name: "Frostbite", how: "Defeat the Frost Colossus", loot: "colossus", colors: ["#B3ECFF", "#FFFFFF"] },
   { id: "abyss", name: "Abyss", how: "Defeat the Gravemaw", loot: "gravemaw", colors: ["#6A00FF", "#FF2D6F"] },
+  { id: "chud", name: "Chud", how: "Defeat the Chud King", loot: "chud", colors: ["#FFB43C", "#8BC34A"], emoji: ["🍔", "💨", "🍔", "💨", "🍟"] },
+  { id: "rust", name: "Rustfall", how: "Defeat the Rust Titan", loot: "rust", colors: ["#C7743A", "#6B3A1E"] },
+  { id: "thunder", name: "Thunderhead", how: "Defeat the Stormcaller Harpy", loot: "harpy", colors: ["#7DD3FC", "#FFF27A"], emoji: ["⚡", "⚡", "⚡"] },
+  { id: "hollow", name: "Hollow Steel", how: "Defeat the Hollow Warden", loot: "warden", colors: ["#9AA7BD", "#FFFFFF"] },
+  { id: "deep", name: "The Deep", how: "Defeat the Leviathan", loot: "leviathan", colors: ["#2F6BFF", "#00D9FF"], emoji: ["🫧", "🫧", "🫧"] },
+  { id: "magma", name: "Magma", how: "Defeat the Molten Behemoth", loot: "behemoth", colors: ["#FF5A1F", "#FFD447"] },
+  { id: "plague", name: "Plague", how: "Defeat the Plague Rat Lord", loot: "ratlord", colors: ["#8BC34A", "#3E5F1A"] },
+  { id: "sand", name: "Sandstorm", how: "Defeat the Sandstorm Pharaoh", loot: "pharaoh", colors: ["#E8C872", "#B8860B"] },
+  { id: "void", name: "Void", how: "Defeat the Void Sovereign", loot: "void", colors: ["#6A00FF", "#000000"] },
+  { id: "yogurt", name: "Yogurt", how: "Yogurt Male achievement (100 yogurts)", ach: "yogurt-0", colors: ["#FFF8E7", "#F1DDB5"], emoji: ["🥣", "🥛", "🥣"] },
   { id: "champion", name: "Champion", how: "Win a season", season: true, colors: ["#FFD447", "#FF9340"] },
 ];
 const BORDERS = [
@@ -5129,6 +5185,7 @@ function unlocked(item, s) {
   if (item.id === "none") return true;
   if (item.tier !== undefined) return bestTier(s) >= item.tier;
   if (item.loot) return item.loot === "any" ? (s.loot?.bosses || []).length > 0 : (s.loot?.bosses || []).includes(item.loot);
+  if (item.ach) return !!s.ach?.[item.ach];
   if (item.season) return item.id === "champion" ? Object.values(s.seasonBadges || {}).some((b) => b.place === 1) : Object.keys(s.seasonBadges || {}).length > 0;
   return false;
 }
@@ -5140,6 +5197,10 @@ function AuraRing({ aura, size, style }) {
     <div aria-hidden="true" className="absolute pointer-events-none" style={{ width: size, height: size, borderRadius: "50%", ...style }}>
       <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `conic-gradient(from 0deg, ${c1}, transparent 30%, ${c2}, transparent 70%, ${c1})`, filter: `blur(${Math.max(4, size / 12)}px)`, opacity: 0.85, animation: "rkspin 6s linear infinite" }} />
       <div style={{ position: "absolute", inset: size * 0.08, borderRadius: "50%", background: `radial-gradient(closest-side, ${c2}55, transparent)`, animation: "aurapulse 2.8s ease-in-out infinite" }} />
+      {a.emoji && a.emoji.map((em, i) => {
+        const n = a.emoji.length, ang = (i / n) * 360;
+        return <span key={i} style={{ position: "absolute", left: "50%", top: "50%", fontSize: Math.max(10, size * 0.14), lineHeight: 1, transformOrigin: "0 0", animation: `auraorbit ${7 + i}s linear infinite`, animationDelay: `${-i * 1.3}s`, "--r": `${size * 0.46}px`, "--a": `${ang}deg` }}><span style={{ display: "inline-block", transform: "translate(-50%,-50%)", animation: `aurabob ${1.8 + (i % 3) * 0.4}s ease-in-out infinite` }}>{em}</span></span>;
+      })}
     </div>
   );
 }
@@ -5230,15 +5291,24 @@ function ReceiptButton({ make, label = "Share card", small }) {
 
 /* ---------- Boss fights ---------- */
 const BOSSES = [
-  { id: "wyrm", name: "The Iron Wyrm", tag: "Coils of cold steel", color: "#3DF08A", icon: "🐉" },
-  { id: "colossus", name: "Frost Colossus", tag: "A glacier that learned to walk", color: "#B3ECFF", icon: "🧊" },
-  { id: "gravemaw", name: "Gravemaw", tag: "It eats skipped leg days", color: "#B14BFF", icon: "💀" },
+  { id: "wyrm", name: "The Iron Wyrm", tag: "Coils of cold steel", color: "#3DF08A", icon: "🐉", title: "Wyrmslayer", aura: "wyrm" },
+  { id: "colossus", name: "Frost Colossus", tag: "A glacier that learned to walk", color: "#B3ECFF", icon: "🧊", title: "Icebreaker", aura: "frost" },
+  { id: "gravemaw", name: "Gravemaw", tag: "It eats skipped leg days", color: "#B14BFF", icon: "💀", title: "Gravebane", aura: "abyss" },
+  { id: "chud", name: "The Chud King", tag: "Rules from a throne of double cheeseburgers", color: "#FFB43C", icon: "chud", title: "Chud King", aura: "chud" },
+  { id: "rust", name: "The Rust Titan", tag: "Every rep a grinding gear", color: "#C7743A", icon: "⚙️", title: "Titanbreaker", aura: "rust" },
+  { id: "harpy", name: "Stormcaller Harpy", tag: "Screeches at half reps", color: "#7DD3FC", icon: "⚡", title: "Stormbound", aura: "thunder" },
+  { id: "warden", name: "The Hollow Warden", tag: "An empty suit of armor that never skips a set", color: "#9AA7BD", icon: "🗡️", title: "Wardenbane", aura: "hollow" },
+  { id: "leviathan", name: "Leviathan of the Deep", tag: "Drags lifters into the abyss of cardio", color: "#2F6BFF", icon: "🐙", title: "Tidebreaker", aura: "deep" },
+  { id: "behemoth", name: "Molten Behemoth", tag: "Sweats lava, lifts mountains", color: "#FF5A1F", icon: "🌋", title: "Magmaforged", aura: "magma" },
+  { id: "ratlord", name: "The Plague Rat Lord", tag: "Hoards chalk and dirty towels", color: "#8BC34A", icon: "🐀", title: "Ratcatcher", aura: "plague" },
+  { id: "pharaoh", name: "Sandstorm Pharaoh", tag: "Buried his gains for 3,000 years", color: "#E8C872", icon: "🏺", title: "Sunbreaker", aura: "sand" },
+  { id: "void", name: "The Void Sovereign", tag: "The end of all excuses", color: "#6A00FF", icon: "🌑", title: "Voidwalker", aura: "void" },
 ];
 const BOSS_HP_PER_PLAYER = 60000, BOSS_XP = 600;
 const bossDamage = (card, mk) => (card?.month?.key === mk ? Math.round((card.month.volume || 0) + (card.month.reps || 0) * 5 + (card.month.miles || 0) * 800) : 0);
 function BossFight({ s, setS, gainXp, rows, openProfile }) {
   const mk = monthKey();
-  const idx = (parseInt(mk.slice(0, 4), 10) * 12 + parseInt(mk.slice(5, 7), 10)) % BOSSES.length;
+  const idx = (parseInt(mk.slice(5, 7), 10) - 1) % BOSSES.length;
   const boss = BOSSES[idx];
   const players = Math.max(1, rows.length);
   const hp = BOSS_HP_PER_PLAYER * players;
@@ -5258,7 +5328,7 @@ function BossFight({ s, setS, gainXp, rows, openProfile }) {
   return (
     <div className="panel p-5 space-y-4 overflow-hidden" style={{ borderColor: `${boss.color}55` }}>
       <div className="flex items-center gap-4">
-        <div className="text-5xl" style={{ filter: `drop-shadow(0 0 16px ${boss.color})`, animation: hit ? "bosshit .45s ease-out" : dead ? "none" : "bossidle 3s ease-in-out infinite", opacity: dead ? 0.35 : 1 }}>{boss.icon}</div>
+        <div className="text-5xl shrink-0" style={{ filter: `drop-shadow(0 0 16px ${boss.color})`, animation: hit ? "bosshit .45s ease-out" : dead ? "none" : "bossidle 3s ease-in-out infinite", opacity: dead ? 0.35 : 1 }}>{boss.icon === "chud" ? <ChudKing size={72} dead={dead} /> : boss.icon}</div>
         <div className="flex-1 min-w-0">
           <div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{monthName} boss</div>
           <div className="text-xl font-bold" style={{ color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
@@ -5271,7 +5341,7 @@ function BossFight({ s, setS, gainXp, rows, openProfile }) {
         </div>
         <div className="flex justify-between body text-xs mt-1.5" style={{ color: C.dim }}><span>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</span><span>{hp.toLocaleString()} HP</span></div>
       </div>
-      <div className="body text-xs" style={{ color: C.dim }}>Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
+      <div className="body text-xs" style={{ color: C.dim }}>Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
       {dmg.filter((x) => x.d > 0).length > 0 && (
         <div className="space-y-1.5">
           {dmg.filter((x) => x.d > 0).slice(0, 6).map(({ r, d }) => (
@@ -5446,6 +5516,77 @@ function WarmUp({ s, a, setActive }) {
           <span className="body text-xs tabular-nums" style={{ color: C.dim }}>{x.secs}s</span>
         </button>
       ); })}
+    </div>
+  );
+}
+
+/* ---------- Muscle photos ---------- */
+const MUSCLE_SLUG = { Chest: "chest", Back: "back", Legs: "legs", Shoulders: "shoulders", Arms: "arms", Core: "core" };
+function MusclePhoto({ group, tier = 0, height = 300 }) {
+  const t = Math.max(0, Math.min(6, Math.floor(tier)));
+  const id = TIER_IDS[t], rank = RANKS[t];
+  return (
+    <div className="relative flex items-center justify-center" style={{ height }}>
+      <div className="absolute" style={{ width: "70%", height: "80%", borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(14px)" }} />
+      <img key={`${group}-${id}`} src={`/muscles/${MUSCLE_SLUG[group] || "chest"}_${id}.webp`} alt={`${group} at ${id} rank`} style={{ maxHeight: height, maxWidth: "100%", width: "auto", position: "relative", objectFit: "contain", animation: "musclein .35s ease-out", filter: "drop-shadow(0 10px 28px rgba(0,0,0,.55))" }} />
+    </div>
+  );
+}
+
+/* ---------- Chud King ---------- */
+function ChudKing({ size = 64, dead }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" role="img" aria-label="The Chud King" style={{ opacity: dead ? 0.4 : 1, overflow: "visible" }}>
+      {/* burger throne */}
+      <ellipse cx="60" cy="108" rx="50" ry="9" fill="#C98A3A" />
+      <rect x="12" y="96" width="96" height="9" rx="4" fill="#5B8C2A" />
+      <rect x="10" y="88" width="100" height="10" rx="5" fill="#7A3E1C" />
+      <rect x="14" y="84" width="92" height="6" rx="3" fill="#F2C230" />
+      {/* body */}
+      <ellipse cx="60" cy="68" rx="40" ry="30" fill="#F2C6A0" stroke="#B9835D" strokeWidth="2" />
+      <ellipse cx="60" cy="74" rx="26" ry="18" fill="#F6D4B4" />
+      <circle cx="60" cy="78" r="2.2" fill="#B9835D" />
+      <path d="M30 60 Q18 70 24 84" stroke="#F2C6A0" strokeWidth="11" strokeLinecap="round" fill="none" />
+      <path d="M90 60 Q104 66 98 80" stroke="#F2C6A0" strokeWidth="11" strokeLinecap="round" fill="none" />
+      {/* burger in hand */}
+      <g transform="translate(94 74)"><ellipse cx="0" cy="-4" rx="9" ry="5" fill="#D9973F" /><rect x="-9" y="-2" width="18" height="3" fill="#5B8C2A" /><rect x="-9" y="1" width="18" height="4" rx="2" fill="#7A3E1C" /><ellipse cx="0" cy="6" rx="9" ry="3" fill="#D9973F" /></g>
+      {/* head */}
+      <circle cx="60" cy="34" r="19" fill="#F2C6A0" stroke="#B9835D" strokeWidth="2" />
+      <ellipse cx="60" cy="47" rx="15" ry="7" fill="#F2C6A0" stroke="#B9835D" strokeWidth="1.5" />
+      <circle cx="53" cy="32" r="2.4" fill="#2a1a10" /><circle cx="67" cy="32" r="2.4" fill="#2a1a10" />
+      <path d="M52 41 Q60 46 68 41" stroke="#8a4b2a" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <circle cx="46" cy="38" r="3.5" fill="#F29A9A" opacity=".6" /><circle cx="74" cy="38" r="3.5" fill="#F29A9A" opacity=".6" />
+      {/* crown */}
+      <path d="M43 18 L47 6 L54 14 L60 2 L66 14 L73 6 L77 18 Z" fill="#FFD447" stroke="#B8860B" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="60" cy="10" r="2" fill="#FF2D6F" /><circle cx="49" cy="13" r="1.6" fill="#38C6FF" /><circle cx="71" cy="13" r="1.6" fill="#3DF08A" />
+    </svg>
+  );
+}
+
+/* ---------- Support ---------- */
+function SupportForm({ s, tab = "settings" }) {
+  const [cat, setCat] = useState("Bug");
+  const [msg, setMsg] = useState("");
+  const [state, setState] = useState({ status: "idle", text: "" });
+  const send = async () => {
+    setState({ status: "sending", text: "" });
+    try {
+      const auth = window.ascendAuth;
+      const token = auth?.token ? await auth.token() : "";
+      const r = await fetch("/api/support", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ category: cat, message: msg, name: s.profile.name, info: { tab, ua: navigator.userAgent } }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Couldn't send");
+      setMsg(""); setState({ status: "sent", text: "Sent. You'll get a reply at your account email." });
+    } catch (e) { setState({ status: "error", text: String(e.message || e) }); }
+  };
+  return (
+    <div className="panel p-4 space-y-3">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {["Bug", "Feature idea", "Account", "Other"].map((c) => <button key={c} onClick={() => setCat(c)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: cat === c ? C.blue : C.glass, color: cat === c ? "#fff" : C.text, border: `1px solid ${C.glassLine}` }}>{c}</button>)}
+      </div>
+      <textarea className="inp body text-sm" rows={4} maxLength={4000} placeholder={cat === "Bug" ? "What happened, and what did you expect?" : "Tell us what's on your mind"} value={msg} onChange={(e) => { setMsg(e.target.value); if (state.status !== "sending") setState({ status: "idle", text: "" }); }} aria-label="Support message" />
+      <button onClick={send} disabled={msg.trim().length < 5 || state.status === "sending"} className="btn w-full py-3 flex items-center justify-center gap-2" style={msg.trim().length < 5 ? { opacity: 0.5 } : null}>{state.status === "sending" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}Send to support</button>
+      {state.text && <div className="body text-sm" style={{ color: state.status === "sent" ? C.green : C.red }}>{state.text}</div>}
     </div>
   );
 }
