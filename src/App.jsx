@@ -291,6 +291,10 @@ const ask = (message, onYes, yesLabel) => AskRef.current(message, onYes, yesLabe
 function fillQuests(p, d, exercises) {
   const day = p.days?.[d] || newDay();
   const list = day.list.map((q) => {
+    if (q.qid === "run" && !q.claimed) {
+      const mi = exercises.filter((e) => /^(Running|Walking|Incline Walk)$/.test(e.name)).reduce((a, e) => a + e.sets.reduce((b, st) => b + (+st.w || 0), 0), 0);
+      return mi ? { ...q, progress: Math.round((q.progress + mi) * 100) / 100, fromWorkout: Math.round(((q.fromWorkout || 0) + mi) * 100) / 100 } : q;
+    }
     const exName = QUEST_EX[q.qid];
     if (q.claimed || !exName) return q;
     const amt = exercises.filter((e) => e.name === exName).reduce((a, e) => a + e.sets.reduce((b, st) => b + (+st.r || 0), 0), 0);
@@ -549,6 +553,7 @@ const ACH_SERIES = [
   { key: "rank", icon: "Shield", title: "Ascension", labels: ["First C-rank lift", "First B-rank lift", "First A-rank lift", "First S-rank lift", "Overall S-rank"], steps: [1, 2, 3, 4, 5], get: (st) => st.rankTier },
   { key: "quests", icon: "Swords", title: "Quest Hunter", unit: "quests cleared", steps: [10, 50, 250, 1000], get: (st) => st.quests },
   { key: "level", icon: "Star", title: "Leveler", unit: "level", steps: [10, 25, 50, 100], get: (st) => st.level },
+  { key: "steps", icon: "Footprints", title: "Wanderer", unit: "lifetime steps", steps: [100000, 500000, 1000000, 5000000, 10000000], get: (st) => st.steps || 0 },
   { key: "yogurt", icon: "Star", title: "Yogurt Male", names: ["Yogurt Male"], unit: "yogurts logged", steps: [100], tierOffset: 2, get: (st) => st.yogurt || 0 },
 ];
 const ROMAN = ["I", "II", "III", "IV", "V"];
@@ -586,7 +591,7 @@ function lifetimeStats(s) {
   const overall = overallInfo(s).score;
   const rankTier = overall >= 5 ? 5 : maxScore >= 5 ? 4 : maxScore >= 4 ? 3 : maxScore >= 3 ? 2 : maxScore >= 2 ? 1 : 0;
   return {
-    yogurt: Math.round(yogurt * 10) / 10, miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts, pushups, pullups, quests, longestStreak: longest,
+    yogurt: Math.round(yogurt * 10) / 10, steps: Object.values(s.steps || {}).reduce((a, n) => a + (+n || 0), 0), miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts, pushups, pullups, quests, longestStreak: longest,
     bench: Math.round(bests["Bench Press"] || 0), squat: Math.round(bests["Squat"] || 0), deadlift: Math.round(bests["Deadlift"] || 0),
     rankTier, level: levelFromXp(s.xp).lvl, since: s.workouts[0]?.date || null,
   };
@@ -624,7 +629,7 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
@@ -647,6 +652,12 @@ export default function App() {
   const openExercise = (name, from = "status") => { setExercisePick(name); setExerciseFrom(from); setTab("exercise"); window.scrollTo?.(0, 0); };
   const [ceremony, setCeremony] = useState(null);
   const [burst, setBurst] = useState(null);
+  const [liveRun, setLiveRun] = useState(() => loadLive());
+  const startRun = (mode, guide) => { const r = newRun(mode, guide); saveLive(r); setLiveRun(r); };
+  const pullSteps = async () => {
+    try { const r = await window.storage.get("steps-inbox", false); const inbox = r?.value ? JSON.parse(r.value) : null; if (inbox) setS((p) => mergeSteps(p, inbox) || p); } catch (e) { /* none yet */ }
+  };
+  useEffect(() => { const v = () => { if (document.visibilityState === "visible") pullSteps(); }; document.addEventListener("visibilitychange", v); return () => document.removeEventListener("visibilitychange", v); }, []);
   useEffect(() => {
     const on = (e) => {
       const kind = e.detail; setBurst({ kind, id: Date.now() });
@@ -697,6 +708,7 @@ export default function App() {
       setStorageOk(ok);
       setS(st); setLoaded(true);
       loadCommunity().then((c) => { if (c) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
+      setTimeout(pullSteps, 800);
     })();
   }, []);
 
@@ -862,8 +874,9 @@ export default function App() {
 
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
-        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} />}
+        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} />}
         {tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
+        {tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
         {tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
         {tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
         {!storageOk && (
@@ -875,7 +888,7 @@ export default function App() {
         <IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} />
         <CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} />
         {tab === "assistant" && <Assistant s={s} setS={setS} onBack={() => setTab("status")} />}
-        {tab === "train" && <Train s={s} setS={setS} gainXp={gainXp} />}
+        {tab === "train" && <Train s={s} setS={setS} gainXp={gainXp} openRun={() => setTab("run")} />}
         {tab === "quests" && <Quests s={s} setS={setS} gainXp={gainXp} />}
         {tab === "fuel" && <Fuel s={s} setS={setS} gainXp={gainXp} />}
         {tab === "calendar" && <Calendar s={s} />}
@@ -892,6 +905,7 @@ export default function App() {
       {party && <DiscoParty />}
       {ceremony && <Ceremony c={ceremony} onClose={() => setCeremony(null)} />}
       {burst && <JuiceBurst key={burst.id} kind={burst.kind} />}
+      {liveRun && <RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onClose={() => { setLiveRun(null); setTab("run"); }} />}
       {offline && <div className="fixed right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
       {dialog && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.65)" }} onClick={() => setDialog(null)}>
@@ -954,7 +968,7 @@ function Sheet({ title, onClose, children }) {
 }
 
 /* ---------- Status ---------- */
-function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, goTrain, openRival }) {
+function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, openRival }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -1016,7 +1030,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
         ))}
       </div>
 
-      <Dashboard s={s} setS={setS} goTrain={goTrain} />
+      <Dashboard s={s} setS={setS} goTrain={goTrain} goRun={goRun} />
       <RoastCard s={s} setS={setS} />
       <NemesisAlert s={s} setS={setS} openProfile={openProfile} />
       <Nudges s={s} openExercise={openExercise} goTrain={goTrain} />
@@ -1101,7 +1115,7 @@ function pastSessions(s, name, excludeId, n = 3) {
 }
 const setLabel = (def, st) => (def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`);
 
-function Train({ s, setS, gainXp }) {
+function Train({ s, setS, gainXp, openRun }) {
   const [picker, setPicker] = useState(false);
   const [rest, setRest] = useState(null);
   const [plates, setPlates] = useState(null);
@@ -1167,8 +1181,9 @@ function Train({ s, setS, gainXp }) {
     return (
       <div className="space-y-4">
         <Title>Train</Title>
-        <div className="grid gap-2" style={{ gridTemplateColumns: "2fr 1fr" }}>
+        <div className="grid gap-2" style={{ gridTemplateColumns: "1.6fr 1fr 1fr" }}>
           <button onClick={() => setTitling(true)} className="btn py-4 text-lg">Start workout</button>
+          <button onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Run</button>
           <button onClick={() => setShowPresets(!showPresets)} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: showPresets ? C.cyan : C.text, borderColor: showPresets ? C.cyan : C.border }}><Layers size={18} />Presets</button>
         </div>
         {showPresets && (
@@ -4640,7 +4655,7 @@ function ExercisePage({ s, name, onBack, openMuscle }) {
 const SLEEP_OPTS = [5, 6, 7, 8, 9];
 const SCALE_COLORS = ["#FF4D6D", "#FF9340", "#FFD447", "#9BE15D", "#3DF08A"];
 const MOOD_OPTS = ["Wrecked", "Meh", "Good", "Fired up"];
-function Dashboard({ s, setS, goTrain }) {
+function Dashboard({ s, setS, goTrain, goRun }) {
   const d = today();
   const t = targets(s.profile), tot = mealTotals(s.meals[d]);
   const day = s.days?.[d];
@@ -4655,6 +4670,12 @@ function Dashboard({ s, setS, goTrain }) {
           <div key={l}><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold" style={{ color: c }}>{v}</div></div>
         ))}
       </div>
+      <button onClick={goRun} className="w-full flex items-center gap-3 px-1" aria-label="Open run and steps">
+        <Footprints size={16} style={{ color: C.green }} />
+        <div className="flex-1"><div className="h-1.5 overflow-hidden" style={{ borderRadius: 999, background: C.glassLine }}><div style={{ height: "100%", width: `${Math.min(100, ((s.steps?.[d] || 0) / (s.settings?.stepGoal || 10000)) * 100)}%`, background: C.green, borderRadius: 999 }} /></div></div>
+        <span className="body text-xs tabular-nums" style={{ color: C.dim }}>{(s.steps?.[d] || 0).toLocaleString()} steps</span>
+        <ChevronRight size={14} style={{ color: C.mute }} />
+      </button>
       <div className="grid grid-cols-2 gap-2">
         <button onClick={goTrain} className="btn py-2.5 text-sm flex items-center justify-center gap-2"><Dumbbell size={16} />{s.active ? "Resume workout" : "Start training"}</button>
         <button onClick={() => setS((p) => ({ ...p, atGym: atGym ? null : Date.now() }))} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: atGym ? C.green : C.cyan, borderColor: atGym ? C.green : C.border }}><MapPin size={16} />{atGym ? "At the gym ✓" : "Check in at gym"}</button>
@@ -5587,6 +5608,557 @@ function SupportForm({ s, tab = "settings" }) {
       <textarea className="inp body text-sm" rows={4} maxLength={4000} placeholder={cat === "Bug" ? "What happened, and what did you expect?" : "Tell us what's on your mind"} value={msg} onChange={(e) => { setMsg(e.target.value); if (state.status !== "sending") setState({ status: "idle", text: "" }); }} aria-label="Support message" />
       <button onClick={send} disabled={msg.trim().length < 5 || state.status === "sending"} className="btn w-full py-3 flex items-center justify-center gap-2" style={msg.trim().length < 5 ? { opacity: 0.5 } : null}>{state.status === "sending" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}Send to support</button>
       {state.text && <div className="body text-sm" style={{ color: state.status === "sent" ? C.green : C.red }}>{state.text}</div>}
+    </div>
+  );
+}
+
+/* ---------- Geo helpers ---------- */
+const MI_M = 1609.344;
+function havM(a, b) {
+  const R = 6371000, toR = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * toR, dLng = (b[1] - a[1]) * toR;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * toR) * Math.cos(b[0] * toR) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
+}
+function encodePoly(pts) {
+  let out = "", pLat = 0, pLng = 0;
+  const enc = (v) => { v = v < 0 ? ~(v << 1) : v << 1; let s = ""; while (v >= 0x20) { s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } return s + String.fromCharCode(v + 63); };
+  pts.forEach(([la, ln]) => { const a = Math.round(la * 1e5), b = Math.round(ln * 1e5); out += enc(a - pLat) + enc(b - pLng); pLat = a; pLng = b; });
+  return out;
+}
+function decodePoly(str) {
+  const pts = []; let i = 0, lat = 0, lng = 0;
+  while (i < (str || "").length) {
+    for (const k of [0, 1]) {
+      let b, shift = 0, result = 0;
+      do { b = str.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      const d = result & 1 ? ~(result >> 1) : result >> 1;
+      if (k === 0) lat += d; else lng += d;
+    }
+    pts.push([lat / 1e5, lng / 1e5]);
+  }
+  return pts;
+}
+function thinPts(pts, minGapM = 8, maxPts = 900) {
+  if (!pts.length) return pts;
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) if (havM(out[out.length - 1], pts[i]) >= minGapM || i === pts.length - 1) out.push(pts[i]);
+  if (out.length <= maxPts) return out;
+  const step = out.length / maxPts, res = [];
+  for (let i = 0; i < out.length; i += step) res.push(out[Math.floor(i)]);
+  res.push(out[out.length - 1]);
+  return res;
+}
+const fmtDur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60; return h ? `${h}:${String(m).padStart(2, "0")}:${String(s2).padStart(2, "0")}` : `${m}:${String(s2).padStart(2, "0")}`; };
+const fmtPace = (secPerMi) => (!isFinite(secPerMi) || secPerMi <= 0 || secPerMi > 3600 ? "–:––" : fmtDur(secPerMi));
+
+/* ---------- GPS engine (pure, testable) ---------- */
+const RUN_LIMITS = { run: { max: 7.5 }, walk: { max: 3.2 } };
+const M_LAT = 111320;
+function newRun(mode = "run", guide = null) {
+  return { id: uid(), mode, guide, startedAt: Date.now(), pausedTotal: 0, pausedAt: null, dist: 0, pts: [], last: null, kf: null, anchor: null, rejects: 0, splits: [], gapM: 0, weak: false, fixes: 0, o: null };
+}
+function runElapsed(r, now = Date.now()) {
+  return Math.max(0, (now - r.startedAt - r.pausedTotal - (r.pausedAt ? now - r.pausedAt : 0)) / 1000);
+}
+// Feed one GPS fix; returns a new run state.
+// 1) a small Kalman filter smooths the position, 2) distance only counts when the smoothed position
+// has clearly moved from the last anchor point, 3) teleport glitches are rejected, 4) screen-lock gaps are bridged.
+function addFix(r, fix) {
+  const next = { ...r, fixes: r.fixes + 1 };
+  if (r.pausedAt) { next.kf = null; next.anchor = null; return next; }
+  if (!isFinite(fix.lat) || !isFinite(fix.lng)) return next;
+  if (fix.acc > 35) { next.weak = true; return next; }
+  next.weak = fix.acc > 20;
+  const o = r.o || { lat: fix.lat, lng: fix.lng, k: M_LAT * Math.cos((fix.lat * Math.PI) / 180) };
+  next.o = o;
+  const zx = (fix.lng - o.lng) * o.k, zy = (fix.lat - o.lat) * M_LAT, R = Math.max(9, fix.acc * fix.acc);
+  const toLL = (x, y) => [o.lat + y / M_LAT, o.lng + x / o.k];
+  const max = RUN_LIMITS[r.mode]?.max || 7.5;
+
+  if (!r.kf) {
+    next.kf = { x: zx, y: zy, P: R, t: fix.t };
+    if (!r.anchor) {
+      next.anchor = { x: zx, y: zy, t: fix.t };
+      next.pts = [...r.pts, [...toLL(zx, zy), fix.t, r.pts.length ? 1 : 0]];
+    }
+    next.last = { p: toLL(zx, zy), t: fix.t, acc: fix.acc };
+    return next;
+  }
+  const dt = (fix.t - r.kf.t) / 1000;
+  if (dt <= 0) return next;
+
+  // Screen was off: bridge the gap with a straight line if the speed is believable
+  if (dt > 25) {
+    const a = r.anchor || { x: r.kf.x, y: r.kf.y, t: r.kf.t };
+    const d = Math.hypot(zx - a.x, zy - a.y), sp = d / ((fix.t - a.t) / 1000);
+    next.kf = { x: zx, y: zy, P: R, t: fix.t };
+    next.anchor = { x: zx, y: zy, t: fix.t };
+    if (sp <= max) { next.dist = r.dist + d; next.gapM = r.gapM + d; }
+    next.pts = [...r.pts, [...toLL(zx, zy), fix.t, 1]];
+    next.last = { p: toLL(zx, zy), t: fix.t, acc: fix.acc };
+    return withSplits(r, next, fix.t);
+  }
+
+  // Predict, then reject teleports that don't match where we could possibly be
+  const Q = 2.5 * dt * (1 + dt);
+  const P = r.kf.P + Q;
+  const innov = Math.hypot(zx - r.kf.x, zy - r.kf.y);
+  if (innov > Math.max(45, 3 * Math.sqrt(P + R)) && innov / dt > max * 1.5) {
+    next.rejects = r.rejects + 1;
+    if (next.rejects >= 4) { next.kf = { x: zx, y: zy, P: R, t: fix.t }; next.anchor = { x: zx, y: zy, t: fix.t }; next.rejects = 0; next.pts = [...r.pts, [...toLL(zx, zy), fix.t, 2]]; }
+    return next;
+  }
+  next.rejects = 0;
+  const K = P / (P + R);
+  const kx = r.kf.x + K * (zx - r.kf.x), ky = r.kf.y + K * (zy - r.kf.y);
+  next.kf = { x: kx, y: ky, P: (1 - K) * P, t: fix.t };
+  next.last = { p: toLL(kx, ky), t: fix.t, acc: fix.acc };
+
+  const a = r.anchor || { x: kx, y: ky, t: fix.t };
+  const d = Math.hypot(kx - a.x, ky - a.y);
+  const need = Math.max(11, Math.min(25, fix.acc * 1.1));
+  if (d >= need) {
+    const sp = d / Math.max(1, (fix.t - a.t) / 1000);
+    if (sp <= max * 1.3) next.dist = r.dist + d;
+    next.anchor = { x: kx, y: ky, t: fix.t };
+    next.pts = [...r.pts, [...toLL(kx, ky), fix.t, 0]];
+  }
+  return withSplits(r, next, fix.t);
+}
+function withSplits(prev, next, t) {
+  const miles = Math.floor(next.dist / MI_M);
+  if (miles > prev.splits.length) {
+    const el = runElapsed(next, t);
+    const done = prev.splits.reduce((a, x) => a + x, 0);
+    const add = [];
+    for (let k = prev.splits.length; k < miles; k++) add.push(Math.round((el - done) / (miles - prev.splits.length)));
+    return { ...next, splits: [...prev.splits, ...add] };
+  }
+  return next;
+}
+function currentPace(r, now = Date.now()) {
+  const recent = r.pts.filter((x) => now - x[2] <= 40000 && x[3] !== 2);
+  if (recent.length < 2) return Infinity;
+  let d = 0; for (let i = 1; i < recent.length; i++) d += havM(recent[i - 1], recent[i]);
+  const dt = (recent[recent.length - 1][2] - recent[0][2]) / 1000;
+  return d > 15 ? dt / (d / MI_M) : Infinity;
+}
+
+/* ---------- Map (Leaflet, loaded only when needed) ---------- */
+let leafletP = null;
+const loadLeaflet = () => (leafletP ||= Promise.all([import("leaflet"), import("leaflet/dist/leaflet.css")]).then(([m]) => m.default || m));
+function RouteMap({ lines = [], follow = null, height = 240, fit = true, interactive = true }) {
+  const el = useRef(null), mapRef = useRef(null), layerRef = useRef(null), meRef = useRef(null), fitted = useRef(false);
+  const [failed, setFailed] = useState(false);
+  const light = String(C.text || "").startsWith("#07");
+  useEffect(() => {
+    let dead = false;
+    loadLeaflet().then((L) => {
+      if (dead || !el.current || mapRef.current) return;
+      const map = L.map(el.current, { zoomControl: false, attributionControl: true, dragging: interactive, scrollWheelZoom: false, tap: interactive });
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${light ? "light_all" : "dark_all"}/{z}/{x}/{y}{r}.png`, { maxZoom: 19, subdomains: "abcd", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>' }).addTo(map);
+      map.setView(follow || lines[0]?.pts?.[0] || [30.2672, -97.7431], 15);
+      layerRef.current = L.layerGroup().addTo(map);
+      mapRef.current = map;
+      setTimeout(() => map.invalidateSize(), 60);
+      draw(L);
+    }).catch(() => setFailed(true));
+    return () => { dead = true; try { mapRef.current?.remove(); } catch (e) { /* ignore */ } mapRef.current = null; };
+  }, []);
+  const draw = (L) => {
+    const map = mapRef.current; if (!map || !layerRef.current) return;
+    layerRef.current.clearLayers();
+    let all = [];
+    lines.forEach((ln) => {
+      if (!ln.pts?.length) return;
+      L.polyline(ln.pts, { color: ln.color || C.cyan, weight: ln.weight || 5, opacity: ln.opacity ?? 0.95, dashArray: ln.dash || null, lineJoin: "round" }).addTo(layerRef.current);
+      if (ln.startDot) L.circleMarker(ln.pts[0], { radius: 6, color: "#fff", weight: 2, fillColor: "#3DF08A", fillOpacity: 1 }).addTo(layerRef.current);
+      all = all.concat(ln.pts);
+    });
+    if (follow) {
+      if (!meRef.current) meRef.current = L.circleMarker(follow, { radius: 8, color: "#fff", weight: 3, fillColor: "#2F8CFF", fillOpacity: 1 });
+      meRef.current.setLatLng(follow).addTo(layerRef.current);
+      map.panTo(follow, { animate: true });
+    } else if (fit && all.length > 1 && !fitted.current) { map.fitBounds(L.latLngBounds(all), { padding: [24, 24] }); fitted.current = true; }
+  };
+  useEffect(() => { if (mapRef.current) loadLeaflet().then(draw); }, [lines, follow?.[0], follow?.[1]]);
+  if (failed) return <div className="panel flex items-center justify-center body text-sm" style={{ height, color: C.dim }}>Map couldn't load. Your run still tracks.</div>;
+  return <div ref={el} style={{ height, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.glassLine}`, background: "#0b1020" }} />;
+}
+
+/* ---------- Live run tracker (full screen) ---------- */
+const LIVE_KEY = "ascend-live-run";
+const saveLive = (r) => { try { localStorage.setItem(LIVE_KEY, JSON.stringify(r)); } catch (e) { /* storage full */ } };
+const loadLive = () => { try { return JSON.parse(localStorage.getItem(LIVE_KEY) || "null"); } catch { return null; } };
+const clearLive = () => { try { localStorage.removeItem(LIVE_KEY); } catch (e) { /* ignore */ } };
+
+function RunTracker({ s, setS, gainXp, initial, onClose }) {
+  const [run, setRun] = useState(initial);
+  const runRef = useRef(initial); runRef.current = run;
+  const [now, setNow] = useState(Date.now());
+  const [gps, setGps] = useState({ status: "waiting", msg: "" });
+  const [phase, setPhase] = useState(initial.resumed ? "resume" : "live"); // resume | live | summary
+  const [wake, setWake] = useState(null);
+  const [cues, setCues] = useState(s.settings?.runCues !== false);
+  const watchRef = useRef(null), wakeRef = useRef(null), lastSave = useRef(0), cuedMiles = useRef(initial.splits?.length || 0), hiddenAt = useRef(null);
+  const [gapNote, setGapNote] = useState("");
+  const guide = useMemo(() => (initial.guide ? decodePoly(initial.guide.poly) : null), [initial.guide]);
+
+  const startWatch = () => {
+    if (!navigator.geolocation) { setGps({ status: "error", msg: "This browser can't use GPS." }); return; }
+    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy || 50, t: pos.timestamp || Date.now() };
+        setGps({ status: fix.acc > 35 ? "weak" : "ok", msg: `±${Math.round(fix.acc)} m` });
+        setRun((r) => addFix(r, fix));
+      },
+      (err) => setGps({ status: "error", msg: err.code === 1 ? "Location is blocked. Allow it in Settings → Privacy → Location Services → Safari Websites." : "Searching for GPS…" }),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
+    );
+  };
+  const lockScreen = async () => {
+    try { if (navigator.wakeLock) { wakeRef.current = await navigator.wakeLock.request("screen"); setWake(true); wakeRef.current.addEventListener?.("release", () => setWake(false)); } else setWake(false); } catch (e) { setWake(false); }
+  };
+  useEffect(() => {
+    if (phase !== "live") return;
+    startWatch(); lockScreen();
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    const vis = () => {
+      if (document.visibilityState === "hidden") { hiddenAt.current = Date.now(); return; }
+      if (hiddenAt.current && Date.now() - hiddenAt.current > 20000) setGapNote(`GPS paused for ${Math.round((Date.now() - hiddenAt.current) / 1000)}s while the screen was off. The distance gets filled in with a straight line.`);
+      hiddenAt.current = null; startWatch(); lockScreen();
+    };
+    document.addEventListener("visibilitychange", vis);
+    return () => { clearInterval(tick); document.removeEventListener("visibilitychange", vis); if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current); watchRef.current = null; try { wakeRef.current?.release(); } catch (e) { /* ignore */ } };
+  }, [phase]);
+  // Crash-safe: keep the run on the phone every few seconds
+  useEffect(() => { if (phase === "live" && Date.now() - lastSave.current > 4000) { lastSave.current = Date.now(); saveLive({ ...run, resumed: true }); } }, [run, phase]);
+  // Tab title + mile cues
+  useEffect(() => { if (phase === "live") document.title = `🏃 ${(run.dist / MI_M).toFixed(2)} mi · ${fmtDur(runElapsed(run, now))}`; return () => { document.title = "Ascend"; }; }, [now, phase]);
+  useEffect(() => {
+    if (run.splits.length > cuedMiles.current) {
+      cuedMiles.current = run.splits.length;
+      SFX.tone(880, 0.15); SFX.tone(1320, 0.2, 0.18);
+      if (cues) sterlingSay(s, `Mile ${run.splits.length}. ${Math.floor(run.splits[run.splits.length - 1] / 60)} minutes ${run.splits[run.splits.length - 1] % 60} seconds. Splendid.`);
+    }
+  }, [run.splits.length]);
+
+  const el = runElapsed(run, now), miles = run.dist / MI_M;
+  const avgPace = miles > 0.02 ? el / miles : Infinity, curPace = currentPace(run, now);
+  const path = useMemo(() => run.pts.filter((x) => x[3] !== 2).map((x) => [x[0], x[1]]), [run.pts.length]);
+  const me = run.last?.p || null;
+  const liveLines = useMemo(() => [...(guide ? [{ pts: guide, color: C.mute, weight: 5, dash: "6 8", opacity: 0.8 }] : []), { pts: path, color: C.cyan }], [path, guide]);
+
+  const pause = () => setRun((r) => (r.pausedAt ? { ...r, pausedTotal: r.pausedTotal + (Date.now() - r.pausedAt), pausedAt: null, last: null } : { ...r, pausedAt: Date.now() }));
+  const stop = () => { setRun((r) => (r.pausedAt ? { ...r, pausedTotal: r.pausedTotal + (Date.now() - r.pausedAt), pausedAt: null } : r)); setPhase("summary"); saveLive({ ...runRef.current, resumed: true, stopped: true }); };
+  const discard = () => ask("Discard this run? It won't be saved.", () => { clearLive(); onClose(); }, "Discard");
+  const save = async () => {
+    const r = runRef.current, secs = runElapsed(r), mi = Math.round((r.dist / MI_M) * 100) / 100;
+    if (mi < 0.05) { ask("That run is under 0.05 miles. Discard it?", () => { clearLive(); onClose(); }, "Discard"); return; }
+    const exName = r.mode === "walk" ? "Walking" : "Running";
+    const exercises = [{ name: exName, sets: [{ w: mi, r: Math.round((secs / 60) * 10) / 10, done: true }] }];
+    const { xp } = workoutXp(s, exercises, null);
+    const runInfo = { id: r.id, mode: r.mode, miles: mi, secs: Math.round(secs), pace: Math.round(secs / Math.max(0.01, mi)), splits: r.splits, gapMi: Math.round((r.gapM / MI_M) * 100) / 100, guideName: r.guide?.name || null, hasMap: path.length > 1 };
+    const workout = { id: r.id, date: today(), title: r.mode === "walk" ? "Walk" : "Run", exercises, xp, volume: 0, minutes: Math.round(secs / 60), run: runInfo };
+    if (path.length > 1) { try { await window.storage.set(`run:${r.id}`, encodePoly(thinPts(path)), false); } catch (e) { /* map just won't show */ } }
+    setS((p) => addWorkout(p, workout));
+    gainXp(xp, `${mi} mi ${r.mode === "walk" ? "walk" : "run"}`);
+    juice(mi >= 3 ? "pr" : "finish");
+    postFeed(s, "workout", `${r.mode === "walk" ? "walked" : "ran"} ${mi} mi · ${fmtPace(runInfo.pace)} /mi`, {}, `run_${r.id}`);
+    clearLive(); onClose(workout);
+  };
+
+  const gpsColor = gps.status === "ok" ? C.green : gps.status === "weak" ? C.orange : gps.status === "error" ? C.red : C.dim;
+  const shell = { position: "fixed", inset: 0, zIndex: 58, background: C.bg, color: C.text, paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)", overflowY: "auto" };
+
+  if (phase === "resume") {
+    return (
+      <div style={shell} className="px-5 flex flex-col justify-center">
+        <div className="panel p-5 space-y-3 max-w-md mx-auto w-full">
+          <div className="text-xl font-bold">Unfinished {run.mode === "walk" ? "walk" : "run"}</div>
+          <div className="body text-sm" style={{ color: C.dim }}>{(run.dist / MI_M).toFixed(2)} mi so far. The app closed during it. Pick up where you left off, or finish and save it now.</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => { setRun((r) => ({ ...r, pausedAt: r.pausedAt || Date.now(), last: null })); setPhase("live"); }} className="btn py-3">Resume</button>
+            <button onClick={() => { setRun((r) => ({ ...r, pausedTotal: r.pausedTotal + Math.max(0, Date.now() - (r.last?.t || r.startedAt)) })); setPhase("summary"); }} className="ghost py-3 font-semibold">Finish & save</button>
+          </div>
+          <button onClick={discard} className="body text-sm w-full" style={{ color: C.dim }}>Discard</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "summary") {
+    const secs = runElapsed(run);
+    return (
+      <div style={shell} className="px-5">
+        <div className="max-w-md mx-auto space-y-4 pt-2">
+          <div className="text-2xl font-bold">{run.mode === "walk" ? "Walk" : "Run"} complete</div>
+          {path.length > 1 ? <RouteMap lines={[...(guide ? [{ pts: guide, color: C.mute, weight: 4, dash: "6 8", opacity: 0.7 }] : []), { pts: path, color: C.cyan, startDot: true }]} height={220} /> : <div className="panel p-4 body text-sm" style={{ color: C.dim }}>No GPS path was recorded.</div>}
+          <div className="grid grid-cols-3 gap-2">
+            {[["Distance", `${miles.toFixed(2)} mi`], ["Time", fmtDur(secs)], ["Avg pace", `${fmtPace(miles > 0 ? secs / miles : Infinity)}`]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums">{v}</div></div>)}
+          </div>
+          {run.splits.length > 0 && <div className="panel p-4"><div className="font-semibold text-sm mb-2">Splits</div>{run.splits.map((sp, i) => <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Mile {i + 1}</span><span className="tabular-nums font-semibold">{fmtDur(sp)}</span></div>)}</div>}
+          {run.gapM > 30 && <div className="body text-xs" style={{ color: C.orange }}>{(run.gapM / MI_M).toFixed(2)} mi was filled in while GPS was paused (screen off).</div>}
+          <button onClick={save} className="btn w-full py-4 text-lg">Save {run.mode === "walk" ? "walk" : "run"}</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setPhase("live")} className="ghost py-3 font-semibold">Keep going</button>
+            <button onClick={discard} className="py-3 font-semibold" style={{ borderRadius: 12, color: "#FF4D6D", border: "1px solid rgba(255,77,109,.4)" }}>Discard</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={shell} className="px-4">
+      <div className="max-w-md mx-auto space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 body text-xs font-semibold" style={{ color: gpsColor }}><span style={{ width: 8, height: 8, borderRadius: 999, background: gpsColor, boxShadow: `0 0 8px ${gpsColor}` }} />{gps.status === "waiting" ? "Finding GPS…" : gps.status === "weak" ? `Weak GPS ${gps.msg}` : gps.status === "error" ? "GPS problem" : `GPS ${gps.msg}`}</div>
+          <button onClick={() => setCues(!cues)} className="body text-xs flex items-center gap-1" style={{ color: cues ? C.cyan : C.mute }}>{cues ? <Volume2 size={14} /> : <VolumeX size={14} />}Mile cues</button>
+        </div>
+        {gps.status === "error" && <div className="body text-xs" style={{ color: C.red }}>{gps.msg}</div>}
+        <RouteMap lines={liveLines} follow={me} height={Math.min(300, typeof window !== "undefined" ? window.innerHeight * 0.34 : 260)} />
+        <div className="text-center pt-1">
+          <div className="text-7xl font-black tabular-nums tracking-tight">{miles.toFixed(2)}</div>
+          <div className="body text-sm -mt-1" style={{ color: C.dim }}>miles</div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[["Time", fmtDur(el)], ["Pace now", fmtPace(curPace)], ["Avg pace", fmtPace(avgPace)]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-xl font-bold tabular-nums">{v}</div></div>)}
+        </div>
+        {run.pausedAt && <div className="text-center font-bold" style={{ color: C.orange }}>Paused</div>}
+        {gapNote && <div className="body text-xs text-center" style={{ color: C.orange }}>{gapNote}</div>}
+        {wake === false && <div className="body text-xs text-center" style={{ color: C.dim }}>Keep Ascend open with the screen on. iPhone pauses GPS for websites when the screen locks.</div>}
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <button onClick={pause} className="py-4 text-lg font-bold flex items-center justify-center gap-2" style={{ borderRadius: 16, background: run.pausedAt ? C.green : C.glass, color: run.pausedAt ? "#02040B" : C.text, border: `1px solid ${C.glassLine}` }}>{run.pausedAt ? <><Play size={20} />Resume</> : <><Pause size={20} />Pause</>}</button>
+          <button onClick={stop} className="py-4 text-lg font-bold flex items-center justify-center gap-2" style={{ borderRadius: 16, background: "#FF2D55", color: "#fff" }}><X size={20} />Finish</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Steps ---------- */
+const STEP_GOAL_XP = 40;
+function mergeSteps(s, inbox) {
+  const cur = s.steps || {};
+  let changed = false;
+  const steps = { ...cur };
+  Object.entries(inbox || {}).forEach(([d, n]) => { const v = Math.round(+n || 0); if (v > (steps[d] || 0)) { steps[d] = v; changed = true; } });
+  if (!changed) return null;
+  const d = today();
+  let next = { ...s, steps };
+  const day = next.days?.[d];
+  if (day && steps[d]) next = { ...next, days: { ...next.days, [d]: { ...day, list: day.list.map((q) => (q.qid === "steps" && !q.claimed ? { ...q, progress: Math.max(q.progress, steps[d]) } : q)) } } };
+  return next;
+}
+async function sha256hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function StepsPanel({ s, setS, gainXp }) {
+  const d = today();
+  const goal = s.settings?.stepGoal || 10000;
+  const todaySteps = s.steps?.[d] || 0;
+  const [manual, setManual] = useState("");
+  const [setup, setSetup] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState("");
+  const [err, setErr] = useState("");
+  const week = Array.from({ length: 7 }, (_, i) => { const k = shift(d, i - 6); return { k, n: s.steps?.[k] || 0 }; });
+  const maxN = Math.max(goal, ...week.map((w) => w.n));
+  useEffect(() => {
+    if (todaySteps >= goal && !s.stepXp?.[d]) { setS((p) => ({ ...p, stepXp: { ...(p.stepXp || {}), [d]: true } })); gainXp(STEP_GOAL_XP, "Step goal"); }
+  }, [todaySteps, goal]);
+  const saveManual = () => {
+    const n = Math.round(+manual); if (!(n >= 0) || manual === "") return;
+    setS((p) => { const base = { ...p, steps: { ...(p.steps || {}), [d]: n } }; const day = base.days?.[d]; return day ? { ...base, days: { ...base.days, [d]: { ...day, list: day.list.map((q) => (q.qid === "steps" && !q.claimed ? { ...q, progress: Math.max(q.progress, n) } : q)) } } } : base; });
+    setManual("");
+  };
+  const makeCode = async () => {
+    setBusy(true); setErr("");
+    try {
+      const code = [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      const hash = await sha256hex(code);
+      await window.ascendAuth.registerStepToken(hash, s.stepTokenHash || null);
+      setS((p) => ({ ...p, stepToken: code, stepTokenHash: hash }));
+    } catch (e) { setErr("Couldn't create a sync code. Check your connection, and make sure the steps SQL was run in Supabase."); }
+    setBusy(false);
+  };
+  const copy = async (text, label) => { try { await navigator.clipboard.writeText(text); setCopied(label); setTimeout(() => setCopied(""), 1800); } catch (e) { /* select manually */ } };
+  const url = `${typeof window !== "undefined" ? window.location.origin : "https://www.ascendfit.site"}/api/steps`;
+  return (
+    <div className="panel p-4 space-y-3">
+      <div className="flex items-end justify-between">
+        <div><div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>Steps today</div><div className="text-3xl font-bold tabular-nums">{todaySteps.toLocaleString()}</div></div>
+        <div className="body text-xs text-right" style={{ color: todaySteps >= goal ? C.green : C.dim }}>{todaySteps >= goal ? `Goal hit · +${STEP_GOAL_XP} XP` : `${(goal - todaySteps).toLocaleString()} to ${goal.toLocaleString()}`}</div>
+      </div>
+      <div className="flex items-end gap-1.5" style={{ height: 70 }} role="img" aria-label="Steps over the last 7 days">
+        {week.map((w) => <div key={w.k} className="flex-1 flex flex-col items-center gap-1"><div style={{ width: "100%", height: `${Math.max(3, (w.n / maxN) * 56)}px`, borderRadius: 6, background: w.n >= goal ? C.green : w.k === d ? C.cyan : C.glassLine }} /><span className="body" style={{ fontSize: 10, color: C.dim }}>{new Date(w.k + "T12:00").toLocaleDateString(undefined, { weekday: "narrow" })}</span></div>)}
+      </div>
+      <div className="flex gap-2">
+        <input type="number" inputMode="numeric" className="inp text-sm" placeholder="Enter today's steps" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveManual()} aria-label="Today's steps" />
+        <button onClick={saveManual} disabled={!(+manual >= 0) || manual === ""} className="btn px-4 text-sm">Save</button>
+      </div>
+      <button onClick={() => setSetup(!setup)} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up · view instructions" : "Sync steps automatically from iPhone"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
+      {setup && (
+        <div className="space-y-3 body text-sm" style={{ color: C.sub }}>
+          {!s.stepToken ? (
+            <button onClick={makeCode} disabled={busy} className="btn w-full py-2.5 text-sm">{busy ? "Creating…" : "Create my sync code"}</button>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <div className="text-xs" style={{ color: C.dim }}>Your sync code (keep it private)</div>
+                <button onClick={() => copy(s.stepToken, "code")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{s.stepToken}</button>
+                <div className="text-xs" style={{ color: C.dim }}>Sync URL</div>
+                <button onClick={() => copy(url, "url")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{url}</button>
+                {copied && <div className="text-xs" style={{ color: C.green }}>Copied {copied}</div>}
+              </div>
+              <ol className="space-y-1.5 list-decimal pl-5 text-sm">
+                <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>Time of Day</b>. Pick <b>11:45 PM</b>, <b>Daily</b>, <b>Run Immediately</b> → Next → <b>New Blank Automation</b>.</li>
+                <li>Add <b>Find Health Samples</b>: Type is <b>Steps</b>, Start Date is <b>Today</b>.</li>
+                <li>Add <b>Calculate Statistics</b>: <b>Sum</b> of Health Samples.</li>
+                <li>Add <b>Format Date</b>: Current Date, Date Format <b>Custom</b>, format <b>yyyy-MM-dd</b>.</li>
+                <li>Add <b>Get Contents of URL</b>: paste the Sync URL. Method <b>POST</b>, Request Body <b>JSON</b>, add three fields: <b>token</b> (Text: your sync code), <b>steps</b> (Number: Statistics), <b>date</b> (Text: Formatted Date).</li>
+                <li>Tap <b>Done</b>. Tap the automation once to test it, then pull this page down to refresh.</li>
+              </ol>
+              <div className="text-xs" style={{ color: C.dim }}>Want steps to update during the day? Duplicate the automation for noon and 6 PM. Ascend always keeps the highest count for each day.</div>
+              <button onClick={() => ask("Make a new sync code? The old one stops working, so you'd need to update your Shortcut.", makeCode, "New code")} className="text-xs underline" style={{ color: C.mute }}>Make a new code</button>
+            </>
+          )}
+          {err && <div className="text-xs" style={{ color: C.red }}>{err}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Route planner + run hub ---------- */
+function RoutePlanner({ s, setS, onRun }) {
+  const [miles, setMiles] = useState(3);
+  const [pref, setPref] = useState("");
+  const [state, setState] = useState({ status: "idle", routes: [], pick: 0, notes: [], quip: "" });
+  const [naming, setNaming] = useState("");
+  const plan = async () => {
+    setState({ status: "locating", routes: [], pick: 0, notes: [], quip: "" });
+    let pos;
+    try {
+      pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }));
+    } catch (e) {
+      setState({ status: "error", routes: [], pick: 0, notes: [], quip: "", err: e?.code === 1 ? "Location is blocked. Allow it for Safari in Settings → Privacy → Location Services." : "Couldn't get your location. Try again outside." });
+      return;
+    }
+    setState((x) => ({ ...x, status: "routing" }));
+    try {
+      const token = await window.ascendAuth.token();
+      const r = await fetch("/api/route", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, miles, pref }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Route service error");
+      const routes = j.routes;
+      let pick = 0, notes = routes.map((rt) => `${(rt.meters / MI_M).toFixed(1)} mi · ${Math.round(rt.ascent * 3.281)} ft climb${rt.streets.length ? ` · ${rt.streets.slice(0, 2).join(", ")}` : ""}`), quip = "";
+      if (/flat|easy|no hill/i.test(pref)) pick = routes.reduce((bi, rt, i, arr) => (rt.ascent < arr[bi].ascent ? i : bi), 0);
+      try {
+        const ai = await askJson(STERLING_SYS, `A runner wants a ${miles}-mile loop${pref ? ` with this preference: "${pref}"` : ""}. Candidate routes: ${routes.map((rt, i) => `#${i}: ${(rt.meters / MI_M).toFixed(2)} mi, ${Math.round(rt.ascent * 3.281)} ft of climbing, main streets/paths: ${rt.streets.join(", ") || "unknown"}`).join(" | ")}. Pick the best one for their preference and write a short description for each (under 16 words, mention the terrain and notable streets or paths; don't invent landmarks that aren't in the street names). Respond ONLY with JSON: {"pick": index, "quip": "one short Sterling line", "notes": ["...", "...", "..."]}`, 500);
+        if (Number.isInteger(ai.pick) && routes[ai.pick]) pick = ai.pick;
+        if (Array.isArray(ai.notes)) notes = routes.map((rt, i) => (ai.notes[i] ? `${(rt.meters / MI_M).toFixed(1)} mi · ${ai.notes[i]}` : notes[i]));
+        quip = ai.quip || "";
+      } catch (e) { /* stats-only notes */ }
+      setState({ status: "done", routes, pick, notes, quip });
+    } catch (e) { setState({ status: "error", routes: [], pick: 0, notes: [], quip: "", err: String(e.message || e) }); }
+  };
+  const cur = state.routes[state.pick];
+  const saveRoute = () => {
+    if (!cur) return;
+    const name = naming.trim() || `${(cur.meters / MI_M).toFixed(1)} mi loop`;
+    setS((p) => ({ ...p, savedRoutes: [{ id: uid(), name, miles: Math.round((cur.meters / MI_M) * 100) / 100, ascentFt: Math.round(cur.ascent * 3.281), poly: encodePoly(cur.coords), streets: cur.streets.slice(0, 3), t: Date.now() }, ...(p.savedRoutes || [])].slice(0, 30) }));
+    setNaming(""); setState((x) => ({ ...x, saved: true }));
+  };
+  return (
+    <div className="panel p-4 space-y-3">
+      <div className="font-semibold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling, find me a route</div>
+      <div className="flex gap-2 overflow-x-auto pb-1">{[1, 2, 3, 4, 5, 6.2].map((m) => <button key={m} onClick={() => setMiles(m)} className="px-3 py-1.5 text-sm font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: miles === m ? C.blue : C.glass, color: miles === m ? "#fff" : C.text, border: `1px solid ${C.glassLine}` }}>{m === 6.2 ? "10K" : `${m} mi`}</button>)}</div>
+      <input className="inp text-sm" placeholder="Anything special? e.g. flat, through a park, quiet streets" value={pref} onChange={(e) => setPref(e.target.value)} />
+      <button onClick={plan} disabled={state.status === "locating" || state.status === "routing"} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2">{state.status === "locating" ? <><Loader2 size={16} className="animate-spin" />Finding you…</> : state.status === "routing" ? <><Loader2 size={16} className="animate-spin" />Plotting loops…</> : <><MapPin size={16} />Plan a loop from here</>}</button>
+      {state.status === "error" && <div className="body text-sm" style={{ color: C.red }}>{state.err}</div>}
+      {state.status === "done" && cur && (
+        <div className="space-y-2">
+          {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
+          <RouteMap key={state.pick} lines={[{ pts: cur.coords, color: C.cyan, startDot: true }]} height={220} />
+          <div className="space-y-1.5">
+            {state.routes.map((rt, i) => <button key={rt.seed} onClick={() => setState((x) => ({ ...x, pick: i, saved: false }))} className="w-full text-left p-2.5 body text-sm" style={{ borderRadius: 12, background: i === state.pick ? `${C.cyan}22` : "transparent", border: `1px solid ${i === state.pick ? C.cyan : C.glassLine}`, color: C.text }}><span className="font-semibold">Option {i + 1}{i === state.pick ? " · selected" : ""}</span><br /><span style={{ color: C.dim }}>{state.notes[i]}</span></button>)}
+          </div>
+          <div className="flex gap-2">
+            <input className="inp text-sm" placeholder="Name it to save (optional)" value={naming} onChange={(e) => setNaming(e.target.value)} />
+            <button onClick={saveRoute} disabled={state.saved} className="ghost px-3 text-sm font-semibold whitespace-nowrap" style={{ color: state.saved ? C.green : C.cyan }}>{state.saved ? "Saved ✓" : "Save"}</button>
+          </div>
+          <button onClick={() => onRun({ name: naming.trim() || "Planned loop", poly: encodePoly(cur.coords) })} className="btn w-full py-3">Run this route</button>
+        </div>
+      )}
+    </div>
+  );
+}
+function RunDetail({ s, setS, w, onClose }) {
+  const [pts, setPts] = useState(null);
+  useEffect(() => { if (!w.run?.hasMap) { setPts([]); return; } window.storage.get(`run:${w.run.id}`, false).then((r) => setPts(decodePoly(r?.value || ""))).catch(() => setPts([])); }, [w.id]);
+  const r = w.run;
+  const saveAsRoute = () => { if (!pts?.length) return; setS((p) => ({ ...p, savedRoutes: [{ id: uid(), name: `${r.miles} mi from ${fmtDay(w.date)}`, miles: r.miles, ascentFt: null, poly: encodePoly(thinPts(pts, 15, 400)), streets: [], t: Date.now() }, ...(p.savedRoutes || [])].slice(0, 30) })); };
+  return (
+    <Sheet title={`${r.mode === "walk" ? "Walk" : "Run"} · ${fmtDay(w.date)}`} onClose={onClose}>
+      {pts === null ? <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading map…</div> : pts.length > 1 ? <RouteMap lines={[{ pts, color: C.cyan, startDot: true }]} height={220} /> : <div className="body text-sm" style={{ color: C.dim }}>No map for this one.</div>}
+      <div className="grid grid-cols-3 gap-2">{[["Distance", `${r.miles} mi`], ["Time", fmtDur(r.secs)], ["Pace", `${fmtPace(r.pace)} /mi`]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold tabular-nums">{v}</div></div>)}</div>
+      {r.splits?.length > 0 && <div className="panel p-3">{r.splits.map((sp, i) => <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Mile {i + 1}</span><span className="tabular-nums font-semibold">{fmtDur(sp)}</span></div>)}</div>}
+      <div className="grid grid-cols-2 gap-2">
+        {pts?.length > 1 && <button onClick={saveAsRoute} className="ghost py-2.5 text-sm font-semibold" style={{ color: C.cyan }}>Save as route</button>}
+        <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: r.mode === "walk" ? "Walk" : "Run", headline: `${r.miles} miles`, sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["Time", fmtDur(r.secs)], ["Avg pace", `${fmtPace(r.pace)} /mi`], ["Fastest mile", r.splits?.length ? fmtDur(Math.min(...r.splits)) : "–"], ["XP", `+${w.xp || 0}`]] })} />
+      </div>
+      <div className="body text-xs" style={{ color: C.mute }}>Maps stay private to you. Share cards don't include your route.</div>
+    </Sheet>
+  );
+}
+function RunHub({ s, setS, gainXp, onBack, startRun }) {
+  const [mode, setMode] = useState("run");
+  const [detail, setDetail] = useState(null);
+  const runs = [...s.workouts].reverse().filter((w) => w.run).slice(0, 20);
+  const saved = s.savedRoutes || [];
+  const monthMi = s.workouts.filter((w) => w.date.startsWith(monthKey())).reduce((a, w) => a + (w.run?.miles || 0), 0);
+  const best = runs.reduce((b, w) => (w.run.mode !== "walk" && w.run.miles >= 1 && (!b || w.run.pace < b.run.pace) ? w : b), null);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
+        <h1 className="text-2xl font-bold flex-1">Run & steps</h1>
+      </div>
+      <div className="panel p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-2">{[["run", "Run"], ["walk", "Walk"]].map(([id, l]) => <button key={id} onClick={() => setMode(id)} className="py-2 text-sm font-semibold" style={{ borderRadius: 10, background: mode === id ? C.blue : C.glass, color: mode === id ? "#fff" : C.text, border: `1px solid ${C.glassLine}` }}>{l}</button>)}</div>
+        <button onClick={() => startRun(mode, null)} className="w-full py-5 text-xl font-black flex items-center justify-center gap-2" style={{ borderRadius: 18, background: "linear-gradient(180deg,#3DF08A,#12A860)", color: "#021a0c", boxShadow: "0 10px 30px rgba(61,240,138,.25)" }}><Play size={24} />Start {mode === "walk" ? "walk" : "run"}</button>
+        <div className="grid grid-cols-3 gap-2 text-center">{[["This month", `${monthMi.toFixed(1)} mi`], ["Runs logged", runs.length], ["Best pace", best ? fmtPace(best.run.pace) : "–"]].map(([l, v]) => <div key={l}><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold tabular-nums">{v}</div></div>)}</div>
+        <div className="body text-xs" style={{ color: C.mute }}>Keep Ascend open with the screen on while you run. Phones pause GPS for websites when locked.</div>
+      </div>
+      <StepsPanel s={s} setS={setS} gainXp={gainXp} />
+      <RoutePlanner s={s} setS={setS} onRun={(guide) => startRun(mode, guide)} />
+      {saved.length > 0 && (
+        <>
+          <h2 className="text-lg font-bold">Saved routes</h2>
+          <div className="space-y-2">{saved.map((rt) => (
+            <div key={rt.id} className="panel p-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0"><div className="font-semibold truncate">{rt.name}</div><div className="body text-xs" style={{ color: C.dim }}>{rt.miles} mi{rt.ascentFt != null ? ` · ${rt.ascentFt} ft climb` : ""}{rt.streets?.length ? ` · ${rt.streets.join(", ")}` : ""}</div></div>
+              <button onClick={() => startRun(mode, { name: rt.name, poly: rt.poly })} className="btn px-3 py-2 text-sm">Run</button>
+              <button aria-label={`Delete ${rt.name}`} onClick={() => ask(`Delete route "${rt.name}"?`, () => setS((p) => ({ ...p, savedRoutes: (p.savedRoutes || []).filter((x) => x.id !== rt.id) })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
+            </div>
+          ))}</div>
+        </>
+      )}
+      <h2 className="text-lg font-bold">Recent runs</h2>
+      {runs.length === 0 && <Empty>No runs yet. Tap Start run and your distance, pace, splits, and route map save here.</Empty>}
+      <div className="space-y-2">{runs.map((w) => (
+        <button key={w.id} onClick={() => setDetail(w)} className="panel p-3 w-full text-left flex items-center gap-3">
+          <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 40, height: 40, borderRadius: 12, background: `${C.green}22` }}>{w.run.mode === "walk" ? "🚶" : "🏃"}</div>
+          <div className="flex-1 min-w-0"><div className="font-semibold">{w.run.miles} mi <span className="body text-xs font-normal" style={{ color: C.dim }}>· {fmtDay(w.date)}</span></div><div className="body text-xs" style={{ color: C.dim }}>{fmtDur(w.run.secs)} · {fmtPace(w.run.pace)} /mi{w.run.guideName ? ` · ${w.run.guideName}` : ""}</div></div>
+          <ChevronRight size={16} style={{ color: C.mute }} />
+        </button>
+      ))}</div>
+      {detail && <RunDetail s={s} setS={setS} w={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
