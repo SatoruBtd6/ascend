@@ -792,11 +792,13 @@ export default function App() {
     if (!s.rankSnap) { setS((p) => ({ ...p, rankSnap: snap })); return; }
     const prev = s.rankSnap;
     let cer = null;
-    if (snap.overall > (prev.overall || 0) && snap.overall >= 1) { const r = rankFromScore(snap.overall); cer = { kind: "overall", rank: r.rank, label: `${r.rank.id}-Rank · ${RANK_INFO[r.rank.id][0]}` }; }
+    const oi = overallInfo(s);
+    if (snap.overall > (prev.overall || 0) && snap.overall >= 1) { cer = { kind: "overall", rank: oi.rank, label: `${oi.label} · ${RANK_INFO[oi.rank.id][0]}`, feedLabel: oi.label }; }
     else { const up = Object.entries(snap.lifts).find(([n, t]) => t > (prev.lifts?.[n] ?? 0) && t >= 1); if (up) { const full = rankedLifts(s).find((x) => x.e.name === up[0]); const r = RANKS[Math.min(6, up[1])]; cer = { kind: "lift", name: up[0], rank: r, label: full ? full.label : `${r.id}-Rank`, tier: up[1] }; } }
-    const changed = snap.overall !== prev.overall || JSON.stringify(snap.lifts) !== JSON.stringify(prev.lifts);
+    const changed = snap.overall !== prev.overall || snap.od !== prev.od || JSON.stringify(snap.lifts) !== JSON.stringify(prev.lifts);
     if (changed) setS((p) => ({ ...p, rankSnap: snap }));
-    if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.label} overall` : `${cer.name} hit ${cer.label}`, { tier: cer.kind === "overall" ? Math.floor(snap.overall) : cer.tier }, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.rank.id}`); }
+    if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.feedLabel} overall` : `${cer.name} hit ${cer.label}`, { tier: cer.kind === "overall" ? Math.floor(snap.overall) : cer.tier }, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.kind === "overall" ? cer.feedLabel.replace(" ", "") : cer.rank.id}`); }
+    if (cer?.kind !== "overall" && prev.od != null && snap.od > prev.od && snap.overall === prev.overall && snap.overall >= 1) { postFeed(s, "rank", `climbed to ${oi.label} overall`, { tier: snap.overall }, `rank_overall_${oi.label.replace(" ", "")}`); }
   }, [loaded, s.workouts, s.profile.weight, s.custom]);
 
   // Weekly snapshot for the rank report
@@ -846,6 +848,10 @@ export default function App() {
         .ghost{background:${C.glass};border:1px solid ${C.glassLine};border-radius:12px;color:${C.text}}
         .glowtext{text-shadow:none}
         .ranklabel{font-family:'Inter',system-ui,sans-serif;font-weight:800;letter-spacing:.02em}
+        .feedtap{cursor:pointer;transition:background .15s}
+        .feedtap:hover{background:${C.soft}}
+        .feedtap:active{background:${C.soft}}
+        .feedtap:focus-visible{outline:2px solid ${C.cyan};outline-offset:-2px}
         .neonline{height:1px;background:linear-gradient(90deg,transparent,${C.cyan},transparent);box-shadow:0 0 8px ${C.cyan}}
         @keyframes breathe{0%,100%{filter:drop-shadow(0 0 6px var(--g))}50%{filter:drop-shadow(0 0 20px var(--g))}}
         .breathe{animation:breathe 3.2s ease-in-out infinite}
@@ -1181,7 +1187,7 @@ function Train({ s, setS, gainXp, openRun }) {
     window.scrollTo?.(0, 0);
   };
   const startPreset = (pr) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, exercises: pr.exercises.map((e) => ({ name: e.name, sets: Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
+    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, exercises: pr.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
     setShowPresets(false); window.scrollTo?.(0, 0);
   };
   const savePreset = () => {
@@ -1250,7 +1256,7 @@ function Train({ s, setS, gainXp, openRun }) {
                 <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{w.source && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}</span>
                 <div className="flex items-center gap-3">
                   {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
-                  {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", ") }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
+                  {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
                   {!w.source && s.lb && <SharePreset s={s} workout={w} />}
                   {!w.source && <ReceiptButton small label="Share card" make={() => buildReceipt({ s, kind: "Workout", headline: w.title ? `${w.title} day` : "Workout", sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Exercises", w.exercises.length], ["Sets", w.exercises.reduce((a, e) => a + e.sets.length, 0)]] })} />}
                   <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
@@ -1769,7 +1775,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
     setLoading("estimate"); setErr(""); setFound(null);
     try {
       const food = await callClaude(`Estimate nutrition for this food or meal as one serving: "${q}". Use typical US portions if none given. Respond ONLY with JSON, no markdown: {"name": short descriptive name with portion, "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}`, false);
-      onAdd({ name: food.name, cal: +food.cal || 0, p: +food.p || 0, c: +food.c || 0, f: +food.f || 0 });
+      setFound({ name: String(food.name || q).slice(0, 70), cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), source: "ai" });
     } catch (e) {
       setErr("Couldn't get an estimate. Try describing it differently, like \"2 slices pepperoni pizza\".");
     }
@@ -1852,10 +1858,15 @@ After searching, reply with ONLY this JSON and nothing else: {"name": "Restauran
               </label>
             ))}
           </div>
-          <div className="body text-xs" style={{ color: found.source === "official" ? C.green : C.orange }}>
-            {found.source === "official" ? "From the restaurant's published nutrition" : found.source === "third-party" ? "From a third-party nutrition site" : "Estimate, since this restaurant doesn't publish nutrition"}{found.note ? ` · ${found.note}` : ""}
+          <div className="body text-xs" style={{ color: found.source === "official" || found.r === "Scanned" ? C.green : found.source === "ai" ? C.dim : C.orange }}>
+            {found.source === "ai" ? "AI estimate. Fix any number that looks off before adding." : found.source === "official" ? "From the restaurant's published nutrition" : found.source === "third-party" ? "From a third-party nutrition site" : found.r === "Scanned" ? "From the product's barcode listing" : "Estimate, since this restaurant doesn't publish nutrition"}{found.note ? ` · ${found.note}` : ""}
           </div>
-          <div className="flex gap-2"><button onClick={() => saveAndAdd(found)} className="btn flex-1 py-3">Add and save</button><ShareMealButton s={s} food={found} /></div>
+          {found.source === "ai" ? (
+            <div className="grid grid-cols-2 gap-2"><button onClick={() => saveAndAdd(found)} className="ghost py-3 text-sm font-bold">Add and save</button><button onClick={() => onAdd({ name: found.name, cal: found.cal, p: found.p, c: found.c, f: found.f, approx: true })} className="btn py-3">Add to {dayLabel}</button></div>
+          ) : (
+            <button onClick={() => saveAndAdd(found)} className="btn w-full py-3">Add and save</button>
+          )}
+          <PublishMealToggle s={s} food={found} ai={found.source === "ai"} />
         </div>
       )}
 
@@ -2082,7 +2093,7 @@ function Board({ s, setS, openProfile, gainXp }) {
       <div className="flex gap-2">
         {[["board", "Board"], ["feed", "Feed"], ["crew", "Crew"]].map(([id, l]) => <button key={id} onClick={() => setView(id)} className="flex-1 py-2 text-sm font-bold" style={{ borderRadius: 4, background: view === id ? C.blue : C.soft, color: view === id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{l}</button>)}
       </div>
-      {view === "feed" && <Feed s={s} openProfile={openProfile} />}
+      {view === "feed" && <Feed s={s} setS={setS} openProfile={openProfile} rows={rows} />}
       {view === "crew" && <Crew s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />}
       {view === "board" && !s.lb ? (
         <div className="panel p-4 space-y-3">
@@ -4273,7 +4284,7 @@ function PhotoScan({ onAddAll, onCancel, sState, onShare }) {
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => { setItems(null); setImg(null); }} className="ghost py-3 text-sm font-bold">Rescan</button>
             <button onClick={() => onAddAll(items.filter((it) => it.name.trim()))} disabled={!items.length} className="btn py-3 text-sm">Add {items.length} item{items.length === 1 ? "" : "s"} to today</button>
-          {onShare && items.length > 0 && <div className="col-span-2 flex justify-center"><ShareMealButton s={sState} food={{ name: items.map((i2) => i2.name).join(" + ").slice(0, 60), cal: tot.cal, p: tot.p, c: tot.c, f: tot.f, ingredients: items.map((i2) => ({ name: i2.name, qty: 1, cal: i2.cal, p: i2.p, c: i2.c, f: i2.f })) }} /></div>}
+          {onShare && items.length > 0 && <div className="col-span-2"><PublishMealToggle s={sState} ai food={{ name: items.map((i2) => i2.name).join(" + ").slice(0, 60), cal: tot.cal, p: tot.p, c: tot.c, f: tot.f, ingredients: items.map((i2) => ({ name: i2.name, qty: 1, cal: i2.cal, p: i2.p, c: i2.c, f: i2.f })) }} /></div>}
           </div>
         </>
       )}
@@ -4403,7 +4414,7 @@ function rankSnapshot(s) {
   const o = overallInfo(s);
   const lifts = {};
   rankedLifts(s).forEach((r) => { lifts[r.e.name] = Math.floor(r.score); });
-  return { overall: Math.floor(o.score), lifts };
+  return { overall: Math.floor(o.score), od: Math.min(20, Math.floor(o.score * 3)), lifts };
 }
 function Ceremony({ c, onClose }) {
   const rank = c.rank;
@@ -4942,7 +4953,25 @@ function Measurements({ s, setS }) {
 function postFeed(s, type, text, extra = {}, eventId = null) {
   if (!s.lb || !s.profile.name) return;
   const key = eventId ? `feed:${s.playerId}_${eventId}` : `feed:${Date.now()}_${s.playerId}`;
-  publishShared(key, { type, text, name: s.profile.name, from: s.playerId, look: s.profile.look || null, t: Date.now(), ...extra });
+  const oi = overallInfo(s);
+  publishShared(key, { type, text, name: s.profile.name, from: s.playerId, look: s.profile.look || null, rank: oi.rank.id, div: oi.div, t: Date.now(), ...extra });
+  return key;
+}
+// Full, shareable copy of a logged workout (exercises, every set's weight and reps)
+function workoutPayload(s, w) {
+  return {
+    id: w.id, title: w.title || "", date: w.date, xp: w.xp || 0, volume: Math.round(w.volume || 0), minutes: w.minutes || null,
+    exercises: w.exercises.slice(0, 20).map((e) => ({ name: e.name, type: findEx(s, e.name).type, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.sets.slice(0, 15).map((st) => ({ w: st.w ?? "", r: st.r ?? "" })) })),
+  };
+}
+// Preset that keeps the exact structure: exercise order, set count, and each set's weight and reps
+function presetFromExercises(name, exercises) {
+  return { id: uid(), name, exercises: exercises.map((e) => ({ name: e.name, sets: e.sets.length, plan: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "" })), ...(e.wMode ? { wMode: e.wMode } : {}) })) };
+}
+function RankChip({ rank, div, size = "xs" }) {
+  const r = RANKS.find((x) => x.id === rank);
+  if (!r) return null;
+  return <span className={`ranklabel shrink-0 px-1.5 text-${size}`} style={{ borderRadius: 4, color: r.color, background: `${r.color}1F`, border: `1px solid ${r.color}66`, lineHeight: 1.5 }}>{r.id}{div ? ` ${div}` : ""}</span>;
 }
 async function readShared(prefix) {
   if (!window.storage?.list) return [];
@@ -4952,8 +4981,84 @@ async function readShared(prefix) {
     return items.filter(Boolean);
   } catch { return []; }
 }
-function Feed({ s, openProfile }) {
+function FeedWorkoutSheet({ s, setS, post, onClose }) {
+  const [saved, setSaved] = useState(false);
+  // Newer posts carry the full workout. Your own older posts can be rebuilt from your log.
+  const own = post.from === s.playerId ? s.workouts.find((w) => post.key?.endsWith(`_workout_${w.id}`)) : null;
+  const w = post.workout || (own ? workoutPayload(s, own) : null);
+  const legacyNames = !w ? (post.detail || "").split(",").map((x) => x.trim()).filter(Boolean) : [];
+  const mine = post.from === s.playerId;
+  const titleWord = w?.title || (post.text.match(/finished an? (.+?) ?workout/)?.[1] || "").trim();
+  const defOf = (e) => allExercises(s).find((d) => d.name === e.name) || { name: e.name, type: e.type || "weighted" };
+  const totalSets = w ? w.exercises.reduce((a, e) => a + e.sets.length, 0) : 0;
+  const save = () => {
+    const base = `${mine ? "" : `${post.name}'s `}${titleWord || "workout"}`.trim();
+    const name = base.charAt(0).toUpperCase() + base.slice(1);
+    const preset = w ? presetFromExercises(name, w.exercises) : { id: uid(), name, exercises: legacyNames.map((n) => ({ name: n, sets: 3 })) };
+    setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== name), preset] }));
+    setSaved(name);
+  };
+  return (
+    <Sheet title={`${mine ? "Your" : `${post.name}'s`} ${titleWord ? `${titleWord} ` : ""}workout`} onClose={onClose}>
+      <div className="flex items-center gap-2 -mt-1 mb-3 body text-xs" style={{ color: C.dim }}>
+        {post.rank && <RankChip rank={post.rank} div={post.div} />}
+        <span>{w?.date ? fmtDay(w.date) : new Date(post.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+      </div>
+      {w ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-4 gap-2">
+            {[["XP", `+${w.xp}`], ["Sets", totalSets], ["Volume", w.volume ? `${w.volume.toLocaleString()}` : "–"], ["Time", w.minutes ? `${w.minutes}m` : "–"]].map(([l, v]) => <div key={l} className="panel py-2 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold text-sm tabular-nums">{v}</div></div>)}
+          </div>
+          {w.exercises.map((ex, i) => {
+            const def = defOf(ex);
+            return (
+              <div key={i} className="panel p-3">
+                <div className="flex justify-between items-baseline gap-2">
+                  <div className="font-semibold min-w-0 truncate" style={{ color: C.cyan }}>{ex.name}</div>
+                  <div className="body text-xs shrink-0" style={{ color: C.mute }}>{ex.sets.length} set{ex.sets.length === 1 ? "" : "s"}{ex.wMode === "hand" ? " · per hand" : ""}</div>
+                </div>
+                <div className="mt-1.5 grid gap-x-3 gap-y-0.5 body text-sm" style={{ gridTemplateColumns: "auto 1fr" }}>
+                  {ex.sets.map((st, j) => <React.Fragment key={j}><span style={{ color: C.dim }}>Set {j + 1}</span><span className="font-semibold text-right tabular-nums">{def.type === "weighted" && st.w ? `${st.w} lb × ${st.r}` : def.type === "bodyweight" ? `${st.w ? `+${st.w} lb × ` : ""}${st.r} reps` : setLabel(def, st)}</span></React.Fragment>)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="panel p-3 space-y-1">
+          <div className="body text-xs" style={{ color: C.dim }}>This was posted before feed workouts carried sets and reps, so only the exercise list is available.</div>
+          {legacyNames.length ? legacyNames.map((n) => <div key={n} className="font-semibold text-sm" style={{ color: C.cyan }}>{n}</div>) : <div className="body text-sm">No exercise list on this post.</div>}
+        </div>
+      )}
+      {(w || legacyNames.length > 0) && (
+        <div className="mt-3 space-y-1.5">
+          <button onClick={save} disabled={!!saved} className="btn w-full py-3 flex items-center justify-center gap-2">{saved ? <><Check size={16} />Saved to My Presets</> : <><Bookmark size={16} />Save to My Presets</>}</button>
+          <div className="body text-xs text-center" style={{ color: saved ? C.green : C.mute }}>{saved ? `"${saved}" is in Train → Presets, with ${w ? "every set's weight and reps filled in" : "3 sets per exercise"}.` : w ? "Copies every exercise, set, weight and rep. You can change the numbers when you load it." : "Saves the exercise list with 3 sets each."}</div>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+function FeedMealSheet({ s, setS, post, onClose }) {
+  const [added, setAdded] = useState(false);
+  const m = post.meal || {};
+  const add = () => {
+    const d = today();
+    setS((p) => ({ ...p, meals: { ...p.meals, [d]: [...((p.meals || {})[d] || []), { name: m.name, cal: m.cal, p: m.p, c: m.c, f: m.f, ...(m.ingredients ? { ingredients: m.ingredients, meal: true } : {}), id: uid(), qty: 1 }] } }));
+    setAdded(true);
+  };
+  return (
+    <Sheet title={m.name || "Shared meal"} onClose={onClose}>
+      <div className="body text-xs -mt-1 mb-3" style={{ color: C.dim }}>Shared by {post.from === s.playerId ? "you" : post.name}{m.ai ? " · AI estimate" : ""}</div>
+      <div className="grid grid-cols-4 gap-2">{[["Cal", m.cal], ["Protein", `${m.p}g`], ["Carbs", `${m.c}g`], ["Fat", `${m.f}g`]].map(([l, v]) => <div key={l} className="panel py-2 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold tabular-nums">{v}</div></div>)}</div>
+      {m.ingredients?.length > 0 && <div className="panel p-3 mt-2 space-y-0.5">{m.ingredients.map((it, i) => <div key={i} className="flex justify-between body text-sm gap-2"><span className="truncate">{it.name}</span><span className="shrink-0 tabular-nums" style={{ color: C.dim }}>{Math.round(it.cal)} cal</span></div>)}</div>}
+      <button onClick={add} disabled={added} className="btn w-full py-3 mt-3 flex items-center justify-center gap-2">{added ? <><Check size={16} />Logged for today</> : <><Plus size={16} />Log it for today</>}</button>
+    </Sheet>
+  );
+}
+function Feed({ s, setS, openProfile, rows = [] }) {
   const [items, setItems] = useState(null);
+  const [openPost, setOpenPost] = useState(null);
   const load = async () => {
     const all = (await readShared("feed:")).sort((a, b) => (b.t || 0) - (a.t || 0));
     const seen = new Map(), keep = [], dupes = [];
@@ -4969,31 +5074,60 @@ function Feed({ s, openProfile }) {
     all.filter((x) => (x.t || 0) < cutoff).slice(0, 10).forEach((x) => window.storage.delete(x.key, true).catch(() => {}));
   };
   useEffect(() => { load(); }, []);
-  const icon = { pr: "🏆", rank: "⬆️", ach: "🎖️", workout: "🏋️", duel: "⚔️", mog: "🐟", level: "✨" };
-  const tint = { pr: C.gold, rank: "#B14BFF", ach: C.orange, workout: C.cyan, duel: "#FF2D6F", mog: C.green, level: C.gold };
+  const icon = { pr: "🏆", rank: "⬆️", ach: "🎖️", workout: "🏋️", run: "🏃", meal: "🍽️", duel: "⚔️", mog: "🐟", level: "✨" };
+  const tint = { pr: C.gold, rank: "#B14BFF", ach: C.orange, workout: C.cyan, run: C.green, meal: C.green, duel: "#FF2D6F", mog: C.green, level: C.gold };
   const ago = (t) => { const m = Math.max(1, Math.round((Date.now() - t) / 60000)); return m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+  // Exact rank + division: stamped on the post when it was made, otherwise the author's current board card
+  const rankOf = (it) => {
+    if (it.rank) return { rank: it.rank, div: it.div };
+    const c = rows.find((r) => r.id === it.from || r.key === `lb:${it.from}`);
+    return c?.rank ? { rank: c.rank, div: c.div } : null;
+  };
+  // Old run posts were typed "workout"; they have no exercises to open
+  const isRun = (it) => it.type === "run" || (it.type === "workout" && /^(ran|walked) [\d.]+ mi/.test(it.text || ""));
+  const opensWorkout = (it) => it.type === "workout" && !isRun(it) && !!(it.workout || it.detail);
+  const opens = (it) => opensWorkout(it) || (it.type === "meal" && !!it.meal);
+  const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
   return (
     <div>
       {items === null && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading feed…</div>}
-      {items?.length === 0 && <Empty>Nothing yet. PRs, rank-ups, achievements, and shared workouts from the whole crew show up here.</Empty>}
+      {items?.length === 0 && <Empty>Nothing yet. PRs, rank-ups, achievements, shared workouts and meals from the whole crew show up here.</Empty>}
       {items?.length > 0 && (
         <div className="panel overflow-hidden">
-          {items.map((it, i) => (
-            <div key={it.key} className="flex gap-3 items-start px-3 py-3" style={{ ...(i ? { borderTop: `1px solid ${C.border}` } : null), ...(it.type === "rank" && it.tier >= 5 ? { background: `linear-gradient(90deg, ${RANKS[Math.min(6, it.tier)].glow}, transparent 70%)`, borderLeft: `3px solid ${RANKS[Math.min(6, it.tier)].color}`, boxShadow: `inset 0 0 22px ${RANKS[Math.min(6, it.tier)].glow}` } : null) }}>
-              <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 36, height: 36, borderRadius: 999, background: `${tint[it.type] || C.cyan}22`, border: `1px solid ${tint[it.type] || C.cyan}55` }}>{icon[it.type] || "•"}</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 min-w-0">
-                  <button onClick={() => openProfile(it.from)} className="font-bold text-sm truncate"><FancyName name={it.name} look={it.look} /></button>
-                  <span className="body text-xs shrink-0" style={{ color: C.mute }}>{ago(it.t)}</span>
+          {items.map((it, i) => {
+            const rk = rankOf(it), clickable = opens(it), wo = it.workout;
+            const kind = isRun(it) ? "run" : it.type;
+            const prestige = it.type === "rank" && it.tier >= 5 ? RANKS[Math.min(6, it.tier)] : null;
+            return (
+              <div key={it.key} {...(clickable ? { role: "button", tabIndex: 0, onClick: () => setOpenPost(it), onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenPost(it); } }, "aria-label": `Open ${it.name}'s ${it.type === "meal" ? "meal" : "workout"}` } : {})} className={`feedrow flex gap-3 items-start px-3 py-3${clickable ? " feedtap" : ""}`} style={{ ...(i ? { borderTop: `1px solid ${C.border}` } : null), ...(prestige ? { background: `linear-gradient(90deg, ${prestige.glow}, transparent 70%)`, borderLeft: `3px solid ${prestige.color}`, boxShadow: `inset 0 0 22px ${prestige.glow}` } : null) }}>
+                <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 36, height: 36, borderRadius: 999, background: `${tint[kind] || C.cyan}22`, border: `1px solid ${tint[kind] || C.cyan}55` }}>{icon[kind] || "•"}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <button onClick={stop(() => openProfile(it.from))} className="font-bold text-sm truncate min-w-0"><FancyName name={it.name} look={it.look} /></button>
+                    {rk && <RankChip rank={rk.rank} div={rk.div} />}
+                    <span className="body text-xs shrink-0 ml-auto" style={{ color: C.mute }}>{ago(it.t)}</span>
+                  </div>
+                  <div className="body text-sm" style={{ color: C.text }}>{it.text}</div>
+                  {it.type === "meal" && it.meal ? (
+                    <div className="body text-xs mt-0.5 tabular-nums" style={{ color: C.dim }}>{it.meal.cal} cal · P {it.meal.p} · C {it.meal.c} · F {it.meal.f}</div>
+                  ) : wo ? (
+                    <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{wo.exercises.map((e) => `${e.name} ×${e.sets.length}`).join(" · ")}</div>
+                  ) : it.detail ? <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{it.detail}</div> : null}
+                  {clickable && (
+                    <div className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: tint[kind] || C.cyan }}>
+                      {it.type === "meal" ? <><Utensils size={12} />See macros &amp; log it</> : wo ? <><Dumbbell size={12} />{wo.exercises.length} exercises · {wo.exercises.reduce((a, e) => a + e.sets.length, 0)} sets</> : <><Dumbbell size={12} />See exercises</>}
+                      <ChevronRight size={13} />
+                    </div>
+                  )}
                 </div>
-                <div className="body text-sm" style={{ color: C.text }}>{it.text}</div>
-                {it.detail && <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{it.detail}</div>}
+                {it.from === s.playerId && <button aria-label="Delete post" onClick={stop(() => ask(it.cmeal ? "Delete this post? The meal also comes off the community list." : "Delete this post?", async () => { try { await window.storage.delete(it.key, true); if (it.cmeal) window.storage.delete(it.cmeal, true).catch(() => {}); setItems((x) => x.filter((y) => y.key !== it.key)); } catch (e) { /* ignore */ } }, "Delete"))} className="p-1 shrink-0" style={{ color: C.mute }}><Trash2 size={14} /></button>}
               </div>
-              {it.from === s.playerId && <button aria-label="Delete post" onClick={() => ask("Delete this post?", async () => { try { await window.storage.delete(it.key, true); setItems((x) => x.filter((y) => y.key !== it.key)); } catch (e) { /* ignore */ } }, "Delete")} className="p-1 shrink-0" style={{ color: C.mute }}><Trash2 size={14} /></button>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+      {openPost && openPost.type === "meal" && <FeedMealSheet s={s} setS={setS} post={openPost} onClose={() => setOpenPost(null)} />}
+      {openPost && openPost.type !== "meal" && <FeedWorkoutSheet s={s} setS={setS} post={openPost} onClose={() => setOpenPost(null)} />}
     </div>
   );
 }
@@ -5921,7 +6055,7 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
     setS((p) => addWorkout(p, workout));
     gainXp(xp, `${mi} mi ${r.mode === "walk" ? "walk" : "run"}`);
     juice(mi >= 3 ? "pr" : "finish");
-    postFeed(s, "workout", `${r.mode === "walk" ? "walked" : "ran"} ${mi} mi · ${fmtPace(runInfo.pace)} /mi`, {}, `run_${r.id}`);
+    postFeed(s, "run", `${r.mode === "walk" ? "walked" : "ran"} ${mi} mi · ${fmtPace(runInfo.pace)} /mi`, {}, `run_${r.id}`);
     clearLive(); onClose(workout);
   };
 
@@ -6390,21 +6524,58 @@ function XpLedger({ s, onBack }) {
 }
 
 /* ---------- Community meals ---------- */
-function ShareMealButton({ s, food }) {
-  const [sent, setSent] = useState(false);
-  if (!s.lb) return null;
-  const share = () => {
-    publishShared(`cmeal:${uid()}`, { name: food.name, cal: food.cal, p: food.p, c: food.c, f: food.f, ingredients: food.ingredients || null, by: s.profile.name || "a player", from: s.playerId, t: Date.now() });
-    setSent(true);
+// One-tap publish/unpublish for a meal: goes to the Community meals list (copyable) and the Board feed.
+function PublishMealToggle({ s, food, ai = false }) {
+  const [pub, setPub] = useState(null); // { id, cmeal, feed }
+  const [busy, setBusy] = useState(false);
+  const clean = () => ({ name: String(food.name || "Meal").slice(0, 70), cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), ingredients: food.ingredients || null });
+  const write = (id) => {
+    const m = clean();
+    publishShared(`cmeal:${id}`, { ...m, ai, by: s.profile.name || "a player", from: s.playerId, t: Date.now() });
+    return postFeed(s, "meal", `shared a meal: ${m.name}`, { meal: { ...m, ai }, cmeal: `cmeal:${id}` }, `meal_${id}`);
   };
-  return <button onClick={share} disabled={sent} className="ghost px-3 py-2 text-xs font-semibold flex items-center gap-1" style={{ color: sent ? C.green : C.cyan }}>{sent ? <><Check size={13} />Shared</> : <><Share2 size={13} />Share to community</>}</button>;
+  // If they tweak the numbers after publishing, keep the published copy in sync
+  const sig = JSON.stringify(clean());
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (!pub) return;
+    const t = setTimeout(() => write(pub.id), 700);
+    return () => clearTimeout(t);
+  }, [sig]);
+  if (!s.lb || !s.profile.name) return <div className="body text-xs text-center" style={{ color: C.mute }}>Join the leaderboard on the Board tab to publish meals to the community feed.</div>;
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    if (!pub) {
+      const id = uid(), feed = write(id);
+      setPub({ id, cmeal: `cmeal:${id}`, feed });
+    } else {
+      try { await Promise.all([window.storage.delete(pub.cmeal, true), pub.feed ? window.storage.delete(pub.feed, true) : null]); } catch (e) { /* offline */ }
+      setPub(null);
+    }
+    setBusy(false);
+  };
+  const on = !!pub;
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={toggle} className="w-full flex items-center gap-3 px-3 py-2.5 text-left" style={{ borderRadius: 12, background: on ? `${C.green}1A` : C.glass, border: `1px solid ${on ? C.green : C.glassLine}`, transition: "background .2s, border-color .2s" }}>
+      <Users size={18} className="shrink-0" style={{ color: on ? C.green : C.cyan }} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-bold">{on ? "Published to Community Feed" : "Publish to Community Feed"}</span>
+        <span className="block body text-xs" style={{ color: C.dim }}>{on ? "Tap again to take it down" : "The crew can see it and copy it"}</span>
+      </span>
+      <span aria-hidden="true" className="shrink-0 relative" style={{ width: 42, height: 24, borderRadius: 999, background: on ? C.green : C.track, border: `1px solid ${on ? C.green : C.glassLine}`, transition: "background .2s" }}>
+        <span style={{ position: "absolute", top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.35)", transition: "left .2s cubic-bezier(.2,.8,.2,1)" }} />
+      </span>
+    </button>
+  );
 }
 function CommunityMeals({ s, setS, onAdd }) {
   const [items, setItems] = useState(null);
   const [scale, setScale] = useState({});
   useEffect(() => { readShared("cmeal:").then((r) => setItems(r.sort((a, b) => (b.t || 0) - (a.t || 0)).slice(0, 30))); }, []);
   if (items === null) return <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading community meals…</div>;
-  if (!items.length) return <Empty>No shared meals yet. When you log a meal from a photo or AI estimate, tap "Share to community" to put it here.</Empty>;
+  if (!items.length) return <Empty>No shared meals yet. After a photo scan or AI estimate, flip "Publish to Community Feed" to put it here.</Empty>;
   return (
     <div className="space-y-2">
       {items.map((m) => {
@@ -6414,7 +6585,7 @@ function CommunityMeals({ s, setS, onAdd }) {
           <div key={m.key} className="panel p-3 space-y-2">
             <div className="flex justify-between items-start gap-2">
               <div className="min-w-0"><div className="font-semibold truncate">{m.name}</div><div className="body text-xs" style={{ color: C.dim }}>by {m.by}{m.ingredients?.length ? ` · ${m.ingredients.length} ingredients` : ""}</div></div>
-              {m.from === s.playerId && <button aria-label="Delete" onClick={() => ask("Remove this from the community feed?", async () => { try { await window.storage.delete(m.key, true); setItems((x) => x.filter((y) => y.key !== m.key)); } catch (e) { /* ignore */ } }, "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
+              {m.from === s.playerId && <button aria-label="Delete" onClick={() => ask("Remove this from the community feed?", async () => { try { await window.storage.delete(m.key, true); window.storage.delete(`feed:${m.from}_meal_${m.key.slice(6)}`, true).catch(() => {}); setItems((x) => x.filter((y) => y.key !== m.key)); } catch (e) { /* ignore */ } }, "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
             </div>
             <div className="body text-sm" style={{ color: C.sub }}>{v(m.cal)} cal · P {v(m.p)} · C {v(m.c)} · F {v(m.f)}</div>
             <div className="flex items-center gap-2">
@@ -6434,7 +6605,7 @@ function LogWorkoutSheet({ s, setS, w, onClose }) {
   const [saved, setSaved] = useState(false);
   const savePreset = () => {
     const name = w.title ? `${w.title} (${fmtDay(w.date)})` : `Workout ${fmtDay(w.date)}`;
-    setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== name), { id: uid(), name, exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.length })) }] }));
+    setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== name), presetFromExercises(name, w.exercises)] }));
     setSaved(true);
   };
   return (
