@@ -629,7 +629,7 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
@@ -652,6 +652,9 @@ export default function App() {
   const openExercise = (name, from = "status") => { setExercisePick(name); setExerciseFrom(from); setTab("exercise"); window.scrollTo?.(0, 0); };
   const [ceremony, setCeremony] = useState(null);
   const [burst, setBurst] = useState(null);
+  const xpSeen = useRef(new Set());
+  const [confetti, setConfetti] = useState(false);
+  const [onboard, setOnboard] = useState(null);
   const [liveRun, setLiveRun] = useState(() => loadLive());
   const startRun = (mode, guide) => { const r = newRun(mode, guide); saveLive(r); setLiveRun(r); };
   const pullSteps = async () => {
@@ -698,6 +701,7 @@ export default function App() {
         if (ls && (ls.savedAt || 0) > (st.settings?.savedAt || 0)) st = { ...st, settings: { ...st.settings, ...ls } };
       } catch (e) { /* first run */ }
       if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
+      if (!st.onboarded && !st.workouts?.length) setOnboard(st.profile?.name ? 1 : 0);
       if ((st.achV || 1) < 3) st = reconcileAchievements(st, true);
       if (!st.assistV) {
         const bw = Math.max(80, +st.profile?.weight || 170);
@@ -745,10 +749,15 @@ export default function App() {
     return () => clearTimeout(t);
   }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog]);
 
-  const gainXp = (amt, msg) => {
+  const gainXp = (amt, msg, once = null) => {
+    if (!amt) return;
+    // `once` is an event id: the same award can never be counted twice, even if a listener fires twice
+    if (once) { if (xpSeen.current.has(once) || (sRef.current.xpDone || {})[once]) return; xpSeen.current.add(once); }
     const before = levelFromXp(sRef.current.xp).lvl, after = levelFromXp(Math.max(0, sRef.current.xp + amt)).lvl;
     const d = today();
-    setS((p) => ({ ...p, xp: Math.max(0, p.xp + amt), xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), { m: msg, a: amt }].slice(-40) } }));
+    setS((p) => ({ ...p, xp: Math.max(0, p.xp + amt), xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt },
+      xpDone: once ? { ...(p.xpDone || {}), [once]: 1 } : p.xpDone,
+      xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), { m: msg, a: amt, t: Date.now() }].slice(-120) } }));
     if (after > before) SFX.levelUp();
     setToast(after > before ? { big: true, text: `Level up · Level ${after}` } : { text: `${amt >= 0 ? "+" : ""}${amt} XP · ${msg}` });
     setTimeout(() => setToast(null), 2600);
@@ -760,8 +769,16 @@ export default function App() {
     const fresh = earnedAchievements(s).filter((a) => !(s.ach || {})[a.id]);
     if (!fresh.length) return;
     const amt = fresh.reduce((a, x) => a + x.xp, 0), d = today();
-    setS((p) => ({ ...p, xp: p.xp + amt, ach: { ...(p.ach || {}), ...Object.fromEntries(fresh.map((a) => [a.id, d])) },
-      xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), ...fresh.map((a) => ({ m: `Achievement: ${a.title}`, a: a.xp }))].slice(-40) } }));
+    if (fresh.every((a) => xpSeen.current.has(`ach_${a.id}`))) return;
+    fresh.forEach((a) => xpSeen.current.add(`ach_${a.id}`));
+    setS((p) => {
+      const already = Object.keys(p.ach || {});
+      const add = fresh.filter((a) => !already.includes(a.id));
+      if (!add.length) return p;
+      const sum = add.reduce((x, a) => x + a.xp, 0);
+      return { ...p, xp: p.xp + sum, ach: { ...(p.ach || {}), ...Object.fromEntries(add.map((a) => [a.id, d])) },
+        xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + sum }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), ...add.map((a) => ({ m: `Achievement: ${a.title}`, a: a.xp, t: Date.now() }))].slice(-120) } };
+    });
     setToast({ big: true, text: fresh.length === 1 ? `${fresh[0].title} unlocked · +${amt} XP` : `${fresh.length} achievements · +${amt} XP` });
     SFX.achievement();
     if (fresh.length <= 3) fresh.forEach((a) => postFeed(s, "ach", `unlocked ${a.title} (${TIER_STYLE[a.tier].name})`, {}, `ach_${a.id}`));
@@ -776,10 +793,10 @@ export default function App() {
     const prev = s.rankSnap;
     let cer = null;
     if (snap.overall > (prev.overall || 0) && snap.overall >= 1) { const r = rankFromScore(snap.overall); cer = { kind: "overall", rank: r.rank, label: `${r.rank.id}-Rank · ${RANK_INFO[r.rank.id][0]}` }; }
-    else { const up = Object.entries(snap.lifts).find(([n, t]) => t > (prev.lifts?.[n] ?? 0) && t >= 1); if (up) { const r = RANKS[Math.min(6, up[1])]; cer = { kind: "lift", name: up[0], rank: r, label: `${r.id}-Rank` }; } }
+    else { const up = Object.entries(snap.lifts).find(([n, t]) => t > (prev.lifts?.[n] ?? 0) && t >= 1); if (up) { const full = rankedLifts(s).find((x) => x.e.name === up[0]); const r = RANKS[Math.min(6, up[1])]; cer = { kind: "lift", name: up[0], rank: r, label: full ? full.label : `${r.id}-Rank`, tier: up[1] }; } }
     const changed = snap.overall !== prev.overall || JSON.stringify(snap.lifts) !== JSON.stringify(prev.lifts);
     if (changed) setS((p) => ({ ...p, rankSnap: snap }));
-    if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.label} overall` : `${cer.name} hit ${cer.label}`, {}, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.rank.id}`); }
+    if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.label} overall` : `${cer.name} hit ${cer.label}`, { tier: cer.kind === "overall" ? Math.floor(snap.overall) : cer.tier }, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.rank.id}`); }
   }, [loaded, s.workouts, s.profile.weight, s.custom]);
 
   // Weekly snapshot for the rank report
@@ -874,26 +891,28 @@ export default function App() {
 
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
-        {tab === "status" && <Status s={s} setS={setS} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} />}
-        {tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
-        {tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
-        {tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
-        {tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
+        {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 2) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
+        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => setTab("xp")} />}
+        {onboard === null && tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
+        {onboard === null && tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
+        {onboard === null && tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
+        {onboard === null && tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
         {!storageOk && (
           <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
             Progress can't save right now. Check your connection, or sign out and back in from Settings.
           </div>
         )}
-        {tab === "settings" && <SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} />}
+        {onboard === null && tab === "xp" && <XpLedger s={s} onBack={() => setTab("status")} />}
+        {onboard === null && tab === "settings" && <SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} />}
         <IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} />
         <CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} />
-        {tab === "assistant" && <Assistant s={s} setS={setS} onBack={() => setTab("status")} />}
-        {tab === "train" && <Train s={s} setS={setS} gainXp={gainXp} openRun={() => setTab("run")} />}
-        {tab === "quests" && <Quests s={s} setS={setS} gainXp={gainXp} />}
-        {tab === "fuel" && <Fuel s={s} setS={setS} gainXp={gainXp} />}
-        {tab === "calendar" && <Calendar s={s} />}
-        {tab === "ranks" && <Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} />}
-        {tab === "board" && <Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} />}
+        {onboard === null && tab === "assistant" && <Assistant s={s} setS={setS} onBack={() => setTab("status")} />}
+        {onboard === null && tab === "train" && <Train s={s} setS={setS} gainXp={gainXp} openRun={() => setTab("run")} />}
+        {onboard === null && tab === "quests" && <Quests s={s} setS={setS} gainXp={gainXp} />}
+        {onboard === null && tab === "fuel" && <Fuel s={s} setS={setS} gainXp={gainXp} />}
+        {onboard === null && tab === "calendar" && <Calendar s={s} setS={setS} />}
+        {onboard === null && tab === "ranks" && <Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} />}
+        {onboard === null && tab === "board" && <Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} />}
       </div>
 
       {toast && (
@@ -905,6 +924,7 @@ export default function App() {
       {party && <DiscoParty />}
       {ceremony && <Ceremony c={ceremony} onClose={() => setCeremony(null)} />}
       {burst && <JuiceBurst key={burst.id} kind={burst.kind} />}
+      {confetti && <Confetti onDone={() => setConfetti(false)} />}
       {liveRun && <RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onClose={() => { setLiveRun(null); setTab("run"); }} />}
       {offline && <div className="fixed right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
       {dialog && (
@@ -968,7 +988,7 @@ function Sheet({ title, onClose, children }) {
 }
 
 /* ---------- Status ---------- */
-function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, openRival }) {
+function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, openXp, openRival }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -1016,6 +1036,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
         </div>
         <div className="mt-2"><Bar pct={(into / need) * 100} color={C.cyan} /></div>
         <div className="mt-4 flex justify-between items-baseline relative">
+          <button onClick={() => openXp()} className="body text-sm underline" style={{ color: C.cyan }}>XP history</button>
           <span className="body text-sm" style={{ color: C.dim }}>Leaderboard points</span>
           <span className="text-xl font-bold" style={{ color: C.gold, textShadow: "0 0 12px rgba(255,212,71,.5)" }}>{points.toLocaleString()}</span>
         </div>
@@ -1031,6 +1052,7 @@ function Status({ s, setS, openSettings, openProfile, openMuscle, openExercise, 
       </div>
 
       <Dashboard s={s} setS={setS} goTrain={goTrain} goRun={goRun} />
+      <StepsPanel s={s} setS={setS} gainXp={gainXp} openRun={goRun} openAssistant={openAssistant} />
       <RoastCard s={s} setS={setS} />
       <NemesisAlert s={s} setS={setS} openProfile={openProfile} />
       <Nudges s={s} openExercise={openExercise} goTrain={goTrain} />
@@ -1149,7 +1171,7 @@ function Train({ s, setS, gainXp, openRun }) {
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name) } }));
     juice(prs ? "pr" : "finish");
     if (prs) { postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
-    gainXp(xp, prs ? `${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete");
+    gainXp(xp, prs ? `Workout · ${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete", `wo_${workout.id}`);
     setRest(null);
   };
 
@@ -1528,7 +1550,7 @@ function Quests({ s, setS, gainXp }) {
       workouts: logged ? [...p.workouts, logged] : p.workouts,
       days: { ...p.days, [d]: { ...p.days[d], list: p.days[d].list.map((y) => y.id === q.id ? { ...y, claimed: true } : y) } },
     }));
-    gainXp(q.xp, "Quest cleared");
+    gainXp(q.xp, `Quest: ${q.title}`, `quest_${d}_${q.id}`);
   };
 
   const tiers = [...new Set(day.list.map((q) => q.tier))];
@@ -1628,8 +1650,9 @@ function Fuel({ s, setS, gainXp }) {
         ))}
       </div>
 
-      <div className="panel p-5 flex items-center gap-5">
-        <svg width="110" height="110" viewBox="0 0 110 110" className="shrink-0">
+      <div className="panel p-5 flex items-center gap-4">
+        {isToday && <HydrationBar s={s} setS={setS} gainXp={gainXp} d={d} />}
+        <svg width="104" height="104" viewBox="0 0 110 110" className="shrink-0">
           <circle cx="55" cy="55" r="46" fill="none" stroke={C.track} strokeWidth="10" />
           <circle cx="55" cy="55" r="46" fill="none" stroke={tot.cal > t.cal + 150 ? C.orange : C.cyan} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 289} 289`} transform="rotate(-90 55 55)" style={{ filter: "drop-shadow(0 0 6px rgba(124,211,255,.8))" }} />
           <text x="55" y="54" textAnchor="middle" fill={C.text} fontSize="22" fontWeight="700">{Math.round(tot.cal)}</text>
@@ -1661,13 +1684,12 @@ function Fuel({ s, setS, gainXp }) {
               <div className="flex items-center gap-2" style={{ color: pHit ? C.green : C.dim }}><Check size={15} style={{ opacity: pHit ? 1 : 0.3 }} />Protein at least {t.protein}g ({Math.round(tot.p)}g now)</div>
             </div>
             {claimed ? <div className="text-sm font-semibold mt-3" style={{ color: C.green }}>Claimed for today</div> :
-              <button disabled={!ready} onClick={() => { setS((x) => ({ ...x, fuelClaimed: { ...(x.fuelClaimed || {}), [d]: true } })); gainXp(FUEL_XP, "Fuel goal hit"); }} className="w-full mt-3 py-2 font-bold" style={{ borderRadius: 4, background: ready ? C.gold : C.soft, color: ready ? "#0A1630" : C.mute, border: `1px solid ${C.border}` }}>Claim</button>}
+              <button disabled={!ready} onClick={() => { setS((x) => ({ ...x, fuelClaimed: { ...(x.fuelClaimed || {}), [d]: true } })); gainXp(FUEL_XP, "Fuel goal hit", `fuel_${d}`); }} className="w-full mt-3 py-2 font-bold" style={{ borderRadius: 4, background: ready ? C.gold : C.soft, color: ready ? "#0A1630" : C.mute, border: `1px solid ${C.border}` }}>Claim</button>}
           </div>
         );
       })()}
       <div className="body text-xs" style={{ color: C.mute }}>Maintenance is about {t.tdee} cal/day from your body stats. Every day's food saves automatically, and you can look back with the arrows or the Log tab.</div>
 
-      {isToday && <WaterTracker s={s} setS={setS} gainXp={gainXp} d={d} />}
       <NutritionReport s={s} />
       <DayTemplates s={s} setS={setS} d={d} meals={meals} />
 
@@ -1804,7 +1826,7 @@ After searching, reply with ONLY this JSON and nothing else: {"name": "Restauran
       </div>
       <input ref={barRef} type="file" accept="image/*" capture="environment" onChange={onBarcode} style={{ display: "none" }} />
       {loading === "barcode" && <div className="body text-xs" style={{ color: C.dim }}>Reading the barcode and looking up the product…</div>}
-      {scanning && <PhotoScan onCancel={() => setScanning(false)} onAddAll={(items) => { items.forEach((it) => onAdd({ name: it.name, cal: it.cal, p: it.p, c: it.c, f: it.f })); }} />}
+      {scanning && <PhotoScan sState={s} onShare onCancel={() => setScanning(false)} onAddAll={(items) => { items.forEach((it) => onAdd({ name: it.name, cal: it.cal, p: it.p, c: it.c, f: it.f })); }} />}
       {q.trim().length > 2 && !found && (
         <div className="grid grid-cols-2 gap-2">
           <button onClick={lookup} disabled={!!loading} className="p-3 flex items-center gap-2 font-semibold text-left text-sm" style={{ background: C.accentBg, color: C.cyan, border: `1px solid ${C.blue}`, borderRadius: 4 }}>
@@ -1833,12 +1855,12 @@ After searching, reply with ONLY this JSON and nothing else: {"name": "Restauran
           <div className="body text-xs" style={{ color: found.source === "official" ? C.green : C.orange }}>
             {found.source === "official" ? "From the restaurant's published nutrition" : found.source === "third-party" ? "From a third-party nutrition site" : "Estimate, since this restaurant doesn't publish nutrition"}{found.note ? ` · ${found.note}` : ""}
           </div>
-          <button onClick={() => saveAndAdd(found)} className="btn w-full py-3">Add and save for next time</button>
+          <div className="flex gap-2"><button onClick={() => saveAndAdd(found)} className="btn flex-1 py-3">Add and save</button><ShareMealButton s={s} food={found} /></div>
         </div>
       )}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {["All", "Meals", ...(saved.length ? ["Saved"] : []), "Community", ...RESTAURANTS, "Basics"].map((g) => (
+        {["All", "Meals", "Community feed", ...(saved.length ? ["Saved"] : []), "Community", ...RESTAURANTS, "Basics"].map((g) => (
           <button key={g} onClick={() => setSrc(g)} className="px-3 py-1.5 text-sm font-semibold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 4, background: src === g ? C.blue : C.soft, color: src === g ? "#fff" : C.text, border: `1px solid ${C.border}` }}>
             {RESTAURANTS.includes(g) && <Store size={13} />}{g}
           </button>
@@ -1853,7 +1875,8 @@ After searching, reply with ONLY this JSON and nothing else: {"name": "Restauran
         </>
       )}
 
-      {list.length === 0 && <Empty>No match here. Tap "Look up restaurant online" to search the restaurant's nutrition info.</Empty>}
+      {src === "Community feed" && <CommunityMeals s={s} setS={setS} onAdd={onAdd} />}
+      {src !== "Community feed" && list.length === 0 && <Empty>No match here. Tap "Look up restaurant online" to search the restaurant's nutrition info.</Empty>}
       <div className="space-y-2">
         {list.map((f) => (
           <Row key={`${f.r || "b"}-${f.name}`} f={f} onDelete={saved.includes(f) ? () => setS((x) => ({ ...x, savedFoods: (x.savedFoods || []).filter((y) => y.name !== f.name) })) : null} />
@@ -1865,7 +1888,8 @@ After searching, reply with ONLY this JSON and nothing else: {"name": "Restauran
 }
 
 /* ---------- Calendar ---------- */
-function Calendar({ s }) {
+function Calendar({ s, setS }) {
+  const [sheet, setSheet] = useState(null);
   const now = new Date();
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [sel, setSel] = useState(today());
@@ -1953,13 +1977,17 @@ function Calendar({ s }) {
             {s.xpDetail[sel].map((x, i) => <div key={i} className="flex justify-between" style={{ color: C.dim }}><span>{x.m}</span><span style={{ color: x.a >= 0 ? C.gold : C.orange }}>{x.a >= 0 ? "+" : ""}{x.a}</span></div>)}
           </div>
         )}
+        {(() => { const ci = s.checkins?.[sel] || {}; const wt = s.weightLog?.[sel]; const steps = s.steps?.[sel]; const parts = [ci.sleep ? `${ci.sleep}h sleep` : null, ci.mood ? `feeling ${ci.mood.toLowerCase()}` : null, steps ? `${steps.toLocaleString()} steps` : null, wt ? `${wt} lb` : null].filter(Boolean);
+          return parts.length ? <div className="body text-xs mt-2 pt-2" style={{ borderTop: `1px solid ${C.line}`, color: C.sub }}>{parts.join(" · ")}</div> : null; })()}
         {di.ws.length > 0 ? di.ws.map((w) => (
-          <div key={w.id} className="mt-3 body text-sm" style={{ color: C.sub }}>
-            {w.exercises.map((ex) => <div key={ex.name}><span style={{ color: C.cyan }}>{ex.name}</span>: {ex.sets.map((st) => (st.w ? `${st.w}×${st.r}` : `${st.r}`)).join(", ")}</div>)}
-          </div>
+          <button key={w.id} onClick={() => setSheet(w)} className="mt-3 body text-sm w-full text-left" style={{ color: C.sub }}>
+            <div className="flex justify-between items-center"><span className="font-semibold" style={{ color: C.text }}>{w.title || "Workout"}{w.run ? ` · ${w.run.miles} mi` : ""}</span><span className="body text-xs" style={{ color: C.cyan }}>Details ›</span></div>
+            {w.exercises.map((ex) => <div key={ex.name}><span style={{ color: C.cyan }}>{ex.name}</span>: {ex.sets.map((st) => setLabel(findEx(s, ex.name), st)).join(", ")}</div>)}
+          </button>
         )) : <div className="mt-3 body text-sm" style={{ color: C.mute }}>No workout this day.</div>}
       </div>
 
+      {sheet && <LogWorkoutSheet s={s} setS={setS} w={sheet} onClose={() => setSheet(null)} />}
       <h2 className="text-lg font-bold">This month</h2>
       <div className="grid grid-cols-2 gap-3 body text-sm">
         <Stat panel label="Workouts" value={sum.workouts} />
@@ -2470,6 +2498,7 @@ function pickBritishVoice() {
   return gb.find((v) => /daniel|arthur|oliver|george|uk english male|male/i.test(v.name)) || gb[0] || null;
 }
 
+const STEP_COACH = `The user just asked for help setting up automatic step syncing. Walk them through it like a friendly personal trainer, not tech support: warm, encouraging, plain language, one step at a time, and ask them to say "next" when each step is done. The setup: 1) In Ascend, open Status and find the Steps card, then tap the sync line and "Create my sync code" (the code and the sync URL appear there, and they can tap either to copy). 2) On iPhone open the Shortcuts app, go to the Automation tab, tap +, choose Time of Day, pick 11:45 PM daily, Run Immediately, then New Blank Automation. 3) Add the action "Find Health Samples", set Type to Steps and Start Date to Today. 4) Add "Calculate Statistics" and choose Sum. 5) Add "Format Date" with Current Date and custom format yyyy-MM-dd. 6) Add "Get Contents of URL", paste the sync URL, set Method to POST and Request Body to JSON, then add three fields: token (their sync code), steps (the Statistics result), date (the formatted date). 7) Tap Done, run it once to test, then reopen Ascend. Troubleshoot patiently if they get stuck, and mention they can always type steps in by hand instead.`;
 function Assistant({ s, setS, onBack }) {
   const chat = s.chat || [];
   const [input, setInput] = useState("");
@@ -2508,7 +2537,7 @@ function Assistant({ s, setS, onBack }) {
     } catch (e) { setSpeaking(false); }
   };
 
-  const send = async (textArg) => {
+  const send = async (textArg, coachMode = false) => {
     const text = (textArg ?? input).trim();
     if (!text || busy) return;
     // Unlock speech on iPhone while we still have the tap
@@ -2523,7 +2552,7 @@ function Assistant({ s, setS, onBack }) {
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 1000,
-          system: `You are Sterling, the built-in AI coach inside Ascend, a leveling-style gym tracking app. You are a deeply unhinged British butler: posh vocabulary, wildly over-the-top hype, dramatic exclamations like "GOOD HEAVENS" and "by the barbell", occasional absurd similes, and you treat every set like a matter of national importance. Be funny, but the training and nutrition advice underneath must stay accurate and practical. Your replies are read aloud in a silly voice, so keep them to 1 to 3 short sentences unless asked for detail, and never use markdown, bullet points, or emojis. Whenever the user asks how to do an exercise, its form, or technique, give one or two key cues and then add a tag at the very end in exactly this format: [[yt:Exercise Name]] (the app turns it into a YouTube how-to button, so never mention the tag or the word YouTube yourself). Give practical, accurate training and nutrition guidance using the user's real data below. If they mention pain, injury, or a medical issue, advise seeing a qualified professional. App facts: ranks go E, D, C, B, A, S with divisions III, II, I; lift ranks use estimated one-rep max scaled to bodyweight and height; overall rank weights legs, back and chest most; daily quests link to logged exercises; hitting calories within 10% plus the protein target earns ${FUEL_XP} XP.\n\nUser data:\n${buildContext(s)}`,
+          system: `${coachMode ? `${STEP_COACH}\n\n` : ""}You are Sterling, the built-in AI coach inside Ascend, a leveling-style gym tracking app. You are a deeply unhinged British butler: posh vocabulary, wildly over-the-top hype, dramatic exclamations like "GOOD HEAVENS" and "by the barbell", occasional absurd similes, and you treat every set like a matter of national importance. Be funny, but the training and nutrition advice underneath must stay accurate and practical. Your replies are read aloud in a silly voice, so keep them to 1 to 3 short sentences unless asked for detail, and never use markdown, bullet points, or emojis. Whenever the user asks how to do an exercise, its form, or technique, give one or two key cues and then add a tag at the very end in exactly this format: [[yt:Exercise Name]] (the app turns it into a YouTube how-to button, so never mention the tag or the word YouTube yourself). Give practical, accurate training and nutrition guidance using the user's real data below. If they mention pain, injury, or a medical issue, advise seeing a qualified professional. App facts: ranks go E, D, C, B, A, S with divisions III, II, I; lift ranks use estimated one-rep max scaled to bodyweight and height; overall rank weights legs, back and chest most; daily quests link to logged exercises; hitting calories within 10% plus the protein target earns ${FUEL_XP} XP.\n\nUser data:\n${buildContext(s)}`,
           messages: next.map((m) => ({ role: m.role, content: m.content })),
         }),
       });
@@ -2560,6 +2589,12 @@ function Assistant({ s, setS, onBack }) {
   };
 
   const suggestions = ["What should I train today?", "How close am I to my next rank?", "What should I eat to hit my protein?"];
+  // Opened from the Steps card: Sterling starts the setup himself
+  useEffect(() => {
+    const on = () => { if (!busy) send("Walk me through setting up automatic step tracking on my iPhone, one step at a time.", true); };
+    window.addEventListener("ascend-sterling-steps", on);
+    return () => window.removeEventListener("ascend-sterling-steps", on);
+  }, [busy, chat.length]);
 
   return (
     <div className="space-y-4">
@@ -2958,7 +2993,7 @@ function CardDeck({ visible, s, setS, gainXp, onBack }) {
     const lastCard = deck.length === 0;
     const bonus = lastCard ? 150 : 0;
     setS((p) => addDeckSet(p, sessionId, name, reps, xp + bonus));
-    gainXp(xp + bonus, lastCard ? "Full deck cleared! +150 bonus" : prs ? `New ${name} PR` : `${reps} ${name}`);
+    gainXp(xp + bonus, lastCard ? "Card deck cleared" : `Card deck · ${reps} ${name}`, `deck_${sessionId}_${log.length}`);
     setLog((l) => [...l, { card: current, name, reps, xp: xp + bonus, done: true }]);
     setCurrent(null);
   };
@@ -3496,6 +3531,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
               <Measurements s={s} setS={setS} />
             </>
           )}
+          {me && <StepsPanel s={s} setS={setS} gainXp={gainXp} />}
           <h2 className="text-lg font-bold">Weight over time</h2>
           <div className="panel p-4 space-y-3">
             {me && (
@@ -3730,7 +3766,7 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embe
   };
   const claim = (m) => {
     setS((p) => ({ ...p, mogClaimed: { ...(p.mogClaimed || {}), [m.id]: true } }));
-    gainXp(MOG_XP, "Mog-off win");
+    gainXp(MOG_XP, "Mog-off win", `mog_${m.id}`);
   };
   const remove = async (m) => { try { await window.storage.delete(m.key, true); setList((l) => l.filter((x) => x.key !== m.key)); } catch { /* ignore */ } };
   const Face = ({ e, label, win }) => (
@@ -4152,8 +4188,8 @@ function Challenges({ s, setS, gainXp }) {
   const weekly = pickChallenges(WEEKLY_POOL, ws, 3), monthly = pickChallenges(MONTHLY_POOL, mk, 3);
   const wc = s.weekly?.[ws]; const wClaimed = wc === true ? { "w-train4": true } : (wc || {});
   const mClaimed = s.monthly?.[mk] || {};
-  const claimW = (c) => { setS((p) => { const cur = p.weekly?.[ws]; const obj = cur === true ? { "w-train4": true } : (cur || {}); return { ...p, weekly: { ...(p.weekly || {}), [ws]: { ...obj, [c.id]: true } } }; }); gainXp(c.xp, "Weekly challenge"); };
-  const claimM = (c) => { setS((p) => ({ ...p, monthly: { ...(p.monthly || {}), [mk]: { ...(p.monthly?.[mk] || {}), [c.id]: true } } })); gainXp(c.xp, "Monthly challenge"); };
+  const claimW = (c) => { setS((p) => { const cur = p.weekly?.[ws]; const obj = cur === true ? { "w-train4": true } : (cur || {}); return { ...p, weekly: { ...(p.weekly || {}), [ws]: { ...obj, [c.id]: true } } }; }); gainXp(c.xp, `Weekly: ${c.title}`, `wk_${ws}_${c.id}`); };
+  const claimM = (c) => { setS((p) => ({ ...p, monthly: { ...(p.monthly || {}), [mk]: { ...(p.monthly?.[mk] || {}), [c.id]: true } } })); gainXp(c.xp, `Monthly: ${c.title}`, `mo_${mk}_${c.id}`); };
   const monthName = new Date(mStart + "T12:00").toLocaleDateString(undefined, { month: "long" });
   return (
     <>
@@ -4183,7 +4219,7 @@ async function scanMealPhoto(dataUrl) {
   const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
   return { note: r.note || "", items: (r.items || []).map((it) => ({ name: String(it.name || "Food").slice(0, 60), cal: Math.round(+it.cal || 0), p: Math.round(+it.p || 0), c: Math.round(+it.c || 0), f: Math.round(+it.f || 0) })) };
 }
-function PhotoScan({ onAddAll, onCancel }) {
+function PhotoScan({ onAddAll, onCancel, sState, onShare }) {
   const camRef = useRef(null), libRef = useRef(null);
   const [img, setImg] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -4237,6 +4273,7 @@ function PhotoScan({ onAddAll, onCancel }) {
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => { setItems(null); setImg(null); }} className="ghost py-3 text-sm font-bold">Rescan</button>
             <button onClick={() => onAddAll(items.filter((it) => it.name.trim()))} disabled={!items.length} className="btn py-3 text-sm">Add {items.length} item{items.length === 1 ? "" : "s"} to today</button>
+          {onShare && items.length > 0 && <div className="col-span-2 flex justify-center"><ShareMealButton s={sState} food={{ name: items.map((i2) => i2.name).join(" + ").slice(0, 60), cal: tot.cal, p: tot.p, c: tot.c, f: tot.f, ingredients: items.map((i2) => ({ name: i2.name, qty: 1, cal: i2.cal, p: i2.p, c: i2.c, f: i2.f })) }} /></div>}
           </div>
         </>
       )}
@@ -4712,7 +4749,7 @@ function WaterTracker({ s, setS, gainXp, d }) {
     const next = { ...cur, n: Math.max(0, n) };
     let hit = false;
     if (!cur.xp && next.n >= target) { next.xp = true; hit = true; }
-    if (hit) setTimeout(() => { gainXp(WATER_XP, "Water goal"); SFX.water(); }, 0);
+    if (hit) setTimeout(() => { gainXp(WATER_XP, "Water goal", `water_${d}`); SFX.water(); }, 0);
     return { ...p, water: { ...(p.water || {}), [d]: next } };
   });
   return (
@@ -4942,7 +4979,7 @@ function Feed({ s, openProfile }) {
       {items?.length > 0 && (
         <div className="panel overflow-hidden">
           {items.map((it, i) => (
-            <div key={it.key} className="flex gap-3 items-start px-3 py-3" style={i ? { borderTop: `1px solid ${C.border}` } : null}>
+            <div key={it.key} className="flex gap-3 items-start px-3 py-3" style={{ ...(i ? { borderTop: `1px solid ${C.border}` } : null), ...(it.type === "rank" && it.tier >= 5 ? { background: `linear-gradient(90deg, ${RANKS[Math.min(6, it.tier)].glow}, transparent 70%)`, borderLeft: `3px solid ${RANKS[Math.min(6, it.tier)].color}`, boxShadow: `inset 0 0 22px ${RANKS[Math.min(6, it.tier)].glow}` } : null) }}>
               <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 36, height: 36, borderRadius: 999, background: `${tint[it.type] || C.cyan}22`, border: `1px solid ${tint[it.type] || C.cyan}55` }}>{icon[it.type] || "•"}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 min-w-0">
@@ -4971,7 +5008,9 @@ function Crew({ s, setS, gainXp, rows, openProfile }) {
   const remove = async (d) => { try { await window.storage.delete(d.key, true); setDuels((x) => x.filter((y) => y.key !== d.key)); } catch (e) { /* ignore */ } };
   return (
     <div className="space-y-3">
-      <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />
+      <CrewPanel s={s} setS={setS} rows={rows} />
+      {s.crew?.code && <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="crew" crewId={s.crew.code} />}
+      <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="global" />
       <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} />XP duels</h2>
       {duels.length === 0 && <Empty>No duels. Open a cousin's profile from the board and challenge them to a 7-day XP duel.</Empty>}
       {duels.map((d) => {
@@ -4995,7 +5034,7 @@ function Crew({ s, setS, gainXp, rows, openProfile }) {
             {d.status === "pending" && me && <div className="body text-xs" style={{ color: C.dim }}>Waiting for {other} to accept.</div>}
             {d.status === "on" && !over && <div className="body text-sm">You {liveMine ?? "?"} XP · {other} {theirs ?? "?"} XP <span style={{ color: C.dim }}>(live this week)</span></div>}
             {d.status === "on" && over && winner === null && <div className="body text-xs" style={{ color: C.dim }}>Waiting for {other} to open the app so their final score posts.</div>}
-            {winner && <div className="font-bold" style={{ color: C.gold }}>{winner === "tie" ? "Dead heat." : winner === s.playerId ? `You won ${liveMine} to ${theirs}` : `${other} won ${theirs} to ${liveMine}`}{winner === s.playerId && !(s.duelClaimed || {})[d.id] && <button onClick={() => { setS((p) => ({ ...p, duelClaimed: { ...(p.duelClaimed || {}), [d.id]: true } })); gainXp(DUEL_XP, "Duel win"); }} className="ml-2 px-3 py-1 text-xs" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{DUEL_XP}</button>}</div>}
+            {winner && <div className="font-bold" style={{ color: C.gold }}>{winner === "tie" ? "Dead heat." : winner === s.playerId ? `You won ${liveMine} to ${theirs}` : `${other} won ${theirs} to ${liveMine}`}{winner === s.playerId && !(s.duelClaimed || {})[d.id] && <button onClick={() => { setS((p) => ({ ...p, duelClaimed: { ...(p.duelClaimed || {}), [d.id]: true } })); gainXp(DUEL_XP, "Duel win", `duel_${d.id}`); }} className="ml-2 px-3 py-1 text-xs" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{DUEL_XP}</button>}</div>}
             <button onClick={() => ask("Delete this duel?", () => remove(d), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button>
           </div>
         );
@@ -5326,43 +5365,59 @@ const BOSSES = [
   { id: "void", name: "The Void Sovereign", tag: "The end of all excuses", color: "#6A00FF", icon: "🌑", title: "Voidwalker", aura: "void" },
 ];
 const BOSS_HP_PER_PLAYER = 60000, BOSS_XP = 600;
-const bossDamage = (card, mk) => (card?.month?.key === mk ? Math.round((card.month.volume || 0) + (card.month.reps || 0) * 5 + (card.month.miles || 0) * 800) : 0);
-function BossFight({ s, setS, gainXp, rows, openProfile }) {
+// Sleeping well and feeling good makes you hit harder today
+function buffToday(s) {
+  if (!s) return 1;
+  const ci = s.checkins?.[today()] || {};
+  let m = 1;
+  if (ci.sleep >= 8) m += 0.05; else if (ci.sleep === 7) m += 0.02;
+  if (ci.mood === "Fired up") m += 0.05; else if (ci.mood === "Good") m += 0.02;
+  return Math.round(m * 100) / 100;
+}
+const bossDamage = (card, mk, selfState = null) => {
+  const base = card?.month?.key === mk ? Math.round((card.month.volume || 0) + (card.month.reps || 0) * 5 + (card.month.miles || 0) * 800) : 0;
+  return Math.round(base * (selfState ? buffToday(selfState) : 1));
+};
+function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewId = null }) {
   const mk = monthKey();
-  const idx = (parseInt(mk.slice(5, 7), 10) - 1) % BOSSES.length;
-  const boss = BOSSES[idx];
-  const players = Math.max(1, rows.length);
-  const hp = BOSS_HP_PER_PLAYER * players;
-  const dmg = rows.map((r) => ({ r, d: bossDamage(r, mk) })).sort((a, b) => b.d - a.d);
+  const [crew, setCrew] = useState(null);
+  useEffect(() => { if (crewId) readCrew(crewId).then(setCrew); }, [crewId]);
+  const mi = (parseInt(mk.slice(5, 7), 10) - 1) % BOSSES.length;
+  const boss = scope === "crew" ? BOSSES[(mi + 6) % BOSSES.length] : BOSSES[mi];
+  const crewRows = scope === "crew" ? rows.filter((r) => (crew?.members || [s.playerId]).includes(r.id)) : rows;
+  const players = Math.max(1, crewRows.length);
+  // crews get a smaller pool; the global boss scales with everyone in the season
+  const hp = scope === "crew" ? Math.round(BOSS_HP_PER_PLAYER * 0.6 * players) : Math.round(BOSS_HP_PER_PLAYER * (players + 2) * 1.15);
+  const dmg = crewRows.map((r) => ({ r, d: bossDamage(r, mk, r.id === s.playerId ? s : null) })).sort((a, b) => b.d - a.d);
   const total = dmg.reduce((a, x) => a + x.d, 0);
-  const left = Math.max(0, hp - total), dead = left === 0;
+  const left = Math.max(0, hp - total), dead = left === 0, pct = left / hp;
   const mine = dmg.find((x) => x.r.id === s.playerId)?.d || 0;
-  const claimed = s.loot?.claimed?.[mk];
+  const claimed = s.loot?.claimed?.[`${mk}_${scope}`] || (scope === "global" && s.loot?.claimed?.[mk]);
   const [hit, setHit] = useState(false);
   const prev = useRef(total);
   useEffect(() => { if (total > prev.current) { setHit(true); const t = setTimeout(() => setHit(false), 500); prev.current = total; return () => clearTimeout(t); } prev.current = total; }, [total]);
   const monthName = new Date(`${mk}-01T12:00`).toLocaleDateString(undefined, { month: "long" });
   const claim = () => {
-    setS((p) => ({ ...p, loot: { ...(p.loot || {}), bosses: [...new Set([...(p.loot?.bosses || []), boss.id])], claimed: { ...(p.loot?.claimed || {}), [mk]: true } } }));
-    gainXp(BOSS_XP, `Defeated ${boss.name}`); juice("pr");
+    setS((p) => ({ ...p, loot: { ...(p.loot || {}), bosses: [...new Set([...(p.loot?.bosses || []), boss.id])], claimed: { ...(p.loot?.claimed || {}), [`${mk}_${scope}`]: true } } }));
+    gainXp(BOSS_XP, `Defeated ${boss.name}`, `boss_${mk}_${boss.id}${crewId ? `_${crewId}` : ""}`); juice("pr");
   };
   return (
     <div className="panel p-5 space-y-4 overflow-hidden" style={{ borderColor: `${boss.color}55` }}>
       <div className="flex items-center gap-4">
-        <div className="text-5xl shrink-0" style={{ filter: `drop-shadow(0 0 16px ${boss.color})`, animation: hit ? "bosshit .45s ease-out" : dead ? "none" : "bossidle 3s ease-in-out infinite", opacity: dead ? 0.35 : 1 }}>{boss.icon === "chud" ? <ChudKing size={72} dead={dead} /> : boss.icon}</div>
+<BossArt boss={boss} pct={pct} dead={dead} hit={hit} />
         <div className="flex-1 min-w-0">
-          <div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{monthName} boss</div>
+          <div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{scope === "crew" ? `${crew?.name || "Crew"} boss` : `Global boss · ${monthName}`}{pct <= 0.5 && !dead ? " · ENRAGED" : ""}</div>
           <div className="text-xl font-bold" style={{ color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
           <div className="body text-xs" style={{ color: C.dim }}>{boss.tag}</div>
         </div>
       </div>
       <div>
-        <div className="h-4 overflow-hidden relative" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)" }}>
+        <div className="h-4 overflow-hidden relative" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)", boxShadow: pct <= 0.5 && !dead ? "0 0 14px rgba(255,45,45,.5)" : "none" }}>
           <div className="h-full" style={{ width: `${(left / hp) * 100}%`, borderRadius: 999, background: `linear-gradient(90deg, #FF2D6F, ${boss.color})`, transition: "width .8s cubic-bezier(.2,.8,.2,1)", boxShadow: `0 0 14px ${boss.color}` }} />
         </div>
         <div className="flex justify-between body text-xs mt-1.5" style={{ color: C.dim }}><span>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</span><span>{hp.toLocaleString()} HP</span></div>
       </div>
-      <div className="body text-xs" style={{ color: C.dim }}>Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
+      <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? "Only your crew's damage counts here." : `Scaled to the ${players} player${players === 1 ? "" : "s"} in the season.`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
       {dmg.filter((x) => x.d > 0).length > 0 && (
         <div className="space-y-1.5">
           {dmg.filter((x) => x.d > 0).slice(0, 6).map(({ r, d }) => (
@@ -5957,7 +6012,7 @@ async function sha256hex(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-function StepsPanel({ s, setS, gainXp }) {
+function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
   const d = today();
   const goal = s.settings?.stepGoal || 10000;
   const todaySteps = s.steps?.[d] || 0;
@@ -5969,7 +6024,7 @@ function StepsPanel({ s, setS, gainXp }) {
   const week = Array.from({ length: 7 }, (_, i) => { const k = shift(d, i - 6); return { k, n: s.steps?.[k] || 0 }; });
   const maxN = Math.max(goal, ...week.map((w) => w.n));
   useEffect(() => {
-    if (todaySteps >= goal && !s.stepXp?.[d]) { setS((p) => ({ ...p, stepXp: { ...(p.stepXp || {}), [d]: true } })); gainXp(STEP_GOAL_XP, "Step goal"); }
+    if (todaySteps >= goal && !s.stepXp?.[d]) { setS((p) => ({ ...p, stepXp: { ...(p.stepXp || {}), [d]: true } })); gainXp(STEP_GOAL_XP, "Step goal", `steps_${d}`); }
   }, [todaySteps, goal]);
   const saveManual = () => {
     const n = Math.round(+manual); if (!(n >= 0) || manual === "") return;
@@ -6001,7 +6056,7 @@ function StepsPanel({ s, setS, gainXp }) {
         <input type="number" inputMode="numeric" className="inp text-sm" placeholder="Enter today's steps" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveManual()} aria-label="Today's steps" />
         <button onClick={saveManual} disabled={!(+manual >= 0) || manual === ""} className="btn px-4 text-sm">Save</button>
       </div>
-      <button onClick={() => setSetup(!setup)} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up · view instructions" : "Sync steps automatically from iPhone"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
+      <button onClick={() => { if (!setup && openAssistant) { openAssistant(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); } setSetup(!setup); }} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up · ask Sterling" : "Sync steps automatically (Sterling walks you through it)"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
       {setup && (
         <div className="space-y-3 body text-sm" style={{ color: C.sub }}>
           {!s.stepToken ? (
@@ -6015,7 +6070,9 @@ function StepsPanel({ s, setS, gainXp }) {
                 <button onClick={() => copy(url, "url")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{url}</button>
                 {copied && <div className="text-xs" style={{ color: C.green }}>Copied {copied}</div>}
               </div>
-              <ol className="space-y-1.5 list-decimal pl-5 text-sm">
+              <button onClick={() => { openAssistant?.(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); }} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2"><Bot size={16} />Have Sterling walk me through it</button>
+              <details className="text-xs" style={{ color: C.mute }}><summary style={{ cursor: "pointer", color: C.dim }}>Or read the steps yourself</summary>
+              <ol className="space-y-1.5 list-decimal pl-5 text-sm mt-1">
                 <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>Time of Day</b>. Pick <b>11:45 PM</b>, <b>Daily</b>, <b>Run Immediately</b> → Next → <b>New Blank Automation</b>.</li>
                 <li>Add <b>Find Health Samples</b>: Type is <b>Steps</b>, Start Date is <b>Today</b>.</li>
                 <li>Add <b>Calculate Statistics</b>: <b>Sum</b> of Health Samples.</li>
@@ -6023,6 +6080,7 @@ function StepsPanel({ s, setS, gainXp }) {
                 <li>Add <b>Get Contents of URL</b>: paste the Sync URL. Method <b>POST</b>, Request Body <b>JSON</b>, add three fields: <b>token</b> (Text: your sync code), <b>steps</b> (Number: Statistics), <b>date</b> (Text: Formatted Date).</li>
                 <li>Tap <b>Done</b>. Tap the automation once to test it, then pull this page down to refresh.</li>
               </ol>
+              </details>
               <div className="text-xs" style={{ color: C.dim }}>Want steps to update during the day? Duplicate the automation for noon and 6 PM. Ascend always keeps the highest count for each day.</div>
               <button onClick={() => ask("Make a new sync code? The old one stops working, so you'd need to update your Shortcut.", makeCode, "New code")} className="text-xs underline" style={{ color: C.mute }}>Make a new code</button>
             </>
@@ -6135,7 +6193,6 @@ function RunHub({ s, setS, gainXp, onBack, startRun }) {
         <div className="grid grid-cols-3 gap-2 text-center">{[["This month", `${monthMi.toFixed(1)} mi`], ["Runs logged", runs.length], ["Best pace", best ? fmtPace(best.run.pace) : "–"]].map(([l, v]) => <div key={l}><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold tabular-nums">{v}</div></div>)}</div>
         <div className="body text-xs" style={{ color: C.mute }}>Keep Ascend open with the screen on while you run. Phones pause GPS for websites when locked.</div>
       </div>
-      <StepsPanel s={s} setS={setS} gainXp={gainXp} />
       <RoutePlanner s={s} setS={setS} onRun={(guide) => startRun(mode, guide)} />
       {saved.length > 0 && (
         <>
@@ -6159,6 +6216,266 @@ function RunHub({ s, setS, gainXp, onBack, startRun }) {
         </button>
       ))}</div>
       {detail && <RunDetail s={s} setS={setS} w={detail} onClose={() => setDetail(null)} />}
+    </div>
+  );
+}
+
+/* ---------- Onboarding ---------- */
+function Confetti({ onDone }) {
+  useEffect(() => { SFX.levelUp(); const t = setTimeout(onDone, 2600); return () => clearTimeout(t); }, []);
+  const cols = ["#FFD447", "#3DF08A", "#38C6FF", "#B14BFF", "#FF2D6F", "#FFFFFF"];
+  return (
+    <div className="fixed inset-0 z-[68] pointer-events-none overflow-hidden" aria-hidden="true">
+      {Array.from({ length: 70 }, (_, i) => (
+        <span key={i} style={{ position: "absolute", left: `${(i * 37) % 100}%`, top: -20, width: i % 3 ? 8 : 12, height: i % 4 ? 12 : 6, background: cols[i % cols.length], borderRadius: i % 3 ? 2 : 999, "--sx": `${((i * 53) % 120) - 60}px`, "--rot": `${(i * 97) % 720}deg`, animation: `confetti ${1.6 + ((i * 13) % 10) / 10}s ${(i % 8) * 0.07}s cubic-bezier(.2,.6,.4,1) forwards` }} />
+      ))}
+    </div>
+  );
+}
+function Onboarding({ s, setS, step, onNext }) {
+  const p = s.profile;
+  const set = (k, v) => setS((x) => ({ ...x, profile: { ...x.profile, [k]: v } }));
+  const [name, setName] = useState(p.name || "");
+  const ft = Math.floor((p.height || 70) / 12), inch = Math.round((p.height || 70) % 12);
+  const setHeight = (f, i2) => set("height", Math.max(48, Math.min(90, f * 12 + i2)));
+  const wrap = (children) => (
+    <div className="space-y-5">
+      <div className="flex items-center justify-center gap-1.5 pt-2">{[0, 1, 2].map((i) => <span key={i} style={{ width: i === step ? 22 : 8, height: 8, borderRadius: 999, background: i <= step ? C.cyan : C.glassLine, transition: "width .2s" }} />)}</div>
+      {children}
+    </div>
+  );
+  if (step === 0) {
+    return wrap(
+      <div className="panel p-5 space-y-4">
+        <img src="/logo.webp" alt="" style={{ width: 96, margin: "0 auto", display: "block" }} />
+        <div className="text-center"><div className="text-2xl font-bold">Welcome to Ascend</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Your lifts get ranked E through S, scaled to your body. First, the basics.</div></div>
+        <label className="body text-sm block">What should we call you?
+          <input autoFocus className="inp mt-1" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && name.trim() && (set("name", name.trim()), onNext())} />
+        </label>
+        <button disabled={!name.trim()} onClick={() => { set("name", name.trim()); onNext(); }} className="btn w-full py-3" style={!name.trim() ? { opacity: 0.5 } : null}>Continue</button>
+      </div>,
+    );
+  }
+  if (step === 1) {
+    return wrap(
+      <div className="panel p-5 space-y-4">
+        <div><div className="text-xl font-bold">Your body stats</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Every rank target and calorie goal is built from these. You can change them any time.</div></div>
+        <div className="grid grid-cols-2 gap-3 body text-sm">
+          <label>Weight (lb)<input type="number" inputMode="decimal" className="inp mt-1" value={p.weight} onChange={(e) => set("weight", +e.target.value)} /></label>
+          <label>Age<input type="number" inputMode="numeric" className="inp mt-1" value={p.age} onChange={(e) => set("age", +e.target.value)} /></label>
+          <label>Height<div className="flex gap-1 mt-1"><input type="number" inputMode="numeric" className="inp text-center" value={ft} onChange={(e) => setHeight(+e.target.value || 0, inch)} aria-label="Feet" /><span className="self-center body text-xs" style={{ color: C.dim }}>ft</span><input type="number" inputMode="numeric" className="inp text-center" value={inch} onChange={(e) => setHeight(ft, +e.target.value || 0)} aria-label="Inches" /><span className="self-center body text-xs" style={{ color: C.dim }}>in</span></div></label>
+          <label>Sex<select className="inp mt-1" value={p.sex} onChange={(e) => set("sex", e.target.value)}><option value="m">Male</option><option value="f">Female</option></select></label>
+          <label className="col-span-2">Training now<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
+          <label className="col-span-2">Goal<select className="inp mt-1" value={p.goal} onChange={(e) => set("goal", e.target.value)}>{GOALS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>
+        </div>
+        <button onClick={() => { setS((x) => ({ ...x, weightLog: { ...(x.weightLog || {}), [today()]: +x.profile.weight || 170 } })); onNext(); }} className="btn w-full py-3">Save stats</button>
+      </div>,
+    );
+  }
+  return wrap(
+    <div className="panel p-5 space-y-4">
+      <div><div className="text-xl font-bold">Join the season</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Season {seasonKey().split("-S")[1]} is live. Joining puts you on the leaderboard, the feed, boss fights, and duels. Your food log and workout details stay private.</div></div>
+      <div className="panel p-3 flex items-center gap-3" style={{ background: "transparent" }}>
+        <Avatar name={p.name} size={44} ring={C.cyan} />
+        <div className="min-w-0"><div className="font-bold truncate">{p.name}</div><div className="body text-xs" style={{ color: C.dim }}>{p.weight} lb · {ft}'{inch}" · {GOALS.find((g) => g.id === p.goal)?.label}</div></div>
+      </div>
+      <button onClick={() => { setS((x) => ({ ...x, lb: true })); onNext(); }} className="btn w-full py-3">Join the leaderboard</button>
+      <button onClick={onNext} className="body text-sm w-full" style={{ color: C.mute }}>Skip for now</button>
+    </div>,
+  );
+}
+
+/* ---------- Crews ---------- */
+const crewCode = () => Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
+async function readCrew(code) {
+  try { const r = await window.storage.get(`crew:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
+}
+function CrewPanel({ s, setS, rows }) {
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [crew, setCrew] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const mine = s.crew;
+  useEffect(() => { if (mine?.code) readCrew(mine.code).then(setCrew); }, [mine?.code]);
+  const create = async () => {
+    if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
+    setBusy(true); setErr("");
+    const c = crewCode(), rec = { code: c, name: name.trim().slice(0, 30) || `${s.profile.name}'s crew`, owner: s.playerId, members: [s.playerId], t: Date.now() };
+    try { await window.storage.set(`crew:${c}`, JSON.stringify(rec), true); setS((p) => ({ ...p, crew: { code: c, name: rec.name } })); setCrew(rec); }
+    catch (e) { setErr("Couldn't create the crew. Check your connection."); }
+    setBusy(false);
+  };
+  const join = async () => {
+    const c = code.trim().toUpperCase();
+    if (c.length < 4) return;
+    setBusy(true); setErr("");
+    const rec = await readCrew(c);
+    if (!rec) { setErr("No crew with that code."); setBusy(false); return; }
+    const members = [...new Set([...(rec.members || []), s.playerId])];
+    try { await window.storage.set(`crew:${c}`, JSON.stringify({ ...rec, members }), true); } catch (e) { /* owner-only write blocked; membership still tracked locally */ }
+    setS((p) => ({ ...p, crew: { code: c, name: rec.name } })); setCrew({ ...rec, members }); setCode(""); setBusy(false);
+  };
+  const leave = () => ask("Leave this crew? You'll go back to the global boss only.", () => { setS((p) => ({ ...p, crew: null })); setCrew(null); }, "Leave");
+  const memberRows = crew ? rows.filter((r) => (crew.members || []).includes(r.id)) : [];
+  if (mine?.code) {
+    return (
+      <div className="panel p-4 space-y-2">
+        <div className="flex justify-between items-start"><div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Your crew</div><div className="font-bold">{crew?.name || mine.name}</div></div><div className="text-right"><div className="font-mono font-bold" style={{ color: C.cyan }}>{mine.code}</div><div className="body text-xs" style={{ color: C.dim }}>{memberRows.length || 1} member{(memberRows.length || 1) === 1 ? "" : "s"}</div></div></div>
+        <div className="body text-xs" style={{ color: C.dim }}>Share the code so others can join. Your crew boss is sized to your crew.</div>
+        <div className="flex gap-2">
+          <button onClick={() => navigator.clipboard?.writeText(mine.code)} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Copy code</button>
+          <button onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="panel p-4 space-y-3">
+      <div><div className="font-bold">Start or join a crew</div><div className="body text-xs mt-0.5" style={{ color: C.dim }}>Crews get their own boss, sized to how many of you there are. You'll still fight the global boss with everyone.</div></div>
+      <div className="flex gap-2"><input className="inp text-sm" placeholder="Crew name" value={name} onChange={(e) => setName(e.target.value)} /><button onClick={create} disabled={busy} className="btn px-4 text-sm whitespace-nowrap">Create</button></div>
+      <div className="flex gap-2"><input className="inp text-sm font-mono" placeholder="Invite code" value={code} maxLength={8} onChange={(e) => setCode(e.target.value.toUpperCase())} /><button onClick={join} disabled={busy || code.trim().length < 4} className="ghost px-4 text-sm font-bold" style={{ color: C.cyan }}>Join</button></div>
+      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
+    </div>
+  );
+}
+
+/* ---------- Animated boss art ---------- */
+function BossArt({ boss, pct, dead, hit, size = 84 }) {
+  const enraged = pct <= 0.5 && !dead;
+  const eye = enraged ? "#FF2D2D" : boss.color;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      {!dead && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", background: `radial-gradient(closest-side, ${enraged ? "rgba(255,45,45,.35)" : `${boss.color}33`}, transparent)`, animation: `aurapulse ${enraged ? 1.1 : 2.6}s ease-in-out infinite` }} />}
+      {enraged && Array.from({ length: 6 }, (_, i) => <span key={i} style={{ position: "absolute", left: "50%", top: "60%", width: 5, height: 5, borderRadius: 999, background: i % 2 ? "#FF7A2D" : "#FF2D2D", "--dx": `${((i * 47) % 70) - 35}px`, "--dy": `${-30 - ((i * 23) % 40)}px`, "--rot": "0deg", animation: `juicespark ${1.2 + (i % 3) * 0.3}s ${i * 0.18}s linear infinite` }} />)}
+      <div className="absolute inset-0 flex items-center justify-center" style={{ fontSize: size * 0.62, filter: `drop-shadow(0 0 ${enraged ? 18 : 10}px ${enraged ? "#FF2D2D" : boss.color})`, opacity: dead ? 0.35 : 1, animation: hit ? "bosshit .45s ease-out" : dead ? "none" : `${enraged ? "bossrage .9s" : "bossidle 3s"} ease-in-out infinite` }}>
+        {boss.icon === "chud" ? <ChudKing size={size * 0.95} dead={dead} /> : boss.icon}
+      </div>
+      {!dead && <><span style={{ position: "absolute", left: "34%", top: "40%", width: 6, height: 6, borderRadius: 999, background: eye, boxShadow: `0 0 ${enraged ? 10 : 5}px ${eye}`, animation: enraged ? "rktwinkle .7s ease-in-out infinite" : "none", opacity: enraged ? 1 : 0 }} /><span style={{ position: "absolute", left: "58%", top: "40%", width: 6, height: 6, borderRadius: 999, background: eye, boxShadow: `0 0 ${enraged ? 10 : 5}px ${eye}`, animation: enraged ? "rktwinkle .7s ease-in-out infinite" : "none", opacity: enraged ? 1 : 0 }} /></>}
+    </div>
+  );
+}
+
+/* ---------- XP ledger ---------- */
+function XpLedger({ s, onBack }) {
+  const days = Object.keys(s.xpDetail || {}).sort().reverse();
+  const total = Object.values(s.xpLog || {}).reduce((a, v) => a + v, 0);
+  const kinds = {};
+  days.forEach((d) => (s.xpDetail[d] || []).forEach((x) => { const k = x.m.replace(/\d+/g, "").trim(); kinds[k] = (kinds[k] || 0) + x.a; }));
+  const top = Object.entries(kinds).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2"><button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button><h1 className="text-2xl font-bold flex-1">XP history</h1></div>
+      <div className="panel p-4">
+        <div className="flex justify-between items-baseline"><span className="body text-sm" style={{ color: C.dim }}>Total XP</span><span className="text-2xl font-bold">{s.xp.toLocaleString()}</span></div>
+        <div className="body text-xs mt-1" style={{ color: C.mute }}>Logged history covers {total.toLocaleString()} XP across {days.length} days.{Math.abs(total - s.xp) > 50 ? " Older XP was earned before this ledger existed." : ""}</div>
+      </div>
+      {top.length > 0 && (
+        <div className="panel p-4 space-y-1.5">
+          <div className="font-semibold text-sm mb-1">Where it came from</div>
+          {top.map(([k, v]) => <div key={k}><div className="flex justify-between body text-sm"><span style={{ color: C.sub }}>{k}</span><span className="font-semibold">{v.toLocaleString()}</span></div><div className="mt-0.5"><Bar pct={(v / top[0][1]) * 100} color={C.cyan} /></div></div>)}
+        </div>
+      )}
+      {days.length === 0 && <Empty>Nothing logged yet. Every XP gain from here on shows up in this list.</Empty>}
+      {days.map((d) => (
+        <div key={d} className="panel p-3">
+          <div className="flex justify-between items-center mb-1"><span className="font-semibold text-sm">{fmtDay(d)}</span><span className="font-bold" style={{ color: C.gold }}>+{(s.xpLog?.[d] || 0).toLocaleString()}</span></div>
+          {(s.xpDetail[d] || []).slice().reverse().map((x, i) => (
+            <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.sub }}>{x.m}</span><span className="tabular-nums" style={{ color: x.a >= 0 ? C.dim : C.orange }}>{x.a >= 0 ? "+" : ""}{x.a}</span></div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Community meals ---------- */
+function ShareMealButton({ s, food }) {
+  const [sent, setSent] = useState(false);
+  if (!s.lb) return null;
+  const share = () => {
+    publishShared(`cmeal:${uid()}`, { name: food.name, cal: food.cal, p: food.p, c: food.c, f: food.f, ingredients: food.ingredients || null, by: s.profile.name || "a player", from: s.playerId, t: Date.now() });
+    setSent(true);
+  };
+  return <button onClick={share} disabled={sent} className="ghost px-3 py-2 text-xs font-semibold flex items-center gap-1" style={{ color: sent ? C.green : C.cyan }}>{sent ? <><Check size={13} />Shared</> : <><Share2 size={13} />Share to community</>}</button>;
+}
+function CommunityMeals({ s, setS, onAdd }) {
+  const [items, setItems] = useState(null);
+  const [scale, setScale] = useState({});
+  useEffect(() => { readShared("cmeal:").then((r) => setItems(r.sort((a, b) => (b.t || 0) - (a.t || 0)).slice(0, 30))); }, []);
+  if (items === null) return <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading community meals…</div>;
+  if (!items.length) return <Empty>No shared meals yet. When you log a meal from a photo or AI estimate, tap "Share to community" to put it here.</Empty>;
+  return (
+    <div className="space-y-2">
+      {items.map((m) => {
+        const k = scale[m.key] ?? 1;
+        const v = (n) => Math.round((n || 0) * k);
+        return (
+          <div key={m.key} className="panel p-3 space-y-2">
+            <div className="flex justify-between items-start gap-2">
+              <div className="min-w-0"><div className="font-semibold truncate">{m.name}</div><div className="body text-xs" style={{ color: C.dim }}>by {m.by}{m.ingredients?.length ? ` · ${m.ingredients.length} ingredients` : ""}</div></div>
+              {m.from === s.playerId && <button aria-label="Delete" onClick={() => ask("Remove this from the community feed?", async () => { try { await window.storage.delete(m.key, true); setItems((x) => x.filter((y) => y.key !== m.key)); } catch (e) { /* ignore */ } }, "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
+            </div>
+            <div className="body text-sm" style={{ color: C.sub }}>{v(m.cal)} cal · P {v(m.p)} · C {v(m.c)} · F {v(m.f)}</div>
+            <div className="flex items-center gap-2">
+              <input type="range" min="0.25" max="2" step="0.25" value={k} onChange={(e) => setScale({ ...scale, [m.key]: +e.target.value })} className="flex-1" style={{ accentColor: C.cyan }} aria-label="Portion size" />
+              <span className="body text-xs tabular-nums w-10 text-right" style={{ color: C.dim }}>{k}×</span>
+              <button onClick={() => onAdd({ name: `${m.name}${k !== 1 ? ` (${k}×)` : ""}`, cal: v(m.cal), p: v(m.p), c: v(m.c), f: v(m.f), ingredients: m.ingredients || undefined, meal: !!m.ingredients })} className="btn px-3 py-1.5 text-xs">Copy meal</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Log tab: workout detail ---------- */
+function LogWorkoutSheet({ s, setS, w, onClose }) {
+  const [saved, setSaved] = useState(false);
+  const savePreset = () => {
+    const name = w.title ? `${w.title} (${fmtDay(w.date)})` : `Workout ${fmtDay(w.date)}`;
+    setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== name), { id: uid(), name, exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.length })) }] }));
+    setSaved(true);
+  };
+  return (
+    <Sheet title={`${w.title || "Workout"} · ${fmtDay(w.date)}`} onClose={onClose}>
+      <div className="grid grid-cols-3 gap-2">
+        {[["XP", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Time", w.minutes ? `${w.minutes} min` : "–"]].map(([l, v]) => <div key={l} className="panel py-2.5 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold">{v}</div></div>)}
+      </div>
+      {w.exercises.map((ex, i) => {
+        const def = findEx(s, ex.name);
+        return (
+          <div key={i} className="panel p-3">
+            <div className="font-semibold" style={{ color: C.cyan }}>{ex.name}</div>
+            {ex.sets.map((st, j) => <div key={j} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Set {j + 1}</span><span className="font-semibold">{setLabel(def, st)}</span></div>)}
+          </div>
+        );
+      })}
+      <button onClick={savePreset} disabled={saved} className="btn w-full py-3 flex items-center justify-center gap-2">{saved ? <><Check size={16} />Saved to presets</> : <><Bookmark size={16} />Save as my preset</>}</button>
+    </Sheet>
+  );
+}
+
+/* ---------- Hydration bar (sits beside the macros) ---------- */
+function HydrationBar({ s, setS, gainXp, d }) {
+  const target = Math.max(8, Math.round((+s.profile.weight || 170) / 2 / 8));
+  const w = s.water?.[d] || { n: 0, xp: false };
+  const pct = Math.min(100, (w.n / target) * 100);
+  const set = (n) => setS((p) => {
+    const cur = p.water?.[d] || { n: 0, xp: false };
+    const next = { ...cur, n: Math.max(0, n) };
+    if (!cur.xp && next.n >= target) { next.xp = true; setTimeout(() => { gainXp(WATER_XP, "Water goal", `water_${d}`); SFX.water(); }, 0); }
+    return { ...p, water: { ...(p.water || {}), [d]: next } };
+  });
+  return (
+    <div className="flex flex-col items-center gap-1.5 shrink-0" style={{ width: 54 }}>
+      <button aria-label="Add a cup of water" onClick={() => set(w.n + 1)} className="relative overflow-hidden" style={{ width: 34, height: 104, borderRadius: 10, border: `1px solid ${C.glassLine}`, background: C.track }}>
+        <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${pct}%`, background: `linear-gradient(180deg, ${C.cyan}, #2F6BFF)`, transition: "height .4s cubic-bezier(.2,.8,.2,1)", boxShadow: `0 0 12px ${C.glow}` }} />
+        <span style={{ position: "absolute", left: 0, right: 0, bottom: `calc(${pct}% - 3px)`, height: 3, background: "rgba(255,255,255,.55)", opacity: pct > 0 && pct < 100 ? 1 : 0 }} />
+        <Droplets size={15} style={{ position: "absolute", left: "50%", top: 6, transform: "translateX(-50%)", color: pct > 85 ? "#fff" : C.dim }} />
+      </button>
+      <div className="body text-xs text-center leading-tight" style={{ color: w.n >= target ? C.green : C.dim }}>{w.n}/{target}<br />cups</div>
+      <button aria-label="Remove a cup" onClick={() => set(w.n - 1)} className="body text-xs px-2" style={{ color: C.mute }}>−</button>
     </div>
   );
 }
