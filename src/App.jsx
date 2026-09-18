@@ -5695,7 +5695,7 @@ const BORDERS = [
   { id: "obsidian", name: "Obsidian", how: "Any lift at S", tier: 5, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
   { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
   { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
-  { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/assets/season-one.svg", spin: true },
+  { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/season-one.svg", spin: true },
 ];
 const bestTier = (s) => Math.floor(Object.values(groupScores(s)).reduce((a, b) => Math.max(a, b), 0));
 const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; }); return best; };
@@ -5770,7 +5770,7 @@ const AURA_FX = {
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const _glowCache = new Map();
-let ophanimSrc = "/assets/ophanim.jpg";
+let ophanimSrc = "/ophanim.jpg";
 let ophanimPromise = null;
 function loadOphanimSrc() {
   if (!ophanimPromise) {
@@ -5794,7 +5794,7 @@ function loadOphanimSrc() {
         resolve(ophanimSrc);
       };
       img.onerror = () => resolve(ophanimSrc);
-      img.src = "/assets/ophanim.jpg";
+      img.src = "/ophanim.jpg";
     });
   }
   return ophanimPromise;
