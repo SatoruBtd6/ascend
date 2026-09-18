@@ -34,7 +34,7 @@ export default async function handler(req, res) {
         instructions: true,
         options: { round_trip: { length, points, seed }, ...(Object.keys(weightings).length ? { profile_params: { weightings } } : {}) },
       };
-      const r = await fetch("https://api.openrouteservice.org/v2/directions/foot-walking/geojson", {
+      const r = await fetch("https://api.heigit.org/openrouteservice/v2/directions/foot-walking/geojson", {
         method: "POST",
         headers: { Authorization: process.env.ORS_API_KEY, "Content-Type": "application/json", Accept: "application/geo+json" },
         body: JSON.stringify(body),
