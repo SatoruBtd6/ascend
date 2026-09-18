@@ -518,7 +518,7 @@ function workoutXp(s, exercises, bests) {
       sets++;
       const { xp: sx, note } = setXp(s, def, st, ex);
       line.xp += sx; xp += sx;
-      const label = def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`;
+      const label = (def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`) + (st.drop ? " drop" : "");
       let pr = false;
       if (def.type !== "timed") {
         volume += (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0);
@@ -531,6 +531,86 @@ function workoutXp(s, exercises, bests) {
     lines.push(line);
   });
   return { xp: xp + prs * 40, prs, volume, sets, lines, prBonus: prs * 40 };
+}
+function workoutRecap(s, workout) {
+  const lifts = (workout.exercises || []).map((ex) => {
+    const def = findEx(s, ex.name);
+    const working = (ex.sets || []).filter((st) => +st.r > 0);
+    let rank = null, best = 0;
+    if (def.type !== "timed" && working.length) {
+      best = Math.max(...working.map((st) => bestValue(def, st, s.profile, ex)));
+      rank = rankFor(def, best, s.profile);
+    }
+    const vol = working.reduce((a, st) => a + (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0), 0);
+    return { name: ex.name, group: def.group, rank, best, vol, sets: working, drops: working.filter((st) => st.drop).length };
+  }).filter((l) => l.sets.length);
+  const scored = lifts.filter((l) => l.rank);
+  const avg = scored.length ? scored.reduce((a, l) => a + l.rank.score, 0) / scored.length : 0;
+  return { lifts, overall: scored.length ? rankFromScore(avg) : null };
+}
+function WorkoutRecap({ s, setS }) {
+  const sum = s.lastSummary;
+  const recap = sum.recap || { lifts: [], overall: null };
+  const [open, setOpen] = useState(null);
+  const fetched = useRef(false);
+  useEffect(() => {
+    if (fetched.current || sum.sterling) return;
+    fetched.current = true;
+    const lifts = recap.lifts.map((l) => `${l.name}${l.rank ? ` ${l.rank.label}` : ""} ${l.sets.map((st) => setLabel(findEx(s, l.name), st)).join(", ")}`).join(" | ");
+    askJson(STERLING_SYS, `Just finished a workout titled "${sum.title || "untitled"}". Overall session rank: ${recap.overall?.label || "unranked"}. PRs: ${sum.prNames?.join(", ") || "none"}. Volume ${Math.round(sum.volume)} lb in ${sum.minutes || "?"} min. Lifts: ${lifts || "none"}. Bodyweight ${s.profile.weight} lb. Give 3 specific tips to improve the next time they do this session. Respond ONLY with JSON: {"quip": "one short funny line", "tips": ["tip 1", "tip 2", "tip 3"]}`)
+      .then((r) => setS((p) => p.lastSummary ? { ...p, lastSummary: { ...p.lastSummary, sterling: { quip: r.quip || "", tips: (r.tips || []).slice(0, 3).map(String) } } } : p))
+      .catch(() => setS((p) => p.lastSummary ? { ...p, lastSummary: { ...p.lastSummary, sterling: { quip: "", tips: [], err: true } } } : p));
+  }, []);
+  const stl = sum.sterling;
+  const overall = recap.overall;
+  return (
+    <div className="panel p-4 space-y-3" style={{ borderColor: overall?.rank.color || C.green }}>
+      <div className="flex justify-between items-start gap-2">
+        <div>
+          <div className="font-bold">{sum.title ? `${sum.title} breakdown` : "Workout breakdown"}</div>
+          <div className="body text-xs" style={{ color: C.dim }}>+{sum.xp} XP · {Math.round(sum.volume).toLocaleString()} lb{sum.minutes ? ` · ${sum.minutes} min` : ""}{sum.sets ? ` · ${sum.sets} sets` : ""}{sum.prs ? ` · ${sum.prs} PR${sum.prs > 1 ? "s" : ""}` : ""}</div>
+        </div>
+        <button aria-label="Dismiss" onClick={() => setS((p) => ({ ...p, lastSummary: null }))} style={{ color: C.mute }}><X size={16} /></button>
+      </div>
+      <div className="flex items-center gap-3">
+        {overall ? <RankBadge rank={overall.rank} size={48} /> : <div className="font-bold" style={{ color: C.mute }}>Unranked</div>}
+        <div>
+          <div className="font-extrabold text-xl" style={{ color: overall?.rank.color || C.mute, textShadow: overall ? `0 0 12px ${overall.rank.glow}` : "none" }}>{overall ? overall.label : "Cardio / timed"}</div>
+          <div className="body text-xs" style={{ color: C.dim }}>Overall session rank from the lifts you logged</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[["XP", `+${sum.xp}`], ["Volume", `${Math.round(sum.volume).toLocaleString()} lb`], ["Time", sum.minutes ? `${sum.minutes} min` : "–"], ["Sets", sum.sets || recap.lifts.reduce((a, l) => a + l.sets.length, 0)], ["PRs", sum.prs || 0], ["Streak", `${streakOf(s)}d`]].map(([l, v]) => (
+          <div key={l} className="ghost py-2 px-1 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="font-bold glowtext">{v}</div></div>
+        ))}
+      </div>
+      <div className="space-y-1">
+        <div className="font-bold text-sm flex items-center gap-2"><Bot size={16} style={{ color: C.cyan }} />Sterling's next-session notes</div>
+        {!stl && <div className="body text-sm flex items-center gap-2" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Reading your session…</div>}
+        {stl?.err && <div className="body text-xs" style={{ color: C.mute }}>Couldn't reach Sterling. Your ranks below still stand.</div>}
+        {stl?.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{stl.quip}"</div>}
+        {(stl?.tips || []).map((t, i) => <div key={i} className="body text-sm" style={{ color: C.text }}>• {t}</div>)}
+      </div>
+      {sum.suggestions?.length > 0 && <div className="body text-xs" style={{ color: C.dim }}>Next time: {sum.suggestions.map((x) => `${x.name} ${x.next.w}×${x.next.r}`).join(" · ")}</div>}
+      <div className="space-y-2">
+        <div className="font-bold text-sm">Exercise ranks</div>
+        {recap.lifts.map((l) => (
+          <button key={l.name} onClick={() => setOpen(open === l.name ? null : l.name)} className="panel p-3 w-full text-left space-y-1">
+            <div className="flex items-center gap-2">
+              {l.rank ? <RankBadge rank={l.rank.rank} size={28} /> : <span className="body text-xs" style={{ color: C.mute }}>–</span>}
+              <div className="flex-1 min-w-0"><div className="font-semibold truncate">{l.name}</div><div className="body text-xs" style={{ color: C.dim }}>{l.rank ? l.rank.label : "Unranked"} · {Math.round(l.vol).toLocaleString()} lb{l.drops ? ` · ${l.drops} drop${l.drops > 1 ? "s" : ""}` : ""}</div></div>
+              <ChevronDown size={14} style={{ transform: open === l.name ? "rotate(180deg)" : "none", color: C.mute }} />
+            </div>
+            {open === l.name && <div className="body text-xs" style={{ color: C.sub }}>{l.sets.map((st) => setLabel(findEx(s, l.name), st)).join(" · ")}</div>}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: sum.prs ? "New PR" : "Workout complete", headline: overall ? `${overall.label} session` : (sum.title ? `${sum.title} day` : "Session done"), sub: recap.lifts.map((l) => `${l.name}${l.rank ? ` ${l.rank.label}` : ""}`).join(" · "), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${sum.xp}`], ["Volume", `${Math.round(sum.volume).toLocaleString()} lb`], ["Time", sum.minutes ? `${sum.minutes} min` : "–"], ["Overall", overall?.label || "–"], ["Streak", `${streakOf(s)} days`]] })} />
+        {s.lb && sum.workoutId && <button onClick={() => { const w = s.workouts.find((x) => x.id === sum.workoutId); if (!w || w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>{s.workouts.find((x) => x.id === sum.workoutId)?.shared ? "Shared" : "Share to feed"}</button>}
+      </div>
+    </div>
+  );
 }
 
 const TIER_STYLE = [null,
@@ -637,7 +717,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5h";
+const APP_VERSION = "5i";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -1307,7 +1387,10 @@ function pastSessions(s, name, excludeId, n = 3) {
   }
   return out;
 }
-const setLabel = (def, st) => (def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`);
+const setLabel = (def, st) => {
+  const core = def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`;
+  return st.drop ? `${core} drop` : core;
+};
 
 function Train({ s, setS, gainXp, openRun }) {
   const [picker, setPicker] = useState(false);
@@ -1335,12 +1418,12 @@ function Train({ s, setS, gainXp, openRun }) {
       gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
       return;
     }
-    const { xp, prs, volume, lines, prBonus } = workoutXp(s, exercises, computeBests(s));
+    const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, computeBests(s));
     const d = today();
     const workout = { id: uid(), date: d, title: a.title || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start };
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
-    setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name) } }));
+    setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
     juice(prs ? "pr" : "finish");
     if (prs) { postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
     gainXp(xp, prs ? `Workout · ${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete", `wo_${workout.id}`);
@@ -1363,7 +1446,7 @@ function Train({ s, setS, gainXp, openRun }) {
     setNaming(false); setPresetName("");
   };
   const editWorkout = (w) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true })) })) } }));
+    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop })) })) } }));
     window.scrollTo?.(0, 0);
   };
 
@@ -1398,14 +1481,7 @@ function Train({ s, setS, gainXp, openRun }) {
           </div>
         )}
 
-        {s.lastSummary && (
-          <div className="panel p-4 space-y-2" style={{ borderColor: C.green }}>
-            <div className="flex justify-between items-center"><div className="font-bold">Last workout{s.lastSummary.title ? ` · ${s.lastSummary.title}` : ""}</div><button aria-label="Dismiss" onClick={() => setS((p) => ({ ...p, lastSummary: null }))} style={{ color: C.mute }}><X size={16} /></button></div>
-            <div className="body text-sm" style={{ color: C.sub }}>+{s.lastSummary.xp} XP · {Math.round(s.lastSummary.volume).toLocaleString()} lb{s.lastSummary.minutes ? ` · ${s.lastSummary.minutes} min` : ""}{s.lastSummary.prs ? ` · ${s.lastSummary.prs} PR${s.lastSummary.prs > 1 ? "s" : ""} (${s.lastSummary.prNames.join(", ")})` : ""}</div>
-            {s.lastSummary.suggestions.length > 0 && <div className="body text-xs" style={{ color: C.dim }}>Next time: {s.lastSummary.suggestions.map((x) => `${x.name} ${x.next.w}×${x.next.r}`).join(" · ")}</div>}
-            <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: s.lastSummary.prs ? "New PR" : "Workout complete", headline: s.lastSummary.prs ? `${s.lastSummary.prs} new PR${s.lastSummary.prs > 1 ? "s" : ""}` : (s.lastSummary.title ? `${s.lastSummary.title} day` : "Session done"), sub: s.lastSummary.prNames?.length ? s.lastSummary.prNames.join(", ") : s.lastSummary.title || "", tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${s.lastSummary.xp}`], ["Volume", `${Math.round(s.lastSummary.volume).toLocaleString()} lb`], ["Time", s.lastSummary.minutes ? `${s.lastSummary.minutes} min` : "–"], ["Streak", `${streakOf(s)} days`]] })} />
-          </div>
-        )}
+        {s.lastSummary && <WorkoutRecap s={s} setS={setS} />}
 
         <h2 className="text-lg font-bold pt-2">History</h2>
         {(() => { const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))]; return titles.length ? (
@@ -1512,7 +1588,7 @@ function Train({ s, setS, gainXp, openRun }) {
               return (
                 <React.Fragment key={si}>
                 <div className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3 }}>
-                  <span className="font-semibold text-center">{si + 1}</span>
+                  <span className="font-semibold text-center" style={{ color: st.drop ? C.orange : C.text }}>{st.drop ? "D" : si + 1}</span>
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
                   {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
                   <input type="number" inputMode="decimal" className="inp text-center" value={st.r} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
@@ -1520,11 +1596,21 @@ function Train({ s, setS, gainXp, openRun }) {
                     className="h-8 flex items-center justify-center" style={{ background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
                   <button aria-label="Delete set" onClick={() => delSet(si)} className="h-8 flex items-center justify-center" style={{ color: C.mute }}><X size={14} /></button>
                 </div>
+                {def.type !== "timed" && <button onClick={() => upd(si, { drop: !st.drop, w: !st.drop && +st.w > 0 ? String(Math.round(+st.w * 0.8)) : st.w })} className="body text-xs pl-9 -mt-0.5 mb-1 text-left" style={{ color: st.drop ? C.orange : C.mute }}>{st.drop ? "Drop set · tap to unmark" : "Mark as drop set"}</button>}
                 {def.type === "assisted" && (+st.w > 0 || +st.r > 0) && <div className="body text-xs pl-9 -mt-0.5 mb-1" style={{ color: C.dim }}>You moved <span style={{ color: C.text, fontWeight: 600 }}>{Math.round(movedLb(s.profile, st.w))} lb</span> ({Math.round(Math.max(80, +s.profile.weight || 170))} − {+st.w || 0}){+st.r > 0 ? ` · counts as ${Math.round(assistedReps(s.profile, st) * 10) / 10} ${def.rankAs.toLowerCase()}s` : ""}</div>}
                 </React.Fragment>
               );
             })}
-            <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: [...e.sets, { w: e.sets.at(-1)?.w || "", r: "", done: false }] }) }))} className="ghost w-full mt-2 py-2 text-sm font-semibold">Add set</button>
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: [...e.sets, { w: e.sets.at(-1)?.w || "", r: "", done: false }] }) }))} className="ghost flex-1 py-2 text-sm font-semibold">Add set</button>
+              {def.type !== "timed" && <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => {
+                if (i !== ei) return e;
+                const last = [...e.sets].reverse().find((st) => +st.w > 0) || e.sets.at(-1) || { w: "", r: "" };
+                const dropW = +last.w > 0 ? String(Math.round(+last.w * 0.8)) : (last.w || "");
+                return { ...e, sets: [...e.sets, { w: dropW, r: last.r || "", done: false, drop: true }] };
+              }) }))} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.orange, borderColor: C.orange }}>Drop set</button>}
+            </div>
+            <FormCheck exercise={ex.name} compact />
           </div>
         );
       })}
@@ -4272,9 +4358,9 @@ function TrainCoach({ s, a, onAdd }) {
     try {
       const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Done so far this session: ${done || "nothing yet"}. Recent workouts:\n${history || "none"}\nLift ranks: ${ranks || "none"}. Bodyweight ${s.profile.weight} lb.
 Recommend what to do next to make this workout as effective as possible for the stated title (balance muscle groups, sensible order, reasonable volume, don't repeat what's done unless more sets are warranted). Choose exercise names ONLY from this list, spelled exactly: ${names}.
-Respond ONLY with JSON: {"quip": "one short funny line", "tip": "one sentence of practical advice about the session so far", "next": [{"exercise": "exact name from list", "sets": n, "reps": "e.g. 8-10", "why": "under 10 words"}], "form": "exact exercise name from what they've done that most commonly needs form correction, or null"}`);
+Respond ONLY with JSON: {"quip": "one short funny line", "tip": "one sentence of practical advice about the session so far", "next": [{"exercise": "exact name from list", "sets": n, "reps": "e.g. 8-10", "why": "under 10 words"}]}`);
       const valid = new Set(allExercises(s).map((e) => e.name));
-      setState({ status: "done", quip: r.quip || "", tip: r.tip || "", form: valid.has(r.form) ? r.form : null, next: (r.next || []).filter((n) => valid.has(n.exercise)).slice(0, 3) });
+      setState({ status: "done", quip: r.quip || "", tip: r.tip || "", form: null, next: (r.next || []).filter((n) => valid.has(n.exercise)).slice(0, 3) });
     } catch (e) { setState({ status: "error", next: [], tip: "", form: null, quip: "" }); }
   };
   useEffect(() => {
@@ -4303,7 +4389,6 @@ Respond ONLY with JSON: {"quip": "one short funny line", "tip": "one sentence of
           </div>
         );
       })}
-      {state.form && <a href={ytUrl(state.form)} target="_blank" rel="noreferrer" className="ghost w-full py-2 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: C.orange }}><Youtube size={16} />Form check: {state.form}</a>}
     </div>
   );
 }
@@ -4819,19 +4904,19 @@ function Ceremony({ c, onClose }) {
 const TITLES = [
   { id: "rookie", name: "Rookie", req: () => true, how: "Everyone starts here" },
   { id: "showup", name: "Regular", req: (s) => !!s.ach?.["workouts-0"], how: "Show Up I" },
-  { id: "roadrunner", name: "Road Runner", req: (s) => !!s.ach?.["miles-1"], how: "Road Runner II" },
-  { id: "cardio", name: "Cardio Menace", req: (s) => !!s.ach?.["miles-2"], how: "Road Runner III" },
-  { id: "iron", name: "Iron Mover", req: (s) => !!s.ach?.["volume-1"], how: "Iron Mover II" },
-  { id: "rep", name: "Rep Machine", req: (s) => !!s.ach?.["reps-1"], how: "Rep Machine II" },
-  { id: "unbroken", name: "Unbroken", req: (s) => !!s.ach?.["streak-1"], how: "Unbroken II (30-day streak)" },
-  { id: "barhanger", name: "Bar Hanger", req: (s) => !!s.ach?.["pullups-1"], how: "Bar Hanger II" },
-  { id: "plates", name: "Two Plates", req: (s) => !!s.ach?.["bench-1"], how: "Bench Club II (225)" },
-  { id: "squatlord", name: "Squat Lord", req: (s) => !!s.ach?.["squat-2"], how: "Squat Club III (405)" },
-  { id: "deadking", name: "Deadlift King", req: (s) => !!s.ach?.["deadlift-2"], how: "Deadlift Club III (405)" },
-  { id: "quester", name: "Quest Hunter", req: (s) => !!s.ach?.["quests-1"], how: "Quest Hunter II" },
-  { id: "ascended", name: "Ascended", req: (s) => !!s.ach?.["rank-2"], how: "First A-rank lift" },
+  { id: "roadrunner", name: "Road Runner", req: (s) => !!s.ach?.["miles-0"], how: "Road Runner I (10 miles)" },
+  { id: "cardio", name: "Cardio Menace", req: (s) => !!s.ach?.["miles-1"], how: "Road Runner II" },
+  { id: "iron", name: "Iron Mover", req: (s) => !!s.ach?.["volume-0"], how: "Iron Mover I" },
+  { id: "rep", name: "Rep Machine", req: (s) => !!s.ach?.["reps-0"], how: "Rep Machine I" },
+  { id: "unbroken", name: "Unbroken", req: (s) => !!s.ach?.["streak-0"], how: "Unbroken I (7-day streak)" },
+  { id: "barhanger", name: "Bar Hanger", req: (s) => !!s.ach?.["pullups-0"], how: "Bar Hanger I" },
+  { id: "plates", name: "Two Plates", req: (s) => !!s.ach?.["bench-0"], how: "Bench Club I (135)" },
+  { id: "squatlord", name: "Squat Lord", req: (s) => !!s.ach?.["squat-0"], how: "Squat Club I (225)" },
+  { id: "deadking", name: "Deadlift King", req: (s) => !!s.ach?.["deadlift-0"], how: "Deadlift Club I (225)" },
+  { id: "quester", name: "Quest Hunter", req: (s) => !!s.ach?.["quests-0"], how: "Quest Hunter I" },
+  { id: "ascended", name: "Ascended", req: (s) => !!s.ach?.["rank-1"], how: "First B-rank lift" },
   { id: "mythic", name: "Mythic", req: (s) => Object.keys(s.ach || {}).some((id) => allAchievements().find((a) => a.id === id)?.tier === 5), how: "Any Mythic achievement" },
-  { id: "elite", name: "Elite", req: (s) => overallInfo(s).score >= 5, how: "Reach S overall" },
+  { id: "elite", name: "Elite", req: (s) => overallInfo(s).score >= 4, how: "Reach A overall" },
   { id: "gymgod", name: "Gym God", req: (s) => overallInfo(s).score >= 6, how: "????" },
   { id: "boss_wyrm", name: "Wyrmslayer", req: (s) => (s.loot?.bosses || []).includes("wyrm"), how: "Defeat The Iron Wyrm" },
   { id: "boss_colossus", name: "Icebreaker", req: (s) => (s.loot?.bosses || []).includes("colossus"), how: "Defeat Frost Colossus" },
@@ -4849,7 +4934,7 @@ const TITLES = [
   { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
   { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
   { id: "reigning", name: "Reigning", req: (s) => !!s.lbReigning, how: "Hold #1 on the season board" },
-  { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 3, how: "Beat your Nemesis in 3 duels" },
+  { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 2, how: "Beat your Nemesis in 2 duels" },
   { id: "soon_seraph", name: "Seraph", req: () => false, how: "Coming soon", soon: true },
   { id: "soon_first", name: "World First", req: () => false, how: "Coming soon", soon: true },
 ];
@@ -5013,7 +5098,7 @@ async function videoFrames(file, n = 5, size = 360) {
     return frames;
   } finally { URL.revokeObjectURL(url); }
 }
-function FormCheck({ exercise }) {
+function FormCheck({ exercise, compact }) {
   const ref = useRef(null);
   const [state, setState] = useState({ status: "idle", text: "" });
   const onFile = async (e) => {
@@ -5035,11 +5120,11 @@ function FormCheck({ exercise }) {
     } catch (err) { setState({ status: "error", text: "Couldn't read that video. Try a 5–15 second clip filmed from the side." }); }
   };
   return (
-    <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
-      <div className="font-bold flex items-center gap-2"><Video size={18} style={{ color: C.cyan }} />Form check by video</div>
-      <div className="body text-xs" style={{ color: C.dim }}>Film one set from the side, 5–15 seconds. Sterling looks at a few frames and gives cues. Videos aren't stored.</div>
+    <div className={compact ? "mt-2 space-y-1.5" : "panel p-4 space-y-2"} style={compact ? null : { borderColor: C.cyan }}>
+      <div className={`font-bold flex items-center gap-2 ${compact ? "text-sm" : ""}`}><Video size={compact ? 14 : 18} style={{ color: C.cyan }} />{compact ? `Form check · ${exercise}` : "Form check by video"}</div>
+      {!compact && <div className="body text-xs" style={{ color: C.dim }}>Film one set from the side, 5–15 seconds. Sterling looks at a few frames and gives cues. Videos aren't stored.</div>}
       <input ref={ref} type="file" accept="video/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
-      <button onClick={() => ref.current?.click()} disabled={state.status === "loading"} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2">{state.status === "loading" ? <><Loader2 size={16} className="animate-spin" />Watching your set…</> : <><Camera size={16} />Record or choose a clip</>}</button>
+      <button onClick={() => ref.current?.click()} disabled={state.status === "loading"} className={`${compact ? "ghost" : "btn"} w-full py-2 text-sm flex items-center justify-center gap-2`}>{state.status === "loading" ? <><Loader2 size={16} className="animate-spin" />Watching your set…</> : <><Camera size={16} />{compact ? "Film this lift" : "Record or choose a clip"}</>}</button>
       {state.text && <div className="body text-sm" style={{ color: state.status === "error" ? C.red : C.text }}>{state.text}</div>}
     </div>
   );
@@ -5685,16 +5770,16 @@ function Physique({ tier = 0, height = 220, aura, caption }) {
 /* ---------- Auras + borders ---------- */
 const AURAS = [
   { id: "none", name: "None", how: "", group: "rank" },
-  { id: "ember", name: "Ember", how: "Any lift at D", tier: 1, group: "rank", colors: ["#FF9340", "#FF4D6D"] },
-  { id: "tide", name: "Tide", how: "Any lift at C", tier: 2, group: "rank", colors: ["#38C6FF", "#2F6BFF"] },
-  { id: "storm", name: "Storm", how: "Any lift at B", tier: 3, group: "rank", colors: ["#B14BFF", "#38C6FF"] },
-  { id: "inferno", name: "Inferno", how: "Any lift at A", tier: 4, group: "rank", colors: ["#FF2D6F", "#FFB43C"] },
-  { id: "halo", name: "Halo", how: "Any lift at S", tier: 5, group: "rank", colors: ["#FFD447", "#FFFFFF"] },
-  { id: "godray", name: "Godray", how: "Any lift at SS", tier: 6, group: "rank", colors: ["#FFFFFF", "#7DF9FF"] },
-  { id: "smolder", name: "Smoldering Ember", how: "Train 30 days in a row", task: "streak30", group: "feat", colors: ["#FF6A2B", "#7A1E0E"] },
+  { id: "ember", name: "Ember", how: "Log your first workout", task: "train1", group: "rank", colors: ["#FF9340", "#FF4D6D"] },
+  { id: "tide", name: "Tide", how: "Any lift at D", tier: 1, group: "rank", colors: ["#38C6FF", "#2F6BFF"] },
+  { id: "storm", name: "Storm", how: "Any lift at C", tier: 2, group: "rank", colors: ["#B14BFF", "#38C6FF"] },
+  { id: "inferno", name: "Inferno", how: "Any lift at B", tier: 3, group: "rank", colors: ["#FF2D6F", "#FFB43C"] },
+  { id: "halo", name: "Halo", how: "Any lift at A", tier: 4, group: "rank", colors: ["#FFD447", "#FFFFFF"] },
+  { id: "godray", name: "Godray", how: "Any lift at S", tier: 5, group: "rank", colors: ["#FFFFFF", "#7DF9FF"] },
+  { id: "smolder", name: "Smoldering Ember", how: "Train 14 days in a row", task: "streak30", group: "feat", colors: ["#FF6A2B", "#7A1E0E"] },
   { id: "stormborn", name: "Stormborn", how: "Log a run in rain, snow, or 40°F and below", task: "weatherRun", group: "feat", colors: ["#8FB8FF", "#E6F0FF"] },
   { id: "dawn", name: "Dawnbreaker", how: "Start a workout between 4 and 6 AM", task: "dawn", group: "feat", colors: ["#FF8A5B", "#FFD36B"] },
-  { id: "wanderer", name: "Wanderer", how: "10,000 steps a day, 7 days in a row", task: "steps7", group: "feat", colors: ["#7BC96F", "#E0B872"] },
+  { id: "wanderer", name: "Wanderer", how: "10,000 steps a day, 3 days in a row", task: "steps7", group: "feat", colors: ["#7BC96F", "#E0B872"] },
   { id: "wyrm", name: "Wyrmfire", how: "Defeat the Iron Wyrm", loot: "wyrm", group: "boss", colors: ["#3DF08A", "#FFD447"] },
   { id: "frost", name: "Frostbite", how: "Defeat the Frost Colossus", loot: "colossus", group: "boss", colors: ["#B3ECFF", "#FFFFFF"] },
   { id: "abyss", name: "Abyss", how: "Defeat the Gravemaw", loot: "gravemaw", group: "boss", colors: ["#6A00FF", "#FF2D6F"] },
@@ -5718,9 +5803,9 @@ const AURAS = [
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
   { id: "steel", name: "Steel", how: "Any lift at D", tier: 1, css: "linear-gradient(135deg,#dfe6ee,#6f7c8c,#dfe6ee)" },
-  { id: "gold", name: "Gold", how: "Any lift at B", tier: 3, css: "linear-gradient(135deg,#fff1b8,#c9962e,#fff1b8)" },
-  { id: "prism", name: "Prism", how: "Any lift at A", tier: 4, css: "conic-gradient(#ff3cac,#ffb43c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)", spin: true },
-  { id: "obsidian", name: "Obsidian", how: "Any lift at S", tier: 5, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
+  { id: "gold", name: "Gold", how: "Any lift at C", tier: 2, css: "linear-gradient(135deg,#fff1b8,#c9962e,#fff1b8)" },
+  { id: "prism", name: "Prism", how: "Any lift at B", tier: 3, css: "conic-gradient(#ff3cac,#ffb43c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)", spin: true },
+  { id: "obsidian", name: "Obsidian", how: "Any lift at A", tier: 4, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
   { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
   { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
   { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/season-one.svg", spin: true },
@@ -5730,10 +5815,11 @@ const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sor
 const wetCode = (c) => (c >= 51 && c <= 67) || (c >= 71 && c <= 77) || (c >= 80 && c <= 86) || c >= 95;
 // Feat auras: each has a check and a progress readout. Once met, the unlock is saved to s.auraUnlocks for good.
 const AURA_TASKS = {
-  streak30: (s) => { const v = longestRun(activeDays(s)); return { done: v >= 30, v: Math.min(v, 30), goal: 30, label: `Best streak ${Math.min(v, 30)} / 30 days` }; },
+  train1: (s) => { const v = (s.workouts || []).filter(isWorkout).length; return { done: v >= 1, v: Math.min(v, 1), goal: 1, label: v ? "First session logged" : "Finish any workout" }; },
+  streak30: (s) => { const v = longestRun(activeDays(s)); return { done: v >= 14, v: Math.min(v, 14), goal: 14, label: `Best streak ${Math.min(v, 14)} / 14 days` }; },
   weatherRun: (s) => { const hit = (s.workouts || []).some((w) => w.run?.wx && (w.run.wx.wet || w.run.wx.t <= 40)); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Braved the weather" : "Runs record the weather where you start" }; },
   dawn: (s) => { const hit = (s.workouts || []).some((w) => { if (!w.startedAt) return false; const h = new Date(w.startedAt).getHours(); return h >= 4 && h < 6; }); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Up before the sun" : "Counts from when you tap Start" }; },
-  steps7: (s) => { const v = longestRun(Object.keys(s.steps || {}).filter((d) => (+s.steps[d] || 0) >= 10000)); return { done: v >= 7, v: Math.min(v, 7), goal: 7, label: `Best run ${Math.min(v, 7)} / 7 days at 10k` }; },
+  steps7: (s) => { const v = longestRun(Object.keys(s.steps || {}).filter((d) => (+s.steps[d] || 0) >= 10000)); return { done: v >= 3, v: Math.min(v, 3), goal: 3, label: `Best run ${Math.min(v, 3)} / 3 days at 10k` }; },
 };
 function unlocked(item, s) {
   if (item.id === "none") return true;
@@ -5760,38 +5846,38 @@ async function fetchRunWeather(lat, lng) {
   } catch (e) { return null; } finally { clearTimeout(t); }
 }
 
-/* Particle recipes. Layer kinds: rise, orbit, fall, inward, bubble. Extras: rays, bolts, glow. */
+/* Particle recipes. size < 1 keeps every aura smaller than Ophanim. Easy = few slow motes; hard = denser, faster, flashier. */
 const AURA_FX = {
-  ember: { glow: 0.55, layers: [{ k: "rise", n: 26, shape: "spark", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [18, 38], life: [1, 2.2], sz: [1, 2.2], sway: 10 }, { k: "rise", n: 10, shape: "dot", c: ["#FF9340", "#FF4D6D"], sp: [10, 20], life: [1.2, 2], sz: [3, 6], sway: 6, a: 0.5 }] },
-  tide: { glow: 0.5, layers: [{ k: "bubble", n: 14, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2, 5] }, { k: "orbit", n: 22, shape: "dot", c: ["#38C6FF", "#2F6BFF", "#B3ECFF"], w: [0.8, 1.4], r: [0.95, 1.2], sz: [1.5, 3], wave: 0.08 }] },
-  storm: { glow: 0.55, bolts: { every: [0.9, 2.2], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 30, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.6, 2.6], r: [0.9, 1.25], sz: [1, 2] }] },
-  inferno: { glow: 0.7, layers: [{ k: "rise", n: 34, shape: "dot", c: ["#FF2D6F", "#FF5A1F", "#FFB43C"], sp: [26, 50], life: [0.6, 1.2], sz: [3, 8], sway: 5, a: 0.8 }, { k: "rise", n: 18, shape: "spark", c: ["#FFE08A", "#FFB43C"], sp: [40, 70], life: [0.6, 1.3], sz: [0.8, 1.6], sway: 14 }] },
-  halo: { glow: 0.75, rays: { n: 12, c: "#FFD447", spin: 0.18, len: 1.55, a: 0.16 }, layers: [{ k: "orbit", n: 24, shape: "dot", c: ["#FFF6C9", "#FFD447"], w: [0.35, 0.7], r: [1.02, 1.2], sz: [1.5, 3.2], tw: 1 }] },
-  godray: { glow: 0.85, rays: { n: 16, c: "#DFFBFF", spin: -0.12, len: 1.8, a: 0.2 }, layers: [{ k: "rise", n: 22, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [10, 22], life: [1.4, 2.6], sz: [1.5, 3], sway: 4, tw: 1 }, { k: "orbit", n: 18, shape: "dot", c: ["#FFFFFF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.3], sz: [1.2, 2.4] }] },
-  smolder: { glow: 0.6, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [8, 16], life: [2.4, 3.6], sz: [8, 16], sway: 8, a: 0.35, blend: "source-over" }, { k: "rise", n: 30, shape: "spark", c: ["#FF6A2B", "#FFB070", "#FF8A3D"], sp: [10, 22], life: [1.6, 3], sz: [1.1, 2.1], sway: 12, flick: 1 }, { k: "orbit", n: 10, shape: "dot", c: ["#C2361A", "#FF6A2B"], w: [0.2, 0.35], r: [0.98, 1.08], sz: [2, 4], tw: 1 }] },
-  stormborn: { glow: 0.35, bolts: { every: [1.2, 3], c: ["#FFFFFF", "#BFD6FF"], flash: 1 }, layers: [{ k: "fall", n: 36, shape: "drop", c: ["#BFD6FF", "#8FB8FF", "#E6F0FF"], sp: [120, 170], sz: [0.8, 1.3], drift: -18, a: 0.7 }, { k: "orbit", n: 8, shape: "smoke", c: ["#566478", "#3E4A5C"], w: [0.15, 0.25], r: [1.25, 1.45], sz: [10, 16], a: 0.35, blend: "source-over", top: 1 }] },
-  dawn: { glow: 0.6, rays: { n: 9, c: "#FFB978", spin: 0.08, len: 1.7, a: 0.2, fan: 1 }, layers: [{ k: "rise", n: 22, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFE9C2"], sp: [8, 18], life: [1.8, 3.2], sz: [1.2, 2.6], sway: 6, tw: 1 }] },
-  wanderer: { glow: 0.35, layers: [{ k: "orbit", n: 14, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.5, 0.9], r: [1, 1.35], sz: [2.5, 4], wave: 0.12 }, { k: "rise", n: 14, shape: "dot", c: ["#E0B872", "#F3DDB0"], sp: [6, 14], life: [1.6, 2.8], sz: [1, 2], sway: 10, a: 0.7 }] },
-  wyrm: { glow: 0.6, layers: [{ k: "orbit", n: 22, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [0.9, 1.5], r: [0.95, 1.25], sz: [2.5, 4.5] }, { k: "rise", n: 16, shape: "spark", c: ["#3DF08A", "#FFD447"], sp: [20, 40], life: [0.8, 1.6], sz: [1, 1.8], sway: 10 }] },
-  frost: { glow: 0.55, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [14, 28], sz: [2, 4], drift: 8 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.3, 0.6], r: [1, 1.2], sz: [2.5, 4] }] },
-  abyss: { glow: 0.45, layers: [{ k: "inward", n: 30, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.5, 0.9], life: [1.2, 2.2], sz: [1.5, 3.5] }, { k: "orbit", n: 18, shape: "spark", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [0.6, 1.4], r: [0.95, 1.25], sz: [1, 2] }] },
-  chud: { glow: 0.45, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.5, 0.5], r: [1.12, 1.12], sz: [0.16, 0.16], bob: 1, even: 1 }, { k: "rise", n: 12, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over" }] },
-  rust: { glow: 0.4, layers: [{ k: "fall", n: 30, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [16, 30], sz: [1.5, 3], drift: 10, spin: 1 }, { k: "rise", n: 10, shape: "spark", c: ["#FFB86B", "#FF7A2D"], sp: [30, 60], life: [0.4, 0.9], sz: [0.8, 1.4], sway: 20 }] },
-  thunder: { glow: 0.55, bolts: { every: [0.5, 1.4], c: ["#FFF27A", "#7DD3FC"] }, layers: [{ k: "orbit", n: 26, shape: "spark", c: ["#7DD3FC", "#FFF27A"], w: [2, 3], r: [0.95, 1.2], sz: [1, 2] }] },
-  hollow: { glow: 0.5, layers: [{ k: "orbit", n: 14, shape: "shard", c: ["#9AA7BD", "#DDE6F2", "#FFFFFF"], w: [0.25, 0.5], r: [1, 1.3], sz: [3, 5] }, { k: "rise", n: 10, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [5, 10], life: [2, 3.4], sz: [8, 14], sway: 6, a: 0.25, blend: "source-over" }] },
-  deep: { glow: 0.55, layers: [{ k: "bubble", n: 18, c: ["#9BE7FF", "#00D9FF", "#6FA0FF"], sp: [14, 28], life: [1.4, 2.8], sz: [1.5, 5] }, { k: "inward", n: 16, shape: "dot", c: ["#2F6BFF", "#00D9FF"], sp: [0.3, 0.5], life: [1.8, 2.8], sz: [1, 2.2] }] },
-  magma: { glow: 0.7, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [16, 34], life: [0.8, 1.6], sz: [3, 7], sway: 4, a: 0.85 }, { k: "rise", n: 8, shape: "smoke", c: ["#3A1A10", "#24120A"], sp: [10, 16], life: [2, 3], sz: [10, 16], sway: 6, a: 0.4, blend: "source-over" }] },
-  plague: { glow: 0.45, layers: [{ k: "rise", n: 12, shape: "smoke", c: ["#8BC34A", "#5E8C2A"], sp: [6, 12], life: [2, 3.2], sz: [8, 14], sway: 8, a: 0.3 }, { k: "bubble", n: 12, c: ["#C6F07A", "#8BC34A"], sp: [10, 18], life: [1.2, 2.4], sz: [1.5, 3.5] }] },
-  sand: { glow: 0.4, layers: [{ k: "orbit", n: 44, shape: "dot", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.4, 2.4], r: [0.9, 1.45], sz: [0.8, 1.8], wave: 0.18, a: 0.9 }] },
-  void: { glow: 0.65, dark: 1, layers: [{ k: "inward", n: 30, shape: "dot", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.45, 0.8], life: [1.4, 2.4], sz: [3, 7], blend: "source-over", a: 0.9 }, { k: "orbit", n: 22, shape: "star", c: ["#FFFFFF", "#C9A8FF"], w: [0.25, 0.5], r: [1.05, 1.4], sz: [0.8, 1.6], tw: 1 }] },
-  yogurt: { glow: 0.4, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.45, 0.45], r: [1.12, 1.12], sz: [0.16, 0.16], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.5, 3.5] }] },
-  vendetta: { glow: 0.6, bolts: { every: [1.3, 2.6], c: ["#FF4D6D", "#FFB3C1"] }, layers: [{ k: "inward", n: 22, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.5, 0.9], life: [1.2, 2.2], sz: [2.5, 6], blend: "source-over", a: 0.85 }, { k: "rise", n: 22, shape: "spark", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [18, 36], life: [0.9, 1.8], sz: [1, 2], sway: 8 }, { k: "orbit", n: 10, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [0.9, 1.4], r: [1, 1.2], sz: [2.5, 4] }] },
-  champion: { glow: 0.65, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.6, a: 0.18 }, layers: [{ k: "rise", n: 24, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [14, 30], life: [1.2, 2.2], sz: [1.6, 3], sway: 14, spin: 1 }] },
-  ascended: { glow: 0.28, art: "ophanim", rays: { n: 16, c: "#FFD447", spin: 0.55, len: 1.95, a: 0.26 }, bolts: { every: [0.55, 1.3], c: ["#7DF9FF", "#FFD447", "#FFFFFF"] }, layers: [
-    { k: "orbit", n: 12, shape: "eye", c: ["#7DF9FF"], w: [0.7, 0.7], r: [1.32, 1.32], sz: [2.6, 2.6], even: 1 },
-    { k: "orbit", n: 8, shape: "eye", c: ["#FFD447"], w: [-1.05, -1.05], r: [1.08, 1.08], sz: [3.1, 3.1], even: 1 },
-    { k: "orbit", n: 16, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.45, 1.3], r: [1.18, 1.55], sz: [0.9, 1.8], tw: 1 },
-    { k: "rise", n: 22, shape: "spark", c: ["#FFD447", "#FFFFFF", "#7DF9FF"], sp: [18, 40], life: [0.7, 1.5], sz: [0.8, 1.6], sway: 12 },
+  ember: { size: 0.5, spd: 1.25, glow: 0.42, layers: [{ k: "rise", n: 14, shape: "spark", c: ["#FFB86B", "#FF6A2B"], sp: [22, 40], life: [0.7, 1.4], sz: [0.9, 1.6], sway: 8 }] },
+  tide: { size: 0.52, spd: 1.15, glow: 0.4, layers: [{ k: "bubble", n: 10, c: ["#9BE7FF", "#38C6FF"], sp: [16, 28], life: [1.2, 2.2], sz: [2, 4] }] },
+  storm: { size: 0.6, spd: 1.55, glow: 0.5, bolts: { every: [0.7, 1.6], c: ["#E6BFFF", "#7DF9FF"] }, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#B14BFF", "#38C6FF"], w: [2.2, 3.4], r: [0.92, 1.18], sz: [0.9, 1.7] }] },
+  inferno: { size: 0.66, spd: 1.7, glow: 0.62, layers: [{ k: "rise", n: 22, shape: "dot", c: ["#FF2D6F", "#FF5A1F", "#FFB43C"], sp: [36, 62], life: [0.45, 0.9], sz: [2.5, 6], sway: 6, a: 0.85 }, { k: "rise", n: 12, shape: "spark", c: ["#FFE08A", "#FF4D00"], sp: [50, 90], life: [0.4, 0.9], sz: [0.7, 1.4], sway: 16 }] },
+  halo: { size: 0.68, spd: 1.35, glow: 0.7, rays: { n: 10, c: "#FFD447", spin: 0.32, len: 1.28, a: 0.14 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#FFF6C9", "#FFD447"], w: [0.7, 1.2], r: [1.0, 1.16], sz: [1.3, 2.6], tw: 1 }] },
+  godray: { size: 0.76, spd: 1.45, glow: 0.78, rays: { n: 14, c: "#DFFBFF", spin: -0.28, len: 1.38, a: 0.18 }, layers: [{ k: "rise", n: 16, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [18, 34], life: [0.9, 1.7], sz: [1.2, 2.4], sway: 5, tw: 1 }, { k: "orbit", n: 14, shape: "spark", c: ["#FFFFFF", "#7DF9FF"], w: [1.2, 2.2], r: [1.02, 1.22], sz: [0.8, 1.6] }] },
+  smolder: { size: 0.62, spd: 1.2, glow: 0.52, layers: [{ k: "rise", n: 8, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [10, 18], life: [1.8, 2.8], sz: [6, 11], sway: 7, a: 0.32, blend: "source-over" }, { k: "rise", n: 20, shape: "spark", c: ["#FF6A2B", "#FFB070"], sp: [16, 32], life: [1, 1.8], sz: [1, 1.8], sway: 14, flick: 1 }] },
+  stormborn: { size: 0.66, spd: 1.65, glow: 0.38, bolts: { every: [0.8, 1.8], c: ["#FFFFFF", "#BFD6FF"], flash: 1 }, layers: [{ k: "fall", n: 28, shape: "drop", c: ["#BFD6FF", "#8FB8FF", "#FFFFFF"], sp: [140, 200], sz: [0.7, 1.2], drift: -22, a: 0.75 }] },
+  dawn: { size: 0.58, spd: 1.1, glow: 0.55, rays: { n: 8, c: "#FFB978", spin: 0.14, len: 1.22, a: 0.18, fan: 1 }, layers: [{ k: "rise", n: 14, shape: "dot", c: ["#FFD36B", "#FF8A5B"], sp: [12, 24], life: [1.2, 2], sz: [1.2, 2.2], sway: 6, tw: 1 }] },
+  wanderer: { size: 0.54, spd: 0.95, glow: 0.32, layers: [{ k: "orbit", n: 10, shape: "leaf", c: ["#7BC96F", "#E0B872"], w: [0.7, 1.2], r: [1.02, 1.22], sz: [2, 3.4], wave: 0.1 }] },
+  wyrm: { size: 0.74, spd: 1.6, glow: 0.58, layers: [{ k: "orbit", n: 20, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.6, 2.6], r: [0.92, 1.2], sz: [2, 3.6] }, { k: "rise", n: 14, shape: "spark", c: ["#3DF08A", "#FFD447"], sp: [28, 55], life: [0.5, 1.1], sz: [0.9, 1.6], sway: 12 }] },
+  frost: { size: 0.7, spd: 1.4, glow: 0.52, layers: [{ k: "fall", n: 22, shape: "flake", c: ["#FFFFFF", "#B3ECFF"], sp: [22, 40], sz: [1.8, 3.4], drift: 14 }, { k: "orbit", n: 10, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.8, 1.5], r: [0.98, 1.16], sz: [2, 3.4] }] },
+  abyss: { size: 0.8, spd: 1.75, glow: 0.5, layers: [{ k: "inward", n: 26, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.9, 1.6], life: [0.7, 1.3], sz: [1.4, 3.2] }, { k: "orbit", n: 16, shape: "spark", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1.8, 3.2], r: [0.9, 1.2], sz: [0.9, 1.8] }] },
+  chud: { size: 0.56, spd: 1.05, glow: 0.38, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.7, 0.7], r: [1.08, 1.08], sz: [0.13, 0.13], bob: 1, even: 1 }] },
+  rust: { size: 0.72, spd: 1.5, glow: 0.42, layers: [{ k: "fall", n: 26, shape: "square", c: ["#C7743A", "#E39A5E", "#FF7A2D"], sp: [24, 44], sz: [1.3, 2.6], drift: 14, spin: 1 }, { k: "rise", n: 10, shape: "spark", c: ["#FFB86B", "#FF7A2D"], sp: [40, 80], life: [0.3, 0.7], sz: [0.7, 1.3], sway: 18 }] },
+  thunder: { size: 0.78, spd: 1.9, glow: 0.58, bolts: { every: [0.28, 0.7], c: ["#FFF27A", "#7DD3FC", "#FFFFFF"] }, layers: [{ k: "orbit", n: 22, shape: "spark", c: ["#7DD3FC", "#FFF27A", "#FFFFFF"], w: [2.8, 4.2], r: [0.9, 1.18], sz: [0.9, 1.8] }] },
+  hollow: { size: 0.74, spd: 1.35, glow: 0.48, layers: [{ k: "orbit", n: 16, shape: "shard", c: ["#9AA7BD", "#FFFFFF"], w: [0.6, 1.3], r: [0.98, 1.22], sz: [2.4, 4.2] }, { k: "rise", n: 8, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [8, 16], life: [1.6, 2.6], sz: [6, 11], sway: 6, a: 0.22, blend: "source-over" }] },
+  deep: { size: 0.8, spd: 1.55, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#00D9FF", "#2F6BFF"], sp: [18, 36], life: [1, 1.8], sz: [1.4, 4.2] }, { k: "inward", n: 14, shape: "spark", c: ["#2F6BFF", "#00D9FF"], sp: [0.6, 1.1], life: [0.9, 1.6], sz: [0.9, 1.8] }] },
+  magma: { size: 0.82, spd: 1.7, glow: 0.68, layers: [{ k: "rise", n: 22, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [28, 52], life: [0.5, 1.1], sz: [2.6, 6], sway: 5, a: 0.9 }, { k: "rise", n: 10, shape: "spark", c: ["#FFE08A", "#FF2D00"], sp: [40, 70], life: [0.4, 0.8], sz: [0.8, 1.5], sway: 14 }] },
+  plague: { size: 0.76, spd: 1.4, glow: 0.44, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#8BC34A", "#3E5F1A"], sp: [10, 18], life: [1.4, 2.2], sz: [6, 11], sway: 10, a: 0.28 }, { k: "bubble", n: 14, c: ["#C6F07A", "#8BC34A", "#D4FF7A"], sp: [16, 28], life: [0.8, 1.5], sz: [1.4, 3.2] }] },
+  sand: { size: 0.8, spd: 1.85, glow: 0.42, layers: [{ k: "orbit", n: 36, shape: "dot", c: ["#E8C872", "#B8860B", "#F6E3A8", "#FF9340"], w: [2.2, 3.6], r: [0.88, 1.28], sz: [0.7, 1.6], wave: 0.22, a: 0.95 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [30, 50], sz: [1, 2], drift: 20, spin: 1 }] },
+  void: { size: 0.86, spd: 1.65, glow: 0.62, dark: 1, layers: [{ k: "inward", n: 26, shape: "dot", c: ["#0B0014", "#3A0A6A", "#6A00FF"], sp: [0.8, 1.4], life: [0.8, 1.5], sz: [2.4, 5.5], blend: "source-over", a: 0.9 }, { k: "orbit", n: 20, shape: "star", c: ["#FFFFFF", "#C9A8FF", "#7DF9FF"], w: [0.7, 1.6], r: [1.02, 1.28], sz: [0.7, 1.5], tw: 1 }] },
+  yogurt: { size: 0.52, spd: 0.95, glow: 0.34, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.55, 0.55], r: [1.08, 1.08], sz: [0.13, 0.13], bob: 1, even: 1 }, { k: "bubble", n: 8, c: ["#FFFFFF", "#FFF8E7"], sp: [10, 18], life: [1.1, 1.8], sz: [1.4, 2.8] }] },
+  vendetta: { size: 0.84, spd: 1.8, glow: 0.6, bolts: { every: [0.55, 1.2], c: ["#FF1F4B", "#FFB3C1"] }, layers: [{ k: "inward", n: 18, shape: "dot", c: ["#3A0010", "#5A0018"], sp: [0.9, 1.5], life: [0.7, 1.3], sz: [2.2, 5], blend: "source-over", a: 0.85 }, { k: "rise", n: 20, shape: "spark", c: ["#FF1F4B", "#FF6B8F"], sp: [30, 58], life: [0.5, 1], sz: [0.9, 1.8], sway: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [1.6, 2.6], r: [0.95, 1.16], sz: [2, 3.4] }] },
+  champion: { size: 0.8, spd: 1.55, glow: 0.62, rays: { n: 12, c: "#FFD447", spin: 0.42, len: 1.32, a: 0.16 }, layers: [{ k: "rise", n: 18, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [22, 42], life: [0.7, 1.3], sz: [1.4, 2.6], sway: 16, spin: 1 }, { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [1.2, 2], r: [1.05, 1.2], sz: [0.9, 1.6], tw: 1 }] },
+  ascended: { size: 1, spd: 1.35, glow: 0.28, art: "ophanim", rays: { n: 16, c: "#FFD447", spin: 0.55, len: 1.7, a: 0.22 }, bolts: { every: [0.45, 1.1], c: ["#7DF9FF", "#FFD447", "#FFFFFF"] }, layers: [
+    { k: "orbit", n: 12, shape: "eye", c: ["#7DF9FF"], w: [0.85, 0.85], r: [1.22, 1.22], sz: [2.2, 2.2], even: 1 },
+    { k: "orbit", n: 8, shape: "eye", c: ["#FFD447"], w: [-1.2, -1.2], r: [1.02, 1.02], sz: [2.6, 2.6], even: 1 },
+    { k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.7, 1.6], r: [1.1, 1.36], sz: [0.8, 1.5], tw: 1 },
+    { k: "rise", n: 16, shape: "spark", c: ["#FFD447", "#FFFFFF", "#7DF9FF"], sp: [22, 48], life: [0.5, 1.1], sz: [0.7, 1.4], sway: 10 },
   ] },
 };
 
@@ -5880,8 +5966,10 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const sizeK = aura === "ascended" ? 1 : Math.min(0.88, fx.size || 0.68);
+  const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
-  const rx = mode === "body" ? w * 0.28 : ringR, ry = mode === "body" ? h * 0.36 : ringR;
+  const rx = (mode === "body" ? w * 0.28 : ringR) * sizeK, ry = (mode === "body" ? h * 0.36 : ringR) * sizeK;
   const gR = Math.min(1.5, (Math.min(cx, w - cx) / rx) * 0.97, (Math.min(cy, h - cy) / ry) * 0.97); // glow never hits the canvas edge
   const scale = Math.max(0.3, Math.min(1.3, (w * h) / (170 * 170)));
   const unit = Math.min(rx, ry) / 60; // particle sizes are authored for a ~60px ring
@@ -5895,16 +5983,16 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       p.age = 0; p.rot = rnd(0, Math.PI * 2); p.vr = L.spin ? rnd(-3, 3) : rnd(-1, 1); p.ph = rnd(0, Math.PI * 2);
       if (L.k === "rise" || L.k === "bubble") {
         const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
-        [p.x, p.y] = onRing(ang, rnd(0.85, 1.05)); p.vy = -rnd(...L.sp) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
+        [p.x, p.y] = onRing(ang, rnd(0.85, 1.05)); p.vy = -rnd(...L.sp) * unit * spd; p.life = rnd(...(L.life || [1.5, 2.5]));
         if (fresh) p.age = rnd(0, p.life);
       } else if (L.k === "fall") {
-        p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...L.sp) * unit; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2); p.life = 99;
+        p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...L.sp) * unit * spd; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2) * spd; p.life = 99;
         if (fresh) p.y = rnd(cy - ry * 1.6, cy + ry * 1.5);
       } else if (L.k === "inward") {
-        p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...L.life); p.spd = rnd(...L.sp);
+        p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...L.life); p.spd = rnd(...L.sp) * spd;
         if (fresh) p.age = rnd(0, p.life);
       } else { // orbit
-        p.ang = L.even ? (p.i / n) * Math.PI * 2 : rnd(0, Math.PI * 2); p.r = rnd(...L.r); p.w = rnd(...L.w) * (Math.random() < 0.5 && !L.even ? -1 : 1) * (L.even ? 1 : 1); p.life = 99;
+        p.ang = L.even ? (p.i / n) * Math.PI * 2 : rnd(0, Math.PI * 2); p.r = rnd(...L.r); p.w = rnd(...L.w) * spd * (Math.random() < 0.5 && !L.even ? -1 : 1) * (L.even ? 1 : 1); p.life = 99;
         if (L.top) p.ang = rnd(Math.PI * 1.1, Math.PI * 1.9);
       }
       p.e = L.e ? L.e[p.i % L.e.length] : null;
@@ -5977,7 +6065,7 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
   };
 
   const frame = (dt) => {
-    time += dt;
+    time += dt * spd;
     g.clearRect(0, 0, w, h);
     g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
     // base glow that breathes
@@ -6084,7 +6172,8 @@ function AuraCanvas({ aura, w, h, mode = "circle", ringR, style }) {
 // Drop-in replacement for the old ring. `size` is the ring's outer size as before; the canvas is larger so particles can drift out.
 function AuraRing({ aura, size, style }) {
   if (!AURA_FX[aura]) return null;
-  const w = Math.round(size * 1.3);
+  const k = aura === "ascended" ? 1.3 : 1.12;
+  const w = Math.round(size * k);
   return <AuraCanvas aura={aura} w={w} h={w} ringR={size / 2.9} style={style} />;
 }
 
@@ -6188,9 +6277,9 @@ const BOSSES = [
   { id: "void", eye: "#C9A8FF", name: "The Void Sovereign", tag: "The end of all excuses", color: "#6A00FF", icon: "🌑", title: "Voidwalker", aura: "void" },
 ];
 // Boss HP. Damage: 1 per pound lifted, 5 per rep, 800 per mile.
-// A strong solo lifter deals ~15-25k per session, so a solo crew boss takes about 3 weeks of steady training.
-const CREW_BOSS_HP = 300000, GLOBAL_BOSS_HP_PER_PLAYER = 150000, GLOBAL_BOSS_HP_BASE = 150000, BOSS_XP = 600;
-const crewBossHp = (members) => CREW_BOSS_HP * Math.max(1, members);
+// Crew and global bosses share the same HP curve: 150k + 150k per person in that fight.
+const GLOBAL_BOSS_HP_PER_PLAYER = 150000, GLOBAL_BOSS_HP_BASE = 150000, BOSS_XP = 600;
+const crewBossHp = (members) => GLOBAL_BOSS_HP_BASE + GLOBAL_BOSS_HP_PER_PLAYER * Math.max(1, members);
 const globalBossHp = (players) => GLOBAL_BOSS_HP_BASE + GLOBAL_BOSS_HP_PER_PLAYER * Math.max(1, players);
 // Damage dealt each day this month, with that day's sleep/mood buff baked in
 function dayDamageMap(s, mk = monthKey()) {
@@ -6278,7 +6367,7 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
         </div>
         <div className="flex justify-between body text-xs mt-1.5" style={{ color: C.dim }}><span>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</span><span>{hp.toLocaleString()} HP</span></div>
       </div>
-      <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? `Only damage your crew deals after joining counts here (you joined ${fmtDay(s.crew?.since || today())}).` : `Scaled to the ${players} player${players === 1 ? "" : "s"} in the season.`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
+      <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? `Crew HP is ${hp.toLocaleString()} for ${players} member${players === 1 ? "" : "s"} (same formula as the global boss: 150k + 150k per person). Only damage after you joined counts (joined ${fmtDay(s.crew?.since || today())}).` : `Scaled to the ${players} player${players === 1 ? "" : "s"} in the season (${hp.toLocaleString()} HP).`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
       {dmg.filter((x) => x.d > 0).length > 0 && (
         <div className="space-y-1.5">
           {dmg.filter((x) => x.d > 0).map(({ r, d }) => (
