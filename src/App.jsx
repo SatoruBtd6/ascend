@@ -637,7 +637,9 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5f";
+const APP_VERSION = "5g";
+// Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
+const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
 const runningBundle = () => { try { return [...document.querySelectorAll('script[src*="/assets/"]')].map((x) => x.getAttribute("src").split("/assets/").pop()).find((n) => /^index-/.test(n)) || null; } catch (e) { return null; } };
 export default function App() {
@@ -848,6 +850,26 @@ export default function App() {
     return () => { clearTimeout(t); document.removeEventListener("visibilitychange", v); };
   }, [loaded, s.lb]);
 
+  // Reigning season #1: Ascended Ophanim is only equipped while you actually hold the top spot
+  useEffect(() => {
+    if (!loaded || !s.lb || !window.storage?.list) return;
+    let stop = false;
+    const go = async () => {
+      try {
+        const res = await window.storage.list("lb:", true);
+        const cards = await Promise.all((res?.keys || []).map(async (k) => {
+          try { const r = await window.storage.get(k, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
+        }));
+        if (!stop) applyReigning(sRef.current, setS, cards.filter(Boolean));
+      } catch (e) { /* offline */ }
+    };
+    const t = setTimeout(go, 1800);
+    const iv = setInterval(go, 60000);
+    const v = () => document.visibilityState === "visible" && go();
+    document.addEventListener("visibilitychange", v);
+    return () => { stop = true; clearTimeout(t); clearInterval(iv); document.removeEventListener("visibilitychange", v); };
+  }, [loaded, s.lb, s.xp]);
+
   // Feat auras: the first time a condition is met, save it for good and tell the crew
   useEffect(() => {
     if (!loaded) return;
@@ -999,6 +1021,11 @@ export default function App() {
         .zesty .neonline{background:${RAINBOW};box-shadow:0 0 10px rgba(255,60,172,.7)}
         .zesty .barfill{background-image:${RAINBOW}!important;background-size:200% auto!important;animation:rainbow 5s linear infinite;box-shadow:0 0 10px rgba(255,60,172,.6)!important}
         @keyframes rkspin{to{transform:rotate(360deg)}}
+        @keyframes ophfloat{0%,100%{transform:translate(-50%,-50%) rotate(-7deg) scale(1)}50%{transform:translate(-50%,-58%) rotate(7deg) scale(1.06)}}
+        @keyframes ophspin{from{transform:translate(-50%,-50%) rotate(0)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+        @keyframes ophspinrev{from{transform:translate(-50%,-50%) rotate(360deg)}to{transform:translate(-50%,-50%) rotate(0)}}
+        @keyframes ophpulse{0%,100%{opacity:.35;filter:drop-shadow(0 0 8px rgba(255,212,71,.5))}50%{opacity:.7;filter:drop-shadow(0 0 18px rgba(125,249,255,.9))}}
+        @media (prefers-reduced-motion:reduce){.oph-wings,.oph-wheel,.oph-wheel-r{animation:none!important}}
         @keyframes rkbreathe{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.06);opacity:.9}}
         @keyframes rkpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.6)}}
         @keyframes rkorbit{to{transform:rotate(360deg)}}
@@ -2222,6 +2249,7 @@ function Board({ s, setS, openProfile, gainXp }) {
       const got = cards.filter(Boolean);
       setRows(got);
       settleSeason(s, setS, got).catch(() => {});
+      applyReigning(s, setS, got);
     }
     setLoading(false);
   };
@@ -2248,6 +2276,14 @@ function Board({ s, setS, openProfile, gainXp }) {
   const sorted = [...rows].sort((a, b) => val(b) - val(a));
   const top = sorted.slice(0, 3), rest = sorted.slice(3);
   const isMe = (r) => r.key === `lb:${s.playerId}`;
+  const seasonRanked = [...rows].sort((a, b) => ((b.season?.key === sk ? b.season.xp : 0) || 0) - ((a.season?.key === sk ? a.season.xp : 0) || 0));
+  const reigningKey = seasonRanked[0] && ((seasonRanked[0].season?.key === sk ? seasonRanked[0].season.xp : 0) || 0) > 0 ? seasonRanked[0].key : null;
+  const lookOf = (r) => {
+    const L = { ...(r.look || {}) };
+    if (r.key === reigningKey) L.aura = "ascended";
+    else if (L.aura === "ascended") L.aura = L.auraPrev && L.auraPrev !== "ascended" ? L.auraPrev : "none";
+    return L;
+  };
 
   const podiumOrder = [top[1], top[0], top[2]];
   const PLACES = [
@@ -2307,7 +2343,7 @@ function Board({ s, setS, openProfile, gainXp }) {
             return (
               <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="flex flex-col items-center">
                 {P.place === 1 && <Crown size={26} style={{ color: C.gold, filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} className="mb-1" />}
-                <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} look={r.look} />
+                <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} look={lookOf(r)} />
                 <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} /></div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase truncate w-full text-center" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}</div>
@@ -2326,7 +2362,7 @@ function Board({ s, setS, openProfile, gainXp }) {
           return (
             <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="panel p-3 flex items-center gap-3 w-full text-left" style={{ ...(lookStyle(r.look, 0.6) || {}), ...(isMe(r) ? { boxShadow: "0 0 20px rgba(124,211,255,.3)" } : {}) }}>
               <span className="w-7 text-center text-lg font-extrabold" style={{ color: C.dim }}>{i + 4}</span>
-              <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} look={r.look} />
+              <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} look={lookOf(r)} />
               <div className="flex-1 min-w-0 ml-1">
                 <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{isMutualNemesis(s, r) && <span className="ml-1" title="Your Nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
@@ -2681,7 +2717,7 @@ function pickBritishVoice() {
   return gb.find((v) => /daniel|arthur|oliver|george|uk english male|male/i.test(v.name)) || gb[0] || null;
 }
 
-const STEP_COACH = `The user just asked for help setting up automatic step syncing. Walk them through it like a friendly personal trainer, not tech support: warm, encouraging, plain language, one step at a time, and ask them to say "next" when each step is done. Important background: iPhones lock Health data while the phone is locked, so a nightly timed automation usually sends nothing. That's why the trigger is "when an app is opened", which only runs while the phone is unlocked. The setup: 1) In Ascend, open the Steps card, tap "Sync steps automatically", then "Create my sync code" (tap the code or the sync URL to copy them). 2) On iPhone open the Shortcuts app, go to the Automation tab, tap +, choose App, pick 2 or 3 apps they open every day including one they use right before bed (like Messages, Instagram, TikTok or Snapchat), keep "Is Opened" checked, choose Run Immediately, turn off Notify When Run, then New Blank Automation. 3) Add the action "Find Health Samples", set Type to Steps and Start Date to Today. 4) Add "Calculate Statistics" and choose Sum. 5) Add "Format Date" with Current Date and custom format yyyy-MM-dd. 6) Add "Get Contents of URL", paste the sync URL (it must start with https://www.ascendfit.site), set Method to POST and Request Body to JSON, then add three fields: token (their sync code), steps (the Statistics result), date (the formatted date). 7) Tap Done, open one of the chosen apps, then come back to Ascend: the Steps card shows "Last sync" with the result. If it shows an error, the message says exactly what to fix. Running it many times a day is fine; Ascend keeps the highest count for each day. Troubleshoot patiently, and mention they can always type steps in by hand.`;
+const STEP_COACH = `The user just asked for help setting up automatic step syncing. Walk them through it like a friendly personal trainer, not tech support: warm, encouraging, plain language, one step at a time, and ask them to say "next" when each step is done. Do not teach them how to build Shortcut actions by hand. The Shortcut is already built. Important background: iPhones lock Health data while the phone is locked, so a nightly timed automation usually sends nothing. That's why the trigger is "when an app is opened", which only runs while the phone is unlocked. The setup: 1) In Ascend, open the Steps card, tap "Sync steps automatically", then "Create my sync code" and copy the code. 2) Tap the iCloud Shortcut link on that same card (${STEP_SHORTCUT_URL}) to install the pre-configured Ascend Steps Shortcut automatically. 3) When the Shortcut asks, paste the sync code. 4) In the Shortcuts app, Automation tab, tap +, choose App, pick 2 or 3 apps they open every day including one right before bed (Messages, Instagram, TikTok or Snapchat), keep "Is Opened" checked, Run Immediately, turn off Notify When Run, then have that automation run the Ascend Steps Shortcut they just installed. 5) Open one of those apps, then come back to Ascend: the Steps card shows "Last sync". If it shows an error, the message says exactly what to fix. Running it many times a day is fine; Ascend keeps the highest count for each day. Troubleshoot patiently, and mention they can always type steps in by hand.`;
 function Assistant({ s, setS, onBack }) {
   const chat = s.chat || [];
   const [input, setInput] = useState("");
@@ -3360,18 +3396,20 @@ const songLinkLabel = (url) => (/youtu\.?be/i.test(url) ? "YouTube" : /spotify/i
 /* ---------- Profiles ---------- */
 function Avatar({ src, name, size = 48, ring, look }) {
   const color = ring || C.cyan;
-  const border = BORDERS.find((b) => b.id === look?.border && b.css);
+  const border = BORDERS.find((b) => b.id === look?.border && (b.css || b.img));
   const inner = src ? (
     <img src={src} alt="" style={{ width: size, height: size, borderRadius: 999, objectFit: "cover", border: border ? "none" : `2px solid ${color}`, flexShrink: 0, display: "block" }} />
   ) : (
     <div className="flex items-center justify-center font-bold shrink-0" style={{ width: size, height: size, borderRadius: 999, background: C.accentBg, color, border: border ? "none" : `2px solid ${color}`, fontSize: size * 0.42 }}>{((name || "?").trim()[0] || "?").toUpperCase()}</div>
   );
   if (!border && (!look?.aura || look.aura === "none")) return inner;
-  const pad = border ? Math.max(2, Math.round(size / 22)) : 0;
+  const pad = border ? Math.max(3, Math.round(size / (border.img ? 10 : 22))) : 0;
+  const ringScale = look?.aura === "ascended" ? 2.2 : 1.45;
   return (
     <div className="relative shrink-0 flex items-center justify-center" style={{ width: size + pad * 2, height: size + pad * 2 }}>
-      {look?.aura && look.aura !== "none" && <AuraRing aura={look.aura} size={(size + pad * 2) * 1.45} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />}
-      {border && <div aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: 999, background: border.css, animation: border.spin ? "rkspin 4s linear infinite" : "none" }} />}
+      {look?.aura && look.aura !== "none" && <AuraRing aura={look.aura} size={(size + pad * 2) * ringScale} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />}
+      {border?.img && <img src={border.img} alt="" aria-hidden="true" style={{ position: "absolute", inset: -Math.round(size * 0.08), width: size + pad * 2 + Math.round(size * 0.16), height: size + pad * 2 + Math.round(size * 0.16), objectFit: "contain", pointerEvents: "none", animation: "rkspin 14s linear infinite", filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} />}
+      {border?.css && <div aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: 999, background: border.css, animation: border.spin ? "rkspin 4s linear infinite" : "none" }} />}
       <div className="relative" style={{ borderRadius: 999, overflow: "hidden" }}>{inner}</div>
     </div>
   );
@@ -3462,6 +3500,7 @@ function profileCard(s) {
     uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null, daily: dailyStats(s), rivalWith: s.nemesis?.id || null, nemWins: nemesisWins(s),
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
     badges: s.seasonBadges || {},
+    reigning: !!s.lbReigning,
     groups: groupScores(s),
     lifts: rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 6).map((r) => ({ name: r.e.name, label: r.label, rank: r.rank.id, best: Math.round(r.best), bw: r.e.type === "bodyweight" })),
   };
@@ -3586,7 +3625,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
           <div className="panel p-5" style={lookStyle(data.look)}>
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={data.look} />
+                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(data.reigning || (me && s.lbReigning)) ? { ...(data.look || {}), aura: "ascended" } : data.look} />
                 {me && (
                   <>
                     <button aria-label="Change profile photo" onClick={() => fileRef.current?.click()} className="absolute flex items-center justify-center" style={{ right: -4, bottom: -4, width: 28, height: 28, borderRadius: 999, background: C.cyan, color: "#001018" }}><Camera size={15} /></button>
@@ -3761,8 +3800,8 @@ function FancyName({ name, look, className = "", style = {}, size }) {
 
 /* ---------- Look studio: tabbed profile customization ---------- */
 const NAME_COLORS = ["#00D9FF", "#3DF08A", "#FFD447", "#FF9340", "#FF2D6F", "#B14BFF", "#F4FBFF", "#E8C872"];
-const AURA_GROUPS = [["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", ""]];
-const titleGroup = (t) => (t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" ? "season" : t.id === "nemesis_slayer" ? "rivalry" : "progress");
+const AURA_GROUPS = [["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", "Limited and exclusive."], ["soon", "Coming soon", "More exclusive auras on the way."]];
+const titleGroup = (t) => (t.soon ? "soon" : t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" || t.id === "reigning" ? "season" : t.id === "nemesis_slayer" ? "rivalry" : "progress");
 function StudioTabs({ tab, setTab, tabs }) {
   const i = Math.max(0, tabs.findIndex((t) => t[0] === tab));
   return (
@@ -3844,7 +3883,7 @@ function LookStudio({ s, setS }) {
           );
         })}
 
-        {tab === "titles" && [["progress", "Milestones"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"]].map(([g, label]) => {
+        {tab === "titles" && [["progress", "Milestones"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"], ["soon", "Coming soon"]].map(([g, label]) => {
           const list = TITLES.filter((t) => titleGroup(t) === g);
           return (
             <div key={g} className="space-y-2">
@@ -3866,6 +3905,23 @@ function LookStudio({ s, setS }) {
             </div>
           );
         })}
+        {tab === "titles" && (
+          <div className="space-y-2">
+            <StudioHead>Exclusive achievements</StudioHead>
+            <div className="body text-xs -mt-1.5" style={{ color: C.dim }}>Not earnable yet. They're here so the grind has a ceiling to chase.</div>
+            <div className="grid grid-cols-2 gap-2">
+              {[["Perfect Season", "Hit every daily quest for a full season"], ["First Blood", "Land the first hit on a new global boss"], ["Untouchable", "Hold #1 for 30 days straight"]].map(([name, how]) => (
+                <div key={name} className="text-left px-3 py-2.5 flex items-start gap-2" style={{ borderRadius: 12, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-xs font-bold tracking-wider uppercase truncate" style={{ color: C.mute }}>{name}</span>
+                    <span className="block body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{how}</span>
+                  </span>
+                  <Lock size={12} className="shrink-0 mt-0.5" style={{ color: C.mute }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {tab === "themes" && (
           <div className="space-y-4">
@@ -3885,7 +3941,8 @@ function LookStudio({ s, setS }) {
               <div className="grid grid-cols-4 gap-2">
                 {BORDERS.map((b) => { const ok = unlocked(b, s), sel = (look.border || "none") === b.id; return (
                   <button key={b.id} onClick={() => ok && setLook({ border: b.id })} aria-pressed={sel} aria-disabled={!ok} className="flex flex-col items-center gap-1 py-2 px-1" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : "transparent", border: `1px solid ${sel ? C.cyan : "transparent"}`, cursor: ok ? "pointer" : "default" }}>
-                    <span className="relative flex items-center justify-center" style={{ width: 40, height: 40, borderRadius: 999, background: b.css || C.cyan, opacity: ok ? 1 : 0.35, animation: b.spin && ok ? "rkspin 4s linear infinite" : "none" }}>
+                    <span className="relative flex items-center justify-center" style={{ width: 40, height: 40, borderRadius: 999, background: b.img ? "transparent" : (b.css || C.cyan), opacity: ok ? 1 : 0.35, animation: (b.spin || b.img) && ok ? "rkspin 8s linear infinite" : "none" }}>
+                      {b.img && <img src={b.img} alt="" style={{ position: "absolute", inset: -2, width: 44, height: 44, objectFit: "contain" }} />}
                       <span className="flex items-center justify-center" style={{ width: 32, height: 32, borderRadius: 999, background: C.sheet }}>{!ok && <Lock size={12} style={{ color: C.mute }} />}</span>
                     </span>
                     <span className="text-xs font-semibold leading-tight text-center" style={{ color: ok ? C.text : C.mute }}>{b.name}</span>
@@ -4770,7 +4827,10 @@ const TITLES = [
   { id: "yogurtmale", name: "Yogurt Male", req: (s) => !!s.ach?.["yogurt-0"], how: "Log 100 yogurts" },
   { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
   { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
+  { id: "reigning", name: "Reigning", req: (s) => !!s.lbReigning, how: "Hold #1 on the season board" },
   { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 3, how: "Beat your Nemesis in 3 duels" },
+  { id: "soon_seraph", name: "Seraph", req: () => false, how: "Coming soon", soon: true },
+  { id: "soon_first", name: "World First", req: () => false, how: "Coming soon", soon: true },
 ];
 
 /* ---------- Progression + coaching helpers ---------- */
@@ -5622,6 +5682,10 @@ const AURAS = [
   { id: "yogurt", name: "Yogurt", how: "Yogurt Male achievement (100 yogurts)", ach: "yogurt-0", group: "special", colors: ["#FFF8E7", "#F1DDB5"] },
   { id: "champion", name: "Champion", how: "Win a season", season: true, group: "special", colors: ["#FFD447", "#FF9340"] },
   { id: "vendetta", name: "Vendetta", how: "Beat your Nemesis in 5 duels", nemesis: 5, group: "special", colors: ["#FF1F4B", "#3A0010"] },
+  { id: "ascended", name: "Ascended", how: "Reigning #1 on the season board", reigning: true, group: "special", colors: ["#FFD447", "#7DF9FF"] },
+  { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },
+  { id: "soon_seraphim", name: "Seraphim", how: "Coming soon", soon: true, group: "soon", colors: ["#FFFFFF", "#FFD447"] },
+  { id: "soon_wheel", name: "Living Wheel", how: "Coming soon", soon: true, group: "soon", colors: ["#38C6FF", "#FFD447"] },
 ];
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
@@ -5631,6 +5695,7 @@ const BORDERS = [
   { id: "obsidian", name: "Obsidian", how: "Any lift at S", tier: 5, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
   { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
   { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
+  { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/assets/season-one.svg", spin: true },
 ];
 const bestTier = (s) => Math.floor(Object.values(groupScores(s)).reduce((a, b) => Math.max(a, b), 0));
 const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; }); return best; };
@@ -5644,6 +5709,9 @@ const AURA_TASKS = {
 };
 function unlocked(item, s) {
   if (item.id === "none") return true;
+  if (item.soon) return false;
+  if (item.reigning) return !!s.lbReigning;
+  if (item.seasonFirst) return Object.values(s.seasonBadges || {}).some((b) => b.place === 1);
   if (item.task) return !!s.auraUnlocks?.[item.id] || AURA_TASKS[item.task](s).done;
   if (item.nemesis) return nemesisWins(s) >= item.nemesis;
   if (item.tier !== undefined) return bestTier(s) >= item.tier;
@@ -5678,7 +5746,7 @@ const AURA_FX = {
   wanderer: { glow: 0.35, layers: [{ k: "orbit", n: 14, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.5, 0.9], r: [1, 1.35], sz: [2.5, 4], wave: 0.12 }, { k: "rise", n: 14, shape: "dot", c: ["#E0B872", "#F3DDB0"], sp: [6, 14], life: [1.6, 2.8], sz: [1, 2], sway: 10, a: 0.7 }] },
   wyrm: { glow: 0.6, layers: [{ k: "orbit", n: 22, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [0.9, 1.5], r: [0.95, 1.25], sz: [2.5, 4.5] }, { k: "rise", n: 16, shape: "spark", c: ["#3DF08A", "#FFD447"], sp: [20, 40], life: [0.8, 1.6], sz: [1, 1.8], sway: 10 }] },
   frost: { glow: 0.55, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [14, 28], sz: [2, 4], drift: 8 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.3, 0.6], r: [1, 1.2], sz: [2.5, 4] }] },
-  abyss: { glow: 0.6, layers: [{ k: "inward", n: 30, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.5, 0.9], life: [1.2, 2.2], sz: [1.5, 3.5] }, { k: "orbit", n: 8, shape: "smoke", c: ["#2A0060", "#3A0A40"], w: [0.2, 0.4], r: [0.95, 1.15], sz: [10, 16], a: 0.45, blend: "source-over" }] },
+  abyss: { glow: 0.45, layers: [{ k: "inward", n: 30, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.5, 0.9], life: [1.2, 2.2], sz: [1.5, 3.5] }, { k: "orbit", n: 18, shape: "spark", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [0.6, 1.4], r: [0.95, 1.25], sz: [1, 2] }] },
   chud: { glow: 0.45, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.5, 0.5], r: [1.12, 1.12], sz: [0.16, 0.16], bob: 1, even: 1 }, { k: "rise", n: 12, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over" }] },
   rust: { glow: 0.4, layers: [{ k: "fall", n: 30, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [16, 30], sz: [1.5, 3], drift: 10, spin: 1 }, { k: "rise", n: 10, shape: "spark", c: ["#FFB86B", "#FF7A2D"], sp: [30, 60], life: [0.4, 0.9], sz: [0.8, 1.4], sway: 20 }] },
   thunder: { glow: 0.55, bolts: { every: [0.5, 1.4], c: ["#FFF27A", "#7DD3FC"] }, layers: [{ k: "orbit", n: 26, shape: "spark", c: ["#7DD3FC", "#FFF27A"], w: [2, 3], r: [0.95, 1.2], sz: [1, 2] }] },
@@ -5691,11 +5759,58 @@ const AURA_FX = {
   yogurt: { glow: 0.4, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.45, 0.45], r: [1.12, 1.12], sz: [0.16, 0.16], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.5, 3.5] }] },
   vendetta: { glow: 0.6, bolts: { every: [1.3, 2.6], c: ["#FF4D6D", "#FFB3C1"] }, layers: [{ k: "inward", n: 22, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.5, 0.9], life: [1.2, 2.2], sz: [2.5, 6], blend: "source-over", a: 0.85 }, { k: "rise", n: 22, shape: "spark", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [18, 36], life: [0.9, 1.8], sz: [1, 2], sway: 8 }, { k: "orbit", n: 10, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [0.9, 1.4], r: [1, 1.2], sz: [2.5, 4] }] },
   champion: { glow: 0.65, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.6, a: 0.18 }, layers: [{ k: "rise", n: 24, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [14, 30], life: [1.2, 2.2], sz: [1.6, 3], sway: 14, spin: 1 }] },
+  ascended: { glow: 0.28, art: "ophanim", rays: { n: 16, c: "#FFD447", spin: 0.55, len: 1.95, a: 0.26 }, bolts: { every: [0.55, 1.3], c: ["#7DF9FF", "#FFD447", "#FFFFFF"] }, layers: [
+    { k: "orbit", n: 12, shape: "eye", c: ["#7DF9FF"], w: [0.7, 0.7], r: [1.32, 1.32], sz: [2.6, 2.6], even: 1 },
+    { k: "orbit", n: 8, shape: "eye", c: ["#FFD447"], w: [-1.05, -1.05], r: [1.08, 1.08], sz: [3.1, 3.1], even: 1 },
+    { k: "orbit", n: 16, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.45, 1.3], r: [1.18, 1.55], sz: [0.9, 1.8], tw: 1 },
+    { k: "rise", n: 22, shape: "spark", c: ["#FFD447", "#FFFFFF", "#7DF9FF"], sp: [18, 40], life: [0.7, 1.5], sz: [0.8, 1.6], sway: 12 },
+  ] },
 };
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const _glowCache = new Map();
+let ophanimSrc = "/assets/ophanim.jpg";
+let ophanimPromise = null;
+function loadOphanimSrc() {
+  if (!ophanimPromise) {
+    ophanimPromise = new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas");
+          c.width = img.width; c.height = img.height;
+          const g = c.getContext("2d");
+          g.drawImage(img, 0, 0);
+          const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+          for (let i = 0; i < p.length; i += 4) {
+            const r = p[i], gv = p[i + 1], b = p[i + 2], avg = (r + gv + b) / 3;
+            if (r > 226 && gv > 226 && b > 226 && Math.abs(r - gv) < 16 && Math.abs(gv - b) < 16) p[i + 3] = avg > 246 ? 0 : Math.max(0, Math.round((255 - avg) * 11));
+          }
+          g.putImageData(d, 0, 0);
+          ophanimSrc = c.toDataURL("image/png");
+        } catch (e) { /* keep jpg */ }
+        resolve(ophanimSrc);
+      };
+      img.onerror = () => resolve(ophanimSrc);
+      img.src = "/assets/ophanim.jpg";
+    });
+  }
+  return ophanimPromise;
+}
+function OphanimWings({ w, h }) {
+  const [src, setSrc] = useState(ophanimSrc);
+  useEffect(() => { loadOphanimSrc().then(setSrc); }, []);
+  const box = { position: "absolute", left: "50%", top: "50%", objectFit: "contain", pointerEvents: "none", mixBlendMode: "normal" };
+  return (
+    <>
+      <img src={src} alt="" style={{ ...box, width: w * 1.18, height: h * 1.18, opacity: 0.42, animation: "ophspin 20s linear infinite, ophpulse 2.2s ease-in-out infinite" }} />
+      <img src={src} alt="" style={{ ...box, width: w * 0.9, height: h * 0.9, opacity: 0.32, animation: "ophspinrev 11s linear infinite" }} />
+      <img src={src} alt="" style={{ ...box, width: w, height: h, animation: "ophfloat 4s ease-in-out infinite", filter: "drop-shadow(0 0 12px rgba(255,212,71,.95)) drop-shadow(0 0 18px rgba(125,249,255,.45))" }} />
+    </>
+  );
+}
 function glowSprite(color) {
   if (_glowCache.has(color)) return _glowCache.get(color);
   const c = document.createElement("canvas"); c.width = c.height = 64;
@@ -5809,6 +5924,15 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
         break;
       }
       case "emoji": { const px = Math.max(10, Math.min(w, h) * p.sz); g.font = `${px}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(p.e, x, y + (L.bob ? Math.sin(time * 2.4 + p.ph) * px * 0.12 : 0)); break; }
+      case "eye": {
+        g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.4);
+        g.fillStyle = "#F4FBFF"; g.beginPath(); g.ellipse(0, 0, s * 1.85, s * 1.05, 0, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = "#FFD447"; g.lineWidth = Math.max(0.7, s * 0.2); g.stroke();
+        g.fillStyle = "#1A6DFF"; g.beginPath(); g.arc(Math.sin(time * 3 + p.ph) * s * 0.2, 0, s * 0.58, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#061018"; g.beginPath(); g.arc(Math.sin(time * 3 + p.ph) * s * 0.2, 0, s * 0.24, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#ffffff"; g.beginPath(); g.arc(-s * 0.28, -s * 0.22, s * 0.16, 0, Math.PI * 2); g.fill();
+        g.restore(); break;
+      }
       default: { // bubble ring
         g.strokeStyle = p.c; g.lineWidth = Math.max(0.7, s * 0.3); g.beginPath(); g.arc(x, y, s, 0, Math.PI * 2); g.stroke();
         g.fillStyle = "#ffffff"; g.globalAlpha *= 0.7; g.beginPath(); g.arc(x - s * 0.35, y - s * 0.35, s * 0.25, 0, Math.PI * 2); g.fill();
@@ -5922,7 +6046,12 @@ function AuraCanvas({ aura, w, h, mode = "circle", ringR, style }) {
     return () => { AuraLoop.remove(inst); io?.disconnect(); };
   }, [aura, w, h, mode, ringR]);
   if (!AURA_FX[aura]) return null;
-  return <canvas ref={ref} aria-hidden="true" className="absolute pointer-events-none" style={{ width: w, height: h, ...style }} />;
+  return (
+    <div aria-hidden="true" className="absolute pointer-events-none" style={{ width: w, height: h, ...style }}>
+      {aura === "ascended" && <OphanimWings w={w} h={h} />}
+      <canvas ref={ref} className="absolute pointer-events-none" style={{ left: 0, top: 0, width: w, height: h }} />
+    </div>
+  );
 }
 // Drop-in replacement for the old ring. `size` is the ring's outer size as before; the canvas is larger so particles can drift out.
 function AuraRing({ aura, size, style }) {
@@ -6152,12 +6281,30 @@ async function settleSeason(s, setS, rows) {
   const mine = rec.winners?.find((w) => w.id === s.playerId);
   if (mine && !s.seasonBadges?.[last]) setS((p) => ({ ...p, seasonBadges: { ...(p.seasonBadges || {}), [last]: { place: mine.place, xp: mine.xp } } }));
 }
+function applyReigning(s, setS, rows) {
+  const sk = seasonKey();
+  const xpOf = (r) => (r?.season?.key === sk ? r.season.xp : 0) || 0;
+  const mine = seasonXp(s, sk);
+  const myId = s.playerId;
+  const bestOther = (rows || []).filter((r) => (r.id || (r.key || "").slice(3)) !== myId).reduce((m, r) => Math.max(m, xpOf(r)), 0);
+  const on = !!s.lb && mine > 0 && mine > bestOther;
+  setS((p) => {
+    const look = { ...(p.profile.look || {}) };
+    let changed = !!p.lbReigning !== on;
+    if (!on && look.aura === "ascended") {
+      look.aura = look.auraPrev && look.auraPrev !== "ascended" ? look.auraPrev : "none";
+      changed = true;
+    }
+    if (!changed) return p;
+    return { ...p, lbReigning: on, profile: { ...p.profile, look } };
+  });
+}
 function SeasonBanner() {
   const key = seasonKey();
   const days = Math.max(0, Math.ceil((new Date(nextSeasonStart(key) + "T00:00") - new Date()) / 86400000));
   return (
     <div className="panel px-4 py-3 flex items-center justify-between">
-      <div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Season {key.split("-S")[1]} · {key.slice(0, 4)}</div><div className="text-sm font-semibold">Top 3 earn permanent badges</div></div>
+      <div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Season {key.split("-S")[1]} · {key.slice(0, 4)}</div><div className="text-sm font-semibold">#1 wears the Ascended aura. Finish 1st to keep the Ophanim border.</div></div>
       <div className="text-right"><div className="text-xl font-bold tabular-nums">{days}</div><div className="body text-xs" style={{ color: C.dim }}>days left</div></div>
     </div>
   );
@@ -7551,20 +7698,20 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
             <button onClick={() => { openAssistant?.(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); }} className="btn py-2.5 text-sm font-bold flex items-center justify-center gap-1.5"><Bot size={16} />Ask Sterling</button>
             <button onClick={() => setShowSteps((v) => !v)} aria-expanded={showSteps} aria-controls="step-written-guide" className="py-2.5 text-sm font-bold flex items-center justify-center gap-1.5" style={{ borderRadius: 12, color: showSteps ? "#001018" : C.cyan, background: showSteps ? C.cyan : `${C.cyan}14`, border: `1.5px solid ${C.cyan}` }}><BookOpen size={16} />{showSteps ? "Hide instructions" : "View written instructions"}</button>
           </div>
+          <a href={STEP_SHORTCUT_URL} target="_blank" rel="noreferrer" className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center">Install the 1-click Shortcut</a>
           {showSteps && (
             <div id="step-written-guide" className="panel p-3 space-y-2" style={{ borderColor: `${C.cyan}55` }}>
-              <div className="text-sm font-bold" style={{ color: C.text }}>Set it up in the Shortcuts app (about 3 minutes)</div>
-              {!s.stepToken && <div className="text-xs" style={{ color: C.orange }}>Tap "Create my sync code" above first. You'll paste it in step 5.</div>}
+              <div className="text-sm font-bold" style={{ color: C.text }}>One-tap Shortcut install</div>
+              {!s.stepToken && <div className="text-xs" style={{ color: C.orange }}>Tap "Create my sync code" above first. You'll paste it into the Shortcut.</div>}
+              <a href={STEP_SHORTCUT_URL} target="_blank" rel="noreferrer" className="btn w-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5">Install Ascend Steps Shortcut</a>
               <div className="text-xs p-2" style={{ borderRadius: 8, background: `${C.orange}14`, color: C.sub }}><b style={{ color: C.text }}>Why not a set time like 11:45 PM?</b> iPhones lock Health data while the phone is locked, so a night-time automation sends nothing. Running it when you open an app means the phone is unlocked.</div>
               <ol className="space-y-1.5 list-decimal pl-5 text-sm">
-                <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>App</b>. Choose 2 or 3 apps you open every day, including one you use right before bed (like Messages, Instagram, or TikTok). Keep <b>Is Opened</b> checked, pick <b>Run Immediately</b>, turn off <b>Notify When Run</b> → Next → <b>New Blank Automation</b>.</li>
-                <li>Add <b>Find Health Samples</b>: Type is <b>Steps</b>, Start Date is <b>Today</b>.</li>
-                <li>Add <b>Calculate Statistics</b>: <b>Sum</b> of Health Samples.</li>
-                <li>Add <b>Format Date</b>: Current Date, Date Format <b>Custom</b>, format <b>yyyy-MM-dd</b>.</li>
-                <li>Add <b>Get Contents of URL</b>: paste the Sync URL (it starts with <b>https://www.ascendfit.site</b>). Method <b>POST</b>, Request Body <b>JSON</b>, add three fields: <b>token</b> (Text: your sync code), <b>steps</b> (Number: Statistics), <b>date</b> (Text: Formatted Date).</li>
-                <li>Tap <b>Done</b>. Open one of the apps you picked, then come back here. The line under "Automatic sync" shows the result, or tells you exactly what to fix.</li>
+                <li>Tap <b>Install Ascend Steps Shortcut</b> and add it. When it asks, paste your sync code.</li>
+                <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>App</b>. Pick 2 or 3 apps you open every day, including one before bed. Keep <b>Is Opened</b>, <b>Run Immediately</b>, Notify off.</li>
+                <li>Set that automation to run the <b>Ascend Steps</b> Shortcut you just installed. No need to add Health or URL actions by hand.</li>
+                <li>Open one of those apps, then come back here. The line under "Automatic sync" shows the result.</li>
               </ol>
-              <div className="text-xs" style={{ color: C.dim }}>Already made the 11:45 PM one? Swipe left on it in the Automation tab to delete it, then make the new one above. Running it many times a day is fine; Ascend keeps the highest count for each day.</div>
+              <div className="text-xs" style={{ color: C.dim }}>Already made the 11:45 PM one? Swipe left on it in the Automation tab to delete it. Running it many times a day is fine; Ascend keeps the highest count for each day.</div>
             </div>
           )}
           {s.stepToken && <button onClick={() => ask("Make a new sync code? The old one stops working, so you'd need to update your Shortcut.", makeCode, "New code")} className="text-xs underline" style={{ color: C.mute }}>Make a new code</button>}
