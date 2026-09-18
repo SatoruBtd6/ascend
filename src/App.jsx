@@ -717,7 +717,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5i";
+const APP_VERSION = "5k";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -3929,9 +3929,9 @@ function AuraTile({ a, s, sel, onPick }) {
   const ok = unlocked(a, s);
   const prog = a.task ? AURA_TASKS[a.task](s) : null;
   return (
-    <button onClick={() => ok && onPick(a.id)} aria-pressed={sel} aria-disabled={!ok} aria-label={`${a.name}${ok ? "" : `, locked: ${a.how}`}`} className="relative flex flex-col items-center text-center px-1.5 pt-2 pb-2" style={{ borderRadius: 14, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}, 0 6px 20px ${C.glow}` : "none", cursor: ok ? "pointer" : "default", transition: "border-color .2s, box-shadow .2s" }}>
-      <span className="relative flex items-center justify-center" style={{ width: 76, height: 76 }}>
-        {a.id !== "none" && <span style={{ position: "absolute", inset: 0, opacity: ok ? 1 : 0.35, filter: ok ? "none" : "saturate(.5)" }}><AuraCanvas aura={a.id} w={76} h={76} ringR={20} style={{ left: 0, top: 0 }} /></span>}
+    <button onClick={() => ok && onPick(a.id)} aria-pressed={sel} aria-disabled={!ok} aria-label={`${a.name}${ok ? "" : `, locked: ${a.how}`}`} className="relative flex flex-col items-center text-center px-1.5 pt-2 pb-2 overflow-visible" style={{ borderRadius: 14, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}, 0 6px 20px ${C.glow}` : "none", cursor: ok ? "pointer" : "default", transition: "border-color .2s, box-shadow .2s" }}>
+      <span className="relative flex items-center justify-center overflow-visible" style={{ width: 88, height: 88 }}>
+        {a.id !== "none" && <span style={{ position: "absolute", inset: 0, opacity: ok ? 1 : 0.5, filter: ok ? "none" : "saturate(.6)", overflow: "visible" }}><AuraCanvas aura={a.id} w={88} h={88} ringR={28} style={{ left: 0, top: 0 }} /></span>}
         <span className="relative flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 999, background: C.sheet, border: `1px solid ${C.glassLine}` }}>
           {!ok ? <Lock size={14} style={{ color: C.mute }} /> : a.id === "none" ? <X size={14} style={{ color: C.mute }} /> : sel ? <Check size={16} style={{ color: C.cyan }} /> : null}
         </span>
@@ -4904,19 +4904,19 @@ function Ceremony({ c, onClose }) {
 const TITLES = [
   { id: "rookie", name: "Rookie", req: () => true, how: "Everyone starts here" },
   { id: "showup", name: "Regular", req: (s) => !!s.ach?.["workouts-0"], how: "Show Up I" },
-  { id: "roadrunner", name: "Road Runner", req: (s) => !!s.ach?.["miles-0"], how: "Road Runner I (10 miles)" },
-  { id: "cardio", name: "Cardio Menace", req: (s) => !!s.ach?.["miles-1"], how: "Road Runner II" },
-  { id: "iron", name: "Iron Mover", req: (s) => !!s.ach?.["volume-0"], how: "Iron Mover I" },
-  { id: "rep", name: "Rep Machine", req: (s) => !!s.ach?.["reps-0"], how: "Rep Machine I" },
-  { id: "unbroken", name: "Unbroken", req: (s) => !!s.ach?.["streak-0"], how: "Unbroken I (7-day streak)" },
-  { id: "barhanger", name: "Bar Hanger", req: (s) => !!s.ach?.["pullups-0"], how: "Bar Hanger I" },
-  { id: "plates", name: "Two Plates", req: (s) => !!s.ach?.["bench-0"], how: "Bench Club I (135)" },
-  { id: "squatlord", name: "Squat Lord", req: (s) => !!s.ach?.["squat-0"], how: "Squat Club I (225)" },
-  { id: "deadking", name: "Deadlift King", req: (s) => !!s.ach?.["deadlift-0"], how: "Deadlift Club I (225)" },
-  { id: "quester", name: "Quest Hunter", req: (s) => !!s.ach?.["quests-0"], how: "Quest Hunter I" },
-  { id: "ascended", name: "Ascended", req: (s) => !!s.ach?.["rank-1"], how: "First B-rank lift" },
+  { id: "roadrunner", name: "Road Runner", req: (s) => !!s.ach?.["miles-1"], how: "Road Runner II" },
+  { id: "cardio", name: "Cardio Menace", req: (s) => !!s.ach?.["miles-2"], how: "Road Runner III" },
+  { id: "iron", name: "Iron Mover", req: (s) => !!s.ach?.["volume-1"], how: "Iron Mover II" },
+  { id: "rep", name: "Rep Machine", req: (s) => !!s.ach?.["reps-1"], how: "Rep Machine II" },
+  { id: "unbroken", name: "Unbroken", req: (s) => !!s.ach?.["streak-1"], how: "Unbroken II (30-day streak)" },
+  { id: "barhanger", name: "Bar Hanger", req: (s) => !!s.ach?.["pullups-1"], how: "Bar Hanger II" },
+  { id: "plates", name: "Two Plates", req: (s) => !!s.ach?.["bench-1"], how: "Bench Club II (225)" },
+  { id: "squatlord", name: "Squat Lord", req: (s) => !!s.ach?.["squat-2"], how: "Squat Club III (405)" },
+  { id: "deadking", name: "Deadlift King", req: (s) => !!s.ach?.["deadlift-2"], how: "Deadlift Club III (405)" },
+  { id: "quester", name: "Quest Hunter", req: (s) => !!s.ach?.["quests-1"], how: "Quest Hunter II" },
+  { id: "ascended", name: "Ascended", req: (s) => !!s.ach?.["rank-2"], how: "First A-rank lift" },
   { id: "mythic", name: "Mythic", req: (s) => Object.keys(s.ach || {}).some((id) => allAchievements().find((a) => a.id === id)?.tier === 5), how: "Any Mythic achievement" },
-  { id: "elite", name: "Elite", req: (s) => overallInfo(s).score >= 4, how: "Reach A overall" },
+  { id: "elite", name: "Elite", req: (s) => overallInfo(s).score >= 5, how: "Reach S overall" },
   { id: "gymgod", name: "Gym God", req: (s) => overallInfo(s).score >= 6, how: "????" },
   { id: "boss_wyrm", name: "Wyrmslayer", req: (s) => (s.loot?.bosses || []).includes("wyrm"), how: "Defeat The Iron Wyrm" },
   { id: "boss_colossus", name: "Icebreaker", req: (s) => (s.loot?.bosses || []).includes("colossus"), how: "Defeat Frost Colossus" },
@@ -4934,7 +4934,7 @@ const TITLES = [
   { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
   { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
   { id: "reigning", name: "Reigning", req: (s) => !!s.lbReigning, how: "Hold #1 on the season board" },
-  { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 2, how: "Beat your Nemesis in 2 duels" },
+  { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 3, how: "Beat your Nemesis in 3 duels" },
   { id: "soon_seraph", name: "Seraph", req: () => false, how: "Coming soon", soon: true },
   { id: "soon_first", name: "World First", req: () => false, how: "Coming soon", soon: true },
 ];
@@ -5770,16 +5770,16 @@ function Physique({ tier = 0, height = 220, aura, caption }) {
 /* ---------- Auras + borders ---------- */
 const AURAS = [
   { id: "none", name: "None", how: "", group: "rank" },
-  { id: "ember", name: "Ember", how: "Log your first workout", task: "train1", group: "rank", colors: ["#FF9340", "#FF4D6D"] },
-  { id: "tide", name: "Tide", how: "Any lift at D", tier: 1, group: "rank", colors: ["#38C6FF", "#2F6BFF"] },
-  { id: "storm", name: "Storm", how: "Any lift at C", tier: 2, group: "rank", colors: ["#B14BFF", "#38C6FF"] },
-  { id: "inferno", name: "Inferno", how: "Any lift at B", tier: 3, group: "rank", colors: ["#FF2D6F", "#FFB43C"] },
-  { id: "halo", name: "Halo", how: "Any lift at A", tier: 4, group: "rank", colors: ["#FFD447", "#FFFFFF"] },
-  { id: "godray", name: "Godray", how: "Any lift at S", tier: 5, group: "rank", colors: ["#FFFFFF", "#7DF9FF"] },
-  { id: "smolder", name: "Smoldering Ember", how: "Train 14 days in a row", task: "streak30", group: "feat", colors: ["#FF6A2B", "#7A1E0E"] },
+  { id: "ember", name: "Ember", how: "Any lift at D", tier: 1, group: "rank", colors: ["#FF9340", "#FF4D6D"] },
+  { id: "tide", name: "Tide", how: "Any lift at C", tier: 2, group: "rank", colors: ["#38C6FF", "#2F6BFF"] },
+  { id: "storm", name: "Storm", how: "Any lift at B", tier: 3, group: "rank", colors: ["#B14BFF", "#38C6FF"] },
+  { id: "inferno", name: "Inferno", how: "Any lift at A", tier: 4, group: "rank", colors: ["#FF2D6F", "#FFB43C"] },
+  { id: "halo", name: "Halo", how: "Any lift at S", tier: 5, group: "rank", colors: ["#FFD447", "#FFFFFF"] },
+  { id: "godray", name: "Godray", how: "Any lift at SS", tier: 6, group: "rank", colors: ["#FFFFFF", "#7DF9FF"] },
+  { id: "smolder", name: "Smoldering Ember", how: "Train 30 days in a row", task: "streak30", group: "feat", colors: ["#FF6A2B", "#7A1E0E"] },
   { id: "stormborn", name: "Stormborn", how: "Log a run in rain, snow, or 40°F and below", task: "weatherRun", group: "feat", colors: ["#8FB8FF", "#E6F0FF"] },
   { id: "dawn", name: "Dawnbreaker", how: "Start a workout between 4 and 6 AM", task: "dawn", group: "feat", colors: ["#FF8A5B", "#FFD36B"] },
-  { id: "wanderer", name: "Wanderer", how: "10,000 steps a day, 3 days in a row", task: "steps7", group: "feat", colors: ["#7BC96F", "#E0B872"] },
+  { id: "wanderer", name: "Wanderer", how: "10,000 steps a day, 7 days in a row", task: "steps7", group: "feat", colors: ["#7BC96F", "#E0B872"] },
   { id: "wyrm", name: "Wyrmfire", how: "Defeat the Iron Wyrm", loot: "wyrm", group: "boss", colors: ["#3DF08A", "#FFD447"] },
   { id: "frost", name: "Frostbite", how: "Defeat the Frost Colossus", loot: "colossus", group: "boss", colors: ["#B3ECFF", "#FFFFFF"] },
   { id: "abyss", name: "Abyss", how: "Defeat the Gravemaw", loot: "gravemaw", group: "boss", colors: ["#6A00FF", "#FF2D6F"] },
@@ -5803,9 +5803,9 @@ const AURAS = [
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
   { id: "steel", name: "Steel", how: "Any lift at D", tier: 1, css: "linear-gradient(135deg,#dfe6ee,#6f7c8c,#dfe6ee)" },
-  { id: "gold", name: "Gold", how: "Any lift at C", tier: 2, css: "linear-gradient(135deg,#fff1b8,#c9962e,#fff1b8)" },
-  { id: "prism", name: "Prism", how: "Any lift at B", tier: 3, css: "conic-gradient(#ff3cac,#ffb43c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)", spin: true },
-  { id: "obsidian", name: "Obsidian", how: "Any lift at A", tier: 4, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
+  { id: "gold", name: "Gold", how: "Any lift at B", tier: 3, css: "linear-gradient(135deg,#fff1b8,#c9962e,#fff1b8)" },
+  { id: "prism", name: "Prism", how: "Any lift at A", tier: 4, css: "conic-gradient(#ff3cac,#ffb43c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)", spin: true },
+  { id: "obsidian", name: "Obsidian", how: "Any lift at S", tier: 5, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
   { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
   { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
   { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/season-one.svg", spin: true },
@@ -5815,11 +5815,10 @@ const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sor
 const wetCode = (c) => (c >= 51 && c <= 67) || (c >= 71 && c <= 77) || (c >= 80 && c <= 86) || c >= 95;
 // Feat auras: each has a check and a progress readout. Once met, the unlock is saved to s.auraUnlocks for good.
 const AURA_TASKS = {
-  train1: (s) => { const v = (s.workouts || []).filter(isWorkout).length; return { done: v >= 1, v: Math.min(v, 1), goal: 1, label: v ? "First session logged" : "Finish any workout" }; },
-  streak30: (s) => { const v = longestRun(activeDays(s)); return { done: v >= 14, v: Math.min(v, 14), goal: 14, label: `Best streak ${Math.min(v, 14)} / 14 days` }; },
+  streak30: (s) => { const v = longestRun(activeDays(s)); return { done: v >= 30, v: Math.min(v, 30), goal: 30, label: `Best streak ${Math.min(v, 30)} / 30 days` }; },
   weatherRun: (s) => { const hit = (s.workouts || []).some((w) => w.run?.wx && (w.run.wx.wet || w.run.wx.t <= 40)); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Braved the weather" : "Runs record the weather where you start" }; },
   dawn: (s) => { const hit = (s.workouts || []).some((w) => { if (!w.startedAt) return false; const h = new Date(w.startedAt).getHours(); return h >= 4 && h < 6; }); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Up before the sun" : "Counts from when you tap Start" }; },
-  steps7: (s) => { const v = longestRun(Object.keys(s.steps || {}).filter((d) => (+s.steps[d] || 0) >= 10000)); return { done: v >= 3, v: Math.min(v, 3), goal: 3, label: `Best run ${Math.min(v, 3)} / 3 days at 10k` }; },
+  steps7: (s) => { const v = longestRun(Object.keys(s.steps || {}).filter((d) => (+s.steps[d] || 0) >= 10000)); return { done: v >= 7, v: Math.min(v, 7), goal: 7, label: `Best run ${Math.min(v, 7)} / 7 days at 10k` }; },
 };
 function unlocked(item, s) {
   if (item.id === "none") return true;
@@ -5846,39 +5845,42 @@ async function fetchRunWeather(lat, lng) {
   } catch (e) { return null; } finally { clearTimeout(t); }
 }
 
-/* Particle recipes. size < 1 keeps every aura smaller than Ophanim. Easy = few slow motes; hard = denser, faster, flashier. */
+/* Particle recipes. Easy unlocks stay simple; rare ones stack more motion. Never shrink the ring so small that studio tiles go blank. */
 const AURA_FX = {
-  ember: { size: 0.5, spd: 1.25, glow: 0.42, layers: [{ k: "rise", n: 14, shape: "spark", c: ["#FFB86B", "#FF6A2B"], sp: [22, 40], life: [0.7, 1.4], sz: [0.9, 1.6], sway: 8 }] },
-  tide: { size: 0.52, spd: 1.15, glow: 0.4, layers: [{ k: "bubble", n: 10, c: ["#9BE7FF", "#38C6FF"], sp: [16, 28], life: [1.2, 2.2], sz: [2, 4] }] },
-  storm: { size: 0.6, spd: 1.55, glow: 0.5, bolts: { every: [0.7, 1.6], c: ["#E6BFFF", "#7DF9FF"] }, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#B14BFF", "#38C6FF"], w: [2.2, 3.4], r: [0.92, 1.18], sz: [0.9, 1.7] }] },
-  inferno: { size: 0.66, spd: 1.7, glow: 0.62, layers: [{ k: "rise", n: 22, shape: "dot", c: ["#FF2D6F", "#FF5A1F", "#FFB43C"], sp: [36, 62], life: [0.45, 0.9], sz: [2.5, 6], sway: 6, a: 0.85 }, { k: "rise", n: 12, shape: "spark", c: ["#FFE08A", "#FF4D00"], sp: [50, 90], life: [0.4, 0.9], sz: [0.7, 1.4], sway: 16 }] },
-  halo: { size: 0.68, spd: 1.35, glow: 0.7, rays: { n: 10, c: "#FFD447", spin: 0.32, len: 1.28, a: 0.14 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#FFF6C9", "#FFD447"], w: [0.7, 1.2], r: [1.0, 1.16], sz: [1.3, 2.6], tw: 1 }] },
-  godray: { size: 0.76, spd: 1.45, glow: 0.78, rays: { n: 14, c: "#DFFBFF", spin: -0.28, len: 1.38, a: 0.18 }, layers: [{ k: "rise", n: 16, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [18, 34], life: [0.9, 1.7], sz: [1.2, 2.4], sway: 5, tw: 1 }, { k: "orbit", n: 14, shape: "spark", c: ["#FFFFFF", "#7DF9FF"], w: [1.2, 2.2], r: [1.02, 1.22], sz: [0.8, 1.6] }] },
-  smolder: { size: 0.62, spd: 1.2, glow: 0.52, layers: [{ k: "rise", n: 8, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [10, 18], life: [1.8, 2.8], sz: [6, 11], sway: 7, a: 0.32, blend: "source-over" }, { k: "rise", n: 20, shape: "spark", c: ["#FF6A2B", "#FFB070"], sp: [16, 32], life: [1, 1.8], sz: [1, 1.8], sway: 14, flick: 1 }] },
-  stormborn: { size: 0.66, spd: 1.65, glow: 0.38, bolts: { every: [0.8, 1.8], c: ["#FFFFFF", "#BFD6FF"], flash: 1 }, layers: [{ k: "fall", n: 28, shape: "drop", c: ["#BFD6FF", "#8FB8FF", "#FFFFFF"], sp: [140, 200], sz: [0.7, 1.2], drift: -22, a: 0.75 }] },
-  dawn: { size: 0.58, spd: 1.1, glow: 0.55, rays: { n: 8, c: "#FFB978", spin: 0.14, len: 1.22, a: 0.18, fan: 1 }, layers: [{ k: "rise", n: 14, shape: "dot", c: ["#FFD36B", "#FF8A5B"], sp: [12, 24], life: [1.2, 2], sz: [1.2, 2.2], sway: 6, tw: 1 }] },
-  wanderer: { size: 0.54, spd: 0.95, glow: 0.32, layers: [{ k: "orbit", n: 10, shape: "leaf", c: ["#7BC96F", "#E0B872"], w: [0.7, 1.2], r: [1.02, 1.22], sz: [2, 3.4], wave: 0.1 }] },
-  wyrm: { size: 0.74, spd: 1.6, glow: 0.58, layers: [{ k: "orbit", n: 20, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.6, 2.6], r: [0.92, 1.2], sz: [2, 3.6] }, { k: "rise", n: 14, shape: "spark", c: ["#3DF08A", "#FFD447"], sp: [28, 55], life: [0.5, 1.1], sz: [0.9, 1.6], sway: 12 }] },
-  frost: { size: 0.7, spd: 1.4, glow: 0.52, layers: [{ k: "fall", n: 22, shape: "flake", c: ["#FFFFFF", "#B3ECFF"], sp: [22, 40], sz: [1.8, 3.4], drift: 14 }, { k: "orbit", n: 10, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.8, 1.5], r: [0.98, 1.16], sz: [2, 3.4] }] },
-  abyss: { size: 0.8, spd: 1.75, glow: 0.5, layers: [{ k: "inward", n: 26, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.9, 1.6], life: [0.7, 1.3], sz: [1.4, 3.2] }, { k: "orbit", n: 16, shape: "spark", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1.8, 3.2], r: [0.9, 1.2], sz: [0.9, 1.8] }] },
-  chud: { size: 0.56, spd: 1.05, glow: 0.38, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.7, 0.7], r: [1.08, 1.08], sz: [0.13, 0.13], bob: 1, even: 1 }] },
-  rust: { size: 0.72, spd: 1.5, glow: 0.42, layers: [{ k: "fall", n: 26, shape: "square", c: ["#C7743A", "#E39A5E", "#FF7A2D"], sp: [24, 44], sz: [1.3, 2.6], drift: 14, spin: 1 }, { k: "rise", n: 10, shape: "spark", c: ["#FFB86B", "#FF7A2D"], sp: [40, 80], life: [0.3, 0.7], sz: [0.7, 1.3], sway: 18 }] },
-  thunder: { size: 0.78, spd: 1.9, glow: 0.58, bolts: { every: [0.28, 0.7], c: ["#FFF27A", "#7DD3FC", "#FFFFFF"] }, layers: [{ k: "orbit", n: 22, shape: "spark", c: ["#7DD3FC", "#FFF27A", "#FFFFFF"], w: [2.8, 4.2], r: [0.9, 1.18], sz: [0.9, 1.8] }] },
-  hollow: { size: 0.74, spd: 1.35, glow: 0.48, layers: [{ k: "orbit", n: 16, shape: "shard", c: ["#9AA7BD", "#FFFFFF"], w: [0.6, 1.3], r: [0.98, 1.22], sz: [2.4, 4.2] }, { k: "rise", n: 8, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [8, 16], life: [1.6, 2.6], sz: [6, 11], sway: 6, a: 0.22, blend: "source-over" }] },
-  deep: { size: 0.8, spd: 1.55, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#00D9FF", "#2F6BFF"], sp: [18, 36], life: [1, 1.8], sz: [1.4, 4.2] }, { k: "inward", n: 14, shape: "spark", c: ["#2F6BFF", "#00D9FF"], sp: [0.6, 1.1], life: [0.9, 1.6], sz: [0.9, 1.8] }] },
-  magma: { size: 0.82, spd: 1.7, glow: 0.68, layers: [{ k: "rise", n: 22, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [28, 52], life: [0.5, 1.1], sz: [2.6, 6], sway: 5, a: 0.9 }, { k: "rise", n: 10, shape: "spark", c: ["#FFE08A", "#FF2D00"], sp: [40, 70], life: [0.4, 0.8], sz: [0.8, 1.5], sway: 14 }] },
-  plague: { size: 0.76, spd: 1.4, glow: 0.44, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#8BC34A", "#3E5F1A"], sp: [10, 18], life: [1.4, 2.2], sz: [6, 11], sway: 10, a: 0.28 }, { k: "bubble", n: 14, c: ["#C6F07A", "#8BC34A", "#D4FF7A"], sp: [16, 28], life: [0.8, 1.5], sz: [1.4, 3.2] }] },
-  sand: { size: 0.8, spd: 1.85, glow: 0.42, layers: [{ k: "orbit", n: 36, shape: "dot", c: ["#E8C872", "#B8860B", "#F6E3A8", "#FF9340"], w: [2.2, 3.6], r: [0.88, 1.28], sz: [0.7, 1.6], wave: 0.22, a: 0.95 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [30, 50], sz: [1, 2], drift: 20, spin: 1 }] },
-  void: { size: 0.86, spd: 1.65, glow: 0.62, dark: 1, layers: [{ k: "inward", n: 26, shape: "dot", c: ["#0B0014", "#3A0A6A", "#6A00FF"], sp: [0.8, 1.4], life: [0.8, 1.5], sz: [2.4, 5.5], blend: "source-over", a: 0.9 }, { k: "orbit", n: 20, shape: "star", c: ["#FFFFFF", "#C9A8FF", "#7DF9FF"], w: [0.7, 1.6], r: [1.02, 1.28], sz: [0.7, 1.5], tw: 1 }] },
-  yogurt: { size: 0.52, spd: 0.95, glow: 0.34, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.55, 0.55], r: [1.08, 1.08], sz: [0.13, 0.13], bob: 1, even: 1 }, { k: "bubble", n: 8, c: ["#FFFFFF", "#FFF8E7"], sp: [10, 18], life: [1.1, 1.8], sz: [1.4, 2.8] }] },
-  vendetta: { size: 0.84, spd: 1.8, glow: 0.6, bolts: { every: [0.55, 1.2], c: ["#FF1F4B", "#FFB3C1"] }, layers: [{ k: "inward", n: 18, shape: "dot", c: ["#3A0010", "#5A0018"], sp: [0.9, 1.5], life: [0.7, 1.3], sz: [2.2, 5], blend: "source-over", a: 0.85 }, { k: "rise", n: 20, shape: "spark", c: ["#FF1F4B", "#FF6B8F"], sp: [30, 58], life: [0.5, 1], sz: [0.9, 1.8], sway: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [1.6, 2.6], r: [0.95, 1.16], sz: [2, 3.4] }] },
-  champion: { size: 0.8, spd: 1.55, glow: 0.62, rays: { n: 12, c: "#FFD447", spin: 0.42, len: 1.32, a: 0.16 }, layers: [{ k: "rise", n: 18, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [22, 42], life: [0.7, 1.3], sz: [1.4, 2.6], sway: 16, spin: 1 }, { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [1.2, 2], r: [1.05, 1.2], sz: [0.9, 1.6], tw: 1 }] },
-  ascended: { size: 1, spd: 1.35, glow: 0.28, art: "ophanim", rays: { n: 16, c: "#FFD447", spin: 0.55, len: 1.7, a: 0.22 }, bolts: { every: [0.45, 1.1], c: ["#7DF9FF", "#FFD447", "#FFFFFF"] }, layers: [
-    { k: "orbit", n: 12, shape: "eye", c: ["#7DF9FF"], w: [0.85, 0.85], r: [1.22, 1.22], sz: [2.2, 2.2], even: 1 },
-    { k: "orbit", n: 8, shape: "eye", c: ["#FFD447"], w: [-1.2, -1.2], r: [1.02, 1.02], sz: [2.6, 2.6], even: 1 },
-    { k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.7, 1.6], r: [1.1, 1.36], sz: [0.8, 1.5], tw: 1 },
-    { k: "rise", n: 16, shape: "spark", c: ["#FFD447", "#FFFFFF", "#7DF9FF"], sp: [22, 48], life: [0.5, 1.1], sz: [0.7, 1.4], sway: 10 },
+  ember: { spd: 1, glow: 0.6, layers: [{ k: "rise", n: 22, shape: "spark", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [18, 38], life: [1, 2.2], sz: [1.4, 2.6], sway: 10 }, { k: "rise", n: 8, shape: "dot", c: ["#FF9340", "#FF4D6D"], sp: [10, 20], life: [1.2, 2], sz: [3.2, 6], sway: 6, a: 0.55 }] },
+  tide: { spd: 1, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2.4, 5.2] }, { k: "orbit", n: 16, shape: "dot", c: ["#38C6FF", "#2F6BFF"], w: [0.7, 1.2], r: [0.95, 1.18], sz: [1.8, 3.2], wave: 0.08 }] },
+  storm: { spd: 1.35, glow: 0.58, bolts: { every: [0.8, 1.8], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 28, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.8, 2.8], r: [0.9, 1.22], sz: [1.3, 2.4] }, { k: "rise", n: 10, shape: "dot", c: ["#B14BFF", "#38C6FF"], sp: [16, 30], life: [0.8, 1.5], sz: [2, 4], sway: 8, a: 0.6 }] },
+  inferno: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 32, shape: "dot", c: ["#FF2D6F", "#FF5A1F", "#FFB43C"], sp: [28, 54], life: [0.55, 1.15], sz: [3.2, 7.5], sway: 5, a: 0.85 }, { k: "rise", n: 18, shape: "spark", c: ["#FFE08A", "#FFB43C", "#FF4D00"], sp: [42, 78], life: [0.5, 1.1], sz: [1.1, 2], sway: 16 }] },
+  halo: { spd: 1.2, glow: 0.78, rays: { n: 12, c: "#FFD447", spin: 0.22, len: 1.42, a: 0.18 }, layers: [{ k: "orbit", n: 22, shape: "dot", c: ["#FFF6C9", "#FFD447"], w: [0.4, 0.85], r: [1.02, 1.18], sz: [1.8, 3.4], tw: 1 }, { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.7, 1.2], r: [1.08, 1.24], sz: [1, 1.8], tw: 1 }] },
+  godray: { spd: 1.4, glow: 0.82, rays: { n: 16, c: "#DFFBFF", spin: -0.2, len: 1.55, a: 0.2 }, layers: [{ k: "rise", n: 22, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [12, 26], life: [1.2, 2.2], sz: [1.6, 3.2], sway: 4, tw: 1 }, { k: "orbit", n: 18, shape: "spark", c: ["#FFFFFF", "#7DF9FF"], w: [0.8, 1.6], r: [1, 1.28], sz: [1.2, 2.2] }] },
+  smolder: { spd: 1.1, glow: 0.6, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [8, 16], life: [2.2, 3.4], sz: [8, 15], sway: 8, a: 0.35, blend: "source-over" }, { k: "rise", n: 26, shape: "spark", c: ["#FF6A2B", "#FFB070", "#FF8A3D"], sp: [12, 26], life: [1.4, 2.6], sz: [1.3, 2.3], sway: 12, flick: 1 }, { k: "orbit", n: 8, shape: "dot", c: ["#C2361A", "#FF6A2B"], w: [0.25, 0.45], r: [0.98, 1.08], sz: [2.2, 4], tw: 1 }] },
+  stormborn: { spd: 1.45, glow: 0.4, bolts: { every: [1, 2.2], c: ["#FFFFFF", "#BFD6FF"], flash: 1 }, layers: [{ k: "fall", n: 34, shape: "drop", c: ["#BFD6FF", "#8FB8FF", "#E6F0FF"], sp: [90, 150], sz: [1, 1.7], drift: -16, a: 0.75 }, { k: "orbit", n: 8, shape: "spark", c: ["#FFFFFF", "#8FB8FF"], w: [1.2, 2], r: [1.05, 1.22], sz: [1, 1.8] }] },
+  dawn: { spd: 1, glow: 0.62, rays: { n: 9, c: "#FFB978", spin: 0.1, len: 1.4, a: 0.2, fan: 1 }, layers: [{ k: "rise", n: 18, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFE9C2"], sp: [10, 20], life: [1.6, 2.8], sz: [1.5, 2.8], sway: 6, tw: 1 }] },
+  wanderer: { spd: 0.95, glow: 0.4, layers: [{ k: "orbit", n: 14, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.5, 0.95], r: [1, 1.28], sz: [2.6, 4.2], wave: 0.12 }, { k: "rise", n: 10, shape: "dot", c: ["#E0B872", "#F3DDB0"], sp: [8, 16], life: [1.5, 2.6], sz: [1.3, 2.4], sway: 10, a: 0.75 }] },
+  wyrm: { spd: 1.5, glow: 0.64, layers: [{ k: "orbit", n: 24, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.1, 2], r: [0.94, 1.22], sz: [2.6, 4.6] }, { k: "rise", n: 16, shape: "spark", c: ["#3DF08A", "#FFD447"], sp: [22, 48], life: [0.7, 1.4], sz: [1.2, 2.1], sway: 12 }] },
+  frost: { spd: 1.25, glow: 0.58, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [16, 32], sz: [2.2, 4.2], drift: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.4, 0.8], r: [1, 1.18], sz: [2.6, 4.2] }] },
+  abyss: { spd: 1.6, glow: 0.5, layers: [{ k: "inward", n: 28, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.55, 1.05], life: [1, 1.9], sz: [1.8, 3.8] }, { k: "orbit", n: 18, shape: "spark", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1, 2.2], r: [0.94, 1.22], sz: [1.2, 2.2] }] },
+  chud: { spd: 1, glow: 0.48, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.55, 0.55], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "rise", n: 10, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over" }] },
+  rust: { spd: 1.35, glow: 0.45, layers: [{ k: "fall", n: 28, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [18, 34], sz: [1.7, 3.2], drift: 12, spin: 1 }, { k: "rise", n: 12, shape: "spark", c: ["#FFB86B", "#FF7A2D"], sp: [32, 64], life: [0.4, 0.9], sz: [1, 1.7], sway: 18 }] },
+  thunder: { spd: 1.75, glow: 0.6, bolts: { every: [0.35, 0.9], c: ["#FFF27A", "#7DD3FC", "#FFFFFF"] }, layers: [{ k: "orbit", n: 26, shape: "spark", c: ["#7DD3FC", "#FFF27A", "#FFFFFF"], w: [2.2, 3.4], r: [0.94, 1.2], sz: [1.3, 2.3] }] },
+  hollow: { spd: 1.2, glow: 0.52, layers: [{ k: "orbit", n: 16, shape: "shard", c: ["#9AA7BD", "#DDE6F2", "#FFFFFF"], w: [0.35, 0.7], r: [1, 1.26], sz: [3.2, 5.2] }, { k: "rise", n: 10, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [6, 12], life: [1.8, 3], sz: [7, 13], sway: 6, a: 0.25, blend: "source-over" }] },
+  deep: { spd: 1.4, glow: 0.58, layers: [{ k: "bubble", n: 18, c: ["#9BE7FF", "#00D9FF", "#6FA0FF"], sp: [14, 28], life: [1.3, 2.5], sz: [1.8, 5] }, { k: "inward", n: 14, shape: "dot", c: ["#2F6BFF", "#00D9FF"], sp: [0.35, 0.65], life: [1.5, 2.4], sz: [1.3, 2.6] }] },
+  magma: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [18, 38], life: [0.7, 1.4], sz: [3.2, 7], sway: 4, a: 0.88 }, { k: "rise", n: 12, shape: "spark", c: ["#FFE08A", "#FF5A1F"], sp: [28, 55], life: [0.5, 1], sz: [1, 1.8], sway: 12 }] },
+  plague: { spd: 1.25, glow: 0.48, layers: [{ k: "rise", n: 12, shape: "smoke", c: ["#8BC34A", "#5E8C2A"], sp: [7, 14], life: [1.8, 3], sz: [7, 13], sway: 8, a: 0.3 }, { k: "bubble", n: 14, c: ["#C6F07A", "#8BC34A"], sp: [12, 22], life: [1.1, 2.2], sz: [1.8, 3.8] }] },
+  sand: { spd: 1.65, glow: 0.46, layers: [{ k: "orbit", n: 40, shape: "dot", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.6, 2.8], r: [0.9, 1.38], sz: [1, 2], wave: 0.2, a: 0.92 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [22, 40], sz: [1.2, 2.2], drift: 16, spin: 1 }] },
+  void: { spd: 1.5, glow: 0.66, dark: 1, layers: [{ k: "inward", n: 28, shape: "dot", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.5, 0.9], life: [1.2, 2.1], sz: [3.2, 7], blend: "source-over", a: 0.9 }, { k: "orbit", n: 22, shape: "star", c: ["#FFFFFF", "#C9A8FF", "#7DF9FF"], w: [0.35, 0.8], r: [1.05, 1.34], sz: [1, 1.8], tw: 1 }] },
+  yogurt: { spd: 0.95, glow: 0.42, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.5, 0.5], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.8, 3.6] }] },
+  vendetta: { spd: 1.7, glow: 0.62, bolts: { every: [0.7, 1.5], c: ["#FF4D6D", "#FFB3C1"] }, layers: [{ k: "inward", n: 20, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.55, 1], life: [1, 1.8], sz: [2.6, 6], blend: "source-over", a: 0.85 }, { k: "rise", n: 22, shape: "spark", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [20, 42], life: [0.7, 1.4], sz: [1.2, 2.2], sway: 8 }, { k: "orbit", n: 12, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [1.1, 1.8], r: [1, 1.2], sz: [2.6, 4.2] }] },
+  champion: { spd: 1.45, glow: 0.68, rays: { n: 12, c: "#FFD447", spin: 0.28, len: 1.45, a: 0.18 }, layers: [{ k: "rise", n: 22, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [16, 34], life: [1, 1.8], sz: [1.8, 3.2], sway: 14, spin: 1 }, { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.8, 1.4], r: [1.04, 1.2], sz: [1.1, 1.9], tw: 1 }] },
+  ascended: { spd: 1.25, glow: 0.32, art: "ophanim", rays: { n: 16, c: "#FFD447", spin: 0.48, len: 1.62, a: 0.22 }, bolts: { every: [0.5, 1.2], c: ["#7DF9FF", "#FFD447", "#FFFFFF"] }, layers: [
+    { k: "orbit", n: 12, shape: "eye", c: ["#7DF9FF"], w: [0.7, 0.7], r: [1.22, 1.22], sz: [2.4, 2.4], even: 1 },
+    { k: "orbit", n: 8, shape: "eye", c: ["#FFD447"], w: [-1.05, -1.05], r: [1.02, 1.02], sz: [2.8, 2.8], even: 1 },
+    { k: "orbit", n: 16, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.5, 1.3], r: [1.12, 1.42], sz: [1, 1.8], tw: 1 },
+    { k: "rise", n: 18, shape: "spark", c: ["#FFD447", "#FFFFFF", "#7DF9FF"], sp: [18, 40], life: [0.7, 1.4], sz: [1, 1.8], sway: 12 },
   ] },
+  soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
+  soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
+  soon_wheel: { spd: 1.3, glow: 0.5, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#38C6FF", "#FFD447"], w: [1.2, 2], r: [0.95, 1.22], sz: [1.2, 2.1] }, { k: "orbit", n: 8, shape: "shard", c: ["#FFD447", "#7DF9FF"], w: [-0.6, -0.6], r: [1.08, 1.08], sz: [2.4, 3.4], even: 1 }] },
 };
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -5929,9 +5931,10 @@ function glowSprite(color) {
   if (_glowCache.has(color)) return _glowCache.get(color);
   const c = document.createElement("canvas"); c.width = c.height = 64;
   const g = c.getContext("2d");
+  const rgb = hexRgb(color) || [255, 255, 255];
   if (g) {
     const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.18, color); grd.addColorStop(0.5, `${color}66`); grd.addColorStop(1, `${color}00`);
+    grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.18, `rgb(${rgb.join(",")})`); grd.addColorStop(0.5, `rgba(${rgb.join(",")},.4)`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
     g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
   }
   _glowCache.set(color, c);
@@ -5942,7 +5945,8 @@ function softSprite(color) {
   if (_glowCache.has(key)) return _glowCache.get(key);
   const c = document.createElement("canvas"); c.width = c.height = 64;
   const g = c.getContext("2d");
-  if (g) { const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32); grd.addColorStop(0, color); grd.addColorStop(0.55, `${color}88`); grd.addColorStop(1, `${color}00`); g.fillStyle = grd; g.fillRect(0, 0, 64, 64); }
+  const rgb = hexRgb(color) || [180, 180, 180];
+  if (g) { const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32); grd.addColorStop(0, `rgb(${rgb.join(",")})`); grd.addColorStop(0.55, `rgba(${rgb.join(",")},.53)`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`); g.fillStyle = grd; g.fillRect(0, 0, 64, 64); }
   _glowCache.set(key, c);
   return c;
 }
@@ -5954,7 +5958,7 @@ const AuraLoop = {
   remove(inst) { this.set.delete(inst); if (!this.set.size && this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; } },
   tick(t) {
     const dt = Math.min(0.05, (t - this.last) / 1000); this.last = t;
-    if (!document.hidden) this.set.forEach((inst) => { if (inst.visible) inst.frame(dt); });
+    if (!document.hidden) this.set.forEach((inst) => { if (inst.visible) { try { inst.frame(dt); } catch (e) { /* one bad aura must not blank the rest */ } } });
     this.raf = this.set.size ? requestAnimationFrame((tt) => this.tick(tt)) : 0;
   },
 };
@@ -5966,33 +5970,38 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const sizeK = aura === "ascended" ? 1 : Math.min(0.88, fx.size || 0.68);
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
-  const rx = (mode === "body" ? w * 0.28 : ringR) * sizeK, ry = (mode === "body" ? h * 0.36 : ringR) * sizeK;
-  const gR = Math.min(1.5, (Math.min(cx, w - cx) / rx) * 0.97, (Math.min(cy, h - cy) / ry) * 0.97); // glow never hits the canvas edge
-  const scale = Math.max(0.3, Math.min(1.3, (w * h) / (170 * 170)));
-  const unit = Math.min(rx, ry) / 60; // particle sizes are authored for a ~60px ring
+  const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
+  const rx = Math.max(10, (mode === "body" ? w * 0.28 : ringR) * fit);
+  const ry = Math.max(10, (mode === "body" ? h * 0.36 : ringR) * fit);
+  const gR = Math.min(1.45, (Math.min(cx, w - cx) / rx) * 0.97, (Math.min(cy, h - cy) / ry) * 0.97);
+  const scale = Math.max(0.7, Math.min(1.25, (w * h) / (140 * 140)));
+  const unit = Math.max(w < 110 ? 1.15 : 0.75, Math.min(rx, ry) / 48);
   const onRing = (ang, k = 1) => [cx + Math.cos(ang) * rx * k, cy + Math.sin(ang) * ry * k];
   let time = 0, boltT = fx.bolts ? rnd(...fx.bolts.every) : 0, bolt = null;
+  const c1 = base?.colors?.[0] || "#00D9FF", c2 = base?.colors?.[1] || c1;
+  const rgba = (hex, a) => { const c = hexRgb(hex) || [0, 217, 255]; return `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`; };
 
   const layers = fx.layers.map((L) => {
     const n = Math.max(L.even ? L.n : 3, Math.round(L.n * (L.even ? 1 : scale)));
     const spawn = (p, fresh) => {
-      p.c = L.c ? pick(L.c) : null; p.sz = rnd(...L.sz) * (L.shape === "emoji" ? 1 : unit * (mode === "body" ? 1.1 : 1));
+      p.c = L.c ? pick(L.c) : "#ffffff";
+      const raw = rnd(...(L.sz || [2, 3])) * (L.shape === "emoji" ? 1 : unit * (mode === "body" ? 1.15 : 1));
+      p.sz = L.shape === "emoji" ? raw : Math.max(w < 110 ? 1.35 : 0.9, raw);
       p.age = 0; p.rot = rnd(0, Math.PI * 2); p.vr = L.spin ? rnd(-3, 3) : rnd(-1, 1); p.ph = rnd(0, Math.PI * 2);
       if (L.k === "rise" || L.k === "bubble") {
         const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
-        [p.x, p.y] = onRing(ang, rnd(0.85, 1.05)); p.vy = -rnd(...L.sp) * unit * spd; p.life = rnd(...(L.life || [1.5, 2.5]));
+        [p.x, p.y] = onRing(ang, rnd(0.85, 1.05)); p.vy = -rnd(...L.sp) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
         if (fresh) p.age = rnd(0, p.life);
       } else if (L.k === "fall") {
-        p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...L.sp) * unit * spd; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2) * spd; p.life = 99;
+        p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...L.sp) * unit; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2); p.life = 99;
         if (fresh) p.y = rnd(cy - ry * 1.6, cy + ry * 1.5);
       } else if (L.k === "inward") {
-        p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...L.life); p.spd = rnd(...L.sp) * spd;
+        p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...L.life); p.spd = rnd(...L.sp);
         if (fresh) p.age = rnd(0, p.life);
       } else { // orbit
-        p.ang = L.even ? (p.i / n) * Math.PI * 2 : rnd(0, Math.PI * 2); p.r = rnd(...L.r); p.w = rnd(...L.w) * spd * (Math.random() < 0.5 && !L.even ? -1 : 1) * (L.even ? 1 : 1); p.life = 99;
+        p.ang = L.even ? (p.i / n) * Math.PI * 2 : rnd(0, Math.PI * 2); p.r = rnd(...L.r); p.w = rnd(...L.w) * (Math.random() < 0.5 && !L.even ? -1 : 1); p.life = 99;
         if (L.top) p.ang = rnd(Math.PI * 1.1, Math.PI * 1.9);
       }
       p.e = L.e ? L.e[p.i % L.e.length] : null;
@@ -6069,16 +6078,15 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
     g.clearRect(0, 0, w, h);
     g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
     // base glow that breathes
-    const c1 = base.colors[0], c2 = base.colors[1];
     const breathe = 0.85 + Math.sin(time * 2.1) * 0.15;
     if (fx.dark) {
       const grd = g.createRadialGradient(cx, cy, rx * 0.7, cx, cy, rx * gR);
-      grd.addColorStop(0, "rgba(10,0,20,0)"); grd.addColorStop(0.35, `rgba(20,0,40,${0.75 * breathe})`); grd.addColorStop(0.55, `${c1}AA`); grd.addColorStop(1, "rgba(10,0,20,0)");
+      grd.addColorStop(0, "rgba(10,0,20,0)"); grd.addColorStop(0.35, `rgba(20,0,40,${0.75 * breathe})`); grd.addColorStop(0.55, rgba(c1, 0.66)); grd.addColorStop(1, "rgba(10,0,20,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy); g.beginPath(); g.arc(cx, cy, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
     } else {
       g.save(); g.translate(cx, cy); g.scale(1, ry / rx);
-      const grd = g.createRadialGradient(0, 0, rx * 0.6, 0, 0, rx * gR);
-      grd.addColorStop(0, `${c1}00`); grd.addColorStop(0.35, `${c1}${Math.round(fx.glow * breathe * 150).toString(16).padStart(2, "0")}`); grd.addColorStop(0.7, `${c2}${Math.round(fx.glow * 60).toString(16).padStart(2, "0")}`); grd.addColorStop(1, `${c2}00`);
+      const grd = g.createRadialGradient(0, 0, rx * 0.55, 0, 0, rx * gR);
+      grd.addColorStop(0, rgba(c1, 0)); grd.addColorStop(0.35, rgba(c1, fx.glow * breathe * 0.72)); grd.addColorStop(0.7, rgba(c2, fx.glow * 0.32)); grd.addColorStop(1, rgba(c2, 0));
       g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
     }
     g.globalCompositeOperation = "lighter";
@@ -6086,10 +6094,11 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       const R = fx.rays; g.save(); g.translate(cx, cy);
       for (let i = 0; i < R.n; i++) {
         const a0 = (i / R.n) * Math.PI * 2 + time * R.spin;
-        if (R.fan && Math.sin(a0) > 0.15) continue; // dawn: rays only rise from the top half
+        if (R.fan && Math.sin(a0) > 0.15) continue;
         const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
         const grd = g.createLinearGradient(0, 0, Math.cos(a0) * len, Math.sin(a0) * len);
-        grd.addColorStop(0, `${R.c}00`); grd.addColorStop(0.45, `${R.c}${Math.round(R.a * 255 * (0.7 + 0.3 * Math.sin(time * 2 + i * 1.7))).toString(16).padStart(2, "0")}`); grd.addColorStop(1, `${R.c}00`);
+        const pulse = R.a * (0.7 + 0.3 * Math.sin(time * 2 + i * 1.7));
+        grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, pulse)); grd.addColorStop(1, rgba(R.c, 0));
         g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0);
         const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
         g.lineTo(Math.cos(a0 - wd) * len, Math.sin(a0 - wd) * len); g.lineTo(Math.cos(a0 + wd) * len, Math.sin(a0 + wd) * len); g.closePath(); g.fill();
@@ -6152,8 +6161,10 @@ function AuraCanvas({ aura, w, h, mode = "circle", ringR, style }) {
   useEffect(() => {
     const cv = ref.current;
     if (!cv || !AURA_FX[aura] || typeof window === "undefined") return;
-    const inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2 });
+    let inst = null;
+    try { inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2 }); } catch (e) { return; }
     if (!inst) return;
+    try { inst.frame(1 / 30); } catch (e) { /* first paint */ }
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     if (reduce) { for (let i = 0; i < 60; i++) inst.frame(1 / 30); return; }
     let io = null;
@@ -6172,9 +6183,9 @@ function AuraCanvas({ aura, w, h, mode = "circle", ringR, style }) {
 // Drop-in replacement for the old ring. `size` is the ring's outer size as before; the canvas is larger so particles can drift out.
 function AuraRing({ aura, size, style }) {
   if (!AURA_FX[aura]) return null;
-  const k = aura === "ascended" ? 1.3 : 1.12;
+  const k = aura === "ascended" ? 1.32 : 1.28;
   const w = Math.round(size * k);
-  return <AuraCanvas aura={aura} w={w} h={w} ringR={size / 2.9} style={style} />;
+  return <AuraCanvas aura={aura} w={w} h={w} ringR={size / 2.7} style={style} />;
 }
 
 /* ---------- The Juice ---------- */
