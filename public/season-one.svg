@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff6c9"/>
+      <stop offset=".35" stop-color="#ffd447"/>
+      <stop offset=".7" stop-color="#c9962e"/>
+      <stop offset="1" stop-color="#fff1b8"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="none" stroke="url(#g)" stroke-width="8"/>
+  <circle cx="64" cy="64" r="49" fill="none" stroke="#7df9ff" stroke-width="1.4" opacity=".85"/>
+  <g filter="url(#glow)" fill="#0b1a2c" stroke="#ffd447" stroke-width="1.2">
+    <g transform="translate(64 8)">
+      <ellipse rx="7" ry="4.4" fill="#f4fbff"/>
+      <circle r="2.2" fill="#1a6dff"/>
+      <circle r=".8" fill="#061018"/>
+    </g>
+    <g transform="translate(120 64) rotate(90)">
+      <ellipse rx="7" ry="4.4" fill="#f4fbff"/>
+      <circle r="2.2" fill="#1a6dff"/>
+      <circle r=".8" fill="#061018"/>
+    </g>
+    <g transform="translate(64 120) rotate(180)">
+      <ellipse rx="7" ry="4.4" fill="#f4fbff"/>
+      <circle r="2.2" fill="#1a6dff"/>
+      <circle r=".8" fill="#061018"/>
+    </g>
+    <g transform="translate(8 64) rotate(270)">
+      <ellipse rx="7" ry="4.4" fill="#f4fbff"/>
+      <circle r="2.2" fill="#1a6dff"/>
+      <circle r=".8" fill="#061018"/>
+    </g>
+  </g>
+  <path d="M64 18 L66.4 24.2 L73 24.6 L68 28.8 L69.4 35.2 L64 31.8 L58.6 35.2 L60 28.8 L55 24.6 L61.6 24.2 Z" fill="#fff6c9" stroke="#c9962e" stroke-width=".6"/>
+</svg>
