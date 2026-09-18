@@ -717,7 +717,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5m";
+const APP_VERSION = "5n";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -998,6 +998,9 @@ export default function App() {
 
   applyTheme(s.settings);
   SFX.enabled = s.settings?.sounds !== false;
+  try {
+    if (new URLSearchParams(window.location.search).get("watch") === "rest") return <RestWatchPage />;
+  } catch (e) { /* stay in the app */ }
   if (!loaded) return <div className="min-h-screen flex items-center justify-center" style={{ background: C.bg, color: C.dim }}><Loader2 className="animate-spin" /></div>;
 
   const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
@@ -1385,15 +1388,51 @@ function Profile({ s, setS }) {
 }
 
 /* ---------- Train ---------- */
+const namesMatch = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 function pastSessions(s, name, excludeId, n = 3) {
   const out = [];
-  for (let i = s.workouts.length - 1; i >= 0 && out.length < n; i--) {
+  for (let i = (s.workouts || []).length - 1; i >= 0 && out.length < n; i--) {
     const w = s.workouts[i];
-    if (w.id === excludeId) continue;
-    const ex = w.exercises.find((e) => e.name === name);
-    if (ex) out.push({ date: w.date, sets: ex.sets, id: w.id });
+    if (w.id === excludeId || !isWorkout(w)) continue;
+    const ex = (w.exercises || []).find((e) => namesMatch(e.name, name));
+    if (!ex) continue;
+    const sets = (ex.sets || []).filter((st) => +st.r > 0 || +st.w > 0);
+    if (!sets.length) continue;
+    out.push({ date: w.date, sets: ex.sets, id: w.id, title: w.title || "" });
   }
   return out;
+}
+function cloneSets(sets) {
+  return (sets || []).map((st) => ({ w: st.w === 0 || st.w ? String(st.w) : "", r: st.r === 0 || st.r ? String(st.r) : "", done: false, drop: !!st.drop }));
+}
+function lastWorkingSets(s, name, excludeId) {
+  for (const ps of pastSessions(s, name, excludeId, 8)) {
+    const sets = (ps.sets || []).filter((st) => +st.r > 0 || +st.w > 0);
+    if (sets.length) return { date: ps.date, sets };
+  }
+  return null;
+}
+function lastWorkout(s, titleHint) {
+  const list = [...(s.workouts || [])].reverse().filter((w) => isWorkout(w) && (w.exercises || []).some((e) => (e.sets || []).some((st) => +st.r > 0 || +st.w > 0)));
+  if (!list.length) return null;
+  const t = (titleHint || "").trim().toLowerCase();
+  if (t) {
+    const hit = list.find((w) => (w.title || "").trim().toLowerCase() === t);
+    if (hit) return hit;
+  }
+  return list[0];
+}
+function copyWorkoutExercises(w) {
+  return (w.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: cloneSets(e.sets) }));
+}
+function applyTargetSets(lastSets, target) {
+  const base = (lastSets || []).filter((st) => +st.r > 0 || +st.w > 0);
+  if (!target) return cloneSets(base);
+  if (!base.length) return [{ w: target.w != null ? String(target.w) : "", r: target.r != null ? String(target.r) : "", done: false }];
+  return base.map((st) => {
+    if (st.drop) return { w: target.w != null && +target.w > 0 ? String(Math.round(+target.w * 0.8)) : String(st.w ?? ""), r: String(st.r ?? target.r ?? ""), done: false, drop: true };
+    return { w: target.w != null ? String(target.w) : String(st.w ?? ""), r: String(target.r ?? st.r ?? ""), done: false, drop: false };
+  });
 }
 const setLabel = (def, st) => {
   const core = def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`;
@@ -1412,7 +1451,7 @@ function Train({ s, setS, gainXp, openRun }) {
   const [open, setOpen] = useState({});
   const a = s.active;
   const setActive = (fn) => setS((p) => ({ ...p, active: fn(p.active) }));
-  const lastSets = (name) => pastSessions(s, name, a?.editId, 1)[0]?.sets || [];
+  const lastSets = (name) => lastWorkingSets(s, name, a?.editId)?.sets || [];
   const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
 
   const finish = () => {
@@ -1432,6 +1471,7 @@ function Train({ s, setS, gainXp, openRun }) {
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
+    if (s.crew?.code) noteRaidHit(s.crew.code, s.playerId, s.profile.name, workout);
     juice(prs ? "pr" : "finish");
     if (prs) { postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
     gainXp(xp, prs ? `Workout · ${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete", `wo_${workout.id}`);
@@ -1439,7 +1479,8 @@ function Train({ s, setS, gainXp, openRun }) {
   };
 
   const addExercise = (name) => {
-    setActive((w) => ({ ...w, exercises: [...w.exercises, { name, sets: [{ w: "", r: "", done: false }] }] }));
+    const prev = lastWorkingSets(s, name, a?.editId);
+    setActive((w) => ({ ...w, exercises: [...w.exercises, { name, sets: prev ? cloneSets(prev.sets) : [{ w: "", r: "", done: false }] }] }));
     setPicker(false);
     window.scrollTo?.(0, 0);
   };
@@ -1467,10 +1508,19 @@ function Train({ s, setS, gainXp, openRun }) {
       <div className="space-y-4">
         <Title>Train</Title>
         <div className="grid gap-2" style={{ gridTemplateColumns: "1.6fr 1fr 1fr" }}>
-          <button onClick={() => setTitling(true)} className="btn py-4 text-lg">Start workout</button>
-          <button onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Run</button>
-          <button onClick={() => setShowPresets(!showPresets)} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: showPresets ? C.cyan : C.text, borderColor: showPresets ? C.cyan : C.border }}><Layers size={18} />Presets</button>
+          <button type="button" onClick={() => setTitling(true)} className="btn py-4 text-lg">Start workout</button>
+          <button type="button" onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Run</button>
+          <button type="button" onClick={() => setShowPresets(!showPresets)} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: showPresets ? C.cyan : C.text, borderColor: showPresets ? C.cyan : C.border }}><Layers size={18} />Presets</button>
         </div>
+        {(() => {
+          const last = lastWorkout(s);
+          if (!last) return null;
+          return (
+            <button type="button" onClick={() => { setS((p) => ({ ...p, active: { start: Date.now(), title: last.title || "", exercises: copyWorkoutExercises(last) } })); window.scrollTo?.(0, 0); }} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
+              <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
+            </button>
+          );
+        })()}
         {showPresets && (
           <div className="panel p-4 space-y-2">
             <div className="font-bold">Workout presets</div>
@@ -1503,7 +1553,7 @@ function Train({ s, setS, gainXp, openRun }) {
           return (
             <div key={w.id} className="panel p-4">
               <div className="flex justify-between items-center">
-                <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{w.source && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}</span>
+                <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{w.source && w.source !== "import" && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}{w.source === "import" && <span className="body text-xs ml-2" style={{ color: C.mute }}>imported</span>}</span>
                 <div className="flex items-center gap-3">
                   {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
                   {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
@@ -1555,12 +1605,17 @@ function Train({ s, setS, gainXp, openRun }) {
 
       {!a.editId && <WarmUp s={s} a={a} setActive={setActive} />}
       {a.exercises.length === 0 && !a.editId && (() => {
-        const last = [...s.workouts].reverse().find((w) => isWorkout(w) && w.exercises?.length && (!a.title || w.title === a.title));
+        const last = lastWorkout(s, a.title);
         if (!last) return null;
         return (
-          <button onClick={() => setActive((w) => ({ ...w, title: w.title || last.title || "", exercises: last.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: (e.sets || []).map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false, drop: !!st.drop })) })) }))} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
-            <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
-          </button>
+          <div className="space-y-2">
+            <button type="button" onClick={() => setActive((w) => ({ ...w, title: w.title || last.title || "", exercises: copyWorkoutExercises(last) }))} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
+              <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
+            </button>
+            <button type="button" onClick={() => setActive((w) => ({ ...w, title: w.title || last.title || "", exercises: last.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: applyTargetSets(e.sets, suggestNext(s, e.name, a.editId)) })) }))} className="ghost w-full py-2.5 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.green, borderColor: C.green }}>
+              <TrendingUp size={16} />Overload last session
+            </button>
+          </div>
         );
       })()}
       {a.exercises.length === 0 && <Empty>Add your first exercise. Check off each set as you finish it, and only checked sets count.</Empty>}
@@ -1597,9 +1652,16 @@ function Train({ s, setS, gainXp, openRun }) {
               </div>
             )}
             {prev.length > 0 && !a.editId && (
-              <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: prev.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false, drop: !!st.drop })) }) }))} className="ghost w-full mb-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.cyan }}>
-                <Repeat size={12} />Same as last time
-              </button>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: cloneSets(prev) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.cyan }}>
+                  <Repeat size={12} />Same as last
+                </button>
+                {(() => { const sg = suggestNext(s, ex.name, a.editId); if (!sg) return null; return (
+                  <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: applyTargetSets(prev, sg) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.green }}>
+                    <TrendingUp size={12} />{sg.w}×{sg.r}
+                  </button>
+                ); })()}
+              </div>
             )}
             <div className="grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
               <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : (ex.wMode || (def.perHand ? "hand" : "total")) === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
@@ -1612,8 +1674,8 @@ function Train({ s, setS, gainXp, openRun }) {
                 <div className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3 }}>
                   <span className="font-semibold text-center" style={{ color: st.drop ? C.orange : C.text }}>{st.drop ? "D" : si + 1}</span>
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
-                  {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
-                  <input type="number" inputMode="decimal" className="inp text-center" value={st.r} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
+                  {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
+                  <input type="number" inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
                   <button aria-label="Mark set done" onClick={() => { const turningOn = !st.done; upd(si, turningOn && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: !st.done }); if (turningOn) { SFX.click(); const secs = s.settings?.rest ?? 90; if (secs > 0 && !a.editId) { Beeper.unlock(); setRest({ end: Date.now() + secs * 1000 }); } } }}
                     className="h-8 flex items-center justify-center" style={{ background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
                   <button aria-label="Delete set" onClick={() => delSet(si)} className="h-8 flex items-center justify-center" style={{ color: C.mute }}><X size={14} /></button>
@@ -1639,7 +1701,7 @@ function Train({ s, setS, gainXp, openRun }) {
 
       <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4 }}><Plus size={18} />Add exercise</button>
 
-      {rest && <RestBubble end={rest.end} onDone={() => setRest(null)} onClose={() => setRest(null)} />}
+      {rest && <RestBubble end={rest.end} onDone={() => setRest(null)} onClose={() => setRest(null)} onChangeEnd={(end) => setRest({ end })} />}
       {plates && <PlateSheet weight={plates.w} onClose={() => setPlates(null)} />}
 
       <TrainCoach s={s} a={a} onAdd={(name, n) => setActive((w) => w.exercises.some((e) => e.name === name)
@@ -2617,6 +2679,8 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
   const [copied, setCopied] = useState(false);
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState(null);
+  const [impMsg, setImpMsg] = useState(null);
+  const impRef = useRef(null);
 
   const makeSave = async () => {
     const c = await encodeSave(s);
@@ -2714,7 +2778,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <TimerIcon size={22} style={{ color: C.cyan }} />
-          <div className="flex-1"><div className="font-bold">Rest timer</div><div className="body text-xs" style={{ color: C.dim }}>Starts when you check off a set.</div></div>
+          <div className="flex-1"><div className="font-bold">Rest timer</div><div className="body text-xs" style={{ color: C.dim }}>Starts when you check off a set. Tap the pill for a watch-size view.</div></div>
           <div className="flex gap-1">{[0, 60, 90, 120, 180].map((v) => <button key={v} onClick={() => setSet("rest", v)} className="px-2 py-1 text-xs font-semibold" style={{ borderRadius: 999, background: (st.rest ?? 90) === v ? C.blue : C.soft, color: (st.rest ?? 90) === v ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{v ? `${v}s` : "Off"}</button>)}</div>
         </div>
         {st.voice && (
@@ -2758,10 +2822,29 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
         <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); setS(next); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
       </div>
 
-      <h2 className="text-lg font-bold">Export</h2>
+      <h2 className="text-lg font-bold">Export / import</h2>
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => exportWorkouts(s)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Download size={16} />Workouts CSV</button>
-        <button onClick={() => exportFood(s)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Download size={16} />Food log CSV</button>
+        <button type="button" onClick={() => exportWorkouts(s)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Download size={16} />Workouts CSV</button>
+        <button type="button" onClick={() => exportFood(s)} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Download size={16} />Food log CSV</button>
+      </div>
+      <div className="panel p-4 space-y-2">
+        <div className="font-bold">Import Strong / Hevy / Ascend</div>
+        <div className="body text-xs" style={{ color: C.dim }}>Web apps can't write to Apple Health. Export a CSV from Strong or Hevy (or Ascend's own export) and load it here. Apple Health XML isn't set-level, so it won't import.</div>
+        <input ref={impRef} type="file" accept=".csv,.txt,text/csv" className="hidden" onChange={async (e) => {
+          const f = e.target.files?.[0]; e.target.value = "";
+          if (!f) return;
+          setImpMsg(null);
+          try {
+            const text = await f.text();
+            if (/^\s*</.test(text) || /\.xml$/i.test(f.name)) { setImpMsg({ ok: false, text: "That's an XML export. Use Strong or Hevy CSV instead." }); return; }
+            const res = importWorkoutsFromCsv(s, text);
+            if (!res.ok) { setImpMsg({ ok: false, text: res.err }); return; }
+            setS(res.s);
+            setImpMsg({ ok: true, text: `Imported ${res.n} session${res.n === 1 ? "" : "s"}${res.skipped ? ` · skipped ${res.skipped} duplicate${res.skipped === 1 ? "" : "s"}` : ""}${res.xp ? ` · ${res.xp > 0 ? "+" : ""}${Math.round(res.xp)} XP` : ""}.` });
+          } catch (err) { setImpMsg({ ok: false, text: "Couldn't read that file." }); }
+        }} />
+        <button type="button" onClick={() => impRef.current?.click()} className="ghost w-full py-3 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Upload size={16} />Import workouts CSV</button>
+        {impMsg && <div className="body text-sm" style={{ color: impMsg.ok ? C.green : C.red }}>{impMsg.text}</div>}
       </div>
 
       <h2 className="text-lg font-bold">Save files</h2>
@@ -4964,16 +5047,28 @@ const TITLES = [
 /* ---------- Progression + coaching helpers ---------- */
 function suggestNext(s, name, excludeId) {
   const def = findEx(s, name);
-  if (def.type !== "weighted") return null;
-  const last = pastSessions(s, name, excludeId, 1)[0];
+  if (def.type === "timed") return null;
+  const last = lastWorkingSets(s, name, excludeId);
   if (!last) return null;
   const sets = last.sets.filter((st) => +st.r > 0);
   if (!sets.length) return null;
+  const stalled = stalledLifts(s).some((x) => namesMatch(x.name, name));
+  if (def.type === "bodyweight") {
+    const minR = Math.min(...sets.map((st) => +st.r));
+    const w = Math.max(...sets.map((st) => +st.w || 0));
+    if (stalled) return { w, r: Math.max(1, Math.round(minR * 0.8)), why: "stalled — drop reps, rebuild" };
+    if (minR >= 10) return { w, r: minR + 1, why: "add a rep" };
+    return { w, r: minR, why: "repeat, get every set" };
+  }
   const w = Math.max(...sets.map((st) => +st.w || 0));
   const reps = sets.filter((st) => (+st.w || 0) === w).map((st) => +st.r);
   const minR = Math.min(...reps);
   const big = (def.group === "Legs" || def.group === "Back") && def.factor >= 1;
   const step = def.perHand ? 5 : big ? 10 : 5;
+  if (stalled && def.type === "weighted") {
+    const dw = Math.max(step, Math.round((w * 0.9) / 5) * 5);
+    return { w: dw, r: 5, why: "stalled 3 sessions — deload ~10%" };
+  }
   if (minR >= 8) return { w: w + step, r: Math.max(5, minR - 2), why: `all sets hit ${minR}+` };
   if (minR >= 5) return { w, r: minR + 1, why: "add a rep" };
   return { w, r: minR, why: "repeat, get every set" };
@@ -5035,17 +5130,100 @@ function WeeklyReport({ s }) {
 }
 
 /* ---------- Rest timer + plates ---------- */
-function RestBubble({ end, onDone, onClose }) {
+function restNotify() {
+  try { navigator.vibrate?.([180, 70, 180, 70, 240]); } catch (e) { /* no haptic */ }
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification("Rest over", { body: "Next set. Let's go.", tag: "ascend-rest" });
+    }
+  } catch (e) { /* blocked */ }
+}
+function persistRestEnd(end) { try { localStorage.setItem("ascend-rest-end", String(end || 0)); } catch (e) { /* private */ } }
+function readRestEnd() { try { return +localStorage.getItem("ascend-rest-end") || 0; } catch (e) { return 0; } }
+function RestBubble({ end, onDone, onClose, onChangeEnd }) {
   const [now, setNow] = useState(Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
+  const [big, setBig] = useState(false);
+  const wakeRef = useRef(null);
+  const doneRef = useRef(false);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, []);
   const left = Math.max(0, Math.ceil((end - now) / 1000));
-  useEffect(() => { if (left === 0) { Beeper.unlock(); Beeper.work(); onDone(); } }, [left]);
+  useEffect(() => { persistRestEnd(end); }, [end]);
+  useEffect(() => {
+    (async () => { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* unsupported */ } })();
+    try { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* */ }
+    const onVis = async () => { if (document.visibilityState === "visible") { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } } };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { document.removeEventListener("visibilitychange", onVis); try { wakeRef.current?.release(); } catch (e) { /* */ } };
+  }, []);
+  useEffect(() => {
+    if (left === 0 && !doneRef.current) {
+      doneRef.current = true;
+      Beeper.unlock(); Beeper.work(); restNotify(); onDone();
+    }
+  }, [left]);
   useEffect(() => { document.title = `⏱ ${fmtClock(left)} rest · Ascend`; }, [left]);
-  useEffect(() => () => { document.title = "Ascend"; }, []);
+  useEffect(() => () => { document.title = "Ascend"; persistRestEnd(0); }, []);
+  const bump = (sec) => onChangeEnd?.(end + sec * 1000);
+  const openWatch = () => {
+    persistRestEnd(end);
+    const w = window.open(`${location.pathname}?watch=rest`, "ascend-rest", "width=360,height=420,noopener");
+    if (!w) setBig(true);
+  };
+  if (big) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 px-6" style={{ background: "#02040B" }}>
+        <div className="body text-xs uppercase tracking-widest font-bold" style={{ color: C.mute }}>Rest</div>
+        <div className="font-extrabold tabular-nums" style={{ fontSize: "min(28vw, 140px)", lineHeight: 1, color: left <= 5 ? C.orange : C.cyan, textShadow: `0 0 40px ${left <= 5 ? C.orange : C.cyan}` }}>{fmtClock(left)}</div>
+        <div className="flex gap-2 w-full max-w-sm">
+          <button type="button" onClick={() => bump(30)} className="ghost flex-1 py-3 font-bold">+30s</button>
+          <button type="button" onClick={() => { persistRestEnd(0); onClose(); }} className="ghost flex-1 py-3 font-bold" style={{ color: C.orange }}>Skip</button>
+        </div>
+        <button type="button" onClick={openWatch} className="body text-sm font-bold" style={{ color: C.cyan }}>Open watch window</button>
+        <button type="button" onClick={() => setBig(false)} className="body text-xs" style={{ color: C.mute }}>Shrink</button>
+      </div>
+    );
+  }
   return (
-    <button onClick={onClose} aria-label="Dismiss rest timer" className="fixed z-40 flex items-center gap-2 px-4 py-2 font-bold tabular-nums" style={{ left: 16, bottom: "calc(env(safe-area-inset-bottom) + 90px)", borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}` }}>
-      <TimerIcon size={16} />Rest {fmtClock(left)}
-    </button>
+    <div className="fixed z-40 flex items-center gap-0.5 pl-3 pr-1 py-1 font-bold tabular-nums" style={{ left: 12, bottom: "calc(env(safe-area-inset-bottom) + 90px)", borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}` }}>
+      <button type="button" onClick={() => setBig(true)} aria-label="Open rest watch view" className="flex items-center gap-2 px-1 py-1">
+        <TimerIcon size={16} />Rest {fmtClock(left)}
+      </button>
+      <button type="button" aria-label="Add 30 seconds" onClick={() => bump(30)} className="px-2 py-1 text-xs">+30</button>
+      <button type="button" aria-label="Dismiss rest timer" onClick={onClose} className="px-2 py-1"><X size={14} /></button>
+    </div>
+  );
+}
+function RestWatchPage() {
+  const [end, setEnd] = useState(() => readRestEnd());
+  const [now, setNow] = useState(Date.now());
+  const wakeRef = useRef(null);
+  const rang = useRef(false);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    (async () => { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } })();
+    try { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* */ }
+    const onVis = async () => { if (document.visibilityState === "visible") { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } } };
+    const onStor = (e) => { if (e.key === "ascend-rest-end") setEnd(+e.newValue || 0); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("storage", onStor);
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("storage", onStor); try { wakeRef.current?.release(); } catch (e) { /* */ } };
+  }, []);
+  const left = Math.max(0, Math.ceil((end - now) / 1000));
+  useEffect(() => {
+    if (left === 0 && end && !rang.current) { rang.current = true; Beeper.unlock(); Beeper.work(); restNotify(); }
+    if (left > 0) rang.current = false;
+  }, [left, end]);
+  useEffect(() => { document.title = left ? `⏱ ${fmtClock(left)} rest` : "Rest over"; }, [left]);
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6" style={{ background: "#02040B", color: C.text }}>
+      <div className="body text-xs uppercase tracking-widest font-bold" style={{ color: C.mute }}>{left ? "Rest" : "Go"}</div>
+      <div className="font-extrabold tabular-nums" style={{ fontSize: "min(28vw, 140px)", lineHeight: 1, color: !left ? C.green : left <= 5 ? C.orange : C.cyan, textShadow: `0 0 40px ${!left ? C.green : left <= 5 ? C.orange : C.cyan}` }}>{fmtClock(left)}</div>
+      <div className="flex gap-2 w-full max-w-sm">
+        <button type="button" onClick={() => { const n = (end || Date.now()) + 30000; persistRestEnd(n); setEnd(n); }} className="ghost flex-1 py-3 font-bold">+30s</button>
+        <button type="button" onClick={() => window.close()} className="ghost flex-1 py-3 font-bold" style={{ color: C.mute }}>Close</button>
+      </div>
+      <div className="body text-xs text-center" style={{ color: C.dim }}>Keep this window on your watch or lock screen. The phone stays awake while rest is running.</div>
+    </div>
   );
 }
 function platesFor(total, bar = 45) {
@@ -5203,6 +5381,8 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
   const ci = s.checkins?.[d] || {};
   const setCi = (k, v) => setS((p) => ({ ...p, checkins: { ...(p.checkins || {}), [d]: { ...(p.checkins?.[d] || {}), [k]: v } } }));
   const atGym = s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000;
+  const [, tick] = useState(0);
+  useEffect(() => { const id = setInterval(() => tick((n) => n + 1), 15000); return () => clearInterval(id); }, []);
   return (
     <div className="panel p-3 space-y-3">
       <div className="grid grid-cols-4 gap-2 text-center">
@@ -5646,10 +5826,26 @@ function Feed({ s, setS, openProfile, rows = [] }) {
   );
 }
 const CREW_PER_PLAYER = 12, CREW_XP = 500, DUEL_XP = 100;
+const RAID_MS = 45 * 60 * 1000, RAID_NEED = 3, RAID_XP = 80;
+function raidActive(raid) { return !!(raid && Date.now() >= raid.start && Date.now() < raid.end); }
+async function readRaid(code) {
+  try { const r = await window.storage.get(`crewraid:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
+}
+async function writeRaid(code, rec) {
+  try { await window.storage.set(`crewraid:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
+}
+async function noteRaidHit(code, playerId, name, workout) {
+  if (!code || !playerId) return;
+  const raid = await readRaid(code);
+  if (!raidActive(raid)) return;
+  const hits = { ...(raid.hits || {}), [playerId]: { name: name || "Teammate", t: Date.now(), vol: Math.round(workout.volume || 0), xp: workout.xp || 0 } };
+  const cleared = raid.cleared || Object.keys(hits).length >= RAID_NEED;
+  await writeRaid(code, { ...raid, hits, cleared });
+}
 function Crew({ s, setS, gainXp, rows, openProfile }) {
   return (
     <div className="space-y-3">
-      <CrewPanel s={s} setS={setS} rows={rows} openProfile={openProfile} />
+      <CrewPanel s={s} setS={setS} rows={rows} openProfile={openProfile} gainXp={gainXp} />
       {s.crew?.code && <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="crew" crewId={s.crew.code} />}
       <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="global" />
       <DuelsPanel s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />
@@ -5733,6 +5929,101 @@ function exportFood(s) {
   const rows = [["date", "food", "servings", "calories", "protein", "carbs", "fat"]];
   Object.keys(s.meals || {}).sort().forEach((d) => (s.meals[d] || []).forEach((m) => rows.push([d, m.name, m.qty, Math.round(m.cal * m.qty), Math.round(m.p * m.qty), Math.round(m.c * m.qty), Math.round(m.f * m.qty)])));
   downloadText("ascend-food.csv", rows.map((r) => r.map(csvCell).join(",")).join("\n"));
+}
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cell = "", q = false;
+  const src = String(text || "").replace(/^\uFEFF/, "");
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (q) {
+      if (c === '"') { if (src[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && src[i + 1] === "\n") i++;
+      row.push(cell); if (row.some((x) => String(x).trim())) rows.push(row);
+      row = []; cell = "";
+    } else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); if (row.some((x) => String(x).trim())) rows.push(row); }
+  return rows;
+}
+function parseImportDate(v) {
+  const t = String(v || "").trim();
+  const iso = t.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const us = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (us) {
+    const y = us[3].length === 2 ? `20${us[3]}` : us[3];
+    return `${y}-${us[1].padStart(2, "0")}-${us[2].padStart(2, "0")}`;
+  }
+  const d = new Date(t);
+  return Number.isNaN(+d) ? today() : dkey(d);
+}
+function hdrKey(h) { return String(h || "").trim().toLowerCase().replace(/[\s_]+/g, " "); }
+function importWorkoutsFromCsv(s, text) {
+  const table = parseCsv(text);
+  if (table.length < 2) return { ok: false, err: "That file has no rows." };
+  const head = table[0].map(hdrKey);
+  const col = (...names) => {
+    for (const n of names) { const i = head.indexOf(n); if (i >= 0) return i; }
+    return -1;
+  };
+  const iDate = col("date", "start time", "start_time", "workout date", "time");
+  const iTitle = col("title", "workout name", "workout", "name");
+  const iEx = col("exercise", "exercise name", "exercise title", "exercise_title");
+  const iW = col("weight", "weight kg", "weight_kg", "kg", "lbs", "lb");
+  const iR = col("reps", "rep", "repetitions");
+  const iSet = col("set", "set order", "set_index", "set index");
+  const iUnit = col("weight unit", "weight_unit", "unit");
+  const iType = col("set type", "set_type");
+  if (iEx < 0 || iDate < 0) return { ok: false, err: "Need a CSV with date, exercise, weight, and reps (Strong, Hevy, or Ascend export)." };
+  const kgish = head.some((h) => h.includes("weight kg") || h === "weight_kg" || h === "kg");
+  const sessions = new Map();
+  table.slice(1).forEach((row) => {
+    const name = String(row[iEx] || "").trim();
+    if (!name) return;
+    const kind = iType >= 0 ? String(row[iType] || "").toLowerCase() : "";
+    if (kind.includes("warmup") || kind === "warmup") return;
+    const date = parseImportDate(row[iDate]);
+    const title = iTitle >= 0 ? String(row[iTitle] || "").trim() : "";
+    const key = `${date}\t${title}`;
+    if (!sessions.has(key)) sessions.set(key, { date, title, lifts: new Map() });
+    const sess = sessions.get(key);
+    if (!sess.lifts.has(name)) sess.lifts.set(name, []);
+    let w = iW >= 0 ? parseFloat(String(row[iW] ?? "").replace(",", ".")) : NaN;
+    if (!Number.isFinite(w)) w = "";
+    const unit = iUnit >= 0 ? String(row[iUnit] || "").toLowerCase() : "";
+    if (typeof w === "number" && (kgish || unit.includes("kg"))) w = Math.round(w * 2.20462 * 2) / 2;
+    const r = iR >= 0 ? parseFloat(String(row[iR] ?? "").replace(",", ".")) : NaN;
+    const drop = kind.includes("drop");
+    sess.lifts.get(name).push({ w: w === "" ? "" : String(w), r: Number.isFinite(r) ? String(r) : "", done: true, drop, ord: iSet >= 0 ? +row[iSet] || 0 : sess.lifts.get(name).length });
+  });
+  const fingerprints = new Set((s.workouts || []).map((w) => `${w.date}|${(w.title || "").toLowerCase()}|${(w.exercises || []).map((e) => e.name).join(",")}`));
+  const added = [];
+  let skipped = 0;
+  let acc = { ...s, workouts: [...(s.workouts || [])] };
+  for (const sess of sessions.values()) {
+    if (added.length >= 400) break;
+    const exercises = [...sess.lifts.entries()].map(([name, sets]) => ({
+      name,
+      sets: sets.sort((a, b) => a.ord - b.ord).map(({ w, r, done, drop }) => ({ w, r, done, drop })),
+    })).filter((e) => e.sets.some((st) => +st.r > 0 || +st.w > 0));
+    if (!exercises.length) continue;
+    const fp = `${sess.date}|${sess.title.toLowerCase()}|${exercises.map((e) => e.name).join(",")}`;
+    if (fingerprints.has(fp)) { skipped++; continue; }
+    fingerprints.add(fp);
+    const res = workoutXp(acc, exercises, computeBests(acc));
+    const workout = { id: uid(), date: sess.date, title: sess.title, exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, source: "import" };
+    acc = { ...acc, workouts: [...acc.workouts, workout] };
+    added.push(workout);
+  }
+  if (!added.length) return { ok: false, err: skipped ? `Already imported (${skipped} duplicate session${skipped === 1 ? "" : "s"}).` : "No set rows found." };
+  const r = recountXp({ ...s, workouts: [...(s.workouts || []), ...added] });
+  try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
+  return { ok: true, s: r.s, n: added.length, skipped, xp: r.s.xp - (s.xp || 0) };
 }
 
 /* ---------- Versus (PvP) ---------- */
@@ -6386,8 +6677,17 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
   const mine = dmg.find((x) => x.r.id === s.playerId)?.d || 0;
   const claimed = s.loot?.claimed?.[`${mk}_${scope}`] || (scope === "global" && s.loot?.claimed?.[mk]);
   const [hit, setHit] = useState(false);
+  const [raid, setRaid] = useState(null);
   const prev = useRef(total);
   useEffect(() => { if (total > prev.current) { setHit(true); const t = setTimeout(() => setHit(false), 500); prev.current = total; return () => clearTimeout(t); } prev.current = total; }, [total]);
+  useEffect(() => {
+    if (scope !== "crew" || !crewId) { setRaid(null); return; }
+    let stop = false;
+    const pull = async () => { try { const r = await readRaid(crewId); if (!stop) setRaid(r); } catch { /* */ } };
+    pull();
+    const id = setInterval(pull, 8000);
+    return () => { stop = true; clearInterval(id); };
+  }, [scope, crewId]);
   const monthName = new Date(`${mk}-01T12:00`).toLocaleDateString(undefined, { month: "long" });
   const claim = () => {
     setS((p) => ({ ...p, loot: { ...(p.loot || {}), bosses: [...new Set([...(p.loot?.bosses || []), boss.id])], claimed: { ...(p.loot?.claimed || {}), [`${mk}_${scope}`]: true } } }));
@@ -6413,6 +6713,12 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
         </div>
         <div className="flex justify-between body text-xs mt-1.5" style={{ color: C.dim }}><span>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</span><span>{hp.toLocaleString()} HP</span></div>
       </div>
+      {scope === "crew" && raidActive(raid) && (
+        <div className="body text-xs font-bold flex justify-between" style={{ color: C.orange }}>
+          <span>Raid night live · {fmtClock(Math.max(0, Math.ceil((raid.end - Date.now()) / 1000)))}</span>
+          <span>{Object.keys(raid.hits || {}).length}/{RAID_NEED} logged{raid.cleared ? " · cleared" : ""}</span>
+        </div>
+      )}
       <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? `Crew HP is ${hp.toLocaleString()} for ${players} member${players === 1 ? "" : "s"} (same formula as the global boss: 150k + 150k per person). Only damage after you joined counts (joined ${fmtDay(s.crew?.since || today())}).` : `Scaled to the ${players} player${players === 1 ? "" : "s"} in the season (${hp.toLocaleString()} HP).`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
       {dmg.filter((x) => x.d > 0).length > 0 && (
         <div className="space-y-1.5">
@@ -8133,13 +8439,15 @@ async function writeCrewMembership(code, rec, s, join) {
   try { if (rec) await window.storage.set(`crew:${code}`, JSON.stringify({ ...rec, members }), true); } catch (e) { /* owner-only */ }
   return rec ? { ...rec, members } : rec;
 }
-function CrewPanel({ s, setS, rows, openProfile }) {
+function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [crew, setCrew] = useState(null);
   const [roster, setRoster] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [raid, setRaid] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const mine = s.crew;
   const refreshRoster = async () => {
     if (!mine?.code) { setRoster([]); return; }
@@ -8151,6 +8459,21 @@ function CrewPanel({ s, setS, rows, openProfile }) {
   };
   useEffect(() => { if (mine?.code) readCrew(mine.code).then(setCrew); }, [mine?.code]);
   useEffect(() => { refreshRoster(); }, [mine?.code, rows]);
+  useEffect(() => {
+    if (!mine?.code) { setRaid(null); return; }
+    let stop = false;
+    const pull = async () => { try { const r = await readRaid(mine.code); if (!stop) setRaid(r); } catch { /* */ } };
+    pull();
+    const id = setInterval(pull, 8000);
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => { stop = true; clearInterval(id); clearInterval(tick); };
+  }, [mine?.code]);
+  useEffect(() => {
+    if (!raid?.cleared || !mine?.code || !s.playerId || !raid.hits?.[s.playerId]) return;
+    const eid = `raid_${mine.code}_${raid.start}`;
+    if (s.xpDone?.[eid]) return;
+    gainXp?.(RAID_XP, "Raid night clear", eid);
+  }, [raid?.cleared, raid?.start, mine?.code, s.playerId]);
   const create = async () => {
     if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
     setBusy(true); setErr("");
@@ -8191,9 +8514,38 @@ function CrewPanel({ s, setS, rows, openProfile }) {
           ))}
         </div>
         <div className="flex gap-2">
-          <button onClick={() => navigator.clipboard?.writeText(mine.code)} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Copy code</button>
-          <button onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>
+          <button type="button" onClick={() => navigator.clipboard?.writeText(mine.code)} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Copy code</button>
+          <button type="button" onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>
         </div>
+        {(() => {
+          const live = raidActive(raid);
+          const left = live ? Math.max(0, Math.ceil((raid.end - now) / 1000)) : 0;
+          const hitN = Object.keys(raid?.hits || {}).length;
+          const startRaid = async () => {
+            setBusy(true);
+            const rec = { start: Date.now(), end: Date.now() + RAID_MS, hits: {}, cleared: false, by: s.playerId };
+            const ok = await writeRaid(mine.code, rec);
+            setRaid(rec); setBusy(false);
+            if (!ok) setErr("Couldn't start the raid. Check your connection.");
+          };
+          return (
+            <div className="panel p-3 space-y-2" style={{ borderColor: live ? C.orange : C.border }}>
+              <div className="font-bold text-sm">Raid night</div>
+              <div className="body text-xs" style={{ color: C.dim }}>45-minute window. If {RAID_NEED}+ members finish a workout before it ends, everyone who hit gets +{RAID_XP} XP. Damage still counts on the crew boss.</div>
+              {live ? (
+                <>
+                  <div className="flex justify-between text-sm font-bold tabular-nums"><span style={{ color: C.orange }}>Live · {fmtClock(left)}</span><span>{hitN}/{RAID_NEED} logged</span></div>
+                  {Object.values(raid.hits || {}).map((h, i) => <div key={i} className="body text-xs" style={{ color: C.sub }}>{h.name} · {Math.round(h.vol || 0).toLocaleString()} lb</div>)}
+                  {raid.cleared && <div className="body text-xs font-bold" style={{ color: C.green }}>Raid cleared.</div>}
+                </>
+              ) : raid?.cleared && raid.end > now - 6 * 3600 * 1000 ? (
+                <div className="body text-xs" style={{ color: C.green }}>Last raid cleared · {Object.keys(raid.hits || {}).length} raiders</div>
+              ) : (
+                <button type="button" disabled={busy} onClick={startRaid} className="btn w-full py-2.5 text-sm">Start 45-min raid</button>
+              )}
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -8261,6 +8613,12 @@ function xpFromRecords(s) {
   const add = (e, a, m, d, find = false) => { a = Math.round(+a || 0); if (a && d) rows.push({ e, a, m, d, find }); };
   const t = today();
   (s.workouts || []).forEach((w) => add(`wo_${w.id}`, w.xp, w.run ? `${w.run.miles} mi ${w.run.mode === "walk" ? "walk" : "run"}` : w.source === "deck" ? "Card deck" : `Workout${w.title ? `: ${w.title}` : ""}`, w.date));
+  Object.entries(s.xpDone || {}).forEach(([e, v]) => {
+    if (!v || !e.startsWith("raid_")) return;
+    const parts = e.split("_");
+    const start = +parts[parts.length - 1];
+    add(e, RAID_XP, "Raid night clear", Number.isFinite(start) && start > 0 ? dkey(new Date(start)) : t);
+  });
   Object.entries(s.days || {}).forEach(([d, day]) => {
     (day?.list || []).forEach((q) => { if (q.claimed) add(`quest_${d}_${q.id}`, q.xp, `Quest: ${q.title}`, d); });
     const top = Math.max(0, ...(day?.list || []).map((q) => q.tier || 0));
