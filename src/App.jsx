@@ -637,7 +637,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5g";
+const APP_VERSION = "5h";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -3404,7 +3404,7 @@ function Avatar({ src, name, size = 48, ring, look }) {
   );
   if (!border && (!look?.aura || look.aura === "none")) return inner;
   const pad = border ? Math.max(3, Math.round(size / (border.img ? 10 : 22))) : 0;
-  const ringScale = look?.aura === "ascended" ? 2.2 : 1.45;
+  const ringScale = look?.aura === "ascended" ? 1.52 : 1.45;
   return (
     <div className="relative shrink-0 flex items-center justify-center" style={{ width: size + pad * 2, height: size + pad * 2 }}>
       {look?.aura && look.aura !== "none" && <AuraRing aura={look.aura} size={(size + pad * 2) * ringScale} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />}
@@ -3555,15 +3555,36 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
     const text = comment.trim().slice(0, 140);
     if (!text && !cImg) return;
     if (!s.lb || !s.profile.name) { setNote("Join the leaderboard first so your name shows on comments."); return; }
-    setBusy(true);
+    setBusy(true); setNote("");
     const t = Date.now(), key = `cm:${id}:${t}_${s.playerId}`;
-    const rec = { text, img: cImg || null, name: s.profile.name, from: s.playerId, t };
-    try { await window.storage.set(key, JSON.stringify(rec), true); setSocial((x) => ({ ...x, comments: [{ key, ...rec }, ...x.comments] })); setComment(""); setCImg(null); }
-    catch { setNote("Couldn't post that. Check your connection."); }
+    const imgKey = cImg ? `cmi:${id}:${t}_${s.playerId}` : null;
+    const rec = { text, img: cImg || null, imgKey, name: s.profile.name, from: s.playerId, fromUid: window.ascendUserId || null, to: id, toUid: data?.uid || (me ? window.ascendUserId : null), t };
+    try {
+      if (imgKey) await window.storage.set(imgKey, cImg, true);
+      await window.storage.set(key, JSON.stringify(rec), true);
+      setSocial((x) => ({ ...x, comments: [{ key, ...rec }, ...x.comments] })); setComment(""); setCImg(null);
+    } catch { setNote("Couldn't post that. Check your connection."); }
     setBusy(false);
   };
   const deleteComment = async (c) => {
-    try { await window.storage.delete(c.key, true); setSocial((x) => ({ ...x, comments: x.comments.filter((y) => y.key !== c.key) })); } catch { /* ignore */ }
+    setNote("");
+    try {
+      if (c.imgKey) { try { await window.storage.delete(c.imgKey, true); } catch (e) { /* try the comment row anyway */ } }
+      else if (c.img) { try { await window.storage.purgeValue?.(c.img); } catch (e) { /* inline jpeg */ } }
+      await window.storage.delete(c.key, true);
+      setSocial((x) => ({ ...x, comments: x.comments.filter((y) => y.key !== c.key) }));
+    } catch { setNote("Couldn't delete that. Check your connection, or try again from the account that posted it."); }
+  };
+  const removeAvatar = async () => {
+    const prev = s.profile.avatar;
+    setS((p) => ({ ...p, profile: { ...p.profile, avatar: null } }));
+    try { await window.storage.purgeValue?.(prev); } catch (e) { /* data url or already gone */ }
+    try {
+      if (s.lb) {
+        const card = profileCard({ ...s, profile: { ...s.profile, avatar: null } });
+        await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true);
+      }
+    } catch { setNote("Photo cleared here, but the board copy may take a moment to catch up."); }
   };
   const [songBusy, setSongBusy] = useState(false);
   const [songLink, setSongLink] = useState("");
@@ -3642,7 +3663,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
                 <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{(data.points || 0).toLocaleString()} pts · {data.streak} day streak{st?.since ? ` · since ${new Date(st.since + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}</div>
               </div>
             </div>
-            {me && data.avatar && <button onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, avatar: null } }))} className="body text-xs underline mt-3" style={{ color: C.mute }}>Remove photo</button>}
+            {me && data.avatar && <button onClick={() => ask("Remove your profile photo? This deletes it from your profile and the board.", removeAvatar, "Remove")} className="body text-xs underline mt-3" style={{ color: C.mute }}>Remove photo</button>}
             <div className="flex items-center gap-3 flex-wrap mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
               <div className="flex items-center gap-1 font-bold" style={{ color: C.gold }}><Hand size={18} />{fives} high-five{fives === 1 ? "" : "s"}</div>
               {!me && <button onClick={highFive} disabled={busy} className="btn px-4 py-2 text-sm flex items-center gap-1"><Hand size={16} />High five</button>}
@@ -3748,7 +3769,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
               <div key={c.key} className="panel p-3">
                 <div className="flex justify-between items-start gap-2">
                   <div className="font-bold text-sm">{c.name}<span className="body text-xs font-normal ml-2" style={{ color: C.mute }}>{new Date(c.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
-                  {(me || c.from === s.playerId) && <button aria-label="Delete comment" onClick={() => ask("Delete this comment?", () => deleteComment(c), "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
+                  {(me || c.from === s.playerId) && <button aria-label="Delete comment" onClick={() => ask(c.img ? "Delete this comment and its photo? They're removed from the board for everyone." : "Delete this comment?", () => deleteComment(c), "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
                 </div>
                 {c.text && <div className="body text-sm mt-1" style={{ color: C.sub }}>{c.text}</div>}
                 {c.img && <button onClick={() => setBigImg(bigImg === c.key ? null : c.key)} className="mt-2 block"><img src={c.img} alt="Photo in comment" style={{ maxHeight: bigImg === c.key ? 400 : 120, maxWidth: "100%", borderRadius: 6, border: `1px solid ${C.border}` }} /></button>}
@@ -5238,7 +5259,14 @@ function ProgressPhotos({ s }) {
     try { const small = await shrinkPhoto(f, 700); const k = `photo:${today()}-${Date.now().toString(36)}`; await window.storage.set(k, small, false); await load(); } catch (err) { /* ignore */ }
     setBusy(false);
   };
-  const del = async (k) => { try { await window.storage.delete(k, false); setPick((x) => x.filter((y) => y !== k)); await load(); } catch (e) { /* ignore */ } };
+  const del = async (k) => {
+    try {
+      await window.storage.delete(k, false);
+      setPick((x) => x.filter((y) => y !== k));
+      setKeys((ks) => ks.filter((x) => x !== k));
+      setImgs((m) => { const n = { ...m }; delete n[k]; return n; });
+    } catch (e) { /* keep showing until it actually deletes */ }
+  };
   const label = (k) => { const m = k.match(/^photo:(\d{4}-\d{2}-\d{2})/); return m ? new Date(m[1] + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" }) : ""; };
   const [a, b] = pick;
   return (
@@ -5501,7 +5529,7 @@ const CREW_PER_PLAYER = 12, CREW_XP = 500, DUEL_XP = 100;
 function Crew({ s, setS, gainXp, rows, openProfile }) {
   return (
     <div className="space-y-3">
-      <CrewPanel s={s} setS={setS} rows={rows} />
+      <CrewPanel s={s} setS={setS} rows={rows} openProfile={openProfile} />
       {s.crew?.code && <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="crew" crewId={s.crew.code} />}
       <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="global" />
       <DuelsPanel s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />
@@ -5647,7 +5675,7 @@ function Physique({ tier = 0, height = 220, aura, caption }) {
   return (
     <div className="relative flex flex-col items-center" style={{ height: height + (caption ? 24 : 0) }}>
       <div className="absolute" style={{ top: height * 0.08, width: height * 0.62, height: height * 0.8, borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(10px)" }} />
-      {aura && aura !== "none" && <AuraCanvas aura={aura} mode="body" w={Math.round(height * 0.8)} h={Math.round(height * 1.02)} style={{ left: "50%", top: -height * 0.02, transform: "translateX(-50%)" }} />}
+      {aura && aura !== "none" && <AuraCanvas aura={aura} mode="body" w={Math.round(height * (aura === "ascended" ? 0.58 : 0.8))} h={Math.round(height * (aura === "ascended" ? 0.78 : 1.02))} style={{ left: "50%", top: -height * 0.02, transform: "translateX(-50%)" }} />}
       <img src={`/avatars/${id}.webp`} alt={`${id}-rank physique`} loading="lazy" style={{ height, width: "auto", position: "relative", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />
       {caption && <div className="body text-xs mt-1" style={{ color: C.dim }}>{caption}</div>}
     </div>
@@ -6201,12 +6229,19 @@ const bossDamage = (card, mk, selfState = null, since = `${mk}-01`) => {
 function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewId = null }) {
   const mk = monthKey();
   const [crew, setCrew] = useState(null);
+  const [roster, setRoster] = useState(null);
   useEffect(() => { if (crewId) readCrew(crewId).then(setCrew); }, [crewId]);
+  useEffect(() => {
+    if (scope !== "crew" || !crewId) { setRoster(null); return; }
+    let stop = false;
+    loadCrewRoster(crewId, s, rows).then((got) => { if (!stop) { setRoster(got.rows); if (got.rec) setCrew(got.rec); } }).catch(() => {});
+    return () => { stop = true; };
+  }, [scope, crewId, rows, s.playerId, s.crew?.since]);
   const mi = (parseInt(mk.slice(5, 7), 10) - 1) % BOSSES.length;
   const boss = scope === "crew" ? BOSSES[(mi + 6) % BOSSES.length] : BOSSES[mi];
-  // Crew members are whoever's board card says they're in this crew (plus you), each counted from the day they joined
+  // Crew members are whoever's board card, crew record, or join key says they're in this crew
   const meRow = rows.find((r) => r.id === s.playerId) || { id: s.playerId, name: s.profile.name, look: s.profile.look };
-  const crewRows = scope === "crew" ? [meRow, ...rows.filter((r) => r.id !== s.playerId && r.crew?.code === crewId)] : rows;
+  const crewRows = scope === "crew" ? (roster?.length ? roster : [meRow, ...rows.filter((r) => r.id !== s.playerId && r.crew?.code === crewId)]) : rows;
   const players = Math.max(1, crewRows.length);
   const hp = scope === "crew" ? crewBossHp(players) : globalBossHp(players);
   const sinceOf = (r) => (scope !== "crew" ? `${mk}-01` : r.id === s.playerId ? s.crew?.since || today() : r.crew?.since || today());
@@ -6246,7 +6281,7 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
       <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? `Only damage your crew deals after joining counts here (you joined ${fmtDay(s.crew?.since || today())}).` : `Scaled to the ${players} player${players === 1 ? "" : "s"} in the season.`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
       {dmg.filter((x) => x.d > 0).length > 0 && (
         <div className="space-y-1.5">
-          {dmg.filter((x) => x.d > 0).slice(0, 6).map(({ r, d }) => (
+          {dmg.filter((x) => x.d > 0).map(({ r, d }) => (
             <button key={r.key || r.id} onClick={() => openProfile(r.id)} className="w-full flex items-center gap-2 text-sm">
               <span className="flex-1 text-left truncate"><FancyName name={r.name} look={r.look} /></span>
               <span className="body text-xs" style={{ color: C.dim }}>{Math.round((d / Math.max(1, total)) * 100)}%</span>
@@ -7920,19 +7955,72 @@ const crewCode = () => Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ
 async function readCrew(code) {
   try { const r = await window.storage.get(`crew:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
 }
-function CrewPanel({ s, setS, rows }) {
+async function listCrewMemberIds(code, rec, rows) {
+  const fromCards = (rows || []).filter((r) => r.crew?.code === code).map((r) => r.id).filter(Boolean);
+  const fromRec = rec?.members || [];
+  let fromKeys = [];
+  try {
+    const list = await window.storage.list(`crewmem:${code}:`, true);
+    fromKeys = (list?.keys || []).map((k) => k.slice(`crewmem:${code}:`.length)).filter(Boolean);
+  } catch { /* shared list may fail offline */ }
+  return [...new Set([...fromCards, ...fromRec, ...fromKeys])];
+}
+async function loadCrewRoster(code, s, rows) {
+  const rec = await readCrew(code);
+  const ids = await listCrewMemberIds(code, rec, rows);
+  if (s?.playerId && !ids.includes(s.playerId)) ids.push(s.playerId);
+  const byId = new Map();
+  (rows || []).forEach((r) => { if (r.id) byId.set(r.id, r); });
+  const missing = ids.filter((id) => !byId.has(id));
+  await Promise.all(missing.map(async (id) => {
+    try {
+      const r = await window.storage.get(`lb:${id}`, true);
+      if (r?.value) byId.set(id, { key: `lb:${id}`, ...JSON.parse(r.value) });
+      else byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" });
+    } catch { byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" }); }
+  }));
+  if (s?.playerId) {
+    const me = byId.get(s.playerId) || {};
+    byId.set(s.playerId, { ...me, id: s.playerId, name: s.profile.name || me.name, look: s.profile.look || me.look, avatar: s.profile.avatar || me.avatar, crew: s.crew });
+  }
+  return { rec, rows: ids.map((id) => byId.get(id)).filter(Boolean) };
+}
+async function writeCrewMembership(code, rec, s, join) {
+  const memKey = `crewmem:${code}:${s.playerId}`;
+  if (join) {
+    try { await window.storage.set(memKey, JSON.stringify({ id: s.playerId, name: s.profile.name, since: today(), uid: window.ascendUserId || null }), true); } catch (e) { /* still joined locally */ }
+    const members = [...new Set([...(rec?.members || []), s.playerId])];
+    try { await window.storage.set(`crew:${code}`, JSON.stringify({ ...rec, members }), true); } catch (e) { /* owner-only write blocked */ }
+    return { ...rec, members };
+  }
+  try { await window.storage.delete(memKey, true); } catch (e) { /* none */ }
+  const members = (rec?.members || []).filter((id) => id !== s.playerId);
+  try { if (rec) await window.storage.set(`crew:${code}`, JSON.stringify({ ...rec, members }), true); } catch (e) { /* owner-only */ }
+  return rec ? { ...rec, members } : rec;
+}
+function CrewPanel({ s, setS, rows, openProfile }) {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [crew, setCrew] = useState(null);
+  const [roster, setRoster] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const mine = s.crew;
+  const refreshRoster = async () => {
+    if (!mine?.code) { setRoster([]); return; }
+    try {
+      const { rec, rows: people } = await loadCrewRoster(mine.code, s, rows);
+      if (rec) setCrew(rec);
+      setRoster(people);
+    } catch { setRoster([]); }
+  };
   useEffect(() => { if (mine?.code) readCrew(mine.code).then(setCrew); }, [mine?.code]);
+  useEffect(() => { refreshRoster(); }, [mine?.code, rows]);
   const create = async () => {
     if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
     setBusy(true); setErr("");
     const c = crewCode(), rec = { code: c, name: name.trim().slice(0, 30) || `${s.profile.name}'s crew`, owner: s.playerId, members: [s.playerId], t: Date.now() };
-    try { await window.storage.set(`crew:${c}`, JSON.stringify(rec), true); setS((p) => ({ ...p, crew: { code: c, name: rec.name, since: today() } })); setCrew(rec); }
+    try { await window.storage.set(`crew:${c}`, JSON.stringify(rec), true); await window.storage.set(`crewmem:${c}:${s.playerId}`, JSON.stringify({ id: s.playerId, name: s.profile.name, since: today(), uid: window.ascendUserId || null }), true); setS((p) => ({ ...p, crew: { code: c, name: rec.name, since: today() } })); setCrew(rec); }
     catch (e) { setErr("Couldn't create the crew. Check your connection."); }
     setBusy(false);
   };
@@ -7943,16 +8031,30 @@ function CrewPanel({ s, setS, rows }) {
     const rec = await readCrew(c);
     if (!rec) { setErr("No crew with that code."); setBusy(false); return; }
     const members = [...new Set([...(rec.members || []), s.playerId])];
-    try { await window.storage.set(`crew:${c}`, JSON.stringify({ ...rec, members }), true); } catch (e) { /* owner-only write blocked; membership still tracked locally */ }
-    setS((p) => ({ ...p, crew: { code: c, name: rec.name, since: today() } })); setCrew({ ...rec, members }); setCode(""); setBusy(false);
+    const next = await writeCrewMembership(c, { ...rec, members }, s, true);
+    setS((p) => ({ ...p, crew: { code: c, name: rec.name, since: today() } })); setCrew(next || { ...rec, members }); setCode(""); setBusy(false);
   };
-  const leave = () => ask("Leave this crew? You'll go back to the global boss only.", () => { setS((p) => ({ ...p, crew: null })); setCrew(null); }, "Leave");
-  const memberRows = crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [];
+  const leave = () => ask("Leave this crew? You'll go back to the global boss only.", () => {
+    setTimeout(() => ask("Are you absolutely sure? You will lose all current boss progress with this crew. This cannot be undone.", async () => {
+      await writeCrewMembership(mine.code, crew, s, false);
+      setS((p) => ({ ...p, crew: null })); setCrew(null); setRoster([]);
+    }, "Leave for good"), 80);
+  }, "Continue");
+  const memberRows = roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : []);
   if (mine?.code) {
     return (
       <div className="panel p-4 space-y-2">
         <div className="flex justify-between items-start"><div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Your crew</div><div className="font-bold">{crew?.name || mine.name}</div></div><div className="text-right"><div className="font-mono font-bold" style={{ color: C.cyan }}>{mine.code}</div><div className="body text-xs" style={{ color: C.dim }}>{memberRows.length || 1} member{(memberRows.length || 1) === 1 ? "" : "s"}</div></div></div>
         <div className="body text-xs" style={{ color: C.dim }}>Share the code so others can join. Your crew boss is sized to your crew.</div>
+        <div className="space-y-1.5">
+          {memberRows.map((r) => (
+            <button key={r.id || r.key} onClick={() => openProfile?.(r.id)} className="w-full flex items-center gap-2 text-left py-1">
+              <Avatar src={r.avatar} name={r.name} size={28} look={r.look} />
+              <span className="flex-1 min-w-0 truncate font-semibold text-sm"><FancyName name={r.name} look={r.look} /></span>
+              {r.id === s.playerId && <span className="body text-xs" style={{ color: C.cyan }}>you</span>}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-2">
           <button onClick={() => navigator.clipboard?.writeText(mine.code)} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Copy code</button>
           <button onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>

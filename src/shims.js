@@ -30,6 +30,24 @@ export function installStorage(supabase, userId) {
     }
   };
   const enqueue = (op) => { const q = readQueue().filter((x) => !(x.scope === op.scope && x.key === op.key)); q.push(op); writeQueue(q); };
+  const purgeObjectUrls = async (raw) => {
+    const texts = [];
+    const walk = (v) => {
+      if (v == null) return;
+      if (typeof v === "string") {
+        texts.push(v);
+        if (v.startsWith("{") || v.startsWith("[")) { try { walk(JSON.parse(v)); } catch { /* not json */ } }
+        return;
+      }
+      if (typeof v === "object") Object.values(v).forEach(walk);
+    };
+    walk(raw);
+    for (const t of texts) {
+      const m = t.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/([^?]+)/);
+      if (!m || !supabase?.storage) continue;
+      try { await supabase.storage.from(decodeURIComponent(m[1])).remove([decodeURIComponent(m[2])]); } catch { /* bucket missing or already gone */ }
+    }
+  };
   let flushing = false;
   const flush = async () => {
     if (flushing || !navigator.onLine) return;
@@ -82,6 +100,14 @@ export function installStorage(supabase, userId) {
     },
     async delete(key, shared = false) {
       const ck = id(shared, key);
+      let prev = cache.get(ck)?.value ?? lsGet(ck);
+      if (prev == null) {
+        try {
+          const { data } = await supabase.from("kv").select("value").eq("scope", scope(shared)).eq("key", key).maybeSingle();
+          prev = data?.value;
+        } catch { /* already gone */ }
+      }
+      await purgeObjectUrls(prev);
       cache.delete(ck); lsDel(ck);
       const op = { type: "delete", scope: scope(shared), key, t: Date.now() };
       try { await pushNow(op); }
@@ -91,6 +117,7 @@ export function installStorage(supabase, userId) {
       }
       return { key, deleted: true, shared };
     },
+    async purgeValue(value) { await purgeObjectUrls(value); },
     async list(prefix = "", shared = false) {
       try {
         const { data, error } = await supabase.from("kv").select("key,value").eq("scope", scope(shared)).like("key", `${esc(prefix)}%`);
