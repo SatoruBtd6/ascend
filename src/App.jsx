@@ -636,12 +636,43 @@ const DEFAULT = {
 };
 
 /* ---------- App ---------- */
+// Bump with every update so it's easy to confirm which version is live (Settings shows it)
+const APP_VERSION = "5e.1";
+// Which built bundle this page is running, e.g. "index-Ab12Cd.js"
+const runningBundle = () => { try { return [...document.querySelectorAll('script[src*="/assets/"]')].map((x) => x.getAttribute("src").split("/assets/").pop()).find((n) => /^index-/.test(n)) || null; } catch (e) { return null; } };
 export default function App() {
   const [s, setS] = useState(DEFAULT);
   const sRef = useRef(s); sRef.current = s;
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState("status");
   const [xpOpen, setXpOpen] = useState(false);
+  // New-deploy check: compare the bundle this page runs with the one the server serves now
+  const [updateReady, setUpdateReady] = useState(false);
+  useEffect(() => {
+    const check = async () => {
+      const cur = runningBundle();
+      if (!cur) return;
+      try {
+        const html = await (await fetch(`/?v=${Date.now()}`, { cache: "no-store" })).text();
+        const m = html.match(/\/assets\/(index-[\w-]+\.js)/);
+        if (m && m[1] !== cur) setUpdateReady(true);
+      } catch (e) { /* offline */ }
+    };
+    check();
+    const v = () => document.visibilityState === "visible" && check();
+    document.addEventListener("visibilitychange", v);
+    const iv = setInterval(check, 5 * 60000);
+    return () => { document.removeEventListener("visibilitychange", v); clearInterval(iv); };
+  }, []);
+  const applyUpdate = async () => {
+    try {
+      const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+      await Promise.all(regs.map((r) => r.update().catch(() => {})));
+      const keys = (await window.caches?.keys?.()) || [];
+      await Promise.all(keys.map((k) => window.caches.delete(k)));
+    } catch (e) { /* reload anyway */ }
+    window.location.reload();
+  };
   const [toast, setToast] = useState(null);
   const [storageOk, setStorageOk] = useState(true);
   const [dialog, setDialog] = useState(null);
@@ -852,6 +883,14 @@ export default function App() {
 
   return (
     <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {updateReady && (
+        <div role="alert" className="fixed left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
+          <div className="max-w-md w-full flex items-center gap-3 px-4 py-3" style={{ borderRadius: 14, background: C.sheet, border: `1px solid ${C.cyan}`, boxShadow: `0 8px 30px rgba(0,0,0,.45), 0 0 18px ${C.glow}` }}>
+            <span className="flex-1 text-sm font-semibold">A new version of Ascend is ready</span>
+            <button onClick={applyUpdate} className="btn px-3 py-1.5 text-sm">Update now</button>
+          </div>
+        </div>
+      )}
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Lexend:wght@400;600;800&family=Orbitron:wght@700;900&family=Bangers&family=Cinzel:wght@700;900&family=Permanent+Marker&family=Press+Start+2P&family=Pacifico&family=Creepster&display=swap');
         .body{font-family:'Inter',system-ui,sans-serif;line-height:1.45;letter-spacing:.005em}
         h1,h2{letter-spacing:.01em}
@@ -2552,6 +2591,8 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
           <button onClick={() => ask("Sign out on this device? Your progress stays saved in your account.", () => window.ascendAuth.signOut(), "Sign out")} className="ghost px-4 py-2 text-sm font-bold" style={{ color: C.red }}>Sign out</button>
         </div>
       )}
+
+      <div className="body text-xs text-center" style={{ color: C.mute }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</div>
 
       <h2 className="text-lg font-bold">Contact support</h2>
       <SupportForm s={s} />
