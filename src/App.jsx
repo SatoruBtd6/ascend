@@ -431,8 +431,10 @@ function pointsOf(s) {
   const fromRanks = rankedLifts(s).reduce((a, r) => a + Math.round(r.score * r.score * 30), 0);
   return fromWorkouts + fromRanks;
 }
+// A "workout" is a real session. Card-deck flips and quest top-ups still give XP and reps, but don't count as one.
+const isWorkout = (w) => w.source !== "quest" && w.source !== "deck";
 function activeDays(s) {
-  const days = new Set(s.workouts.map((w) => w.date));
+  const days = new Set(s.workouts.filter((w) => w.source !== "deck").map((w) => w.date));
   Object.entries(s.days || {}).forEach(([d, v]) => v.list?.some((q) => q.claimed) && days.add(d));
   return days;
 }
@@ -569,7 +571,7 @@ function lifetimeStats(s) {
   }));
   const bests = computeBests(s);
   s.workouts.forEach((w) => {
-    if (w.source !== "quest") workouts++;
+    if (isWorkout(w)) workouts++;
     w.exercises.forEach((ex) => {
       const def = findEx(s, ex.name);
       ex.sets.forEach((st) => {
@@ -639,7 +641,7 @@ export default function App() {
   const sRef = useRef(s); sRef.current = s;
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState("status");
-  const [xpBack, setXpBack] = useState("status");
+  const [xpOpen, setXpOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [storageOk, setStorageOk] = useState(true);
   const [dialog, setDialog] = useState(null);
@@ -756,7 +758,7 @@ export default function App() {
       try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
     }, 1200);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog]);
+  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight]);
 
   useEffect(() => {
     const go = () => XpSync.flush();
@@ -974,17 +976,17 @@ export default function App() {
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 2) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
-        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => { setXpBack("status"); setTab("xp"); }} />}
+        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => setXpOpen(true)} />}
         {onboard === null && tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
         {onboard === null && tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
         {onboard === null && tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
-        {onboard === null && tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => { setXpBack("profile"); setTab("xp"); }} />}
+        {onboard === null && tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => setXpOpen(true)} />}
         {!storageOk && (
           <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
             Progress can't save right now. Check your connection, or sign out and back in from Settings.
           </div>
         )}
-        {onboard === null && tab === "xp" && <XpLedger s={s} onBack={() => setTab(xpBack)} />}
+        {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></Sheet>}
         {onboard === null && tab === "settings" && <SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} />}
         <IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} />
         <CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} />
@@ -1094,7 +1096,8 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
           </div>
         )}
         <div className="flex items-center gap-1 font-semibold" style={{ color: C.orange, textShadow: "0 0 10px rgba(255,147,64,.6)" }}><Flame size={20} />{streak}
-          <button aria-label="Settings" onClick={openSettings} className="ml-3 p-1.5 ghost" style={{ color: C.cyan }}><Gear size={18} /></button></div>
+          <button aria-label="XP history" onClick={() => openXp?.()} className="ml-3 p-1.5 ghost" style={{ color: C.gold, textShadow: "none" }}><Zap size={18} /></button>
+          <button aria-label="Settings" onClick={openSettings} className="ml-1.5 p-1.5 ghost" style={{ color: C.cyan }}><Gear size={18} /></button></div>
       </div>
 
       {s.xpRecount && !s.xpRecount.seen && (
@@ -2010,7 +2013,7 @@ function Calendar({ s, setS }) {
   const monthDays = cells.filter(Boolean).map((d) => ({ d, ...info(d) }));
   const logged = monthDays.filter((x) => x.meals.length);
   const sum = {
-    workouts: monthDays.reduce((a, x) => a + x.ws.length, 0),
+    workouts: monthDays.reduce((a, x) => a + x.ws.filter(isWorkout).length, 0),
     quests: monthDays.reduce((a, x) => a + x.quests, 0),
     xp: monthDays.reduce((a, x) => a + x.xp, 0),
     volume: monthDays.reduce((a, x) => a + x.volume, 0),
@@ -2096,7 +2099,38 @@ function Calendar({ s, setS }) {
         <Stat panel label="Days food logged" value={logged.length} />
         <Stat panel label="Days on target" value={sum.hits} />
       </div>
+      <WeightTracker s={s} setS={setS} />
     </div>
+  );
+}
+function WeightTracker({ s, setS }) {
+  const [wIn, setWIn] = useState("");
+  const shared = !!s.profile.shareWeight;
+  const logWeight = () => {
+    const w = +wIn; if (!w || w < 50 || w > 700) return;
+    setS((p) => ({ ...p, profile: { ...p.profile, weight: w }, weightLog: { ...(p.weightLog || {}), [today()]: w } }));
+    setWIn("");
+  };
+  return (
+    <>
+      <h2 className="text-lg font-bold">Weight</h2>
+      <div className="panel p-4 space-y-3">
+        <div className="flex gap-2 items-center">
+          <input type="number" inputMode="decimal" className="inp" aria-label="Today's weight" placeholder={`Today's weight (now ${s.profile.weight} lb)`} value={wIn} onChange={(e) => setWIn(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logWeight()} />
+          <button onClick={logWeight} disabled={!+wIn} className="btn px-4 py-2 text-sm whitespace-nowrap" style={!+wIn ? { opacity: 0.5 } : null}>Log</button>
+        </div>
+        <WeightChart log={s.weightLog} target={s.profile.goal} />
+        <button type="button" role="switch" aria-checked={shared} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, shareWeight: !shared } }))} className="w-full flex items-center gap-3 text-left pt-1">
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold">Share my progress</span>
+            <span className="block body text-xs" style={{ color: C.dim }}>{shared ? "Your weight trend shows on your profile." : "Private. Only you can see this."}</span>
+          </span>
+          <span aria-hidden="true" className="shrink-0 relative" style={{ width: 42, height: 24, borderRadius: 999, background: shared ? C.green : C.track, border: `1px solid ${shared ? C.green : C.glassLine}`, transition: "background .2s" }}>
+            <span style={{ position: "absolute", top: 2, left: shared ? 20 : 2, width: 18, height: 18, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.35)", transition: "left .2s" }} />
+          </span>
+        </button>
+      </div>
+    </>
   );
 }
 const Stat = ({ label, value, panel }) => (
@@ -2568,7 +2602,7 @@ function buildContext(s) {
     .map((r) => `${r.e.name}: ${r.label} (best ${Math.round(r.best)}${r.e.type === "bodyweight" ? " reps" : " lb est. 1RM"}${r.next ? `, next ${r.nextLabel} at ${r.next}` : ""})`).join("; ");
   const quests = (s.days?.[d]?.list || []).map((q) => `${q.title} ${q.progress}/${q.target} ${q.unit}${q.claimed ? " (cleared)" : ""}`).join("; ");
   const tot = mealTotals(s.meals[d]);
-  const recent = s.workouts.filter((w) => w.source !== "quest").slice(-5).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => `${e.name} ${e.sets.map((x) => (x.w ? `${x.w}x${x.r}` : x.r)).join(",")}`).join(" | ")}`).join("\n");
+  const recent = s.workouts.filter(isWorkout).slice(-5).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => `${e.name} ${e.sets.map((x) => (x.w ? `${x.w}x${x.r}` : x.r)).join(",")}`).join(" | ")}`).join("\n");
   return `Name: ${p.name || "unknown"}. Bodyweight ${p.weight} lb, height ${p.height} in, age ${p.age}, ${p.sex === "f" ? "female" : "male"}. Goal: ${GOALS.find((g) => g.id === p.goal)?.label}.
 Level ${levelFromXp(s.xp).lvl} (${s.xp} XP), overall rank ${o.label}, streak ${streakOf(s)} days, leaderboard points ${pointsOf(s)}.
 Lift ranks: ${lifts || "none logged yet"}.
@@ -3370,9 +3404,9 @@ function profileCard(s) {
     prevWeek: (() => { const pw = shift(ws, -7); return { key: pw, xp: Object.entries(s.xpLog || {}).filter(([d]) => d >= pw && d < ws).reduce((a, [, v]) => a + v, 0) }; })(),
     atGym: s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000 ? s.atGym : null,
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
-    streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length, weekOf: ws, updated: Date.now(),
-    ach: Object.keys(s.ach || {}), stats: st, weightLog: Object.fromEntries(wl),
-    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); ex.sets.forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && w.source !== "quest").length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
+    streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && isWorkout(w)).length, weekOf: ws, updated: Date.now(),
+    ach: Object.keys(s.ach || {}), stats: st, weightLog: s.profile.shareWeight ? Object.fromEntries(wl) : null,
+    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); ex.sets.forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && isWorkout(w)).length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
     uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null,
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
     badges: s.seasonBadges || {},
@@ -3389,7 +3423,6 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const [wIn, setWIn] = useState("");
   const [pick, setPick] = useState(null);
   const fileRef = useRef(null);
   const id = me ? s.playerId : targetId;
@@ -3440,12 +3473,6 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
   };
   const deleteComment = async (c) => {
     try { await window.storage.delete(c.key, true); setSocial((x) => ({ ...x, comments: x.comments.filter((y) => y.key !== c.key) })); } catch { /* ignore */ }
-  };
-  const logWeight = () => {
-    const w = +wIn; if (!w) return;
-    const d = today();
-    setS((p) => ({ ...p, profile: { ...p.profile, weight: w }, weightLog: { ...(p.weightLog || {}), [d]: w } }));
-    setWIn("");
   };
   const [songBusy, setSongBusy] = useState(false);
   const [songLink, setSongLink] = useState("");
@@ -3589,16 +3616,12 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
             </>
           )}
           {me && <StepsPanel s={s} setS={setS} gainXp={gainXp} />}
-          <h2 className="text-lg font-bold">Weight over time</h2>
-          <div className="panel p-4 space-y-3">
-            {me && (
-              <div className="flex gap-2 items-center">
-                <input type="number" inputMode="decimal" className="inp" placeholder={`Today's weight (now ${s.profile.weight} lb)`} value={wIn} onChange={(e) => setWIn(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logWeight()} />
-                <button onClick={logWeight} disabled={!+wIn} className="btn px-4 py-2 text-sm whitespace-nowrap" style={!+wIn ? { opacity: 0.5 } : null}>Log</button>
-              </div>
-            )}
-            <WeightChart log={data.weightLog} target={data.goal} />
-          </div>
+          {!me && data.weightLog && Object.keys(data.weightLog).length > 1 && (
+            <>
+              <h2 className="text-lg font-bold">Weight over time</h2>
+              <div className="panel p-4"><WeightChart log={data.weightLog} target={data.goal} /></div>
+            </>
+          )}
 
           {data.lifts?.length > 0 && (
             <>
@@ -4113,7 +4136,7 @@ function TrainCoach({ s, a, onAdd }) {
     setState((x) => ({ ...x, status: "loading" }));
     const done = doneEx.map((e) => { const def = findEx(s, e.name); return `${e.name}: ${e.sets.filter((st) => st.done).map((st) => setLabel(def, st)).join(", ")}`; }).join(" | ");
     const names = allExercises(s).map((e) => e.name).join(", ");
-    const history = s.workouts.filter((w) => w.source !== "quest").slice(-6).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => e.name).join(", ")}`).join("\n");
+    const history = s.workouts.filter(isWorkout).slice(-6).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => e.name).join(", ")}`).join("\n");
     const ranks = rankedLifts(s).slice(0, 10).map((r) => `${r.e.name} ${r.label}`).join(", ");
     try {
       const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Done so far this session: ${done || "nothing yet"}. Recent workouts:\n${history || "none"}\nLift ranks: ${ranks || "none"}. Bodyweight ${s.profile.weight} lb.
@@ -4359,7 +4382,11 @@ function MusclePage({ s, group, onBack, openExercise }) {
 /* ---------- Weekly + monthly challenges ---------- */
 const monthKey = (d = today()) => d.slice(0, 7);
 const rangeStats = (s, from, to = "9999") => {
-  const ws = s.workouts.filter((w) => w.date >= from && w.date <= to && w.source !== "quest");
+  const inRange = s.workouts.filter((w) => w.date >= from && w.date <= to);
+  const ws = inRange.filter(isWorkout);
+  // Reps count from everything, card decks and quest top-ups included
+  let reps = 0;
+  inRange.forEach((w) => w.exercises.forEach((ex) => { if (findEx(s, ex.name).type !== "timed") ex.sets.forEach((st) => { reps += Math.max(0, Math.round(+st.r || 0)); }); }));
   const groups = new Set();
   let volume = 0, prs = 0, miles = 0;
   ws.forEach((w) => { volume += w.volume || 0; prs += Math.round((w.prBonus || 0) / 40); w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") groups.add(d.group); else if (d.group === "Cardio") ex.sets.forEach((st) => { miles += +st.w || 0; }); }); });
@@ -4370,7 +4397,7 @@ const rangeStats = (s, from, to = "9999") => {
   const days = new Set(ws.map((w) => w.date));
   let best = 0, run = 0, prev = null;
   [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; });
-  return { workouts: ws.length, volume, prs, miles, quests, fuel, xp, groups: groups.size, weights, streak: best };
+  return { workouts: ws.length, volume, prs, miles, quests, fuel, xp, groups: groups.size, weights, streak: best, reps };
 };
 const WEEKLY_POOL = [
   { id: "w-train4", title: "Train 4 times this week", target: 4, unit: "workouts", xp: 300, get: (st) => st.workouts, fixed: true },
@@ -4392,6 +4419,9 @@ const MONTHLY_POOL = [
   { id: "m-weigh", title: "Log your weight 12 days", target: 12, unit: "days", xp: 1000, get: (st) => st.weights },
   { id: "m-streak", title: "Train 7 days in a row", target: 7, unit: "days", xp: 2200, get: (st) => st.streak },
 ];
+// Rep challenges ride along as a 4th card every week and month. Card flips count toward them.
+const WEEKLY_REPS = { id: "w-reps", title: "Do 600 reps this week", target: 600, unit: "reps", xp: 350, get: (st) => st.reps };
+const MONTHLY_REPS = { id: "m-reps", title: "Do 2,500 reps this month", target: 2500, unit: "reps", xp: 1800, get: (st) => st.reps };
 function pickChallenges(pool, seedStr, n) {
   let seed = [...seedStr].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) >>> 0;
   const fixed = pool.filter((c) => c.fixed), rest = pool.filter((c) => !c.fixed), out = [...fixed];
@@ -4416,7 +4446,7 @@ function ChallengeCard({ c, value, claimed, onClaim, color }) {
 function Challenges({ s, setS, gainXp }) {
   const ws = weekStart(), we = shift(ws, 6), mk = monthKey(), mStart = `${mk}-01`, mEnd = `${mk}-31`;
   const wst = rangeStats(s, ws, we), mst = rangeStats(s, mStart, mEnd);
-  const weekly = pickChallenges(WEEKLY_POOL, ws, 3), monthly = pickChallenges(MONTHLY_POOL, mk, 3);
+  const weekly = [...pickChallenges(WEEKLY_POOL, ws, 3), WEEKLY_REPS], monthly = [...pickChallenges(MONTHLY_POOL, mk, 3), MONTHLY_REPS];
   const wc = s.weekly?.[ws]; const wClaimed = wc === true ? { "w-train4": true } : (wc || {});
   const mClaimed = s.monthly?.[mk] || {};
   const claimW = (c) => { setS((p) => { const cur = p.weekly?.[ws]; const obj = cur === true ? { "w-train4": true } : (cur || {}); return { ...p, weekly: { ...(p.weekly || {}), [ws]: { ...obj, [c.id]: true } } }; }); gainXp(c.xp, `Weekly: ${c.title}`, `wk_${ws}_${c.id}`); };
@@ -4717,7 +4747,7 @@ function stalledLifts(s) {
   return out;
 }
 function daysSinceTraining(s) {
-  const last = [...s.workouts].reverse().find((w) => w.source !== "quest");
+  const last = [...s.workouts].reverse().find(isWorkout);
   if (!last) return null;
   return Math.round((new Date(today() + "T12:00") - new Date(last.date + "T12:00")) / 86400000);
 }
@@ -7574,9 +7604,9 @@ function xpFromRecords(s) {
   Object.entries(s.stepXp || {}).forEach(([d, v]) => v && add(`steps_${d}`, STEP_GOAL_XP, "Step goal", d));
   Object.entries(s.weekly || {}).forEach(([ws, v]) => {
     const got = v === true ? { "w-train4": true } : v || {};
-    Object.keys(got).filter((id) => got[id]).forEach((id) => { const c = WEEKLY_POOL.find((x) => x.id === id); if (c) add(`wk_${ws}_${id}`, c.xp, `Weekly: ${c.title}`, minDay(shift(ws, 6), t), true); });
+    Object.keys(got).filter((id) => got[id]).forEach((id) => { const c = [...WEEKLY_POOL, WEEKLY_REPS].find((x) => x.id === id); if (c) add(`wk_${ws}_${id}`, c.xp, `Weekly: ${c.title}`, minDay(shift(ws, 6), t), true); });
   });
-  Object.entries(s.monthly || {}).forEach(([mk, v]) => Object.keys(v || {}).filter((id) => v[id]).forEach((id) => { const c = MONTHLY_POOL.find((x) => x.id === id); if (c) add(`mo_${mk}_${id}`, c.xp, `Monthly: ${c.title}`, minDay(monthEnd(mk), t), true); }));
+  Object.entries(s.monthly || {}).forEach(([mk, v]) => Object.keys(v || {}).filter((id) => v[id]).forEach((id) => { const c = [...MONTHLY_POOL, MONTHLY_REPS].find((x) => x.id === id); if (c) add(`mo_${mk}_${id}`, c.xp, `Monthly: ${c.title}`, minDay(monthEnd(mk), t), true); }));
   const achs = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
   Object.entries(s.ach || {}).forEach(([id, d]) => { const a = achs[id]; if (a) add(`ach_${id}`, a.xp, `Achievement: ${a.title}`, typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : t, typeof d !== "string"); });
   Object.keys(s.loot?.claimed || {}).forEach((k) => { const mk = k.slice(0, 7); const b = bossFor(mk, k.endsWith("_crew") ? "crew" : "global"); add(`boss_${k}`, BOSS_XP, `Defeated ${b.name}`, minDay(monthEnd(mk), t), true); });
@@ -7687,7 +7717,25 @@ async function stepSyncStatus(hash, code) {
 const STEP_SYNC_URL = "https://www.ascendfit.site/api/steps";
 const agoText = (iso) => { const d = new Date(iso), days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000); const t = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); return days === 0 ? `Today ${t}` : days === 1 ? `Yesterday ${t}` : `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${t}`; };
 
-function XpLedger({ s, onBack }) {
+// Card flips roll into one session: a flip within 15 minutes of the previous flip extends it.
+const CARD_GAP_MS = 15 * 60000;
+const isCardFlip = (x) => /^deck_/.test(x.event_id || "") || /^Card deck( ·| cleared)/.test(x.source || "");
+function groupCardSessions(list) {
+  const asc = [...list].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  const out = [];
+  let cur = null;
+  asc.forEach((x) => {
+    if (!isCardFlip(x)) { out.push(x); return; }
+    const t = Date.parse(x.at);
+    if (cur && t - cur.last <= CARD_GAP_MS) { cur.amount += x.amount; cur.last = t; cur.cards += 1; cur.day = x.day; }
+    else { cur = { session: true, event_id: `sess_${x.event_id}`, first: t, last: t, amount: x.amount, cards: 1, day: x.day }; out.push(cur); }
+  });
+  out.forEach((x) => { if (x.session) { x.at = new Date(x.last).toISOString(); x.mins = Math.round((x.last - x.first) / 60000); x.live = Date.now() - x.last < CARD_GAP_MS; } });
+  return out.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+}
+const fmtMins = (m) => (m < 1 ? "under 1 min" : m < 60 ? `${m} min${m === 1 ? "" : "s"}` : `${Math.floor(m / 60)} h ${m % 60} min`);
+
+function XpLedger({ s, onBack, drawer = false }) {
   const [rows, setRows] = useState(null); // server rows, or null while loading / unavailable
   const [src, setSrc] = useState("loading");
   const [more, setMore] = useState(false);
@@ -7707,7 +7755,7 @@ function XpLedger({ s, onBack }) {
     if (!offset) XpSync.summary(seasonFrom, monthFrom).then(setSum).catch(() => {});
   };
   useEffect(() => { load(0); const on = () => setPending(XpSync.pending()); window.addEventListener("ascend-xp-sync", on); return () => window.removeEventListener("ascend-xp-sync", on); }, []);
-  const list = src === "server" ? rows || [] : local;
+  const list = useMemo(() => groupCardSessions(src === "server" ? rows || [] : local), [src, rows, local]);
   const groups = [];
   list.forEach((x) => { const g = groups[groups.length - 1]; if (g && g.day === x.day) g.items.push(x); else groups.push({ day: x.day, items: [x] }); });
   const matches = sum && +sum.total === totals.all && +sum.season === totals.season && +sum.month === totals.month;
@@ -7715,7 +7763,7 @@ function XpLedger({ s, onBack }) {
   const fmtT = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2"><button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button><h1 className="text-2xl font-bold glowtext">XP history</h1></div>
+      {!drawer && <div className="flex items-center gap-2"><button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button><h1 className="text-2xl font-bold glowtext">XP history</h1></div>}
       <div className="panel p-4 space-y-3">
         <div className="grid grid-cols-3 gap-2 text-center">
           {[["All time", totals.all], ["This season", totals.season], ["This month", totals.month]].map(([l, v]) => <div key={l}><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums glowtext">{v.toLocaleString()}</div></div>)}
@@ -7739,7 +7787,14 @@ function XpLedger({ s, onBack }) {
           </div>
           {g.items.map((x, i) => (
             <div key={x.event_id} className="flex items-center gap-3 px-3 py-2" style={i ? { borderTop: `1px solid ${C.glassLine}` } : null}>
-              <div className="flex-1 min-w-0"><div className="body text-sm truncate" style={{ color: C.text }}>{x.source}</div><div className="body text-xs" style={{ color: C.mute }}>{fmtT(x.at)}</div></div>
+              {x.session ? (
+                <div className="flex-1 min-w-0">
+                  <div className="body text-sm truncate flex items-center gap-1.5" style={{ color: C.text }}><Layers size={13} style={{ color: C.cyan }} />Card session{x.live && <span className="text-xs font-bold px-1.5" style={{ borderRadius: 999, color: C.green, border: `1px solid ${C.green}66` }}>live</span>}</div>
+                  <div className="body text-xs" style={{ color: C.mute }}>{x.cards > 1 ? `${fmtT(new Date(x.first).toISOString())} – ${fmtT(x.at)}` : fmtT(x.at)} · {fmtMins(x.mins)} · {x.cards} card{x.cards === 1 ? "" : "s"}</div>
+                </div>
+              ) : (
+                <div className="flex-1 min-w-0"><div className="body text-sm truncate" style={{ color: C.text }}>{x.source === "Card deck" ? "Card session" : x.source}</div><div className="body text-xs" style={{ color: C.mute }}>{fmtT(x.at)}</div></div>
+              )}
               <div className="font-bold tabular-nums text-sm" style={{ color: x.amount >= 0 ? C.gold : C.orange }}>{x.amount >= 0 ? "+" : "−"}{Math.abs(x.amount).toLocaleString()}</div>
             </div>
           ))}
