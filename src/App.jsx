@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useId } from "react";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -785,6 +785,19 @@ export default function App() {
     setTimeout(() => setToast(null), 3200);
   }, [loaded, s.workouts, s.days, s.xp, s.profile.weight]);
 
+  // Feat auras: the first time a condition is met, save it for good and tell the crew
+  useEffect(() => {
+    if (!loaded) return;
+    const fresh = AURAS.filter((a) => a.task && !s.auraUnlocks?.[a.id] && AURA_TASKS[a.task](s).done);
+    if (!fresh.length) return;
+    const d = today();
+    setS((p) => ({ ...p, auraUnlocks: { ...(p.auraUnlocks || {}), ...Object.fromEntries(fresh.map((a) => [a.id, d])) } }));
+    setToast({ big: true, text: fresh.length === 1 ? `New aura: ${fresh[0].name}` : `${fresh.length} new auras unlocked` });
+    fresh.forEach((a) => postFeed(s, "ach", `unlocked the ${a.name} aura`, {}, `aura_${a.id}`));
+    const t = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [loaded, s.workouts, s.steps]);
+
   // Rank-up ceremony: compare current tiers to the last snapshot
   useEffect(() => {
     if (!loaded) return;
@@ -848,6 +861,50 @@ export default function App() {
         .ghost{background:${C.glass};border:1px solid ${C.glassLine};border-radius:12px;color:${C.text}}
         .glowtext{text-shadow:none}
         .ranklabel{font-family:'Inter',system-ui,sans-serif;font-weight:800;letter-spacing:.02em}
+        .bs-hover{animation:bsfloat 4.2s ease-in-out infinite}
+        .bossfig .bs-breathe{transform-box:fill-box;transform-origin:50% 100%;animation:bsbreathe 3.4s ease-in-out infinite}
+        .bossfig .bs-float{animation:bsfloat 4s ease-in-out infinite}
+        .bossfig .bs-eye{animation:bseye 2.8s ease-in-out infinite}
+        .bossfig .bs-glow{animation:bsglow 2.2s ease-in-out infinite}
+        .bossfig .bs-flicker{animation:bsflicker 1.4s ease-in-out infinite}
+        .bossfig .bs-jaw{transform-box:fill-box;transform-origin:50% 0;animation:bsjaw 3.4s ease-in-out infinite}
+        .bossfig .bs-sway,.bossfig .bs-sway-r{transform-box:fill-box;transform-origin:50% 100%;animation:bssway 5s ease-in-out infinite}
+        .bossfig .bs-sway-r{animation-direction:reverse}
+        .bossfig .bs-flap-l{transform-box:fill-box;transform-origin:100% 60%;animation:bsflapl 1.8s ease-in-out infinite}
+        .bossfig .bs-flap-r{transform-box:fill-box;transform-origin:0% 60%;animation:bsflapr 1.8s ease-in-out infinite}
+        .bossfig .bs-spin,.bossfig .bs-spin-r,.bossfig .bs-spin-slow{transform-box:fill-box;transform-origin:center;animation:rkspin 6s linear infinite}
+        .bossfig .bs-spin-r{animation-duration:4s;animation-direction:reverse}
+        .bossfig .bs-spin-slow{animation-duration:40s}
+        .bossfig .bs-drip{animation:bsdrip 2.4s ease-in infinite}
+        .bossfig .bs-rise{animation:bsrise 2.6s ease-out infinite}
+        .bossfig .bs-bob{animation:bsbob 3s ease-in-out infinite}
+        .bossfig .bs-whisk{transform-box:fill-box;transform-origin:50% 50%;animation:bswhisk 1.3s ease-in-out infinite}
+        .bossfig.bs-rage{animation:bsshiver .28s linear infinite}
+        .bossfig.bs-rage .bs-breathe{animation-duration:1.2s}
+        .bossfig.bs-rage .bs-eye,.bossfig.bs-rage .bs-glow{animation-duration:.7s}
+        .bossfig.bs-rage .bs-flap-l,.bossfig.bs-rage .bs-flap-r,.bossfig.bs-rage .bs-jaw{animation-duration:.9s}
+        .bossfig.bs-rage .bs-spin{animation-duration:2s}
+        .bossfig.bs-dead,.bossfig.bs-dead *{animation:none!important}
+        .bossfig.bs-dead{filter:grayscale(1) brightness(.7)}
+        .bossimg{transform-origin:50% 100%;animation:bsimg 3.4s ease-in-out infinite}
+        .bossimg.bs-rage{animation:bsimg 1.2s ease-in-out infinite,bsshiver .28s linear infinite}
+        .bossimg.bs-dead{animation:none;filter:grayscale(1) brightness(.7)}
+        @keyframes bsbreathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.015,1.035)}}
+        @keyframes bsfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+        @keyframes bseye{0%,100%{opacity:1}50%{opacity:.6}}
+        @keyframes bsglow{0%,100%{opacity:.6}50%{opacity:1}}
+        @keyframes bsflicker{0%,100%{opacity:.85;transform:translateY(0)}30%{opacity:1;transform:translateY(-1.5px)}60%{opacity:.7;transform:translateY(.5px)}}
+        @keyframes bsjaw{0%,68%,100%{transform:translateY(0)}78%{transform:translateY(3.5px)}88%{transform:translateY(0)}}
+        @keyframes bssway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+        @keyframes bsflapl{0%,100%{transform:rotate(0)}50%{transform:rotate(12deg)}}
+        @keyframes bsflapr{0%,100%{transform:rotate(0)}50%{transform:rotate(-12deg)}}
+        @keyframes bsdrip{0%{transform:translateY(-3px);opacity:0}25%{opacity:1}100%{transform:translateY(9px);opacity:0}}
+        @keyframes bsrise{0%{transform:translateY(4px);opacity:0}30%{opacity:1}100%{transform:translateY(-12px);opacity:0}}
+        @keyframes bsbob{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+        @keyframes bswhisk{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.8)}}
+        @keyframes bsshiver{0%,100%{transform:translate(0,0)}25%{transform:translate(-.7px,.4px)}75%{transform:translate(.7px,-.4px)}}
+        @keyframes bsimg{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-3px) scale(1.01,1.03)}}
+        @media (prefers-reduced-motion: reduce){.bs-hover,.bossfig,.bossfig *,.bossimg{animation:none!important}}
         .feedtap{cursor:pointer;transition:background .15s}
         .feedtap:hover{background:${C.soft}}
         .feedtap:active{background:${C.soft}}
@@ -1171,7 +1228,7 @@ function Train({ s, setS, gainXp, openRun }) {
     }
     const { xp, prs, volume, lines, prBonus } = workoutXp(s, exercises, computeBests(s));
     const d = today();
-    const workout = { id: uid(), date: d, title: a.title || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000) };
+    const workout = { id: uid(), date: d, title: a.title || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start };
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name) } }));
@@ -3445,50 +3502,9 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
             </div>
           </div>
 
+          {me && <LookStudio s={s} setS={setS} />}
           {me && (
             <div className="panel p-4 space-y-3">
-              <div className="font-bold">Customize your look</div>
-              <div className="flex justify-center"><Physique tier={overallInfo(s).score} height={200} aura={s.profile.look?.aura} caption={`Physique · ${overallInfo(s).label}`} /></div>
-              <div className="body text-xs" style={{ color: C.dim }}>Aura</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {AURAS.map((a) => { const ok = unlocked(a, s), sel = (s.profile.look?.aura || "none") === a.id; return <button key={a.id} disabled={!ok} title={a.how} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), aura: a.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5" style={{ borderRadius: 999, background: sel ? C.blue : C.glass, color: sel ? "#fff" : ok ? C.text : C.mute, border: `1px solid ${C.glassLine}`, opacity: ok ? 1 : 0.6 }}>{a.colors ? <span style={{ width: 10, height: 10, borderRadius: 999, background: `linear-gradient(135deg,${a.colors[0]},${a.colors[1]})` }} /> : null}{!ok && <Lock size={10} />}{a.name}</button>; })}
-              </div>
-              <div className="body text-xs" style={{ color: C.dim }}>Profile border</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {BORDERS.map((b) => { const ok = unlocked(b, s), sel = (s.profile.look?.border || "none") === b.id; return <button key={b.id} disabled={!ok} title={b.how} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), border: b.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5" style={{ borderRadius: 999, background: sel ? C.blue : C.glass, color: sel ? "#fff" : ok ? C.text : C.mute, border: `1px solid ${C.glassLine}`, opacity: ok ? 1 : 0.6 }}>{b.css ? <span style={{ width: 10, height: 10, borderRadius: 999, background: b.css }} /> : null}{!ok && <Lock size={10} />}{b.name}</button>; })}
-              </div>
-              <details className="body text-xs" style={{ color: C.mute }}><summary style={{ cursor: "pointer", color: C.dim }}>How to unlock auras and borders</summary>
-                <div className="mt-1 space-y-0.5">{[...AURAS, ...BORDERS].filter((x) => x.how).map((x) => <div key={`${x.id}-${x.name}`} className="flex justify-between gap-2"><span style={{ color: unlocked(x, s) ? C.green : C.mute }}>{unlocked(x, s) ? "✓ " : ""}{x.name}</span><span>{x.how}</span></div>)}</div>
-              </details>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {PROFILE_BGS.map((b) => (
-                  <button key={b.id} aria-label={`${b.name} background`} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), bg: b.id } } }))} className="shrink-0 flex flex-col items-center gap-1">
-                    <span style={{ width: 52, height: 36, borderRadius: 6, background: b.css || C.soft, border: `2px solid ${(s.profile.look?.bg || "none") === b.id ? C.cyan : C.border}` }} />
-                    <span className="body text-xs" style={{ color: C.dim }}>{b.name}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="body text-xs" style={{ color: C.dim }}>Name font</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {NAME_FONTS.map((f) => <button key={f.id} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), font: f.id } } }))} className="fancyname px-3 py-2 whitespace-nowrap shrink-0" style={{ fontFamily: f.family, "--nf": f.family, fontSize: f.id === "pixel" ? 11 : 15, borderRadius: 4, background: (s.profile.look?.font || "default") === f.id ? C.blue : C.soft, color: (s.profile.look?.font || "default") === f.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{f.name}</button>)}
-              </div>
-              <div className="body text-xs" style={{ color: C.dim }}>Title <span style={{ color: C.mute }}>· {TITLES.filter((t) => t.req(s)).length} of {TITLES.length} unlocked</span></div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {TITLES.map((t) => { const ok = t.req(s), sel = (s.profile.title || "rookie") === t.id; return <button key={t.id} disabled={!ok} title={t.how} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, title: t.id } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 999, background: sel ? C.blue : C.soft, color: sel ? "#fff" : ok ? C.text : C.mute, border: `1px solid ${C.border}`, opacity: ok ? 1 : 0.6 }}>{!ok && <Lock size={10} />}{t.name}</button>; })}
-              </div>
-              <details className="body text-xs" style={{ color: C.mute }}><summary style={{ cursor: "pointer", color: C.dim }}>How to earn every title</summary>
-                <div className="grid grid-cols-1 gap-0.5 mt-1">{TITLES.map((t) => <div key={t.id} className="flex justify-between gap-2"><span style={{ color: t.req(s) ? C.green : C.mute }}>{t.req(s) ? "✓ " : ""}{t.name}</span><span className="text-right">{t.how}</span></div>)}</div>
-              </details>
-              <div className="body text-xs" style={{ color: C.dim }}>Name animation</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {NAME_ANIMS.map((a) => <button key={a.id} onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), anim: a.id } } }))} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: (s.profile.look?.anim || "none") === a.id ? C.blue : C.soft, color: (s.profile.look?.anim || "none") === a.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{a.name}</button>)}
-              </div>
-              <div className="flex items-center gap-3 body text-sm">
-                <span style={{ color: C.dim }}>Name color</span>
-                <input type="color" value={s.profile.look?.accent || "#00D9FF"} onChange={(e) => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), accent: e.target.value } } }))} aria-label="Accent color" style={{ width: 44, height: 32, border: `1px solid ${C.border}`, borderRadius: 4, background: "transparent" }} />
-                {s.profile.look?.accent && <button onClick={() => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), accent: null } } }))} className="underline text-xs" style={{ color: C.mute }}>Reset</button>}
-              </div>
-              <div className="neonline" />
               <div className="font-bold flex items-center gap-2"><Music size={16} />Theme song</div>
               {s.profile.song && <div className="body text-sm" style={{ color: C.sub }}>Current: {s.profile.song.type === "link" ? `${songLinkLabel(s.profile.song.url)} link` : s.profile.song.type === "theme" ? `${s.profile.song.name} (built-in)` : `${s.profile.song.name || "clip"} (20 sec clip)`} <button onClick={removeSong} className="underline ml-2" style={{ color: C.red }}>Remove</button></div>}
               <div className="grid grid-cols-2 gap-2">
@@ -3635,6 +3651,180 @@ function FancyName({ name, look, className = "", style = {}, size }) {
   const cls = anim ? `nm-${anim}` : "";
   if (anim === "rainbow") return <span className={`${className} ${cls}`} style={{ ...base, color: undefined }}>{text}</span>;
   return <span className={`${className} ${cls}`} style={{ ...base, "--nc": color || C.cyan }}>{text}</span>;
+}
+
+/* ---------- Look studio: tabbed profile customization ---------- */
+const NAME_COLORS = ["#00D9FF", "#3DF08A", "#FFD447", "#FF9340", "#FF2D6F", "#B14BFF", "#F4FBFF", "#E8C872"];
+const AURA_GROUPS = [["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", ""]];
+const titleGroup = (t) => (t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" ? "season" : "progress");
+function StudioTabs({ tab, setTab, tabs }) {
+  const i = Math.max(0, tabs.findIndex((t) => t[0] === tab));
+  return (
+    <div role="tablist" aria-label="Customize" className="relative grid p-1" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)`, borderRadius: 14, background: C.soft, border: `1px solid ${C.glassLine}` }}>
+      <span aria-hidden="true" style={{ position: "absolute", top: 4, bottom: 4, left: `calc(${(i / tabs.length) * 100}% + 4px)`, width: `calc(${100 / tabs.length}% - 8px)`, borderRadius: 10, background: `linear-gradient(180deg, ${C.cyan}, ${C.blue})`, boxShadow: `0 4px 14px ${C.glow}`, transition: "left .28s cubic-bezier(.2,.8,.2,1)" }} />
+      {tabs.map(([id, label, count]) => (
+        <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className="relative py-2 text-sm font-bold flex items-center justify-center gap-1.5" style={{ color: tab === id ? "#001018" : C.text, transition: "color .2s" }}>
+          {label}{count && <span className="body text-xs font-semibold tabular-nums" style={{ opacity: 0.7 }}>{count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+function StudioHead({ children, note }) {
+  return <div className="flex items-baseline justify-between gap-2 pt-1"><div className="text-sm font-bold">{children}</div>{note && <div className="body text-xs text-right" style={{ color: C.mute }}>{note}</div>}</div>;
+}
+function AuraTile({ a, s, sel, onPick }) {
+  const ok = unlocked(a, s);
+  const prog = a.task ? AURA_TASKS[a.task](s) : null;
+  return (
+    <button onClick={() => ok && onPick(a.id)} aria-pressed={sel} aria-disabled={!ok} aria-label={`${a.name}${ok ? "" : `, locked: ${a.how}`}`} className="relative flex flex-col items-center text-center px-1.5 pt-2 pb-2" style={{ borderRadius: 14, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}, 0 6px 20px ${C.glow}` : "none", cursor: ok ? "pointer" : "default", transition: "border-color .2s, box-shadow .2s" }}>
+      <span className="relative flex items-center justify-center" style={{ width: 76, height: 76 }}>
+        {a.id !== "none" && <span style={{ position: "absolute", inset: 0, opacity: ok ? 1 : 0.35, filter: ok ? "none" : "saturate(.5)" }}><AuraCanvas aura={a.id} w={76} h={76} ringR={20} style={{ left: 0, top: 0 }} /></span>}
+        <span className="relative flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 999, background: C.sheet, border: `1px solid ${C.glassLine}` }}>
+          {!ok ? <Lock size={14} style={{ color: C.mute }} /> : a.id === "none" ? <X size={14} style={{ color: C.mute }} /> : sel ? <Check size={16} style={{ color: C.cyan }} /> : null}
+        </span>
+      </span>
+      <span className="text-xs font-bold leading-tight mt-0.5" style={{ color: ok ? C.text : C.dim }}>{a.name}</span>
+      {!ok && !prog && <span className="body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{a.how}</span>}
+      {!ok && prog && (
+        <span className="w-full mt-1 px-1">
+          <span className="block body leading-tight" style={{ fontSize: 10.5, color: C.mute }}>{a.how}</span>
+          {prog.goal > 1 && <span className="block mt-1 h-1 overflow-hidden" style={{ borderRadius: 999, background: C.track }}><span className="block h-full" style={{ width: `${(prog.v / prog.goal) * 100}%`, borderRadius: 999, background: a.colors[0] }} /></span>}
+          <span className="block body leading-tight mt-0.5 tabular-nums" style={{ fontSize: 10, color: C.dim }}>{prog.label}</span>
+        </span>
+      )}
+    </button>
+  );
+}
+function LookStudio({ s, setS }) {
+  const [tab, setTab] = useState("auras");
+  const look = s.profile.look || {};
+  const setLook = (patch) => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), ...patch } } }));
+  const oi = overallInfo(s);
+  const curTitle = TITLES.find((t) => t.id === (s.profile.title || "rookie"));
+  const titleName = curTitle && curTitle.req(s) ? curTitle.name : null;
+  const aurasOk = AURAS.filter((a) => a.id !== "none" && unlocked(a, s)).length;
+  const titlesOk = TITLES.filter((t) => t.req(s)).length;
+  const selAura = look.aura || "none";
+  const auraName = AURAS.find((a) => a.id === selAura)?.name;
+  return (
+    <div className="panel overflow-hidden">
+      <div className="relative px-4 pt-4 pb-3 flex items-center gap-3" style={{ backgroundImage: lookStyle(look, 0.5)?.background || `radial-gradient(120% 90% at 20% 30%, ${oi.rank.glow}, transparent 60%)`, backgroundSize: "cover", borderBottom: `1px solid ${C.glassLine}` }}>
+        <div className="shrink-0" style={{ width: 104 }}><Physique tier={oi.score} height={150} aura={look.aura} /></div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Avatar src={s.profile.avatar} name={s.profile.name} size={44} ring={look.accent || oi.rank.color} look={{ ...look, aura: "none" }} />
+            <div className="min-w-0">
+              <div className="text-lg font-bold truncate leading-tight"><FancyName name={s.profile.name} look={look} className="glowtext" /></div>
+              {titleName && <div className="text-xs font-bold tracking-wider uppercase truncate" style={{ color: look.accent || C.cyan }}>{titleName}</div>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap"><RankChip rank={oi.rank.id} div={oi.div} /><span className="body text-xs" style={{ color: C.dim }}>{selAura === "none" ? "No aura" : `${auraName} aura`}</span></div>
+          <div className="body text-xs" style={{ color: C.mute }}>This is how you show up on the board and in the feed.</div>
+        </div>
+      </div>
+      <div className="p-4 space-y-3">
+        <StudioTabs tab={tab} setTab={setTab} tabs={[["auras", "Auras", `${aurasOk}/${AURAS.length - 1}`], ["titles", "Titles", `${titlesOk}/${TITLES.length}`], ["themes", "Themes", null]]} />
+
+        {tab === "auras" && AURA_GROUPS.map(([g, label, note]) => {
+          const list = AURAS.filter((a) => a.group === g || (g === "rank" && a.id === "none"));
+          const have = list.filter((a) => a.id !== "none" && unlocked(a, s)).length;
+          return (
+            <div key={g} className="space-y-2">
+              <StudioHead note={`${have} of ${list.filter((a) => a.id !== "none").length}`}>{label}</StudioHead>
+              {note && <div className="body text-xs -mt-1.5" style={{ color: C.dim }}>{note}</div>}
+              <div className="grid grid-cols-3 gap-2">{list.map((a) => <AuraTile key={a.id} a={a} s={s} sel={selAura === a.id} onPick={(id) => setLook({ aura: id })} />)}</div>
+            </div>
+          );
+        })}
+
+        {tab === "titles" && [["progress", "Milestones"], ["boss", "Boss slayer"], ["season", "Seasons"]].map(([g, label]) => {
+          const list = TITLES.filter((t) => titleGroup(t) === g);
+          return (
+            <div key={g} className="space-y-2">
+              <StudioHead note={`${list.filter((t) => t.req(s)).length} of ${list.length}`}>{label}</StudioHead>
+              <div className="grid grid-cols-2 gap-2">
+                {list.map((t) => {
+                  const ok = t.req(s), sel = (s.profile.title || "rookie") === t.id;
+                  return (
+                    <button key={t.id} onClick={() => ok && setS((p) => ({ ...p, profile: { ...p.profile, title: t.id } }))} aria-pressed={sel} aria-disabled={!ok} className="text-left px-3 py-2.5 flex items-start gap-2" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}` : "none", cursor: ok ? "pointer" : "default" }}>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-xs font-bold tracking-wider uppercase truncate" style={{ color: ok ? (sel ? look.accent || C.cyan : C.text) : C.mute }}>{t.name}</span>
+                        <span className="block body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{t.how}</span>
+                      </span>
+                      {sel ? <Check size={14} className="shrink-0 mt-0.5" style={{ color: C.cyan }} /> : !ok ? <Lock size={12} className="shrink-0 mt-0.5" style={{ color: C.mute }} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {tab === "themes" && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <StudioHead>Card background</StudioHead>
+              <div className="grid grid-cols-5 gap-2">
+                {PROFILE_BGS.map((b) => { const sel = (look.bg || "none") === b.id; return (
+                  <button key={b.id} onClick={() => setLook({ bg: b.id })} aria-pressed={sel} aria-label={`${b.name} background`} className="flex flex-col items-center gap-1">
+                    <span className="w-full flex items-center justify-center" style={{ aspectRatio: "4 / 3", borderRadius: 10, background: b.css || C.soft, border: `2px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 12px ${C.glow}` : "none" }}>{sel && <Check size={14} style={{ color: "#fff", filter: "drop-shadow(0 1px 2px rgba(0,0,0,.6))" }} />}</span>
+                    <span className="body truncate w-full text-center" style={{ fontSize: 10.5, color: sel ? C.text : C.dim }}>{b.name}</span>
+                  </button>
+                ); })}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <StudioHead note={`${BORDERS.filter((b) => unlocked(b, s)).length} of ${BORDERS.length}`}>Photo border</StudioHead>
+              <div className="grid grid-cols-4 gap-2">
+                {BORDERS.map((b) => { const ok = unlocked(b, s), sel = (look.border || "none") === b.id; return (
+                  <button key={b.id} onClick={() => ok && setLook({ border: b.id })} aria-pressed={sel} aria-disabled={!ok} className="flex flex-col items-center gap-1 py-2 px-1" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : "transparent", border: `1px solid ${sel ? C.cyan : "transparent"}`, cursor: ok ? "pointer" : "default" }}>
+                    <span className="relative flex items-center justify-center" style={{ width: 40, height: 40, borderRadius: 999, background: b.css || C.cyan, opacity: ok ? 1 : 0.35, animation: b.spin && ok ? "rkspin 4s linear infinite" : "none" }}>
+                      <span className="flex items-center justify-center" style={{ width: 32, height: 32, borderRadius: 999, background: C.sheet }}>{!ok && <Lock size={12} style={{ color: C.mute }} />}</span>
+                    </span>
+                    <span className="text-xs font-semibold leading-tight text-center" style={{ color: ok ? C.text : C.mute }}>{b.name}</span>
+                    {!ok && <span className="body leading-tight text-center" style={{ fontSize: 10, color: C.mute }}>{b.how}</span>}
+                  </button>
+                ); })}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <StudioHead>Name font</StudioHead>
+              <div className="grid grid-cols-2 gap-2">
+                {NAME_FONTS.map((f) => { const sel = (look.font || "default") === f.id; return (
+                  <button key={f.id} onClick={() => setLook({ font: f.id })} aria-pressed={sel} className="px-3 py-2.5 text-left min-w-0" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}` }}>
+                    <span className="block truncate" style={{ fontSize: 17 }}><FancyName name={s.profile.name || "Your name"} look={{ font: f.id, accent: look.accent }} /></span>
+                    <span className="block body text-xs mt-0.5" style={{ color: C.mute }}>{f.name}</span>
+                  </button>
+                ); })}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <StudioHead>Name effect</StudioHead>
+              <div className="grid grid-cols-4 gap-2">
+                {NAME_ANIMS.map((a) => { const sel = (look.anim || "none") === a.id; return (
+                  <button key={a.id} onClick={() => setLook({ anim: a.id })} aria-pressed={sel} className="py-2.5 px-1 text-sm font-bold overflow-hidden" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}` }}>
+                    <FancyName name={a.name} look={{ anim: a.id, accent: look.accent || C.cyan }} />
+                  </button>
+                ); })}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <StudioHead>Name color</StudioHead>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => setLook({ accent: null })} aria-pressed={!look.accent} aria-label="Default color" className="flex items-center justify-center text-xs font-bold" style={{ width: 34, height: 34, borderRadius: 999, background: C.soft, border: `2px solid ${!look.accent ? C.cyan : C.glassLine}`, color: C.dim }}>Auto</button>
+                {NAME_COLORS.map((c) => { const sel = (look.accent || "").toLowerCase() === c.toLowerCase(); return <button key={c} onClick={() => setLook({ accent: c })} aria-pressed={sel} aria-label={`Name color ${c}`} style={{ width: 34, height: 34, borderRadius: 999, background: c, border: `2px solid ${sel ? C.text : "transparent"}`, boxShadow: sel ? `0 0 0 2px ${C.sheet} inset, 0 0 12px ${c}` : "none" }} />; })}
+                <label className="relative flex items-center justify-center" style={{ width: 34, height: 34, borderRadius: 999, background: "conic-gradient(#ff3cac,#ffb43c,#f7ff3c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)", border: `2px solid ${look.accent && !NAME_COLORS.some((c) => c.toLowerCase() === look.accent.toLowerCase()) ? C.text : "transparent"}`, cursor: "pointer" }}>
+                  <Plus size={14} style={{ color: "#fff", filter: "drop-shadow(0 1px 2px rgba(0,0,0,.6))" }} />
+                  <input type="color" value={look.accent || "#00D9FF"} onChange={(e) => setLook({ accent: e.target.value })} aria-label="Custom name color" style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }} />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ---------- Rank emblems ---------- */
@@ -5334,7 +5524,7 @@ function Physique({ tier = 0, height = 220, aura, caption }) {
   return (
     <div className="relative flex flex-col items-center" style={{ height: height + (caption ? 24 : 0) }}>
       <div className="absolute" style={{ top: height * 0.08, width: height * 0.62, height: height * 0.8, borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(10px)" }} />
-      {aura && aura !== "none" && <AuraRing aura={aura} size={height * 0.7} style={{ top: height * 0.05 }} />}
+      {aura && aura !== "none" && <AuraCanvas aura={aura} mode="body" w={Math.round(height * 0.8)} h={Math.round(height * 1.02)} style={{ left: "50%", top: -height * 0.02, transform: "translateX(-50%)" }} />}
       <img src={`/avatars/${id}.webp`} alt={`${id}-rank physique`} loading="lazy" style={{ height, width: "auto", position: "relative", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />
       {caption && <div className="body text-xs mt-1" style={{ color: C.dim }}>{caption}</div>}
     </div>
@@ -5343,27 +5533,31 @@ function Physique({ tier = 0, height = 220, aura, caption }) {
 
 /* ---------- Auras + borders ---------- */
 const AURAS = [
-  { id: "none", name: "None", how: "" },
-  { id: "ember", name: "Ember", how: "Any lift at D", tier: 1, colors: ["#FF9340", "#FF4D6D"] },
-  { id: "tide", name: "Tide", how: "Any lift at C", tier: 2, colors: ["#38C6FF", "#2F6BFF"] },
-  { id: "storm", name: "Storm", how: "Any lift at B", tier: 3, colors: ["#B14BFF", "#38C6FF"] },
-  { id: "inferno", name: "Inferno", how: "Any lift at A", tier: 4, colors: ["#FF2D6F", "#FFB43C"] },
-  { id: "halo", name: "Halo", how: "Any lift at S", tier: 5, colors: ["#FFD447", "#FFFFFF"] },
-  { id: "godray", name: "Godray", how: "Any lift at SS", tier: 6, colors: ["#FFFFFF", "#7DF9FF"] },
-  { id: "wyrm", name: "Wyrmfire", how: "Defeat the Iron Wyrm", loot: "wyrm", colors: ["#3DF08A", "#FFD447"] },
-  { id: "frost", name: "Frostbite", how: "Defeat the Frost Colossus", loot: "colossus", colors: ["#B3ECFF", "#FFFFFF"] },
-  { id: "abyss", name: "Abyss", how: "Defeat the Gravemaw", loot: "gravemaw", colors: ["#6A00FF", "#FF2D6F"] },
-  { id: "chud", name: "Chud", how: "Defeat the Chud King", loot: "chud", colors: ["#FFB43C", "#8BC34A"], emoji: ["🍔", "💨", "🍔", "💨", "🍟"] },
-  { id: "rust", name: "Rustfall", how: "Defeat the Rust Titan", loot: "rust", colors: ["#C7743A", "#6B3A1E"] },
-  { id: "thunder", name: "Thunderhead", how: "Defeat the Stormcaller Harpy", loot: "harpy", colors: ["#7DD3FC", "#FFF27A"], emoji: ["⚡", "⚡", "⚡"] },
-  { id: "hollow", name: "Hollow Steel", how: "Defeat the Hollow Warden", loot: "warden", colors: ["#9AA7BD", "#FFFFFF"] },
-  { id: "deep", name: "The Deep", how: "Defeat the Leviathan", loot: "leviathan", colors: ["#2F6BFF", "#00D9FF"], emoji: ["🫧", "🫧", "🫧"] },
-  { id: "magma", name: "Magma", how: "Defeat the Molten Behemoth", loot: "behemoth", colors: ["#FF5A1F", "#FFD447"] },
-  { id: "plague", name: "Plague", how: "Defeat the Plague Rat Lord", loot: "ratlord", colors: ["#8BC34A", "#3E5F1A"] },
-  { id: "sand", name: "Sandstorm", how: "Defeat the Sandstorm Pharaoh", loot: "pharaoh", colors: ["#E8C872", "#B8860B"] },
-  { id: "void", name: "Void", how: "Defeat the Void Sovereign", loot: "void", colors: ["#6A00FF", "#000000"] },
-  { id: "yogurt", name: "Yogurt", how: "Yogurt Male achievement (100 yogurts)", ach: "yogurt-0", colors: ["#FFF8E7", "#F1DDB5"], emoji: ["🥣", "🥛", "🥣"] },
-  { id: "champion", name: "Champion", how: "Win a season", season: true, colors: ["#FFD447", "#FF9340"] },
+  { id: "none", name: "None", how: "", group: "rank" },
+  { id: "ember", name: "Ember", how: "Any lift at D", tier: 1, group: "rank", colors: ["#FF9340", "#FF4D6D"] },
+  { id: "tide", name: "Tide", how: "Any lift at C", tier: 2, group: "rank", colors: ["#38C6FF", "#2F6BFF"] },
+  { id: "storm", name: "Storm", how: "Any lift at B", tier: 3, group: "rank", colors: ["#B14BFF", "#38C6FF"] },
+  { id: "inferno", name: "Inferno", how: "Any lift at A", tier: 4, group: "rank", colors: ["#FF2D6F", "#FFB43C"] },
+  { id: "halo", name: "Halo", how: "Any lift at S", tier: 5, group: "rank", colors: ["#FFD447", "#FFFFFF"] },
+  { id: "godray", name: "Godray", how: "Any lift at SS", tier: 6, group: "rank", colors: ["#FFFFFF", "#7DF9FF"] },
+  { id: "smolder", name: "Smoldering Ember", how: "Train 30 days in a row", task: "streak30", group: "feat", colors: ["#FF6A2B", "#7A1E0E"] },
+  { id: "stormborn", name: "Stormborn", how: "Log a run in rain, snow, or 40°F and below", task: "weatherRun", group: "feat", colors: ["#8FB8FF", "#E6F0FF"] },
+  { id: "dawn", name: "Dawnbreaker", how: "Start a workout between 4 and 6 AM", task: "dawn", group: "feat", colors: ["#FF8A5B", "#FFD36B"] },
+  { id: "wanderer", name: "Wanderer", how: "10,000 steps a day, 7 days in a row", task: "steps7", group: "feat", colors: ["#7BC96F", "#E0B872"] },
+  { id: "wyrm", name: "Wyrmfire", how: "Defeat the Iron Wyrm", loot: "wyrm", group: "boss", colors: ["#3DF08A", "#FFD447"] },
+  { id: "frost", name: "Frostbite", how: "Defeat the Frost Colossus", loot: "colossus", group: "boss", colors: ["#B3ECFF", "#FFFFFF"] },
+  { id: "abyss", name: "Abyss", how: "Defeat the Gravemaw", loot: "gravemaw", group: "boss", colors: ["#6A00FF", "#FF2D6F"] },
+  { id: "chud", name: "Chud", how: "Defeat the Chud King", loot: "chud", group: "boss", colors: ["#FFB43C", "#8BC34A"] },
+  { id: "rust", name: "Rustfall", how: "Defeat the Rust Titan", loot: "rust", group: "boss", colors: ["#C7743A", "#6B3A1E"] },
+  { id: "thunder", name: "Thunderhead", how: "Defeat the Stormcaller Harpy", loot: "harpy", group: "boss", colors: ["#7DD3FC", "#FFF27A"] },
+  { id: "hollow", name: "Hollow Steel", how: "Defeat the Hollow Warden", loot: "warden", group: "boss", colors: ["#9AA7BD", "#FFFFFF"] },
+  { id: "deep", name: "The Deep", how: "Defeat the Leviathan", loot: "leviathan", group: "boss", colors: ["#2F6BFF", "#00D9FF"] },
+  { id: "magma", name: "Magma", how: "Defeat the Molten Behemoth", loot: "behemoth", group: "boss", colors: ["#FF5A1F", "#FFD447"] },
+  { id: "plague", name: "Plague", how: "Defeat the Plague Rat Lord", loot: "ratlord", group: "boss", colors: ["#8BC34A", "#3E5F1A"] },
+  { id: "sand", name: "Sandstorm", how: "Defeat the Sandstorm Pharaoh", loot: "pharaoh", group: "boss", colors: ["#E8C872", "#B8860B"] },
+  { id: "void", name: "Void", how: "Defeat the Void Sovereign", loot: "void", group: "boss", colors: ["#6A00FF", "#000000"] },
+  { id: "yogurt", name: "Yogurt", how: "Yogurt Male achievement (100 yogurts)", ach: "yogurt-0", group: "special", colors: ["#FFF8E7", "#F1DDB5"] },
+  { id: "champion", name: "Champion", how: "Win a season", season: true, group: "special", colors: ["#FFD447", "#FF9340"] },
 ];
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
@@ -5375,28 +5569,300 @@ const BORDERS = [
   { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
 ];
 const bestTier = (s) => Math.floor(Object.values(groupScores(s)).reduce((a, b) => Math.max(a, b), 0));
+const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; }); return best; };
+const wetCode = (c) => (c >= 51 && c <= 67) || (c >= 71 && c <= 77) || (c >= 80 && c <= 86) || c >= 95;
+// Feat auras: each has a check and a progress readout. Once met, the unlock is saved to s.auraUnlocks for good.
+const AURA_TASKS = {
+  streak30: (s) => { const v = longestRun(activeDays(s)); return { done: v >= 30, v: Math.min(v, 30), goal: 30, label: `Best streak ${Math.min(v, 30)} / 30 days` }; },
+  weatherRun: (s) => { const hit = (s.workouts || []).some((w) => w.run?.wx && (w.run.wx.wet || w.run.wx.t <= 40)); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Braved the weather" : "Runs record the weather where you start" }; },
+  dawn: (s) => { const hit = (s.workouts || []).some((w) => { if (!w.startedAt) return false; const h = new Date(w.startedAt).getHours(); return h >= 4 && h < 6; }); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Up before the sun" : "Counts from when you tap Start" }; },
+  steps7: (s) => { const v = longestRun(Object.keys(s.steps || {}).filter((d) => (+s.steps[d] || 0) >= 10000)); return { done: v >= 7, v: Math.min(v, 7), goal: 7, label: `Best run ${Math.min(v, 7)} / 7 days at 10k` }; },
+};
 function unlocked(item, s) {
   if (item.id === "none") return true;
+  if (item.task) return !!s.auraUnlocks?.[item.id] || AURA_TASKS[item.task](s).done;
   if (item.tier !== undefined) return bestTier(s) >= item.tier;
   if (item.loot) return item.loot === "any" ? (s.loot?.bosses || []).length > 0 : (s.loot?.bosses || []).includes(item.loot);
   if (item.ach) return !!s.ach?.[item.ach];
   if (item.season) return item.id === "champion" ? Object.values(s.seasonBadges || {}).some((b) => b.place === 1) : Object.keys(s.seasonBadges || {}).length > 0;
   return false;
 }
+async function fetchRunWeather(lat, lng) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
+  try {
+    // Rounded to ~1 km so the exact start point never leaves the phone
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lng.toFixed(2)}&current=temperature_2m,precipitation,weather_code&temperature_unit=fahrenheit`, { signal: ctl.signal });
+    const j = await r.json();
+    const c = j?.current;
+    if (!c) return null;
+    return { t: Math.round(c.temperature_2m), code: c.weather_code, wet: (c.precipitation || 0) > 0 || wetCode(c.weather_code) };
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
+
+/* Particle recipes. Layer kinds: rise, orbit, fall, inward, bubble. Extras: rays, bolts, glow. */
+const AURA_FX = {
+  ember: { glow: 0.55, layers: [{ k: "rise", n: 26, shape: "spark", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [18, 38], life: [1, 2.2], sz: [1, 2.2], sway: 10 }, { k: "rise", n: 10, shape: "dot", c: ["#FF9340", "#FF4D6D"], sp: [10, 20], life: [1.2, 2], sz: [3, 6], sway: 6, a: 0.5 }] },
+  tide: { glow: 0.5, layers: [{ k: "bubble", n: 14, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2, 5] }, { k: "orbit", n: 22, shape: "dot", c: ["#38C6FF", "#2F6BFF", "#B3ECFF"], w: [0.8, 1.4], r: [0.95, 1.2], sz: [1.5, 3], wave: 0.08 }] },
+  storm: { glow: 0.55, bolts: { every: [0.9, 2.2], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 30, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.6, 2.6], r: [0.9, 1.25], sz: [1, 2] }] },
+  inferno: { glow: 0.7, layers: [{ k: "rise", n: 34, shape: "dot", c: ["#FF2D6F", "#FF5A1F", "#FFB43C"], sp: [26, 50], life: [0.6, 1.2], sz: [3, 8], sway: 5, a: 0.8 }, { k: "rise", n: 18, shape: "spark", c: ["#FFE08A", "#FFB43C"], sp: [40, 70], life: [0.6, 1.3], sz: [0.8, 1.6], sway: 14 }] },
+  halo: { glow: 0.75, rays: { n: 12, c: "#FFD447", spin: 0.18, len: 1.55, a: 0.16 }, layers: [{ k: "orbit", n: 24, shape: "dot", c: ["#FFF6C9", "#FFD447"], w: [0.35, 0.7], r: [1.02, 1.2], sz: [1.5, 3.2], tw: 1 }] },
+  godray: { glow: 0.85, rays: { n: 16, c: "#DFFBFF", spin: -0.12, len: 1.8, a: 0.2 }, layers: [{ k: "rise", n: 22, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [10, 22], life: [1.4, 2.6], sz: [1.5, 3], sway: 4, tw: 1 }, { k: "orbit", n: 18, shape: "dot", c: ["#FFFFFF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.3], sz: [1.2, 2.4] }] },
+  smolder: { glow: 0.6, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [8, 16], life: [2.4, 3.6], sz: [8, 16], sway: 8, a: 0.35, blend: "source-over" }, { k: "rise", n: 30, shape: "spark", c: ["#FF6A2B", "#FFB070", "#FF8A3D"], sp: [10, 22], life: [1.6, 3], sz: [1.1, 2.1], sway: 12, flick: 1 }, { k: "orbit", n: 10, shape: "dot", c: ["#C2361A", "#FF6A2B"], w: [0.2, 0.35], r: [0.98, 1.08], sz: [2, 4], tw: 1 }] },
+  stormborn: { glow: 0.35, bolts: { every: [1.2, 3], c: ["#FFFFFF", "#BFD6FF"], flash: 1 }, layers: [{ k: "fall", n: 36, shape: "drop", c: ["#BFD6FF", "#8FB8FF", "#E6F0FF"], sp: [120, 170], sz: [0.8, 1.3], drift: -18, a: 0.7 }, { k: "orbit", n: 8, shape: "smoke", c: ["#566478", "#3E4A5C"], w: [0.15, 0.25], r: [1.25, 1.45], sz: [10, 16], a: 0.35, blend: "source-over", top: 1 }] },
+  dawn: { glow: 0.6, rays: { n: 9, c: "#FFB978", spin: 0.08, len: 1.7, a: 0.2, fan: 1 }, layers: [{ k: "rise", n: 22, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFE9C2"], sp: [8, 18], life: [1.8, 3.2], sz: [1.2, 2.6], sway: 6, tw: 1 }] },
+  wanderer: { glow: 0.35, layers: [{ k: "orbit", n: 14, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.5, 0.9], r: [1, 1.35], sz: [2.5, 4], wave: 0.12 }, { k: "rise", n: 14, shape: "dot", c: ["#E0B872", "#F3DDB0"], sp: [6, 14], life: [1.6, 2.8], sz: [1, 2], sway: 10, a: 0.7 }] },
+  wyrm: { glow: 0.6, layers: [{ k: "orbit", n: 22, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [0.9, 1.5], r: [0.95, 1.25], sz: [2.5, 4.5] }, { k: "rise", n: 16, shape: "spark", c: ["#3DF08A", "#FFD447"], sp: [20, 40], life: [0.8, 1.6], sz: [1, 1.8], sway: 10 }] },
+  frost: { glow: 0.55, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [14, 28], sz: [2, 4], drift: 8 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.3, 0.6], r: [1, 1.2], sz: [2.5, 4] }] },
+  abyss: { glow: 0.6, layers: [{ k: "inward", n: 30, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.5, 0.9], life: [1.2, 2.2], sz: [1.5, 3.5] }, { k: "orbit", n: 8, shape: "smoke", c: ["#2A0060", "#3A0A40"], w: [0.2, 0.4], r: [0.95, 1.15], sz: [10, 16], a: 0.45, blend: "source-over" }] },
+  chud: { glow: 0.45, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.5, 0.5], r: [1.12, 1.12], sz: [0.16, 0.16], bob: 1, even: 1 }, { k: "rise", n: 12, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over" }] },
+  rust: { glow: 0.4, layers: [{ k: "fall", n: 30, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [16, 30], sz: [1.5, 3], drift: 10, spin: 1 }, { k: "rise", n: 10, shape: "spark", c: ["#FFB86B", "#FF7A2D"], sp: [30, 60], life: [0.4, 0.9], sz: [0.8, 1.4], sway: 20 }] },
+  thunder: { glow: 0.55, bolts: { every: [0.5, 1.4], c: ["#FFF27A", "#7DD3FC"] }, layers: [{ k: "orbit", n: 26, shape: "spark", c: ["#7DD3FC", "#FFF27A"], w: [2, 3], r: [0.95, 1.2], sz: [1, 2] }] },
+  hollow: { glow: 0.5, layers: [{ k: "orbit", n: 14, shape: "shard", c: ["#9AA7BD", "#DDE6F2", "#FFFFFF"], w: [0.25, 0.5], r: [1, 1.3], sz: [3, 5] }, { k: "rise", n: 10, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [5, 10], life: [2, 3.4], sz: [8, 14], sway: 6, a: 0.25, blend: "source-over" }] },
+  deep: { glow: 0.55, layers: [{ k: "bubble", n: 18, c: ["#9BE7FF", "#00D9FF", "#6FA0FF"], sp: [14, 28], life: [1.4, 2.8], sz: [1.5, 5] }, { k: "inward", n: 16, shape: "dot", c: ["#2F6BFF", "#00D9FF"], sp: [0.3, 0.5], life: [1.8, 2.8], sz: [1, 2.2] }] },
+  magma: { glow: 0.7, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [16, 34], life: [0.8, 1.6], sz: [3, 7], sway: 4, a: 0.85 }, { k: "rise", n: 8, shape: "smoke", c: ["#3A1A10", "#24120A"], sp: [10, 16], life: [2, 3], sz: [10, 16], sway: 6, a: 0.4, blend: "source-over" }] },
+  plague: { glow: 0.45, layers: [{ k: "rise", n: 12, shape: "smoke", c: ["#8BC34A", "#5E8C2A"], sp: [6, 12], life: [2, 3.2], sz: [8, 14], sway: 8, a: 0.3 }, { k: "bubble", n: 12, c: ["#C6F07A", "#8BC34A"], sp: [10, 18], life: [1.2, 2.4], sz: [1.5, 3.5] }] },
+  sand: { glow: 0.4, layers: [{ k: "orbit", n: 44, shape: "dot", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.4, 2.4], r: [0.9, 1.45], sz: [0.8, 1.8], wave: 0.18, a: 0.9 }] },
+  void: { glow: 0.65, dark: 1, layers: [{ k: "inward", n: 30, shape: "dot", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.45, 0.8], life: [1.4, 2.4], sz: [3, 7], blend: "source-over", a: 0.9 }, { k: "orbit", n: 22, shape: "star", c: ["#FFFFFF", "#C9A8FF"], w: [0.25, 0.5], r: [1.05, 1.4], sz: [0.8, 1.6], tw: 1 }] },
+  yogurt: { glow: 0.4, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.45, 0.45], r: [1.12, 1.12], sz: [0.16, 0.16], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.5, 3.5] }] },
+  champion: { glow: 0.65, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.6, a: 0.18 }, layers: [{ k: "rise", n: 24, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [14, 30], life: [1.2, 2.2], sz: [1.6, 3], sway: 14, spin: 1 }] },
+};
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const _glowCache = new Map();
+function glowSprite(color) {
+  if (_glowCache.has(color)) return _glowCache.get(color);
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const g = c.getContext("2d");
+  if (g) {
+    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.18, color); grd.addColorStop(0.5, `${color}66`); grd.addColorStop(1, `${color}00`);
+    g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  }
+  _glowCache.set(color, c);
+  return c;
+}
+function softSprite(color) {
+  const key = `soft${color}`;
+  if (_glowCache.has(key)) return _glowCache.get(key);
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const g = c.getContext("2d");
+  if (g) { const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32); grd.addColorStop(0, color); grd.addColorStop(0.55, `${color}88`); grd.addColorStop(1, `${color}00`); g.fillStyle = grd; g.fillRect(0, 0, 64, 64); }
+  _glowCache.set(key, c);
+  return c;
+}
+
+// One shared animation loop for every aura on screen. Offscreen or hidden auras don't tick.
+const AuraLoop = {
+  set: new Set(), raf: 0, last: 0,
+  add(inst) { this.set.add(inst); if (!this.raf) { this.last = performance.now(); this.raf = requestAnimationFrame((t) => this.tick(t)); } },
+  remove(inst) { this.set.delete(inst); if (!this.set.size && this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; } },
+  tick(t) {
+    const dt = Math.min(0.05, (t - this.last) / 1000); this.last = t;
+    if (!document.hidden) this.set.forEach((inst) => { if (inst.visible) inst.frame(dt); });
+    this.raf = this.set.size ? requestAnimationFrame((tt) => this.tick(tt)) : 0;
+  },
+};
+
+function makeAura(canvas, { aura, w, h, mode, ringR }) {
+  const fx = AURA_FX[aura], base = AURAS.find((a) => a.id === aura);
+  const g = canvas.getContext("2d");
+  if (!fx || !g) return null;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
+  const rx = mode === "body" ? w * 0.28 : ringR, ry = mode === "body" ? h * 0.36 : ringR;
+  const gR = Math.min(1.5, (Math.min(cx, w - cx) / rx) * 0.97, (Math.min(cy, h - cy) / ry) * 0.97); // glow never hits the canvas edge
+  const scale = Math.max(0.3, Math.min(1.3, (w * h) / (170 * 170)));
+  const unit = Math.min(rx, ry) / 60; // particle sizes are authored for a ~60px ring
+  const onRing = (ang, k = 1) => [cx + Math.cos(ang) * rx * k, cy + Math.sin(ang) * ry * k];
+  let time = 0, boltT = fx.bolts ? rnd(...fx.bolts.every) : 0, bolt = null;
+
+  const layers = fx.layers.map((L) => {
+    const n = Math.max(L.even ? L.n : 3, Math.round(L.n * (L.even ? 1 : scale)));
+    const spawn = (p, fresh) => {
+      p.c = L.c ? pick(L.c) : null; p.sz = rnd(...L.sz) * (L.shape === "emoji" ? 1 : unit * (mode === "body" ? 1.1 : 1));
+      p.age = 0; p.rot = rnd(0, Math.PI * 2); p.vr = L.spin ? rnd(-3, 3) : rnd(-1, 1); p.ph = rnd(0, Math.PI * 2);
+      if (L.k === "rise" || L.k === "bubble") {
+        const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
+        [p.x, p.y] = onRing(ang, rnd(0.85, 1.05)); p.vy = -rnd(...L.sp) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
+        if (fresh) p.age = rnd(0, p.life);
+      } else if (L.k === "fall") {
+        p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...L.sp) * unit; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2); p.life = 99;
+        if (fresh) p.y = rnd(cy - ry * 1.6, cy + ry * 1.5);
+      } else if (L.k === "inward") {
+        p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...L.life); p.spd = rnd(...L.sp);
+        if (fresh) p.age = rnd(0, p.life);
+      } else { // orbit
+        p.ang = L.even ? (p.i / n) * Math.PI * 2 : rnd(0, Math.PI * 2); p.r = rnd(...L.r); p.w = rnd(...L.w) * (Math.random() < 0.5 && !L.even ? -1 : 1) * (L.even ? 1 : 1); p.life = 99;
+        if (L.top) p.ang = rnd(Math.PI * 1.1, Math.PI * 1.9);
+      }
+      p.e = L.e ? L.e[p.i % L.e.length] : null;
+    };
+    const ps = Array.from({ length: n }, (_, i) => { const p = { i }; spawn(p, true); return p; });
+    return { L, ps, spawn };
+  });
+
+  const drawP = (L, p, alpha, x, y) => {
+    if (alpha <= 0.01) return;
+    g.globalAlpha = Math.min(1, alpha * (L.a ?? 1));
+    const s = p.sz;
+    switch (L.shape) {
+      case "dot": { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2, y - s * 2, s * 4, s * 4); break; }
+      case "smoke": { const sp = softSprite(p.c); const k = 1 + p.age * 0.5; g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k); break; }
+      case "spark": case "drop": {
+        const orb = p.vy === undefined; const vx = orb ? -Math.sin(p.ang) * p.w * 20 : (p.vx || 0), vy = orb ? Math.cos(p.ang) * p.w * 20 : p.vy;
+        const len = Math.hypot(vx, vy) || 1, l = L.shape === "drop" ? s * 9 : s * 5;
+        g.strokeStyle = p.c; g.lineWidth = s; g.lineCap = "round";
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x - (vx / len) * l, y - (vy / len) * l); g.stroke();
+        if (L.shape === "spark") { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2.5, y - s * 2.5, s * 5, s * 5); }
+        break;
+      }
+      case "flake": {
+        g.save(); g.translate(x, y); g.rotate(p.rot); g.strokeStyle = p.c; g.lineWidth = Math.max(0.6, s * 0.28); g.lineCap = "round";
+        for (let k = 0; k < 6; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.moveTo(0, 0); g.lineTo(0, s); g.moveTo(0, s * 0.55); g.lineTo(s * 0.28, s * 0.8); g.moveTo(0, s * 0.55); g.lineTo(-s * 0.28, s * 0.8); g.stroke(); }
+        g.restore(); break;
+      }
+      case "shard": {
+        g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
+        g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.55, 0); g.lineTo(0, s * 1.1); g.lineTo(-s * 0.55, 0); g.closePath(); g.fill();
+        g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.2, -s * 0.2); g.lineTo(0, 0); g.closePath(); g.fill();
+        g.restore(); break;
+      }
+      case "leaf": {
+        g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
+        g.beginPath(); g.ellipse(0, 0, s * 1.3, s * 0.55, 0, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 0.6; g.beginPath(); g.moveTo(-s * 1.2, 0); g.lineTo(s * 1.2, 0); g.stroke();
+        g.restore(); break;
+      }
+      case "square": { g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c; g.fillRect(-s / 2, -s * 0.8, s, s * 1.6); g.restore(); break; }
+      case "star": {
+        const sp = glowSprite(p.c); g.drawImage(sp, x - s * 3, y - s * 3, s * 6, s * 6);
+        g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.35); g.beginPath(); g.moveTo(x - s * 2.4, y); g.lineTo(x + s * 2.4, y); g.moveTo(x, y - s * 2.4); g.lineTo(x, y + s * 2.4); g.stroke();
+        break;
+      }
+      case "emoji": { const px = Math.max(10, Math.min(w, h) * p.sz); g.font = `${px}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(p.e, x, y + (L.bob ? Math.sin(time * 2.4 + p.ph) * px * 0.12 : 0)); break; }
+      default: { // bubble ring
+        g.strokeStyle = p.c; g.lineWidth = Math.max(0.7, s * 0.3); g.beginPath(); g.arc(x, y, s, 0, Math.PI * 2); g.stroke();
+        g.fillStyle = "#ffffff"; g.globalAlpha *= 0.7; g.beginPath(); g.arc(x - s * 0.35, y - s * 0.35, s * 0.25, 0, Math.PI * 2); g.fill();
+      }
+    }
+  };
+
+  const makeBolt = () => {
+    const ang = rnd(0, Math.PI * 2), segs = 7, pts = [];
+    let [x, y] = onRing(ang, 0.95);
+    const [ex, ey] = onRing(ang + rnd(-0.5, 0.5), rnd(1.45, 1.7));
+    for (let i = 0; i <= segs; i++) { const k = i / segs; pts.push([x + (ex - x) * k + (i && i < segs ? rnd(-6, 6) * unit : 0), y + (ey - y) * k + (i && i < segs ? rnd(-6, 6) * unit : 0)]); }
+    return { pts, t: 0, c: pick(fx.bolts.c) };
+  };
+
+  const frame = (dt) => {
+    time += dt;
+    g.clearRect(0, 0, w, h);
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+    // base glow that breathes
+    const c1 = base.colors[0], c2 = base.colors[1];
+    const breathe = 0.85 + Math.sin(time * 2.1) * 0.15;
+    if (fx.dark) {
+      const grd = g.createRadialGradient(cx, cy, rx * 0.7, cx, cy, rx * gR);
+      grd.addColorStop(0, "rgba(10,0,20,0)"); grd.addColorStop(0.35, `rgba(20,0,40,${0.75 * breathe})`); grd.addColorStop(0.55, `${c1}AA`); grd.addColorStop(1, "rgba(10,0,20,0)");
+      g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy); g.beginPath(); g.arc(cx, cy, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
+    } else {
+      g.save(); g.translate(cx, cy); g.scale(1, ry / rx);
+      const grd = g.createRadialGradient(0, 0, rx * 0.6, 0, 0, rx * gR);
+      grd.addColorStop(0, `${c1}00`); grd.addColorStop(0.35, `${c1}${Math.round(fx.glow * breathe * 150).toString(16).padStart(2, "0")}`); grd.addColorStop(0.7, `${c2}${Math.round(fx.glow * 60).toString(16).padStart(2, "0")}`); grd.addColorStop(1, `${c2}00`);
+      g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
+    }
+    g.globalCompositeOperation = "lighter";
+    if (fx.rays) {
+      const R = fx.rays; g.save(); g.translate(cx, cy);
+      for (let i = 0; i < R.n; i++) {
+        const a0 = (i / R.n) * Math.PI * 2 + time * R.spin;
+        if (R.fan && Math.sin(a0) > 0.15) continue; // dawn: rays only rise from the top half
+        const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
+        const grd = g.createLinearGradient(0, 0, Math.cos(a0) * len, Math.sin(a0) * len);
+        grd.addColorStop(0, `${R.c}00`); grd.addColorStop(0.45, `${R.c}${Math.round(R.a * 255 * (0.7 + 0.3 * Math.sin(time * 2 + i * 1.7))).toString(16).padStart(2, "0")}`); grd.addColorStop(1, `${R.c}00`);
+        g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0);
+        const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
+        g.lineTo(Math.cos(a0 - wd) * len, Math.sin(a0 - wd) * len); g.lineTo(Math.cos(a0 + wd) * len, Math.sin(a0 + wd) * len); g.closePath(); g.fill();
+      }
+      g.restore();
+    }
+    layers.forEach(({ L, ps, spawn }) => {
+      g.globalCompositeOperation = L.blend || (L.shape === "emoji" ? "source-over" : "lighter");
+      ps.forEach((p) => {
+        p.age += dt; p.rot += p.vr * dt;
+        let x, y, alpha = 1;
+        if (L.k === "rise" || L.k === "bubble") {
+          p.y += p.vy * dt; x = p.x + Math.sin(time * 2 + p.ph) * (L.sway || 5) * unit * (L.k === "bubble" ? 0.6 : 1); y = p.y;
+          const k = p.age / p.life; alpha = Math.min(1, k * 5) * (1 - k);
+          if (L.flick) alpha *= 0.6 + 0.4 * Math.sin(time * 18 + p.ph);
+          if (p.age >= p.life) spawn(p);
+        } else if (L.k === "fall") {
+          p.y += p.vy * dt; p.x += p.vx * dt + Math.sin(time + p.ph) * 0.2; x = p.x; y = p.y;
+          const edge = Math.min(1, (p.y - (cy - ry * 1.6)) / 20, (cy + ry * 1.5 - p.y) / 20);
+          alpha = Math.max(0, edge);
+          if (p.y > cy + ry * 1.5) spawn(p);
+        } else if (L.k === "inward") {
+          const k = p.age / p.life; const r = p.r0 - (p.r0 - 0.9) * k; p.ang += p.spd * dt;
+          [x, y] = onRing(p.ang, r); alpha = Math.min(1, k * 4) * (1 - k * k);
+          if (p.age >= p.life) spawn(p);
+        } else {
+          p.ang += p.w * dt; const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
+          [x, y] = onRing(p.ang, p.r + wob);
+          if (L.shape !== "emoji" && L.shape !== "smoke") alpha = 0.75 + 0.25 * Math.sin(time * 3 + p.ph);
+          // things behind the body fade a little so it reads as a ring around them
+          if (mode === "body" && L.shape !== "emoji") alpha *= Math.sin(p.ang) < 0 ? 0.55 : 1;
+        }
+        if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
+        drawP(L, p, alpha, x, y);
+      });
+    });
+    if (fx.bolts) {
+      boltT -= dt;
+      if (boltT <= 0) { bolt = makeBolt(); boltT = rnd(...fx.bolts.every); }
+      if (bolt) {
+        bolt.t += dt; const life = 0.28, k = bolt.t / life;
+        if (k >= 1) bolt = null;
+        else {
+          g.globalCompositeOperation = "lighter"; g.globalAlpha = (1 - k) * (0.6 + 0.4 * Math.sin(bolt.t * 90));
+          if (fx.bolts.flash && k < 0.3) { g.fillStyle = `rgba(200,220,255,${0.12 * (1 - k / 0.3)})`; g.fillRect(0, 0, w, h); }
+          [[4 * unit, `${bolt.c}55`], [1.6 * unit, bolt.c], [0.7, "#ffffff"]].forEach(([lw, col]) => {
+            g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = "round"; g.beginPath();
+            bolt.pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
+          });
+        }
+      }
+    }
+    g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+  };
+  return { frame, visible: true };
+}
+
+function AuraCanvas({ aura, w, h, mode = "circle", ringR, style }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv || !AURA_FX[aura] || typeof window === "undefined") return;
+    const inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2 });
+    if (!inst) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduce) { for (let i = 0; i < 60; i++) inst.frame(1 / 30); return; }
+    let io = null;
+    if (typeof IntersectionObserver !== "undefined") { io = new IntersectionObserver((es) => { inst.visible = es[0]?.isIntersecting ?? true; }, { rootMargin: "80px" }); io.observe(cv); }
+    AuraLoop.add(inst);
+    return () => { AuraLoop.remove(inst); io?.disconnect(); };
+  }, [aura, w, h, mode, ringR]);
+  if (!AURA_FX[aura]) return null;
+  return <canvas ref={ref} aria-hidden="true" className="absolute pointer-events-none" style={{ width: w, height: h, ...style }} />;
+}
+// Drop-in replacement for the old ring. `size` is the ring's outer size as before; the canvas is larger so particles can drift out.
 function AuraRing({ aura, size, style }) {
-  const a = AURAS.find((x) => x.id === aura);
-  if (!a || !a.colors) return null;
-  const [c1, c2] = a.colors;
-  return (
-    <div aria-hidden="true" className="absolute pointer-events-none" style={{ width: size, height: size, borderRadius: "50%", ...style }}>
-      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `conic-gradient(from 0deg, ${c1}, transparent 30%, ${c2}, transparent 70%, ${c1})`, filter: `blur(${Math.max(4, size / 12)}px)`, opacity: 0.85, animation: "rkspin 6s linear infinite" }} />
-      <div style={{ position: "absolute", inset: size * 0.08, borderRadius: "50%", background: `radial-gradient(closest-side, ${c2}55, transparent)`, animation: "aurapulse 2.8s ease-in-out infinite" }} />
-      {a.emoji && a.emoji.map((em, i) => {
-        const n = a.emoji.length, ang = (i / n) * 360;
-        return <span key={i} style={{ position: "absolute", left: "50%", top: "50%", fontSize: Math.max(10, size * 0.14), lineHeight: 1, transformOrigin: "0 0", animation: `auraorbit ${7 + i}s linear infinite`, animationDelay: `${-i * 1.3}s`, "--r": `${size * 0.46}px`, "--a": `${ang}deg` }}><span style={{ display: "inline-block", transform: "translate(-50%,-50%)", animation: `aurabob ${1.8 + (i % 3) * 0.4}s ease-in-out infinite` }}>{em}</span></span>;
-      })}
-    </div>
-  );
+  if (!AURA_FX[aura]) return null;
+  const w = Math.round(size * 1.3);
+  return <AuraCanvas aura={aura} w={w} h={w} ringR={size / 2.9} style={style} />;
 }
 
 /* ---------- The Juice ---------- */
@@ -5486,17 +5952,17 @@ function ReceiptButton({ make, label = "Share card", small }) {
 /* ---------- Boss fights ---------- */
 const BOSSES = [
   { id: "wyrm", name: "The Iron Wyrm", tag: "Coils of cold steel", color: "#3DF08A", icon: "🐉", title: "Wyrmslayer", aura: "wyrm" },
-  { id: "colossus", name: "Frost Colossus", tag: "A glacier that learned to walk", color: "#B3ECFF", icon: "🧊", title: "Icebreaker", aura: "frost" },
+  { id: "colossus", eye: "#7DF9FF", name: "Frost Colossus", tag: "A glacier that learned to walk", color: "#B3ECFF", icon: "🧊", title: "Icebreaker", aura: "frost" },
   { id: "gravemaw", name: "Gravemaw", tag: "It eats skipped leg days", color: "#B14BFF", icon: "💀", title: "Gravebane", aura: "abyss" },
   { id: "chud", name: "The Chud King", tag: "Rules from a throne of double cheeseburgers", color: "#FFB43C", icon: "chud", title: "Chud King", aura: "chud" },
-  { id: "rust", name: "The Rust Titan", tag: "Every rep a grinding gear", color: "#C7743A", icon: "⚙️", title: "Titanbreaker", aura: "rust" },
-  { id: "harpy", name: "Stormcaller Harpy", tag: "Screeches at half reps", color: "#7DD3FC", icon: "⚡", title: "Stormbound", aura: "thunder" },
-  { id: "warden", name: "The Hollow Warden", tag: "An empty suit of armor that never skips a set", color: "#9AA7BD", icon: "🗡️", title: "Wardenbane", aura: "hollow" },
-  { id: "leviathan", name: "Leviathan of the Deep", tag: "Drags lifters into the abyss of cardio", color: "#2F6BFF", icon: "🐙", title: "Tidebreaker", aura: "deep" },
+  { id: "rust", eye: "#FF9A3D", name: "The Rust Titan", tag: "Every rep a grinding gear", color: "#C7743A", icon: "⚙️", title: "Titanbreaker", aura: "rust" },
+  { id: "harpy", eye: "#FFF27A", name: "Stormcaller Harpy", tag: "Screeches at half reps", color: "#7DD3FC", icon: "⚡", title: "Stormbound", aura: "thunder" },
+  { id: "warden", eye: "#7DF9FF", name: "The Hollow Warden", tag: "An empty suit of armor that never skips a set", color: "#9AA7BD", icon: "🗡️", title: "Wardenbane", aura: "hollow" },
+  { id: "leviathan", eye: "#9BF6FF", name: "Leviathan of the Deep", tag: "Drags lifters into the abyss of cardio", color: "#2F6BFF", icon: "🐙", title: "Tidebreaker", aura: "deep" },
   { id: "behemoth", name: "Molten Behemoth", tag: "Sweats lava, lifts mountains", color: "#FF5A1F", icon: "🌋", title: "Magmaforged", aura: "magma" },
-  { id: "ratlord", name: "The Plague Rat Lord", tag: "Hoards chalk and dirty towels", color: "#8BC34A", icon: "🐀", title: "Ratcatcher", aura: "plague" },
-  { id: "pharaoh", name: "Sandstorm Pharaoh", tag: "Buried his gains for 3,000 years", color: "#E8C872", icon: "🏺", title: "Sunbreaker", aura: "sand" },
-  { id: "void", name: "The Void Sovereign", tag: "The end of all excuses", color: "#6A00FF", icon: "🌑", title: "Voidwalker", aura: "void" },
+  { id: "ratlord", eye: "#C6F07A", name: "The Plague Rat Lord", tag: "Hoards chalk and dirty towels", color: "#8BC34A", icon: "🐀", title: "Ratcatcher", aura: "plague" },
+  { id: "pharaoh", eye: "#7DF9FF", name: "Sandstorm Pharaoh", tag: "Buried his gains for 3,000 years", color: "#E8C872", icon: "🏺", title: "Sunbreaker", aura: "sand" },
+  { id: "void", eye: "#C9A8FF", name: "The Void Sovereign", tag: "The end of all excuses", color: "#6A00FF", icon: "🌑", title: "Voidwalker", aura: "void" },
 ];
 const BOSS_HP_PER_PLAYER = 60000, BOSS_XP = 600;
 // Sleeping well and feeling good makes you hit harder today
@@ -5537,13 +6003,17 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
   };
   return (
     <div className="panel p-5 space-y-4 overflow-hidden" style={{ borderColor: `${boss.color}55` }}>
-      <div className="flex items-center gap-4">
-<BossArt boss={boss} pct={pct} dead={dead} hit={hit} />
-        <div className="flex-1 min-w-0">
-          <div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{scope === "crew" ? `${crew?.name || "Crew"} boss` : `Global boss · ${monthName}`}{pct <= 0.5 && !dead ? " · ENRAGED" : ""}</div>
-          <div className="text-xl font-bold" style={{ color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
-          <div className="body text-xs" style={{ color: C.dim }}>{boss.tag}</div>
+      <div className="relative -mx-5 -mt-5 px-5 pt-4 pb-1 flex flex-col items-center text-center" style={{ background: dead ? "none" : `radial-gradient(70% 75% at 50% 48%, ${pct <= 0.5 ? "rgba(255,45,45,.16)" : `${boss.color}22`}, transparent 72%)` }}>
+        <div className="flex items-center gap-2">
+          <span className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{scope === "crew" ? `${crew?.name || "Crew"} boss` : `Global boss · ${monthName}`}</span>
+          {pct <= 0.5 && !dead && <span className="text-xs font-extrabold px-2" style={{ borderRadius: 999, color: "#fff", background: "#D61F3A", boxShadow: "0 0 12px rgba(255,45,45,.6)", animation: "aurapulse 1.1s ease-in-out infinite" }}>Enraged</span>}
         </div>
+        <div className="relative mt-2" style={{ width: 156, height: 156 }}>
+          <div aria-hidden="true" style={{ position: "absolute", left: "12%", right: "12%", bottom: 2, height: 14, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(0,0,0,.55), transparent)" }} />
+          <BossArt boss={boss} pct={pct} dead={dead} hit={hit} size={156} />
+        </div>
+        <div className="text-xl font-bold mt-1" style={{ color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{boss.tag}</div>
       </div>
       <div>
         <div className="h-4 overflow-hidden relative" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)", boxShadow: pct <= 0.5 && !dead ? "0 0 14px rgba(255,45,45,.5)" : "none" }}>
@@ -5744,33 +6214,504 @@ function MusclePhoto({ group, tier = 0, height = 300 }) {
 }
 
 /* ---------- Chud King ---------- */
-function ChudKing({ size = 64, dead }) {
+/* ---------- Boss illustrations (SVG, animated by CSS classes) ---------- */
+// Every boss is drawn on a 120×120 canvas. Parts carry bs-* classes so they can breathe, flap, sway and glow.
+// Swap-in: drop /public/bosses/<id>.webp (transparent, square) and BossArt uses it instead, with the same idle motion.
+const OL = "#0A0E18"; // outline
+function Grad({ id, stops, x1 = 0, y1 = 0, x2 = 0, y2 = 1, radial, cx = 0.5, cy = 0.5, r = 0.5 }) {
+  const kids = stops.map(([o, c, a = 1], i) => <stop key={i} offset={o} stopColor={c} stopOpacity={a} />);
+  return radial ? <radialGradient id={id} cx={cx} cy={cy} r={r}>{kids}</radialGradient> : <linearGradient id={id} x1={x1} y1={y1} x2={x2} y2={y2}>{kids}</linearGradient>;
+}
+const Eye = ({ x, y, r = 3.2, c, slit }) => (
+  <g className="bs-eye">
+    <circle cx={x} cy={y} r={r * 2.4} fill={c} opacity=".28" />
+    {slit ? <ellipse cx={x} cy={y} rx={r} ry={r * 0.9} fill={c} /> : <circle cx={x} cy={y} r={r} fill={c} />}
+    {slit ? <ellipse cx={x} cy={y} rx={r * 0.28} ry={r * 0.85} fill={OL} /> : <circle cx={x - r * 0.3} cy={y - r * 0.3} r={r * 0.35} fill="#fff" opacity=".9" />}
+  </g>
+);
+
+function WyrmSVG({ u, eye }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 120 120" role="img" aria-label="The Chud King" style={{ opacity: dead ? 0.4 : 1, overflow: "visible" }}>
+    <>
+      <defs>
+        <Grad id={`${u}st`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#E3EAF2"], [0.45, "#8C99AA"], [1, "#2D3644"]]} />
+        <Grad id={`${u}belly`} stops={[[0, "#B6FFD9"], [1, "#2E9F63"]]} />
+        <Grad id={`${u}horn`} x1={0} y1={1} x2={1} y2={0} stops={[[0, "#3A2A12"], [1, "#FFE9A8"]]} />
+      </defs>
+      <g className="bs-sway">
+        <path d="M18 104 C4 86 10 62 30 58 C48 54 44 78 62 80 C84 82 96 64 92 46" fill="none" stroke={OL} strokeWidth="23" strokeLinecap="round" />
+        <path d="M18 104 C4 86 10 62 30 58 C48 54 44 78 62 80 C84 82 96 64 92 46" fill="none" stroke={`url(#${u}st)`} strokeWidth="19" strokeLinecap="round" />
+        <path d="M22 100 C12 86 16 68 30 64 C44 61 42 82 62 86 C82 88 94 72 90 56" fill="none" stroke={`url(#${u}belly)`} strokeWidth="6" strokeLinecap="round" opacity=".85" />
+        {[[14, 86], [22, 64], [40, 60], [52, 76], [70, 80], [86, 68]].map(([x, y], i) => <path key={i} d={`M${x} ${y - 9} l4 -8 l3 8 z`} fill="#6FD9A0" stroke={OL} strokeWidth="1" transform={`rotate(${i * 18 - 40} ${x} ${y})`} />)}
+        {[[18, 80], [26, 62], [44, 66], [58, 80], [76, 78]].map(([x, y], i) => <path key={i} d={`M${x - 5} ${y} q5 -4 10 0`} stroke="#4B5563" strokeWidth="1.2" fill="none" />)}
+      </g>
+      <g className="bs-breathe">
+        {/* horns */}
+        <path d="M70 30 C62 14 72 4 84 2 C76 10 76 18 80 26 Z" fill={`url(#${u}horn)`} stroke={OL} strokeWidth="1.6" />
+        <path d="M86 24 C92 10 90 4 82 -2 C86 8 84 16 80 22 Z" fill="#6B5424" stroke={OL} strokeWidth="1.4" />
+        {/* skull */}
+        <path d="M64 36 C64 22 78 18 88 20 C102 22 108 32 106 44 L112 52 C114 58 108 62 100 60 L74 60 C66 58 62 48 64 36 Z" fill={`url(#${u}st)`} stroke={OL} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M70 32 C76 26 88 24 98 28" stroke="#fff" strokeWidth="1.5" opacity=".55" fill="none" strokeLinecap="round" />
+        <path d="M74 42 L98 40 M78 48 L102 47" stroke="#4B5563" strokeWidth="1" opacity=".7" />
+        {/* brow ridge */}
+        <path d="M78 34 L96 32 L100 38 L82 40 Z" fill="#5B6676" stroke={OL} strokeWidth="1.2" />
+        <Eye x={92} y={38} r={3.2} c={eye} slit />
+        <circle cx="108" cy="52" r="1.3" fill={OL} />
+        {/* jaw */}
+        <g className="bs-jaw">
+          <path d="M74 58 L104 60 C108 62 106 68 100 68 L78 66 C72 64 70 60 74 58 Z" fill="#6B7888" stroke={OL} strokeWidth="1.8" strokeLinejoin="round" />
+          {[80, 86, 92, 98].map((x) => <path key={x} d={`M${x} 60 l1.6 -4 l1.6 4 z`} fill="#F4F0E0" />)}
+        </g>
+        {[82, 88, 94, 100].map((x) => <path key={x} d={`M${x} 60 l1.6 4 l1.6 -4 z`} fill="#F4F0E0" stroke={OL} strokeWidth=".6" />)}
+        <path d="M66 50 C58 50 54 58 58 64" stroke={OL} strokeWidth="2" fill="none" />
+      </g>
+      <g className="bs-rise" opacity=".7"><circle cx="112" cy="46" r="3" fill="#9FB0C4" opacity=".5" /><circle cx="116" cy="41" r="2" fill="#9FB0C4" opacity=".35" /></g>
+    </>
+  );
+}
+
+function ColossusSVG({ u, eye }) {
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}ice`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#F2FCFF"], [0.5, "#9FDDF5"], [1, "#2F7FA8"]]} />
+        <Grad id={`${u}dark`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#7CC4E4"], [1, "#1A4A66"]]} />
+        <Grad id={`${u}core`} radial stops={[[0, "#FFFFFF"], [0.4, eye], [1, eye, 0]]} />
+      </defs>
+      <g className="bs-breathe">
+        {/* arms */}
+        <path d="M12 52 L26 46 L30 86 L16 96 L8 82 Z" fill={`url(#${u}dark)`} stroke={OL} strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M108 52 L94 46 L90 86 L104 96 L112 82 Z" fill={`url(#${u}dark)`} stroke={OL} strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M6 92 L22 88 L30 100 L20 112 L6 106 Z" fill={`url(#${u}ice)`} stroke={OL} strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M114 92 L98 88 L90 100 L100 112 L114 106 Z" fill={`url(#${u}ice)`} stroke={OL} strokeWidth="1.8" strokeLinejoin="round" />
+        {/* torso */}
+        <path d="M28 44 L60 34 L92 44 L96 80 L78 104 L42 104 L24 80 Z" fill={`url(#${u}ice)`} stroke={OL} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M28 44 L60 34 L60 70 L24 80 Z" fill="#fff" opacity=".22" />
+        <path d="M60 70 L96 80 L78 104 L60 104 Z" fill="#0B3550" opacity=".28" />
+        <path d="M42 60 L50 76 M78 58 L70 74 M52 92 L60 84 L68 92" stroke="#2F7FA8" strokeWidth="1.2" fill="none" opacity=".7" />
+        {/* core */}
+        <circle cx="60" cy="66" r="14" fill={`url(#${u}core)`} className="bs-glow" />
+        <path d="M60 56 L66 66 L60 76 L54 66 Z" fill="#fff" stroke={eye} strokeWidth="1.2" className="bs-glow" />
+        {/* shoulder crystals */}
+        {[[24, 44, -25], [32, 38, -10], [96, 44, 25], [88, 38, 10]].map(([x, y, r], i) => <path key={i} d={`M${x - 5} ${y} L${x} ${y - 20} L${x + 5} ${y} Z`} fill={`url(#${u}ice)`} stroke={OL} strokeWidth="1.4" transform={`rotate(${r} ${x} ${y})`} />)}
+        {/* head */}
+        <path d="M46 22 L60 14 L74 22 L72 38 L60 42 L48 38 Z" fill={`url(#${u}ice)`} stroke={OL} strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M49 28 L71 28 L69 33 L51 33 Z" fill="#0B2536" />
+        <rect x="52" y="29.5" width="6" height="2" fill={eye} className="bs-eye" /><rect x="62" y="29.5" width="6" height="2" fill={eye} className="bs-eye" />
+        <path d="M60 14 L58 6 L62 2 L64 10 Z" fill="#fff" stroke={OL} strokeWidth="1" />
+        {/* icicles */}
+        {[[36, 104, 8], [48, 104, 11], [72, 104, 9], [84, 104, 7]].map(([x, y, l], i) => <path key={i} d={`M${x - 2.5} ${y} L${x} ${y + l} L${x + 2.5} ${y} Z`} fill="#DDF6FF" stroke={OL} strokeWidth=".8" />)}
+      </g>
+    </>
+  );
+}
+
+function GravemawSVG({ u, eye }) {
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}bone`} x1={0} y1={0} x2={0.6} y2={1} stops={[[0, "#FFF8E6"], [0.55, "#D8C9A3"], [1, "#7A6A4A"]]} />
+        <Grad id={`${u}fl`} stops={[[0, "#FF7AE0", 0], [0.4, "#B14BFF"], [1, "#4A0FA8"]]} />
+      </defs>
+      <g className="bs-flicker">
+        <path d="M30 34 C24 18 34 10 36 0 C42 12 46 14 48 4 C54 14 58 10 60 0 C62 10 66 14 72 4 C74 14 78 12 84 0 C86 10 96 18 90 34 Z" fill={`url(#${u}fl)`} opacity=".9" />
+        <path d="M40 34 C38 24 44 20 46 12 C50 20 54 20 56 12 C58 22 64 22 66 12 C68 20 74 22 76 14 C80 22 82 28 80 34 Z" fill="#E6BFFF" opacity=".6" />
+      </g>
+      <g className="bs-breathe">
+        {/* spine */}
+        {[96, 104, 111].map((y, i) => <rect key={y} x={54 - i} y={y} width={12 + i * 2} height="6" rx="2" fill={`url(#${u}bone)`} stroke={OL} strokeWidth="1.4" />)}
+        {/* cranium */}
+        <path d="M22 56 C18 30 38 20 60 20 C82 20 102 30 98 56 C96 66 90 70 86 74 L34 74 C30 70 24 66 22 56 Z" fill={`url(#${u}bone)`} stroke={OL} strokeWidth="2.2" />
+        <path d="M34 30 C44 24 56 23 66 24" stroke="#fff" strokeWidth="2" opacity=".7" fill="none" strokeLinecap="round" />
+        <path d="M70 22 L66 32 L72 38 L68 46" stroke={OL} strokeWidth="1.4" fill="none" />
+        <path d="M30 60 C26 50 30 46 34 44" stroke="#7A6A4A" strokeWidth="1.2" fill="none" />
+        {/* sockets */}
+        <path d="M32 50 C32 40 42 38 50 42 C54 46 52 58 44 60 C36 62 32 56 32 50 Z" fill="#12061E" stroke={OL} strokeWidth="1.5" />
+        <path d="M88 50 C88 40 78 38 70 42 C66 46 68 58 76 60 C84 62 88 56 88 50 Z" fill="#12061E" stroke={OL} strokeWidth="1.5" />
+        <Eye x={43} y={50} r={3.4} c={eye} /><Eye x={77} y={50} r={3.4} c={eye} />
+        <path d="M56 58 L60 66 L64 58 Z" fill="#12061E" stroke={OL} strokeWidth="1.2" />
+        {/* upper teeth */}
+        <path d="M34 74 L86 74 L84 80 L36 80 Z" fill={`url(#${u}bone)`} stroke={OL} strokeWidth="1.5" />
+        {[38, 44, 50, 56, 62, 68, 74, 80].map((x) => <path key={x} d={`M${x} 80 l2.5 6 l2.5 -6`} fill="#FFF8E6" stroke={OL} strokeWidth=".9" />)}
+      </g>
+      <g className="bs-jaw">
+        <path d="M32 88 C34 100 44 104 60 104 C76 104 86 100 88 88 L84 90 L36 90 Z" fill={`url(#${u}bone)`} stroke={OL} strokeWidth="2" />
+        {[38, 44, 50, 56, 62, 68, 74, 80].map((x) => <path key={x} d={`M${x} 90 l2.5 -6 l2.5 6`} fill="#FFF8E6" stroke={OL} strokeWidth=".9" />)}
+      </g>
+    </>
+  );
+}
+
+function ChudSVG({ u, eye }) {
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}skin`} x1={0} y1={0} x2={0.4} y2={1} stops={[[0, "#FFE0C4"], [1, "#D9986E"]]} />
+        <Grad id={`${u}robe`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#E0304F"], [1, "#6E0F24"]]} />
+        <Grad id={`${u}gold`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#FFF1A8"], [0.5, "#FFD447"], [1, "#B8860B"]]} />
+        <Grad id={`${u}bun`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#F6B25E"], [1, "#B8681F"]]} />
+      </defs>
       {/* burger throne */}
-      <ellipse cx="60" cy="108" rx="50" ry="9" fill="#C98A3A" />
-      <rect x="12" y="96" width="96" height="9" rx="4" fill="#5B8C2A" />
-      <rect x="10" y="88" width="100" height="10" rx="5" fill="#7A3E1C" />
-      <rect x="14" y="84" width="92" height="6" rx="3" fill="#F2C230" />
-      {/* body */}
-      <ellipse cx="60" cy="68" rx="40" ry="30" fill="#F2C6A0" stroke="#B9835D" strokeWidth="2" />
-      <ellipse cx="60" cy="74" rx="26" ry="18" fill="#F6D4B4" />
-      <circle cx="60" cy="78" r="2.2" fill="#B9835D" />
-      <path d="M30 60 Q18 70 24 84" stroke="#F2C6A0" strokeWidth="11" strokeLinecap="round" fill="none" />
-      <path d="M90 60 Q104 66 98 80" stroke="#F2C6A0" strokeWidth="11" strokeLinecap="round" fill="none" />
-      {/* burger in hand */}
-      <g transform="translate(94 74)"><ellipse cx="0" cy="-4" rx="9" ry="5" fill="#D9973F" /><rect x="-9" y="-2" width="18" height="3" fill="#5B8C2A" /><rect x="-9" y="1" width="18" height="4" rx="2" fill="#7A3E1C" /><ellipse cx="0" cy="6" rx="9" ry="3" fill="#D9973F" /></g>
-      {/* head */}
-      <circle cx="60" cy="34" r="19" fill="#F2C6A0" stroke="#B9835D" strokeWidth="2" />
-      <ellipse cx="60" cy="47" rx="15" ry="7" fill="#F2C6A0" stroke="#B9835D" strokeWidth="1.5" />
-      <circle cx="53" cy="32" r="2.4" fill="#2a1a10" /><circle cx="67" cy="32" r="2.4" fill="#2a1a10" />
-      <path d="M52 41 Q60 46 68 41" stroke="#8a4b2a" strokeWidth="2" fill="none" strokeLinecap="round" />
-      <circle cx="46" cy="38" r="3.5" fill="#F29A9A" opacity=".6" /><circle cx="74" cy="38" r="3.5" fill="#F29A9A" opacity=".6" />
-      {/* crown */}
-      <path d="M43 18 L47 6 L54 14 L60 2 L66 14 L73 6 L77 18 Z" fill="#FFD447" stroke="#B8860B" strokeWidth="1.5" strokeLinejoin="round" />
-      <circle cx="60" cy="10" r="2" fill="#FF2D6F" /><circle cx="49" cy="13" r="1.6" fill="#38C6FF" /><circle cx="71" cy="13" r="1.6" fill="#3DF08A" />
+      <ellipse cx="60" cy="112" rx="50" ry="6" fill="#000" opacity=".3" />
+      <path d="M10 96 C10 88 110 88 110 96 L110 104 C110 110 10 110 10 104 Z" fill={`url(#${u}bun)`} stroke={OL} strokeWidth="1.8" />
+      <path d="M8 92 L112 92 L106 97 L96 94 L86 98 L74 94 L62 98 L50 94 L38 98 L26 94 L14 97 Z" fill="#6BBF3A" stroke={OL} strokeWidth="1.2" />
+      <rect x="10" y="84" width="100" height="9" rx="4" fill="#6B3418" stroke={OL} strokeWidth="1.6" />
+      <path d="M12 84 L108 84 L104 88 L94 85 L84 89 L72 85 L60 89 L48 85 L36 89 L24 85 L16 88 Z" fill="#FFC928" />
+      <g className="bs-breathe">
+        {/* robe body */}
+        <path d="M22 86 C18 56 34 44 60 44 C86 44 102 56 98 86 Z" fill={`url(#${u}robe)`} stroke={OL} strokeWidth="2" />
+        <path d="M60 46 L60 86" stroke="#FFF6E8" strokeWidth="9" />
+        {[52, 62, 72, 82].map((y) => <circle key={y} cx="60" cy={y} r="1.2" fill={OL} />)}
+        <path d="M22 84 L98 84" stroke="#FFF6E8" strokeWidth="5" strokeLinecap="round" />
+        {/* belly */}
+        <ellipse cx="60" cy="70" rx="20" ry="15" fill={`url(#${u}skin)`} stroke={OL} strokeWidth="1.6" />
+        <path d="M46 66 C52 62 60 62 66 64" stroke="#fff" strokeWidth="1.6" opacity=".55" fill="none" strokeLinecap="round" />
+        <circle cx="60" cy="74" r="1.8" fill="#9C5A38" />
+        {/* arms */}
+        <path d="M28 58 C16 64 16 78 26 82" stroke={OL} strokeWidth="13" fill="none" strokeLinecap="round" />
+        <path d="M28 58 C16 64 16 78 26 82" stroke={`url(#${u}robe)`} strokeWidth="10" fill="none" strokeLinecap="round" />
+        <path d="M92 58 C104 62 106 70 102 76" stroke={OL} strokeWidth="13" fill="none" strokeLinecap="round" />
+        <path d="M92 58 C104 62 106 70 102 76" stroke={`url(#${u}robe)`} strokeWidth="10" fill="none" strokeLinecap="round" />
+        {/* burger scepter */}
+        <g transform="translate(103 70)">
+          <rect x="-1.5" y="-4" width="3" height="18" fill={`url(#${u}gold)`} stroke={OL} strokeWidth=".8" />
+          <path d="M-9 -6 C-9 -14 9 -14 9 -6 Z" fill={`url(#${u}bun)`} stroke={OL} strokeWidth="1" />
+          <rect x="-9.5" y="-6.5" width="19" height="2.4" fill="#6BBF3A" /><rect x="-9" y="-4.3" width="18" height="3" rx="1.2" fill="#6B3418" /><rect x="-9" y="-1.6" width="18" height="2.6" rx="1.2" fill={`url(#${u}bun)`} stroke={OL} strokeWidth=".8" />
+        </g>
+        {/* head */}
+        <ellipse cx="60" cy="42" rx="17" ry="8" fill={`url(#${u}skin)`} stroke={OL} strokeWidth="1.5" />
+        <circle cx="60" cy="30" r="16" fill={`url(#${u}skin)`} stroke={OL} strokeWidth="2" />
+        <path d="M50 20 C54 17 60 16 66 18" stroke="#fff" strokeWidth="1.5" opacity=".6" fill="none" strokeLinecap="round" />
+        <path d="M49 26 L56 27 M64 27 L71 26" stroke={OL} strokeWidth="1.8" strokeLinecap="round" />
+        <g className="bs-eye"><circle cx="53" cy="30" r="2.2" fill={eye === "#FF2D2D" ? eye : OL} /><circle cx="67" cy="30" r="2.2" fill={eye === "#FF2D2D" ? eye : OL} /></g>
+        <path d="M53 38 Q60 42 68 37" stroke="#8A4B2A" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <ellipse cx="46" cy="35" rx="3.5" ry="2.5" fill="#F29A9A" opacity=".6" /><ellipse cx="74" cy="35" rx="3.5" ry="2.5" fill="#F29A9A" opacity=".6" />
+        <path d="M77 22 q2 4 0 6 q-2 -2 0 -6" fill="#9BE7FF" stroke={OL} strokeWidth=".6" className="bs-drip" />
+        {/* crown */}
+        <path d="M44 16 L46 2 L53 10 L60 -1 L67 10 L74 2 L76 16 Z" fill={`url(#${u}gold)`} stroke={OL} strokeWidth="1.6" strokeLinejoin="round" />
+        <rect x="44" y="13" width="32" height="4" fill="#B8860B" stroke={OL} strokeWidth="1" />
+        <circle cx="60" cy="8" r="2.2" fill="#FF2D6F" stroke={OL} strokeWidth=".6" /><circle cx="50" cy="11" r="1.6" fill="#38C6FF" /><circle cx="70" cy="11" r="1.6" fill="#3DF08A" />
+      </g>
+    </>
+  );
+}
+
+function RustSVG({ u, eye }) {
+  const gear = (cx, cy, r, n) => { let d = ""; for (let i = 0; i < n * 2; i++) { const a = (i / (n * 2)) * Math.PI * 2, rr = i % 2 ? r : r * 1.22; d += `${i ? "L" : "M"}${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)} `; } return `${d}Z`; };
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}met`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#E7A26A"], [0.45, "#A8592B"], [1, "#4A2410"]]} />
+        <Grad id={`${u}plate`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#8E9AA8"], [1, "#3B4250"]]} />
+      </defs>
+      <g className="bs-rise" opacity=".55"><circle cx="30" cy="20" r="5" fill="#C8C8C8" /><circle cx="26" cy="12" r="3.5" fill="#C8C8C8" opacity=".7" /></g>
+      <g className="bs-breathe">
+        {/* legs */}
+        <rect x="36" y="88" width="16" height="22" rx="2" fill={`url(#${u}plate)`} stroke={OL} strokeWidth="1.8" /><rect x="68" y="88" width="16" height="22" rx="2" fill={`url(#${u}plate)`} stroke={OL} strokeWidth="1.8" />
+        <rect x="32" y="106" width="24" height="8" rx="2" fill={`url(#${u}met)`} stroke={OL} strokeWidth="1.6" /><rect x="64" y="106" width="24" height="8" rx="2" fill={`url(#${u}met)`} stroke={OL} strokeWidth="1.6" />
+        {/* arms */}
+        <path d="M18 48 L30 44 L32 80 L20 84 Z" fill={`url(#${u}plate)`} stroke={OL} strokeWidth="1.8" /><path d="M102 48 L90 44 L88 80 L100 84 Z" fill={`url(#${u}plate)`} stroke={OL} strokeWidth="1.8" />
+        <rect x="12" y="80" width="22" height="16" rx="4" fill={`url(#${u}met)`} stroke={OL} strokeWidth="1.8" /><rect x="86" y="80" width="22" height="16" rx="4" fill={`url(#${u}met)`} stroke={OL} strokeWidth="1.8" />
+        {/* torso */}
+        <path d="M28 40 L92 40 L88 90 L32 90 Z" fill={`url(#${u}met)`} stroke={OL} strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M32 44 L88 44" stroke="#FFD2A8" strokeWidth="1.4" opacity=".6" />
+        <rect x="44" y="56" width="32" height="24" rx="3" fill={`url(#${u}plate)`} stroke={OL} strokeWidth="1.6" />
+        {[48, 54, 60, 66, 72].map((x) => <rect key={x} x={x} y="60" width="3" height="16" fill="#1F242E" />)}
+        {[[34, 46], [86, 46], [34, 84], [86, 84], [46, 52], [74, 52]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.6" fill="#FFD2A8" stroke={OL} strokeWidth=".6" />)}
+        <path d="M36 70 C40 66 38 62 42 60" stroke="#6B8E6A" strokeWidth="2.5" opacity=".6" fill="none" />
+        <path d="M80 86 C84 82 82 78 86 74" stroke="#6B8E6A" strokeWidth="2" opacity=".55" fill="none" />
+        {/* head */}
+        <rect x="44" y="18" width="32" height="24" rx="4" fill={`url(#${u}plate)`} stroke={OL} strokeWidth="2" />
+        <rect x="47" y="26" width="26" height="8" rx="4" fill="#12151C" />
+        <g className="bs-eye"><ellipse cx="60" cy="30" rx="9" ry="4.5" fill={eye} opacity=".35" /><ellipse cx="60" cy="30" rx="4.5" ry="2.6" fill={eye} /><circle cx="58.5" cy="29" r="1" fill="#fff" /></g>
+        <path d="M30 34 L30 22 L36 22 L36 38" fill="none" stroke={OL} strokeWidth="5" /><path d="M30 34 L30 22 L36 22 L36 38" fill="none" stroke="#6F7885" strokeWidth="3" />
+      </g>
+      {/* shoulder gears */}
+      <g className="bs-spin"><path d={gear(96, 40, 10, 10)} fill={`url(#${u}met)`} stroke={OL} strokeWidth="1.6" strokeLinejoin="round" /><circle cx="96" cy="40" r="4" fill="#2A160A" stroke={OL} strokeWidth="1" /></g>
+      <g className="bs-spin-r"><path d={gear(22, 44, 7, 8)} fill={`url(#${u}plate)`} stroke={OL} strokeWidth="1.4" strokeLinejoin="round" /><circle cx="22" cy="44" r="2.6" fill="#1F242E" /></g>
+    </>
+  );
+}
+
+function HarpySVG({ u, eye }) {
+  const wing = (
+    <>
+      <path d="M48 44 C36 28 20 18 2 18 C8 26 10 32 8 38 L16 42 L8 50 L20 52 L14 60 L28 61 L24 70 L38 66 L40 74 L50 62 Z" fill={`url(#${u}fe)`} stroke={OL} strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M48 44 C38 36 28 32 18 32 C24 38 26 42 24 46 L34 48 L30 56 L44 56 Z" fill={`url(#${u}fe2)`} stroke={OL} strokeWidth="1.1" strokeLinejoin="round" opacity=".95" />
+      <path d="M46 46 L16 42 M46 48 L20 52 M46 50 L28 61 M46 54 L38 66" stroke="#1E4E8C" strokeWidth=".9" opacity=".7" />
+      <path d="M12 22 C24 22 36 28 44 38" stroke="#fff" strokeWidth="1.3" opacity=".6" fill="none" strokeLinecap="round" />
+    </>
+  );
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}fe`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#E8F7FF"], [0.5, "#7DD3FC"], [1, "#1E4E8C"]]} />
+        <Grad id={`${u}fe2`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#B8E6FF"], [1, "#2A5DA8"]]} />
+        <Grad id={`${u}body`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#5C7FB8"], [1, "#1B2A4E"]]} />
+        <Grad id={`${u}beak`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#FFF27A"], [1, "#C79A12"]]} />
+      </defs>
+      <g className="bs-flicker"><path d="M10 20 L20 34 L14 36 L26 54" stroke="#FFF27A" strokeWidth="2.4" fill="none" strokeLinejoin="round" /><path d="M110 24 L100 38 L106 40 L94 58" stroke="#FFF27A" strokeWidth="2.4" fill="none" strokeLinejoin="round" /></g>
+      <g className="bs-flap-l">{wing}</g>
+      <g className="bs-flap-r"><g transform="translate(120 0) scale(-1 1)">{wing}</g></g>
+      <g className="bs-breathe">
+        {/* talons */}
+        <path d="M50 94 L46 108 M50 94 L50 110 M50 94 L54 108 M70 94 L66 108 M70 94 L70 110 M70 94 L74 108" stroke={`url(#${u}beak)`} strokeWidth="3" strokeLinecap="round" />
+        <path d="M44 98 L56 98 M64 98 L76 98" stroke={OL} strokeWidth="1" />
+        {/* body */}
+        <path d="M44 40 C38 60 40 86 52 96 L68 96 C80 86 82 60 76 40 Z" fill={`url(#${u}body)`} stroke={OL} strokeWidth="2" />
+        {[54, 62, 70, 78, 86].map((y, i) => <path key={y} d={`M${48 + i} ${y} q12 6 ${24 - i * 2} 0`} stroke="#9BC6F0" strokeWidth="1.2" fill="none" opacity=".6" />)}
+        {/* head + crest */}
+        <path d="M50 18 L40 2 L54 12 L56 0 L62 12 L70 2 L68 18 Z" fill={`url(#${u}fe)`} stroke={OL} strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M44 32 C44 16 76 16 76 32 C76 42 70 46 60 46 C50 46 44 42 44 32 Z" fill={`url(#${u}body)`} stroke={OL} strokeWidth="2" />
+        <path d="M49 26 L57 30 M71 26 L63 30" stroke={OL} strokeWidth="2.2" strokeLinecap="round" />
+        <Eye x={53} y={32} r={2.6} c={eye} slit /><Eye x={67} y={32} r={2.6} c={eye} slit />
+        <path d="M55 36 L65 36 L60 48 Z" fill={`url(#${u}beak)`} stroke={OL} strokeWidth="1.5" strokeLinejoin="round" />
+      </g>
+    </>
+  );
+}
+
+function WardenSVG({ u, eye }) {
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}arm`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#F2F5FA"], [0.4, "#A3AEBE"], [1, "#39414F"]]} />
+        <Grad id={`${u}cape`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#3A2C4E"], [1, "#120C1C"]]} />
+        <Grad id={`${u}blade`} x1={0} y1={0} x2={1} y2={0} stops={[[0, "#E9EEF5"], [0.5, "#FFFFFF"], [1, "#8A95A6"]]} />
+      </defs>
+      <g className="bs-float">
+        <g className="bs-sway"><path d="M30 44 C22 70 24 98 20 112 L34 106 L44 114 L54 104 L66 114 L76 104 L86 114 L100 106 C96 94 98 70 90 44 Z" fill={`url(#${u}cape)`} stroke={OL} strokeWidth="1.8" strokeLinejoin="round" /></g>
+        {/* greatsword */}
+        <path d="M57 50 L63 50 L63 108 L60 116 L57 108 Z" fill={`url(#${u}blade)`} stroke={OL} strokeWidth="1.4" />
+        <rect x="48" y="46" width="24" height="5" rx="2" fill="#8A6A2A" stroke={OL} strokeWidth="1.2" />
+        {/* body plates */}
+        <path d="M36 44 L84 44 L80 80 L60 88 L40 80 Z" fill={`url(#${u}arm)`} stroke={OL} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M44 50 L76 50 M46 58 L74 58" stroke="#5B6676" strokeWidth="1.2" />
+        <path d="M60 44 L60 86" stroke="#FFFFFF" strokeWidth="1.2" opacity=".5" />
+        {/* pauldrons */}
+        <path d="M20 44 C20 32 34 28 42 34 L44 50 C36 54 24 54 20 44 Z" fill={`url(#${u}arm)`} stroke={OL} strokeWidth="1.8" />
+        <path d="M100 44 C100 32 86 28 78 34 L76 50 C84 54 96 54 100 44 Z" fill={`url(#${u}arm)`} stroke={OL} strokeWidth="1.8" />
+        {[[24, 42], [30, 38], [96, 42], [90, 38]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.4" fill="#3B4250" />)}
+        {/* gauntlets on pommel */}
+        <path d="M46 46 C44 40 52 38 56 42 L58 50 L48 52 Z" fill={`url(#${u}arm)`} stroke={OL} strokeWidth="1.4" /><path d="M74 46 C76 40 68 38 64 42 L62 50 L72 52 Z" fill={`url(#${u}arm)`} stroke={OL} strokeWidth="1.4" />
+        {/* helm */}
+        <path d="M44 22 C44 6 76 6 76 22 L76 38 C70 44 50 44 44 38 Z" fill={`url(#${u}arm)`} stroke={OL} strokeWidth="2.2" />
+        <path d="M60 4 L60 42" stroke="#39414F" strokeWidth="1.5" />
+        <path d="M48 12 C52 8 58 7 62 8" stroke="#fff" strokeWidth="1.6" opacity=".7" fill="none" strokeLinecap="round" />
+        <path d="M46 24 L74 24 L72 30 L48 30 Z" fill="#05070C" />
+        <Eye x={53} y={27} r={2} c={eye} /><Eye x={67} y={27} r={2} c={eye} />
+        {[50, 54, 66, 70].map((x) => <rect key={x} x={x} y="33" width="1.6" height="5" fill="#05070C" />)}
+        <path d="M60 4 C66 -2 76 0 80 6 C72 4 66 6 62 10" fill="#8E1B2E" stroke={OL} strokeWidth="1" />
+      </g>
+    </>
+  );
+}
+
+function LeviathanSVG({ u, eye }) {
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}sk`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#6FB2FF"], [0.5, "#2F6BFF"], [1, "#0B1E5C"]]} />
+        <Grad id={`${u}fin`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#9BF6FF"], [1, "#0A6E8A"]]} />
+        <Grad id={`${u}sea`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#1A5CC8"], [1, "#061A45"]]} />
+      </defs>
+      {/* tentacles */}
+      <g className="bs-sway"><path d="M16 104 C4 80 16 62 26 66 C34 70 26 82 30 88" fill="none" stroke={OL} strokeWidth="9" strokeLinecap="round" /><path d="M16 104 C4 80 16 62 26 66 C34 70 26 82 30 88" fill="none" stroke={`url(#${u}sk)`} strokeWidth="6" strokeLinecap="round" />{[76, 84, 92].map((y, i) => <circle key={y} cx={10 + i} cy={y} r="1.2" fill="#BFE3FF" />)}</g>
+      <g className="bs-sway-r"><path d="M104 104 C118 84 106 64 96 68 C88 72 96 84 92 90" fill="none" stroke={OL} strokeWidth="9" strokeLinecap="round" /><path d="M104 104 C118 84 106 64 96 68 C88 72 96 84 92 90" fill="none" stroke={`url(#${u}sk)`} strokeWidth="6" strokeLinecap="round" /></g>
+      <g className="bs-breathe">
+        {/* neck */}
+        <path d="M44 110 C40 80 44 56 54 42 L78 42 C84 60 80 86 76 110 Z" fill={`url(#${u}sk)`} stroke={OL} strokeWidth="2" />
+        {[60, 70, 80, 90, 100].map((y) => <path key={y} d={`M${50} ${y} q12 5 24 0`} stroke="#9BCBFF" strokeWidth="1.3" fill="none" opacity=".55" />)}
+        {/* frills */}
+        <path d="M46 30 L24 16 L30 30 L16 32 L34 40 L22 50 L46 46 Z" fill={`url(#${u}fin)`} stroke={OL} strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M86 30 L106 14 L102 30 L116 30 L98 40 L110 50 L86 46 Z" fill={`url(#${u}fin)`} stroke={OL} strokeWidth="1.4" strokeLinejoin="round" />
+        {/* head */}
+        <path d="M40 34 C40 18 54 10 66 10 C80 10 92 20 92 34 C92 44 86 52 76 54 L56 54 C46 52 40 44 40 34 Z" fill={`url(#${u}sk)`} stroke={OL} strokeWidth="2.2" />
+        <path d="M50 18 C56 14 64 13 70 14" stroke="#CFE6FF" strokeWidth="1.6" opacity=".7" fill="none" strokeLinecap="round" />
+        {[[52, 22], [60, 18], [70, 20], [80, 24]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.5" fill="#9BF6FF" opacity=".8" />)}
+        <path d="M50 30 C54 24 64 24 66 30 C64 38 54 38 50 30 Z" fill="#FFF8D6" stroke={OL} strokeWidth="1.4" />
+        <Eye x={58} y={31} r={3.4} c={eye} slit />
+        <path d="M72 30 C76 26 82 26 84 30" stroke={OL} strokeWidth="1.8" fill="none" />
+        <path d="M52 46 C60 50 74 50 84 42" stroke={OL} strokeWidth="2" fill="none" />
+        {[58, 64, 70, 76].map((x) => <path key={x} d={`M${x} ${47 + (x > 70 ? -1 : 0)} l2 4 l2 -4`} fill="#fff" stroke={OL} strokeWidth=".6" />)}
+      </g>
+      {/* waves */}
+      <g className="bs-bob">
+        <path d="M0 102 Q10 94 20 102 T40 102 T60 102 T80 102 T100 102 T120 102 L120 120 L0 120 Z" fill={`url(#${u}sea)`} stroke={OL} strokeWidth="1.6" />
+        <path d="M0 102 Q10 94 20 102 T40 102 T60 102 T80 102 T100 102 T120 102" stroke="#BFF4FF" strokeWidth="2" fill="none" opacity=".8" />
+        {[[14, 108], [50, 112], [92, 108]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.6" fill="#BFF4FF" opacity=".6" />)}
+      </g>
+    </>
+  );
+}
+
+function BehemothSVG({ u, eye }) {
+  const cracks = "M40 56 L48 64 L44 74 M76 54 L70 64 L78 72 M54 86 L60 78 L66 88 M34 80 L40 88 M86 80 L80 90";
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}rock`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#6A4A40"], [0.5, "#3A2622"], [1, "#160C0A"]]} />
+        <Grad id={`${u}lava`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#FFF2A8"], [0.4, "#FFB43C"], [1, "#FF3A0F"]]} />
+      </defs>
+      <g className="bs-breathe">
+        {/* arms */}
+        <path d="M22 46 L34 44 L36 84 L18 96 L10 80 Z" fill={`url(#${u}rock)`} stroke={OL} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M98 46 L86 44 L84 84 L102 96 L110 80 Z" fill={`url(#${u}rock)`} stroke={OL} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M18 70 L26 74 L22 84 M102 70 L94 74 L98 84" stroke={`url(#${u}lava)`} strokeWidth="2.2" fill="none" className="bs-glow" />
+        {/* torso */}
+        <path d="M30 42 L60 30 L90 42 L96 96 L24 96 Z" fill={`url(#${u}rock)`} stroke={OL} strokeWidth="2.2" strokeLinejoin="round" />
+        <path d={cracks} stroke="#FF3A0F" strokeWidth="5" fill="none" opacity=".45" strokeLinecap="round" className="bs-glow" />
+        <path d={cracks} stroke={`url(#${u}lava)`} strokeWidth="2.2" fill="none" strokeLinecap="round" className="bs-glow" />
+        <path d="M34 46 L60 36" stroke="#9A7266" strokeWidth="1.5" opacity=".6" />
+        {/* base */}
+        <path d="M20 96 L100 96 L106 110 L14 110 Z" fill="#241412" stroke={OL} strokeWidth="1.8" />
+        <path d="M30 104 C40 100 50 106 60 102 C70 98 80 106 92 102" stroke={`url(#${u}lava)`} strokeWidth="2.4" fill="none" className="bs-glow" />
+        {/* head */}
+        <path d="M44 20 L60 12 L76 20 L78 38 L60 46 L42 38 Z" fill={`url(#${u}rock)`} stroke={OL} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M44 22 C36 14 30 6 28 0 C38 6 44 10 50 16 Z" fill="#2A1A16" stroke={OL} strokeWidth="1.4" /><path d="M76 22 C84 14 90 6 92 0 C82 6 76 10 70 16 Z" fill="#2A1A16" stroke={OL} strokeWidth="1.4" />
+        <path d="M47 26 L57 29 M73 26 L63 29" stroke={OL} strokeWidth="2.4" strokeLinecap="round" />
+        <Eye x={52} y={30} r={2.6} c={eye} /><Eye x={68} y={30} r={2.6} c={eye} />
+        <path d="M52 38 L68 38 L64 42 L56 42 Z" fill={`url(#${u}lava)`} stroke={OL} strokeWidth="1" className="bs-glow" />
+      </g>
+      <g className="bs-drip"><path d="M36 96 q2 6 0 9 q-2 -3 0 -9" fill="#FFB43C" /><path d="M84 96 q2 5 0 8 q-2 -3 0 -8" fill="#FF7A2D" /></g>
+    </>
+  );
+}
+
+function RatlordSVG({ u, eye }) {
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}fur`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#9A8F80"], [0.5, "#5E554A"], [1, "#2A241E"]]} />
+        <Grad id={`${u}cloak`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#4E6B26"], [1, "#1A2A0C"]]} />
+        <Grad id={`${u}gold`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#E8D37A"], [1, "#7A5A12"]]} />
+        <Grad id={`${u}mist`} radial stops={[[0, "#B6F06A", 0.55], [1, "#8BC34A", 0]]} />
+      </defs>
+      <ellipse cx="60" cy="104" rx="56" ry="14" fill={`url(#${u}mist)`} className="bs-glow" />
+      <g className="bs-sway"><path d="M84 100 C104 104 116 90 110 76 C106 68 98 72 102 80" stroke={OL} strokeWidth="5" fill="none" strokeLinecap="round" /><path d="M84 100 C104 104 116 90 110 76 C106 68 98 72 102 80" stroke="#D9A39A" strokeWidth="3" fill="none" strokeLinecap="round" /></g>
+      <g className="bs-breathe">
+        {/* cloak body */}
+        <path d="M26 110 C24 80 36 62 60 60 C84 62 96 80 94 110 Z" fill={`url(#${u}cloak)`} stroke={OL} strokeWidth="2" />
+        <path d="M40 110 L44 96 L48 110 M70 110 L74 98 L78 110" stroke={OL} strokeWidth="1.2" fill="none" />
+        <path d="M44 66 C52 72 68 72 76 66" stroke="#8BC34A" strokeWidth="1.5" fill="none" opacity=".6" />
+        {/* claws holding staff */}
+        <rect x="26" y="40" width="3" height="68" fill="#5A3A1A" stroke={OL} strokeWidth=".8" />
+        <circle cx="27.5" cy="38" r="5" fill="#C6F07A" stroke={OL} strokeWidth="1.2" className="bs-glow" />
+        <path d="M24 76 C30 70 36 74 34 80 C32 84 26 82 24 76 Z" fill={`url(#${u}fur)`} stroke={OL} strokeWidth="1.2" />
+        {/* ears */}
+        <path d="M34 30 C22 18 26 4 38 8 C46 12 46 22 44 30 Z" fill={`url(#${u}fur)`} stroke={OL} strokeWidth="1.8" /><path d="M36 26 C30 18 32 10 38 12 C42 14 42 20 41 26 Z" fill="#D9A39A" />
+        <path d="M86 30 C98 18 94 4 82 8 C74 12 74 22 76 30 Z" fill={`url(#${u}fur)`} stroke={OL} strokeWidth="1.8" /><path d="M84 26 C90 18 88 10 82 12 C78 14 78 20 79 26 Z" fill="#D9A39A" /><path d="M92 12 L88 16 L94 18" stroke={OL} strokeWidth="1.2" fill="none" />
+        {/* head */}
+        <path d="M36 40 C36 22 84 22 84 40 C84 50 74 56 68 64 C64 70 56 70 52 64 C46 56 36 50 36 40 Z" fill={`url(#${u}fur)`} stroke={OL} strokeWidth="2" />
+        <path d="M44 30 C50 26 58 25 64 26" stroke="#C9C0B0" strokeWidth="1.5" opacity=".6" fill="none" strokeLinecap="round" />
+        <Eye x={49} y={40} r={2.8} c={eye} /><Eye x={71} y={40} r={2.8} c={eye} />
+        <ellipse cx="60" cy="64" rx="4" ry="3" fill="#E08A8A" stroke={OL} strokeWidth="1" />
+        <path d="M58 68 L58 72 L60 71 L62 72 L62 68" fill="#FFF3C4" stroke={OL} strokeWidth=".7" />
+        <g className="bs-whisk"><path d="M54 62 L36 58 M54 64 L34 66 M66 62 L84 58 M66 64 L86 66" stroke="#E6DDCB" strokeWidth=".9" /></g>
+        {/* crooked crown */}
+        <g transform="rotate(-12 60 22)"><path d="M46 24 L48 12 L54 18 L60 8 L66 18 L72 12 L74 24 Z" fill={`url(#${u}gold)`} stroke={OL} strokeWidth="1.5" strokeLinejoin="round" /><circle cx="60" cy="16" r="1.8" fill="#8BC34A" /></g>
+      </g>
+      <g className="bs-rise" opacity=".8"><circle cx="18" cy="96" r="3" fill="none" stroke="#C6F07A" strokeWidth="1" /><circle cx="100" cy="92" r="2.2" fill="none" stroke="#C6F07A" strokeWidth="1" /></g>
+    </>
+  );
+}
+
+function PharaohSVG({ u, eye }) {
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}gold`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#FFF1B8"], [0.45, "#E8C872"], [1, "#8A6212"]]} />
+        <Grad id={`${u}lapis`} x1={0} y1={0} x2={0} y2={1} stops={[[0, "#3E6FD8"], [1, "#132E6E"]]} />
+        <Grad id={`${u}wrap`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#F2E6C8"], [1, "#9C8A62"]]} />
+      </defs>
+      <g className="bs-sway" opacity=".55"><path d="M4 96 C30 84 50 104 76 92 C96 84 110 94 118 88" stroke="#E8C872" strokeWidth="3" fill="none" strokeLinecap="round" /><path d="M10 106 C36 96 60 112 88 102" stroke="#D9B45A" strokeWidth="2" fill="none" strokeLinecap="round" /></g>
+      <g className="bs-float">
+        {/* shoulders + collar */}
+        <path d="M18 108 C18 84 34 74 60 74 C86 74 102 84 102 108 Z" fill={`url(#${u}wrap)`} stroke={OL} strokeWidth="2" />
+        <path d="M30 84 C44 94 76 94 90 84 L94 92 C78 104 42 104 26 92 Z" fill={`url(#${u}lapis)`} stroke={OL} strokeWidth="1.4" />
+        <path d="M28 88 C44 98 76 98 92 88" stroke={`url(#${u}gold)`} strokeWidth="2.2" fill="none" />
+        {[34, 60, 86].map((x) => <path key={x} d={`M${x - 10} 100 L${x + 10} 96`} stroke="#9C8A62" strokeWidth="1" />)}
+        {/* crook + flail */}
+        <path d="M44 110 L72 80" stroke={OL} strokeWidth="5" strokeLinecap="round" /><path d="M44 110 L72 80" stroke={`url(#${u}gold)`} strokeWidth="3" strokeLinecap="round" /><path d="M72 80 C78 72 70 66 66 72" stroke={`url(#${u}gold)`} strokeWidth="3" fill="none" strokeLinecap="round" />
+        <path d="M76 110 L48 80" stroke={OL} strokeWidth="5" strokeLinecap="round" /><path d="M76 110 L48 80" stroke={`url(#${u}lapis)`} strokeWidth="3" strokeLinecap="round" />{[-5, 0, 5].map((d) => <path key={d} d={`M48 80 L${42 + d} 90`} stroke={`url(#${u}gold)`} strokeWidth="1.8" strokeLinecap="round" />)}
+        {/* nemes headdress */}
+        <clipPath id={`${u}nm`}><path d="M30 34 C30 10 90 10 90 34 L96 76 L80 66 L40 66 L24 76 Z" /></clipPath>
+        <path d="M30 34 C30 10 90 10 90 34 L96 76 L80 66 L40 66 L24 76 Z" fill={`url(#${u}gold)`} />
+        <g clipPath={`url(#${u}nm)`}>{[18, 26, 34, 42, 50, 58, 66, 74].map((y) => <rect key={y} x="0" y={y} width="120" height="4" fill={`url(#${u}lapis)`} />)}<path d="M30 10 C40 20 44 40 42 70 L30 80 Z M90 10 C80 20 76 40 78 70 L90 80 Z" fill="#000" opacity=".18" /></g>
+        <path d="M30 34 C30 10 90 10 90 34 L96 76 L80 66 L40 66 L24 76 Z" fill="none" stroke={OL} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M36 16 C46 10 60 9 70 10" stroke="#fff" strokeWidth="1.6" opacity=".6" fill="none" strokeLinecap="round" />
+        <path d="M40 24 C48 20 72 20 80 24 L80 28 L40 28 Z" fill={`url(#${u}gold)`} stroke={OL} strokeWidth="1.2" />
+        {/* face */}
+        <path d="M42 28 L78 28 L76 56 C72 64 48 64 44 56 Z" fill={`url(#${u}wrap)`} stroke={OL} strokeWidth="1.8" />
+        {[34, 42, 50].map((y) => <path key={y} d={`M43 ${y} L77 ${y + 3}`} stroke="#9C8A62" strokeWidth=".9" opacity=".8" />)}
+        <path d="M46 36 L56 36 L56 42 L46 42 Z M64 36 L74 36 L74 42 L64 42 Z" fill="#1A1206" />
+        <Eye x={51} y={39} r={2.3} c={eye} /><Eye x={69} y={39} r={2.3} c={eye} />
+        <path d="M44 40 L40 42 M76 40 L80 42" stroke="#1A1206" strokeWidth="1.8" />
+        {/* beard */}
+        <path d="M56 60 L64 60 L63 72 L57 72 Z" fill={`url(#${u}lapis)`} stroke={OL} strokeWidth="1.2" />
+        {/* uraeus */}
+        <path d="M60 22 C54 20 56 12 60 12 C64 12 66 18 62 22 L60 30" fill={`url(#${u}gold)`} stroke={OL} strokeWidth="1.2" /><circle cx="60" cy="16" r="1.3" fill="#FF2D2D" />
+      </g>
+    </>
+  );
+}
+
+function VoidSVG({ u, eye }) {
+  const stars = [[42, 58], [70, 48], [52, 76], [78, 70], [60, 88], [38, 70], [84, 58], [48, 46], [66, 80]];
+  return (
+    <>
+      <defs>
+        <Grad id={`${u}orb`} radial cx={0.4} cy={0.35} r={0.65} stops={[[0, "#3A1070"], [0.55, "#12002A"], [1, "#030006"]]} />
+        <Grad id={`${u}rim`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#C9A8FF"], [0.5, "#6A00FF"], [1, "#2A0060"]]} />
+        <Grad id={`${u}obs`} x1={0} y1={0} x2={1} y2={1} stops={[[0, "#6A5A8A"], [1, "#0A0414"]]} />
+      </defs>
+      {/* halo ring behind */}
+      <g className="bs-spin-slow"><ellipse cx="60" cy="62" rx="54" ry="54" fill="none" stroke={`url(#${u}rim)`} strokeWidth="1.5" strokeDasharray="3 7" opacity=".8" /></g>
+      {/* tendrils */}
+      <g className="bs-sway">{[34, 48, 62, 76, 88].map((x, i) => <path key={x} d={`M${x} 88 C${x - 6 + i * 2} 100 ${x + 8 - i * 3} 106 ${x - 2} 118`} stroke={OL} strokeWidth="6" fill="none" strokeLinecap="round" />)}{[34, 48, 62, 76, 88].map((x, i) => <path key={x} d={`M${x} 88 C${x - 6 + i * 2} 100 ${x + 8 - i * 3} 106 ${x - 2} 118`} stroke="#2A0A4A" strokeWidth="3.5" fill="none" strokeLinecap="round" />)}</g>
+      <g className="bs-breathe">
+        {/* crown spikes */}
+        {[-50, -30, -12, 0, 12, 30, 50].map((a, i) => <path key={i} d={`M56 30 L60 ${i === 3 ? 0 : 8 + Math.abs(a) * 0.12} L64 30 Z`} fill={`url(#${u}obs)`} stroke={OL} strokeWidth="1.2" transform={`rotate(${a} 60 62)`} />)}
+        {/* orb */}
+        <circle cx="60" cy="62" r="32" fill={`url(#${u}orb)`} stroke={`url(#${u}rim)`} strokeWidth="2.4" />
+        {stars.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i % 3 ? 0.8 : 1.3} fill="#fff" opacity={0.5 + (i % 3) * 0.2} className={i % 2 ? "bs-eye" : ""} />)}
+        <path d="M40 46 C46 38 56 35 64 36" stroke="#C9A8FF" strokeWidth="1.4" opacity=".6" fill="none" strokeLinecap="round" />
+        {/* the eye */}
+        <g className="bs-eye">
+          <ellipse cx="60" cy="62" rx="14" ry="7" fill={eye} opacity=".25" />
+          <path d="M46 62 C52 54 68 54 74 62 C68 70 52 70 46 62 Z" fill="#F4ECFF" stroke={OL} strokeWidth="1.4" />
+          <ellipse cx="60" cy="62" rx="4.5" ry="5.5" fill={eye} />
+          <ellipse cx="60" cy="62" rx="1.3" ry="4.8" fill={OL} />
+        </g>
+      </g>
+    </>
+  );
+}
+
+const BOSS_SVGS = { wyrm: WyrmSVG, colossus: ColossusSVG, gravemaw: GravemawSVG, chud: ChudSVG, rust: RustSVG, harpy: HarpySVG, warden: WardenSVG, leviathan: LeviathanSVG, behemoth: BehemothSVG, ratlord: RatlordSVG, pharaoh: PharaohSVG, void: VoidSVG };
+function BossFigure({ boss, size, rage, dead }) {
+  const u = `b${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const Art = BOSS_SVGS[boss.id];
+  const eye = rage ? "#FF2D2D" : boss.eye || boss.color;
+  if (!Art) return <span style={{ fontSize: size * 0.62 }}>{boss.icon}</span>;
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" role="img" aria-label={boss.name} className={`bossfig${rage ? " bs-rage" : ""}${dead ? " bs-dead" : ""}`} style={{ overflow: "visible" }}>
+      <Art u={u} eye={eye} />
     </svg>
   );
+}
+// Painted art, if present in /public/bosses, replaces the SVG. We check once per session and remember the answer.
+const bossImgCache = {};
+function useBossImage(id) {
+  const [ok, setOk] = useState(bossImgCache[id] === true);
+  useEffect(() => {
+    if (bossImgCache[id] !== undefined) { setOk(bossImgCache[id] === true); return; }
+    const img = new Image();
+    img.onload = () => { bossImgCache[id] = img.naturalWidth > 0; setOk(bossImgCache[id]); };
+    img.onerror = () => { bossImgCache[id] = false; };
+    img.src = `/bosses/${id}.webp`;
+  }, [id]);
+  return ok;
 }
 
 /* ---------- Support ---------- */
@@ -6050,9 +6991,11 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
     const exercises = [{ name: exName, sets: [{ w: mi, r: Math.round((secs / 60) * 10) / 10, done: true }] }];
     const { xp } = workoutXp(s, exercises, null);
     const runInfo = { id: r.id, mode: r.mode, miles: mi, secs: Math.round(secs), pace: Math.round(secs / Math.max(0.01, mi)), splits: r.splits, gapMi: Math.round((r.gapM / MI_M) * 100) / 100, guideName: r.guide?.name || null, hasMap: path.length > 1 };
-    const workout = { id: r.id, date: today(), title: r.mode === "walk" ? "Walk" : "Run", exercises, xp, volume: 0, minutes: Math.round(secs / 60), run: runInfo };
+    const workout = { id: r.id, date: today(), title: r.mode === "walk" ? "Walk" : "Run", exercises, xp, volume: 0, minutes: Math.round(secs / 60), run: runInfo, startedAt: r.pts[0]?.[2] || Date.now() - secs * 1000 };
     if (path.length > 1) { try { await window.storage.set(`run:${r.id}`, encodePoly(thinPts(path)), false); } catch (e) { /* map just won't show */ } }
     setS((p) => addWorkout(p, workout));
+    // Weather at the start point (for Stormborn). Fire and forget; the run is already saved.
+    if (path[0]) fetchRunWeather(path[0][0], path[0][1]).then((wx) => { if (wx) setS((p) => ({ ...p, workouts: p.workouts.map((w) => (w.id === workout.id ? { ...w, run: { ...w.run, wx } } : w)) })); });
     gainXp(xp, `${mi} mi ${r.mode === "walk" ? "walk" : "run"}`);
     juice(mi >= 3 ? "pr" : "finish");
     postFeed(s, "run", `${r.mode === "walk" ? "walked" : "ran"} ${mi} mi · ${fmtPace(runInfo.pace)} /mi`, {}, `run_${r.id}`);
@@ -6477,15 +7420,16 @@ function CrewPanel({ s, setS, rows }) {
 /* ---------- Animated boss art ---------- */
 function BossArt({ boss, pct, dead, hit, size = 84 }) {
   const enraged = pct <= 0.5 && !dead;
-  const eye = enraged ? "#FF2D2D" : boss.color;
+  const img = useBossImage(boss.id);
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
-      {!dead && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", background: `radial-gradient(closest-side, ${enraged ? "rgba(255,45,45,.35)" : `${boss.color}33`}, transparent)`, animation: `aurapulse ${enraged ? 1.1 : 2.6}s ease-in-out infinite` }} />}
-      {enraged && Array.from({ length: 6 }, (_, i) => <span key={i} style={{ position: "absolute", left: "50%", top: "60%", width: 5, height: 5, borderRadius: 999, background: i % 2 ? "#FF7A2D" : "#FF2D2D", "--dx": `${((i * 47) % 70) - 35}px`, "--dy": `${-30 - ((i * 23) % 40)}px`, "--rot": "0deg", animation: `juicespark ${1.2 + (i % 3) * 0.3}s ${i * 0.18}s linear infinite` }} />)}
-      <div className="absolute inset-0 flex items-center justify-center" style={{ fontSize: size * 0.62, filter: `drop-shadow(0 0 ${enraged ? 18 : 10}px ${enraged ? "#FF2D2D" : boss.color})`, opacity: dead ? 0.35 : 1, animation: hit ? "bosshit .45s ease-out" : dead ? "none" : `${enraged ? "bossrage .9s" : "bossidle 3s"} ease-in-out infinite` }}>
-        {boss.icon === "chud" ? <ChudKing size={size * 0.95} dead={dead} /> : boss.icon}
+      {!dead && <div style={{ position: "absolute", inset: -size * 0.08, borderRadius: "50%", background: `radial-gradient(closest-side, ${enraged ? "rgba(255,45,45,.38)" : `${boss.color}40`}, transparent)`, animation: `aurapulse ${enraged ? 1.1 : 2.6}s ease-in-out infinite` }} />}
+      {enraged && Array.from({ length: 8 }, (_, i) => <span key={i} style={{ position: "absolute", left: `${30 + ((i * 37) % 40)}%`, top: "62%", width: 5, height: 5, borderRadius: 999, background: i % 2 ? "#FF7A2D" : "#FF2D2D", boxShadow: "0 0 6px #FF2D2D", "--dx": `${((i * 47) % 70) - 35}px`, "--dy": `${-size * 0.35 - ((i * 23) % 40)}px`, "--rot": "0deg", animation: `juicespark ${1.2 + (i % 3) * 0.3}s ${i * 0.18}s linear infinite` }} />)}
+      <div className="absolute inset-0 flex items-center justify-center" style={{ filter: dead ? "none" : `drop-shadow(0 0 ${enraged ? 14 : 8}px ${enraged ? "rgba(255,45,45,.8)" : `${boss.color}AA`})`, opacity: dead ? 0.55 : 1, animation: hit ? "bosshit .45s ease-out" : "none" }}>
+        {img
+          ? <img src={`/bosses/${boss.id}.webp`} alt={boss.name} className={`bossimg${enraged ? " bs-rage" : ""}${dead ? " bs-dead" : ""}`} style={{ width: size, height: size, objectFit: "contain" }} />
+          : <div className={dead ? "" : "bs-hover"}><BossFigure boss={boss} size={size} rage={enraged} dead={dead} /></div>}
       </div>
-      {!dead && <><span style={{ position: "absolute", left: "34%", top: "40%", width: 6, height: 6, borderRadius: 999, background: eye, boxShadow: `0 0 ${enraged ? 10 : 5}px ${eye}`, animation: enraged ? "rktwinkle .7s ease-in-out infinite" : "none", opacity: enraged ? 1 : 0 }} /><span style={{ position: "absolute", left: "58%", top: "40%", width: 6, height: 6, borderRadius: 999, background: eye, boxShadow: `0 0 ${enraged ? 10 : 5}px ${eye}`, animation: enraged ? "rktwinkle .7s ease-in-out infinite" : "none", opacity: enraged ? 1 : 0 }} /></>}
     </div>
   );
 }
