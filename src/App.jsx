@@ -2595,7 +2595,7 @@ function pickBritishVoice() {
   return gb.find((v) => /daniel|arthur|oliver|george|uk english male|male/i.test(v.name)) || gb[0] || null;
 }
 
-const STEP_COACH = `The user just asked for help setting up automatic step syncing. Walk them through it like a friendly personal trainer, not tech support: warm, encouraging, plain language, one step at a time, and ask them to say "next" when each step is done. The setup: 1) In Ascend, open Status and find the Steps card, then tap the sync line and "Create my sync code" (the code and the sync URL appear there, and they can tap either to copy). 2) On iPhone open the Shortcuts app, go to the Automation tab, tap +, choose Time of Day, pick 11:45 PM daily, Run Immediately, then New Blank Automation. 3) Add the action "Find Health Samples", set Type to Steps and Start Date to Today. 4) Add "Calculate Statistics" and choose Sum. 5) Add "Format Date" with Current Date and custom format yyyy-MM-dd. 6) Add "Get Contents of URL", paste the sync URL, set Method to POST and Request Body to JSON, then add three fields: token (their sync code), steps (the Statistics result), date (the formatted date). 7) Tap Done, run it once to test, then reopen Ascend. Troubleshoot patiently if they get stuck, and mention they can always type steps in by hand instead.`;
+const STEP_COACH = `The user just asked for help setting up automatic step syncing. Walk them through it like a friendly personal trainer, not tech support: warm, encouraging, plain language, one step at a time, and ask them to say "next" when each step is done. Important background: iPhones lock Health data while the phone is locked, so a nightly timed automation usually sends nothing. That's why the trigger is "when an app is opened", which only runs while the phone is unlocked. The setup: 1) In Ascend, open the Steps card, tap "Sync steps automatically", then "Create my sync code" (tap the code or the sync URL to copy them). 2) On iPhone open the Shortcuts app, go to the Automation tab, tap +, choose App, pick 2 or 3 apps they open every day including one they use right before bed (like Messages, Instagram, TikTok or Snapchat), keep "Is Opened" checked, choose Run Immediately, turn off Notify When Run, then New Blank Automation. 3) Add the action "Find Health Samples", set Type to Steps and Start Date to Today. 4) Add "Calculate Statistics" and choose Sum. 5) Add "Format Date" with Current Date and custom format yyyy-MM-dd. 6) Add "Get Contents of URL", paste the sync URL (it must start with https://www.ascendfit.site), set Method to POST and Request Body to JSON, then add three fields: token (their sync code), steps (the Statistics result), date (the formatted date). 7) Tap Done, open one of the chosen apps, then come back to Ascend: the Steps card shows "Last sync" with the result. If it shows an error, the message says exactly what to fix. Running it many times a day is fine; Ascend keeps the highest count for each day. Troubleshoot patiently, and mention they can always type steps in by hand.`;
 function Assistant({ s, setS, onBack }) {
   const chat = s.chat || [];
   const [input, setInput] = useState("");
@@ -7153,6 +7153,12 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
   const [manual, setManual] = useState("");
   const [setup, setSetup] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
+  const [sync, setSync] = useState(null);
+  const [fixing, setFixing] = useState(false);
+  const loadSync = async () => { if (!s.stepToken) return; const st = await stepSyncStatus(s.stepTokenHash, s.stepToken).catch(() => null); if (st) setSync(st); };
+  useEffect(() => { loadSync(); const v = () => document.visibilityState === "visible" && loadSync(); document.addEventListener("visibilitychange", v); return () => document.removeEventListener("visibilitychange", v); }, [s.stepToken]);
+  const reRegister = async () => { setFixing(true); try { await window.ascendAuth.registerStepToken(s.stepTokenHash, null); await loadSync(); } catch (e) { setErr("Couldn't register the code. Check your connection."); } setFixing(false); };
+  const last = sync?.log?.[0], lastOk = sync?.log?.find((x) => x.ok && x.steps > 0);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
   const [err, setErr] = useState("");
@@ -7177,7 +7183,8 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
     setBusy(false);
   };
   const copy = async (text, label) => { try { await navigator.clipboard.writeText(text); setCopied(label); setTimeout(() => setCopied(""), 1800); } catch (e) { /* select manually */ } };
-  const url = `${typeof window !== "undefined" ? window.location.origin : "https://www.ascendfit.site"}/api/steps`;
+  // Always the www address: redirects from other addresses can turn the POST into a GET and lose the data
+  const url = typeof window !== "undefined" && !/ascendfit\.site$|vercel\.app$/.test(window.location.hostname) ? `${window.location.origin}/api/steps` : STEP_SYNC_URL;
   return (
     <div className="panel p-4 space-y-3">
       <div className="flex items-end justify-between">
@@ -7192,6 +7199,22 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
         <button onClick={saveManual} disabled={!(+manual >= 0) || manual === ""} className="btn px-4 text-sm">Save</button>
       </div>
       <button onClick={() => setSetup(!setup)} aria-expanded={setup} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up" : "Sync steps automatically"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
+      {s.stepToken && sync && (
+        <div className="body text-xs flex items-start gap-1.5" role="status">
+          {sync.registered === false ? (
+            <span style={{ color: C.orange }}>Your sync code isn't registered, so every sync gets rejected. <button onClick={reRegister} disabled={fixing} className="underline font-semibold" style={{ color: C.cyan }}>{fixing ? "Fixing…" : "Fix it"}</button></span>
+          ) : !last ? (
+            sync.unrecognized.length ? <span style={{ color: C.orange }}>Your Shortcut reached Ascend {agoText(sync.unrecognized[0].at)}, but the code in it doesn't match. Copy the code again and paste it into the token field.</span>
+              : <span style={{ color: C.dim }}>No syncs received yet. Open one of your trigger apps, then come back here.</span>
+          ) : last.ok && last.steps > 0 ? (
+            <span style={{ color: C.green }}><Check size={12} className="inline -mt-0.5 mr-0.5" />Last sync {agoText(last.at)} · {Number(last.steps).toLocaleString()} steps for {fmtDay(last.day)}</span>
+          ) : last.ok ? (
+            <span style={{ color: C.orange }}>Last sync {agoText(last.at)} sent 0 steps. That happens when the phone is locked (iOS hides Health data), so use the "app is opened" trigger.{lastOk ? ` Last real sync: ${agoText(lastOk.at)}.` : ""}</span>
+          ) : (
+            <span style={{ color: C.red }}>Last try {agoText(last.at)} failed: {last.reason}</span>
+          )}
+        </div>
+      )}
       {setup && (
         <div className="space-y-3 body text-sm" style={{ color: C.sub }}>
           {!s.stepToken ? (
@@ -7205,6 +7228,12 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
               {copied && <div className="text-xs" style={{ color: C.green }}>Copied {copied}</div>}
             </div>
           )}
+          {s.stepToken && sync?.log?.length > 0 && (
+            <div className="space-y-0.5">
+              <div className="text-xs" style={{ color: C.dim }}>Recent syncs from your iPhone</div>
+              {sync.log.map((x, i) => <div key={i} className="flex justify-between gap-2 text-xs"><span style={{ color: x.ok ? (x.steps > 0 ? C.sub : C.orange) : C.red }}>{x.ok ? "✓" : "✗"} {x.ok ? (x.steps > 0 ? `${Number(x.steps).toLocaleString()} steps · ${x.reason === "saved" ? "saved" : x.reason}` : "0 steps (phone locked?)") : x.reason}</span><span className="shrink-0 tabular-nums" style={{ color: C.mute }}>{agoText(x.at)}</span></div>)}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => { openAssistant?.(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); }} className="btn py-2.5 text-sm font-bold flex items-center justify-center gap-1.5"><Bot size={16} />Ask Sterling</button>
             <button onClick={() => setShowSteps((v) => !v)} aria-expanded={showSteps} aria-controls="step-written-guide" className="py-2.5 text-sm font-bold flex items-center justify-center gap-1.5" style={{ borderRadius: 12, color: showSteps ? "#001018" : C.cyan, background: showSteps ? C.cyan : `${C.cyan}14`, border: `1.5px solid ${C.cyan}` }}><BookOpen size={16} />{showSteps ? "Hide instructions" : "View written instructions"}</button>
@@ -7213,15 +7242,16 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
             <div id="step-written-guide" className="panel p-3 space-y-2" style={{ borderColor: `${C.cyan}55` }}>
               <div className="text-sm font-bold" style={{ color: C.text }}>Set it up in the Shortcuts app (about 3 minutes)</div>
               {!s.stepToken && <div className="text-xs" style={{ color: C.orange }}>Tap "Create my sync code" above first. You'll paste it in step 5.</div>}
+              <div className="text-xs p-2" style={{ borderRadius: 8, background: `${C.orange}14`, color: C.sub }}><b style={{ color: C.text }}>Why not a set time like 11:45 PM?</b> iPhones lock Health data while the phone is locked, so a night-time automation sends nothing. Running it when you open an app means the phone is unlocked.</div>
               <ol className="space-y-1.5 list-decimal pl-5 text-sm">
-                <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>Time of Day</b>. Pick <b>11:45 PM</b>, <b>Daily</b>, <b>Run Immediately</b> → Next → <b>New Blank Automation</b>.</li>
+                <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>App</b>. Choose 2 or 3 apps you open every day, including one you use right before bed (like Messages, Instagram, or TikTok). Keep <b>Is Opened</b> checked, pick <b>Run Immediately</b>, turn off <b>Notify When Run</b> → Next → <b>New Blank Automation</b>.</li>
                 <li>Add <b>Find Health Samples</b>: Type is <b>Steps</b>, Start Date is <b>Today</b>.</li>
                 <li>Add <b>Calculate Statistics</b>: <b>Sum</b> of Health Samples.</li>
                 <li>Add <b>Format Date</b>: Current Date, Date Format <b>Custom</b>, format <b>yyyy-MM-dd</b>.</li>
-                <li>Add <b>Get Contents of URL</b>: paste the Sync URL. Method <b>POST</b>, Request Body <b>JSON</b>, add three fields: <b>token</b> (Text: your sync code), <b>steps</b> (Number: Statistics), <b>date</b> (Text: Formatted Date).</li>
-                <li>Tap <b>Done</b>. Tap the automation once to test it, then pull this page down to refresh.</li>
+                <li>Add <b>Get Contents of URL</b>: paste the Sync URL (it starts with <b>https://www.ascendfit.site</b>). Method <b>POST</b>, Request Body <b>JSON</b>, add three fields: <b>token</b> (Text: your sync code), <b>steps</b> (Number: Statistics), <b>date</b> (Text: Formatted Date).</li>
+                <li>Tap <b>Done</b>. Open one of the apps you picked, then come back here. The line under "Automatic sync" shows the result, or tells you exactly what to fix.</li>
               </ol>
-              <div className="text-xs" style={{ color: C.dim }}>Want steps to update during the day? Duplicate the automation for noon and 6 PM. Ascend always keeps the highest count for each day.</div>
+              <div className="text-xs" style={{ color: C.dim }}>Already made the 11:45 PM one? Swipe left on it in the Automation tab to delete it, then make the new one above. Running it many times a day is fine; Ascend keeps the highest count for each day.</div>
             </div>
           )}
           {s.stepToken && <button onClick={() => ask("Make a new sync code? The old one stops working, so you'd need to update your Shortcut.", makeCode, "New code")} className="text-xs underline" style={{ color: C.mute }}>Make a new code</button>}
@@ -7642,6 +7672,20 @@ const XpSync = {
     return Array.isArray(j) ? j[0] : j;
   },
 };
+
+// What the server saw from this person's Shortcut: last attempts + whether their code is registered
+async function stepSyncStatus(hash, code) {
+  const h = await XpSync.headers();
+  if (!h) return null;
+  const [log, st] = await Promise.all([
+    fetch(`${SB_URL}/rest/v1/step_sync_log?select=at,ok,reason,steps,day&order=at.desc&limit=5`, { headers: h }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    hash ? fetch(`${SB_URL}/rest/v1/rpc/my_step_sync_status`, { method: "POST", headers: h, body: JSON.stringify({ p_hash: hash, p_tail: String(code || "").slice(-6) }) }).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null,
+  ]);
+  if (!log && !st) return null;
+  return { log: log || [], registered: st ? !!st.registered : null, unrecognized: st?.unrecognized || [] };
+}
+const STEP_SYNC_URL = "https://www.ascendfit.site/api/steps";
+const agoText = (iso) => { const d = new Date(iso), days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000); const t = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); return days === 0 ? `Today ${t}` : days === 1 ? `Yesterday ${t}` : `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${t}`; };
 
 function XpLedger({ s, onBack }) {
   const [rows, setRows] = useState(null); // server rows, or null while loading / unavailable
