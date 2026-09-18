@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useId } from "react";
-import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown } from "lucide-react";
+import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen } from "lucide-react";
 
 /* ---------- Theme ---------- */
 const THEMES = {
@@ -639,6 +639,7 @@ export default function App() {
   const sRef = useRef(s); sRef.current = s;
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState("status");
+  const [xpBack, setXpBack] = useState("status");
   const [toast, setToast] = useState(null);
   const [storageOk, setStorageOk] = useState(true);
   const [dialog, setDialog] = useState(null);
@@ -707,12 +708,20 @@ export default function App() {
         const bw = Math.max(80, +st.profile?.weight || 170);
         st = { ...st, assistV: 1, workouts: (st.workouts || []).map((w) => ({ ...w, exercises: w.exercises.map((ex) => (/^Assisted (Dip|Pull-up) Machine$/.test(ex.name) ? { ...ex, sets: ex.sets.map((x) => (+x.w >= bw * 0.5 ? { ...x, w: Math.max(0, Math.round(bw - +x.w)) } : x)) } : ex)) })) };
       }
+      // Crew boss damage only counts from the day you joined. Existing crews start clean today.
+      if (st.crew?.code && !st.crew.since) st = { ...st, crew: { ...st.crew, since: today() } };
+      // XP recount: rebuild totals from real activity, drop the Gravemaw crew exploit, and resync the server log
+      if ((st.xpV || 1) < XP_VERSION) {
+        const hasHistory = (st.workouts || []).length || (st.xp || 0) > 0 || Object.keys(st.ach || {}).length;
+        if (hasHistory) { const r = recountXp(st); st = r.s; XpSync.replace(r.rows); } else st = { ...st, xpV: XP_VERSION };
+      }
       let ok = !!window.storage?.set;
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
       setStorageOk(ok);
       setS(st); setLoaded(true);
       loadCommunity().then((c) => { if (c) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
       setTimeout(pullSteps, 800);
+      setTimeout(() => XpSync.flush(), 1500);
     })();
   }, []);
 
@@ -749,14 +758,23 @@ export default function App() {
     return () => clearTimeout(t);
   }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog]);
 
+  useEffect(() => {
+    const go = () => XpSync.flush();
+    window.addEventListener("online", go);
+    const iv = setInterval(go, 60000);
+    return () => { window.removeEventListener("online", go); clearInterval(iv); };
+  }, []);
+
   const gainXp = (amt, msg, once = null) => {
     if (!amt) return;
     // `once` is an event id: the same award can never be counted twice, even if a listener fires twice
     if (once) { if (xpSeen.current.has(once) || (sRef.current.xpDone || {})[once]) return; xpSeen.current.add(once); }
     const before = levelFromXp(sRef.current.xp).lvl, after = levelFromXp(Math.max(0, sRef.current.xp + amt)).lvl;
     const d = today();
+    const eid = once || `x_${slug(msg).slice(0, 40)}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    XpSync.add({ e: eid, a: amt, m: msg, d, t: Date.now() });
     setS((p) => ({ ...p, xp: Math.max(0, p.xp + amt), xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt },
-      xpDone: once ? { ...(p.xpDone || {}), [once]: 1 } : p.xpDone,
+      xpDone: { ...(p.xpDone || {}), [eid]: 1 },
       xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), { m: msg, a: amt, t: Date.now() }].slice(-120) } }));
     if (after > before) SFX.levelUp();
     setToast(after > before ? { big: true, text: `Level up · Level ${after}` } : { text: `${amt >= 0 ? "+" : ""}${amt} XP · ${msg}` });
@@ -771,6 +789,7 @@ export default function App() {
     const amt = fresh.reduce((a, x) => a + x.xp, 0), d = today();
     if (fresh.every((a) => xpSeen.current.has(`ach_${a.id}`))) return;
     fresh.forEach((a) => xpSeen.current.add(`ach_${a.id}`));
+    fresh.filter((a) => !(s.ach || {})[a.id]).forEach((a) => XpSync.add({ e: `ach_${a.id}`, a: a.xp, m: `Achievement: ${a.title}`, d, t: Date.now() }));
     setS((p) => {
       const already = Object.keys(p.ach || {});
       const add = fresh.filter((a) => !already.includes(a.id));
@@ -955,17 +974,17 @@ export default function App() {
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 2) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
-        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => setTab("xp")} />}
+        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => { setXpBack("status"); setTab("xp"); }} />}
         {onboard === null && tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
         {onboard === null && tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
         {onboard === null && tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
-        {onboard === null && tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} />}
+        {onboard === null && tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => { setXpBack("profile"); setTab("xp"); }} />}
         {!storageOk && (
           <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
             Progress can't save right now. Check your connection, or sign out and back in from Settings.
           </div>
         )}
-        {onboard === null && tab === "xp" && <XpLedger s={s} onBack={() => setTab("status")} />}
+        {onboard === null && tab === "xp" && <XpLedger s={s} onBack={() => setTab(xpBack)} />}
         {onboard === null && tab === "settings" && <SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} />}
         <IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} />
         <CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} />
@@ -1078,6 +1097,16 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
           <button aria-label="Settings" onClick={openSettings} className="ml-3 p-1.5 ghost" style={{ color: C.cyan }}><Gear size={18} /></button></div>
       </div>
 
+      {s.xpRecount && !s.xpRecount.seen && (
+        <div className="panel p-4 space-y-2" style={{ borderColor: `${C.gold}66` }}>
+          <div className="font-bold flex items-center gap-2"><Zap size={16} style={{ color: C.gold }} />Your XP was recounted</div>
+          <div className="body text-sm" style={{ color: C.sub }}>{s.xpRecount.before.toLocaleString()} → <b style={{ color: C.text }}>{s.xpRecount.after.toLocaleString()} XP</b>. Totals are now rebuilt from what you actually logged, so deleted workouts and double counts no longer count.{s.xpRecount.gravemaw ? ` The Gravemaw crew-boss exploit was also undone (−${s.xpRecount.gravemaw} XP and its loot).` : ""}</div>
+          <div className="flex gap-2">
+            <button onClick={() => { setS((p) => ({ ...p, xpRecount: { ...p.xpRecount, seen: true } })); openXp?.(); }} className="btn px-4 py-2 text-sm">See XP history</button>
+            <button onClick={() => setS((p) => ({ ...p, xpRecount: { ...p.xpRecount, seen: true } }))} className="ghost px-4 py-2 text-sm font-bold">Got it</button>
+          </div>
+        </div>
+      )}
       <div className="panel p-5 overflow-hidden">
         <div className="absolute -right-4 -top-10 font-extrabold select-none" style={{ fontSize: 170, color: oc.color, opacity: 0.07, lineHeight: 1 }}>{oc.id}</div>
         <div className="flex items-center gap-4 relative">
@@ -1223,7 +1252,7 @@ function Train({ s, setS, gainXp, openRun }) {
       const res = workoutXp(s, exercises, computeBests({ ...s, workouts: s.workouts.filter((w) => w.id !== a.editId) }));
       const delta = res.xp - (old?.xp || 0);
       setS((p) => ({ ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus } : w) }));
-      gainXp(delta, "Workout updated");
+      gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
       return;
     }
     const { xp, prs, volume, lines, prBonus } = workoutXp(s, exercises, computeBests(s));
@@ -1317,7 +1346,7 @@ function Train({ s, setS, gainXp, openRun }) {
                   {!w.source && s.lb && <SharePreset s={s} workout={w} />}
                   {!w.source && <ReceiptButton small label="Share card" make={() => buildReceipt({ s, kind: "Workout", headline: w.title ? `${w.title} day` : "Workout", sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Exercises", w.exercises.length], ["Sets", w.exercises.reduce((a, e) => a + e.sets.length, 0)]] })} />}
                   <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
-                  <button aria-label="Delete workout" onClick={() => ask("Delete this workout? The XP you earned stays.", () => setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
+                  <button aria-label="Delete workout" onClick={() => ask(w.xp ? `Delete this workout? Its ${w.xp.toLocaleString()} XP comes off your total.` : "Delete this workout?", () => { setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })); gainXp(-(w.xp || 0), `Deleted workout${w.title ? `: ${w.title}` : ""}`, `wo_${w.id}_del`); }, "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
                 </div>
               </div>
               <div className="body text-sm mt-1 space-y-0.5" style={{ color: C.sub }}>
@@ -1669,7 +1698,7 @@ function Quests({ s, setS, gainXp }) {
       ))}
 
       {canBonus && (
-        <button onClick={() => { updDay((x) => ({ ...x, bonuses: x.bonuses + 1 })); gainXp(100 * topTier, "Set cleared"); }} className="w-full py-3 font-bold flex items-center justify-center gap-2" style={{ background: C.gold, color: "#0A1630", borderRadius: 4, boxShadow: "0 0 22px rgba(255,212,71,.55)" }}>
+        <button onClick={() => { updDay((x) => ({ ...x, bonuses: x.bonuses + 1 })); gainXp(100 * topTier, "Set cleared", `bonus_${d}_${day.bonuses}`); }} className="w-full py-3 font-bold flex items-center justify-center gap-2" style={{ background: C.gold, color: "#0A1630", borderRadius: 4, boxShadow: "0 0 22px rgba(255,212,71,.55)" }}>
           <Sparkles size={18} />Claim set bonus +{100 * topTier} XP
         </button>
       )}
@@ -3343,8 +3372,8 @@ function profileCard(s) {
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && w.source !== "quest").length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: Object.fromEntries(wl),
-    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); ex.sets.forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && w.source !== "quest").length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
-    uid: window.ascendUserId || null, tier: bestTier(s),
+    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); ex.sets.forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && w.source !== "quest").length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
+    uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null,
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
     badges: s.seasonBadges || {},
     groups: groupScores(s),
@@ -3352,7 +3381,7 @@ function profileCard(s) {
   };
 }
 
-function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
+function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
   const me = !targetId || targetId === s.playerId;
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(!me);
@@ -3498,6 +3527,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp }) {
             <div className="flex items-center gap-3 flex-wrap mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
               <div className="flex items-center gap-1 font-bold" style={{ color: C.gold }}><Hand size={18} />{fives} high-five{fives === 1 ? "" : "s"}</div>
               {!me && <button onClick={highFive} disabled={busy} className="btn px-4 py-2 text-sm flex items-center gap-1"><Hand size={16} />High five</button>}
+              {me && openXp && <button onClick={openXp} className="ghost px-3 py-1.5 text-sm font-bold flex items-center gap-1.5" style={{ color: C.gold }}><Zap size={15} />XP history</button>}
               <SongPlayer playerId={id} meta={data.song} me={me} />
             </div>
           </div>
@@ -5964,19 +5994,44 @@ const BOSSES = [
   { id: "pharaoh", eye: "#7DF9FF", name: "Sandstorm Pharaoh", tag: "Buried his gains for 3,000 years", color: "#E8C872", icon: "🏺", title: "Sunbreaker", aura: "sand" },
   { id: "void", eye: "#C9A8FF", name: "The Void Sovereign", tag: "The end of all excuses", color: "#6A00FF", icon: "🌑", title: "Voidwalker", aura: "void" },
 ];
-const BOSS_HP_PER_PLAYER = 60000, BOSS_XP = 600;
+// Boss HP. Damage: 1 per pound lifted, 5 per rep, 800 per mile.
+// A strong solo lifter deals ~15-25k per session, so a solo crew boss takes about 3 weeks of steady training.
+const CREW_BOSS_HP = 300000, GLOBAL_BOSS_HP_PER_PLAYER = 150000, GLOBAL_BOSS_HP_BASE = 150000, BOSS_XP = 600;
+const crewBossHp = (members) => CREW_BOSS_HP * Math.max(1, members);
+const globalBossHp = (players) => GLOBAL_BOSS_HP_BASE + GLOBAL_BOSS_HP_PER_PLAYER * Math.max(1, players);
+// Damage dealt each day this month, with that day's sleep/mood buff baked in
+function dayDamageMap(s, mk = monthKey()) {
+  const out = {};
+  (s.workouts || []).filter((w) => w.date.startsWith(mk)).forEach((w) => {
+    let dmg = 0;
+    w.exercises.forEach((ex) => { const def = findEx(s, ex.name); ex.sets.forEach((st) => {
+      if (def.type === "timed") { if (def.group === "Cardio") dmg += (+st.w || 0) * 800; return; }
+      const wt = def.type === "assisted" ? movedLb(s.profile, +st.w || 0) : +st.w || 0;
+      dmg += wt * (+st.r || 0) + (+st.r || 0) * 5;
+    }); });
+    out[w.date] = (out[w.date] || 0) + dmg;
+  });
+  Object.keys(out).forEach((d) => { out[d] = Math.round(out[d] * buffOn(s, d)); });
+  return out;
+}
 // Sleeping well and feeling good makes you hit harder today
-function buffToday(s) {
+function buffToday(s) { return buffOn(s, today()); }
+function buffOn(s, d) {
   if (!s) return 1;
-  const ci = s.checkins?.[today()] || {};
+  const ci = s.checkins?.[d] || {};
   let m = 1;
   if (ci.sleep >= 8) m += 0.05; else if (ci.sleep === 7) m += 0.02;
   if (ci.mood === "Fired up") m += 0.05; else if (ci.mood === "Good") m += 0.02;
   return Math.round(m * 100) / 100;
 }
-const bossDamage = (card, mk, selfState = null) => {
-  const base = card?.month?.key === mk ? Math.round((card.month.volume || 0) + (card.month.reps || 0) * 5 + (card.month.miles || 0) * 800) : 0;
-  return Math.round(base * (selfState ? buffToday(selfState) : 1));
+// Damage from `since` (a date) onward. Your own comes live from your log; others come from their board card.
+const bossDamage = (card, mk, selfState = null, since = `${mk}-01`) => {
+  const sumFrom = (dd) => Object.entries(dd || {}).filter(([d]) => d >= since && d.startsWith(mk)).reduce((a, [, v]) => a + (+v || 0), 0);
+  if (selfState) return sumFrom(dayDamageMap(selfState, mk));
+  if (card?.month?.key !== mk) return 0;
+  if (card.month.dd) return sumFrom(card.month.dd);
+  // Older app versions only sent a monthly total: count it for the global boss, not for a crew that started later
+  return since <= `${mk}-01` ? Math.round((card.month.volume || 0) + (card.month.reps || 0) * 5 + (card.month.miles || 0) * 800) : 0;
 };
 function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewId = null }) {
   const mk = monthKey();
@@ -5984,11 +6039,13 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
   useEffect(() => { if (crewId) readCrew(crewId).then(setCrew); }, [crewId]);
   const mi = (parseInt(mk.slice(5, 7), 10) - 1) % BOSSES.length;
   const boss = scope === "crew" ? BOSSES[(mi + 6) % BOSSES.length] : BOSSES[mi];
-  const crewRows = scope === "crew" ? rows.filter((r) => (crew?.members || [s.playerId]).includes(r.id)) : rows;
+  // Crew members are whoever's board card says they're in this crew (plus you), each counted from the day they joined
+  const meRow = rows.find((r) => r.id === s.playerId) || { id: s.playerId, name: s.profile.name, look: s.profile.look };
+  const crewRows = scope === "crew" ? [meRow, ...rows.filter((r) => r.id !== s.playerId && r.crew?.code === crewId)] : rows;
   const players = Math.max(1, crewRows.length);
-  // crews get a smaller pool; the global boss scales with everyone in the season
-  const hp = scope === "crew" ? Math.round(BOSS_HP_PER_PLAYER * 0.6 * players) : Math.round(BOSS_HP_PER_PLAYER * (players + 2) * 1.15);
-  const dmg = crewRows.map((r) => ({ r, d: bossDamage(r, mk, r.id === s.playerId ? s : null) })).sort((a, b) => b.d - a.d);
+  const hp = scope === "crew" ? crewBossHp(players) : globalBossHp(players);
+  const sinceOf = (r) => (scope !== "crew" ? `${mk}-01` : r.id === s.playerId ? s.crew?.since || today() : r.crew?.since || today());
+  const dmg = crewRows.map((r) => ({ r, d: bossDamage(r, mk, r.id === s.playerId ? s : null, sinceOf(r)) })).sort((a, b) => b.d - a.d);
   const total = dmg.reduce((a, x) => a + x.d, 0);
   const left = Math.max(0, hp - total), dead = left === 0, pct = left / hp;
   const mine = dmg.find((x) => x.r.id === s.playerId)?.d || 0;
@@ -6021,7 +6078,7 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
         </div>
         <div className="flex justify-between body text-xs mt-1.5" style={{ color: C.dim }}><span>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</span><span>{hp.toLocaleString()} HP</span></div>
       </div>
-      <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? "Only your crew's damage counts here." : `Scaled to the ${players} player${players === 1 ? "" : "s"} in the season.`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
+      <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? `Only damage your crew deals after joining counts here (you joined ${fmtDay(s.crew?.since || today())}).` : `Scaled to the ${players} player${players === 1 ? "" : "s"} in the season.`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
       {dmg.filter((x) => x.d > 0).length > 0 && (
         <div className="space-y-1.5">
           {dmg.filter((x) => x.d > 0).slice(0, 6).map(({ r, d }) => (
@@ -6996,7 +7053,7 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
     setS((p) => addWorkout(p, workout));
     // Weather at the start point (for Stormborn). Fire and forget; the run is already saved.
     if (path[0]) fetchRunWeather(path[0][0], path[0][1]).then((wx) => { if (wx) setS((p) => ({ ...p, workouts: p.workouts.map((w) => (w.id === workout.id ? { ...w, run: { ...w.run, wx } } : w)) })); });
-    gainXp(xp, `${mi} mi ${r.mode === "walk" ? "walk" : "run"}`);
+    gainXp(xp, `${mi} mi ${r.mode === "walk" ? "walk" : "run"}`, `wo_${r.id}`);
     juice(mi >= 3 ? "pr" : "finish");
     postFeed(s, "run", `${r.mode === "walk" ? "walked" : "ran"} ${mi} mi · ${fmtPace(runInfo.pace)} /mi`, {}, `run_${r.id}`);
     clearLive(); onClose(workout);
@@ -7095,6 +7152,7 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
   const todaySteps = s.steps?.[d] || 0;
   const [manual, setManual] = useState("");
   const [setup, setSetup] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
   const [err, setErr] = useState("");
@@ -7133,23 +7191,29 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
         <input type="number" inputMode="numeric" className="inp text-sm" placeholder="Enter today's steps" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveManual()} aria-label="Today's steps" />
         <button onClick={saveManual} disabled={!(+manual >= 0) || manual === ""} className="btn px-4 text-sm">Save</button>
       </div>
-      <button onClick={() => { if (!setup && openAssistant) { openAssistant(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); } setSetup(!setup); }} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up · ask Sterling" : "Sync steps automatically (Sterling walks you through it)"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
+      <button onClick={() => setSetup(!setup)} aria-expanded={setup} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up" : "Sync steps automatically"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
       {setup && (
         <div className="space-y-3 body text-sm" style={{ color: C.sub }}>
           {!s.stepToken ? (
             <button onClick={makeCode} disabled={busy} className="btn w-full py-2.5 text-sm">{busy ? "Creating…" : "Create my sync code"}</button>
           ) : (
-            <>
-              <div className="space-y-1.5">
-                <div className="text-xs" style={{ color: C.dim }}>Your sync code (keep it private)</div>
-                <button onClick={() => copy(s.stepToken, "code")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{s.stepToken}</button>
-                <div className="text-xs" style={{ color: C.dim }}>Sync URL</div>
-                <button onClick={() => copy(url, "url")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{url}</button>
-                {copied && <div className="text-xs" style={{ color: C.green }}>Copied {copied}</div>}
-              </div>
-              <button onClick={() => { openAssistant?.(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); }} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2"><Bot size={16} />Have Sterling walk me through it</button>
-              <details className="text-xs" style={{ color: C.mute }}><summary style={{ cursor: "pointer", color: C.dim }}>Or read the steps yourself</summary>
-              <ol className="space-y-1.5 list-decimal pl-5 text-sm mt-1">
+            <div className="space-y-1.5">
+              <div className="text-xs" style={{ color: C.dim }}>Your sync code (keep it private)</div>
+              <button onClick={() => copy(s.stepToken, "code")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{s.stepToken}</button>
+              <div className="text-xs" style={{ color: C.dim }}>Sync URL</div>
+              <button onClick={() => copy(url, "url")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{url}</button>
+              {copied && <div className="text-xs" style={{ color: C.green }}>Copied {copied}</div>}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => { openAssistant?.(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); }} className="btn py-2.5 text-sm font-bold flex items-center justify-center gap-1.5"><Bot size={16} />Ask Sterling</button>
+            <button onClick={() => setShowSteps((v) => !v)} aria-expanded={showSteps} aria-controls="step-written-guide" className="py-2.5 text-sm font-bold flex items-center justify-center gap-1.5" style={{ borderRadius: 12, color: showSteps ? "#001018" : C.cyan, background: showSteps ? C.cyan : `${C.cyan}14`, border: `1.5px solid ${C.cyan}` }}><BookOpen size={16} />{showSteps ? "Hide instructions" : "View written instructions"}</button>
+          </div>
+          {showSteps && (
+            <div id="step-written-guide" className="panel p-3 space-y-2" style={{ borderColor: `${C.cyan}55` }}>
+              <div className="text-sm font-bold" style={{ color: C.text }}>Set it up in the Shortcuts app (about 3 minutes)</div>
+              {!s.stepToken && <div className="text-xs" style={{ color: C.orange }}>Tap "Create my sync code" above first. You'll paste it in step 5.</div>}
+              <ol className="space-y-1.5 list-decimal pl-5 text-sm">
                 <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>Time of Day</b>. Pick <b>11:45 PM</b>, <b>Daily</b>, <b>Run Immediately</b> → Next → <b>New Blank Automation</b>.</li>
                 <li>Add <b>Find Health Samples</b>: Type is <b>Steps</b>, Start Date is <b>Today</b>.</li>
                 <li>Add <b>Calculate Statistics</b>: <b>Sum</b> of Health Samples.</li>
@@ -7157,11 +7221,10 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
                 <li>Add <b>Get Contents of URL</b>: paste the Sync URL. Method <b>POST</b>, Request Body <b>JSON</b>, add three fields: <b>token</b> (Text: your sync code), <b>steps</b> (Number: Statistics), <b>date</b> (Text: Formatted Date).</li>
                 <li>Tap <b>Done</b>. Tap the automation once to test it, then pull this page down to refresh.</li>
               </ol>
-              </details>
               <div className="text-xs" style={{ color: C.dim }}>Want steps to update during the day? Duplicate the automation for noon and 6 PM. Ascend always keeps the highest count for each day.</div>
-              <button onClick={() => ask("Make a new sync code? The old one stops working, so you'd need to update your Shortcut.", makeCode, "New code")} className="text-xs underline" style={{ color: C.mute }}>Make a new code</button>
-            </>
+            </div>
           )}
+          {s.stepToken && <button onClick={() => ask("Make a new sync code? The old one stops working, so you'd need to update your Shortcut.", makeCode, "New code")} className="text-xs underline" style={{ color: C.mute }}>Make a new code</button>}
           {err && <div className="text-xs" style={{ color: C.red }}>{err}</div>}
         </div>
       )}
@@ -7379,7 +7442,7 @@ function CrewPanel({ s, setS, rows }) {
     if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
     setBusy(true); setErr("");
     const c = crewCode(), rec = { code: c, name: name.trim().slice(0, 30) || `${s.profile.name}'s crew`, owner: s.playerId, members: [s.playerId], t: Date.now() };
-    try { await window.storage.set(`crew:${c}`, JSON.stringify(rec), true); setS((p) => ({ ...p, crew: { code: c, name: rec.name } })); setCrew(rec); }
+    try { await window.storage.set(`crew:${c}`, JSON.stringify(rec), true); setS((p) => ({ ...p, crew: { code: c, name: rec.name, since: today() } })); setCrew(rec); }
     catch (e) { setErr("Couldn't create the crew. Check your connection."); }
     setBusy(false);
   };
@@ -7391,10 +7454,10 @@ function CrewPanel({ s, setS, rows }) {
     if (!rec) { setErr("No crew with that code."); setBusy(false); return; }
     const members = [...new Set([...(rec.members || []), s.playerId])];
     try { await window.storage.set(`crew:${c}`, JSON.stringify({ ...rec, members }), true); } catch (e) { /* owner-only write blocked; membership still tracked locally */ }
-    setS((p) => ({ ...p, crew: { code: c, name: rec.name } })); setCrew({ ...rec, members }); setCode(""); setBusy(false);
+    setS((p) => ({ ...p, crew: { code: c, name: rec.name, since: today() } })); setCrew({ ...rec, members }); setCode(""); setBusy(false);
   };
   const leave = () => ask("Leave this crew? You'll go back to the global boss only.", () => { setS((p) => ({ ...p, crew: null })); setCrew(null); }, "Leave");
-  const memberRows = crew ? rows.filter((r) => (crew.members || []).includes(r.id)) : [];
+  const memberRows = crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [];
   if (mine?.code) {
     return (
       <div className="panel p-4 space-y-2">
@@ -7435,34 +7498,210 @@ function BossArt({ boss, pct, dead, hit, size = 84 }) {
 }
 
 /* ---------- XP ledger ---------- */
+/* ---------- XP ledger ---------- */
+// Every XP award is one row with a stable event id. The same id can never count twice (enforced by
+// the xp_logs primary key on the server). Totals on the boards are sums of these rows by day.
+const bossFor = (mk, scope) => { const mi = (parseInt(mk.slice(5, 7), 10) - 1) % BOSSES.length; return scope === "crew" ? BOSSES[(mi + 6) % BOSSES.length] : BOSSES[mi]; };
+const monthEnd = (mk) => { const d = new Date(+mk.slice(0, 4), +mk.slice(5, 7), 0); return `${mk}-${String(d.getDate()).padStart(2, "0")}`; };
+const minDay = (a, b) => (a < b ? a : b);
+// Crews shipped in September 2026 with boss damage counted from the 1st of the month.
+// Crew boss kills from that window were the exploit.
+const EXPLOIT_LAST_MONTH = "2026-09";
+
+// Strip crew boss loot that came from the exploit window: Gravemaw only
+function revertBossExploit(s) {
+  const claimed = { ...(s.loot?.claimed || {}) };
+  const bad = Object.keys(claimed).filter((k) => /^\d{4}-\d{2}_crew$/.test(k) && k.slice(0, 7) <= EXPLOIT_LAST_MONTH && bossFor(k.slice(0, 7), "crew").id === "gravemaw");
+  if (!bad.length) return { s, reverted: false };
+  bad.forEach((k) => delete claimed[k]);
+  // Keep Gravemaw only if it was also beaten some other legit way (e.g. as a global boss)
+  const stillEarned = Object.keys(claimed).some((k) => bossFor(k.slice(0, 7), k.endsWith("_crew") ? "crew" : "global").id === "gravemaw");
+  const bosses = stillEarned ? s.loot?.bosses || [] : (s.loot?.bosses || []).filter((b) => b !== "gravemaw");
+  const loot = { ...(s.loot || {}), claimed, bosses };
+  const next = { ...s, loot };
+  const look = { ...(s.profile.look || {}) };
+  if (!stillEarned && look.aura === "abyss") look.aura = "none";
+  if (!bosses.length && look.border === "bone") look.border = "none";
+  const title = !stillEarned && ["boss_gravemaw", "gravebane"].includes(s.profile.title) ? "rookie" : s.profile.title;
+  next.profile = { ...s.profile, look, title };
+  next.xpDone = Object.fromEntries(Object.entries(s.xpDone || {}).filter(([k]) => !bad.some((b) => k.startsWith(`boss_${b.slice(0, 7)}_gravemaw`))));
+  return { s: next, reverted: true };
+}
+
+// Rebuild every award from the records that prove it happened
+function xpFromRecords(s) {
+  const rows = [];
+  const add = (e, a, m, d, find = false) => { a = Math.round(+a || 0); if (a && d) rows.push({ e, a, m, d, find }); };
+  const t = today();
+  (s.workouts || []).forEach((w) => add(`wo_${w.id}`, w.xp, w.run ? `${w.run.miles} mi ${w.run.mode === "walk" ? "walk" : "run"}` : w.source === "deck" ? "Card deck" : `Workout${w.title ? `: ${w.title}` : ""}`, w.date));
+  Object.entries(s.days || {}).forEach(([d, day]) => {
+    (day?.list || []).forEach((q) => { if (q.claimed) add(`quest_${d}_${q.id}`, q.xp, `Quest: ${q.title}`, d); });
+    const top = Math.max(0, ...(day?.list || []).map((q) => q.tier || 0));
+    for (let i = 0; i < (day?.bonuses || 0); i++) add(`bonus_${d}_${i}`, 100 * top, "Set cleared", d);
+  });
+  Object.entries(s.fuelClaimed || {}).forEach(([d, v]) => v && add(`fuel_${d}`, FUEL_XP, "Fuel goal hit", d));
+  Object.entries(s.water || {}).forEach(([d, v]) => v?.xp && add(`water_${d}`, WATER_XP, "Water goal", d));
+  Object.entries(s.stepXp || {}).forEach(([d, v]) => v && add(`steps_${d}`, STEP_GOAL_XP, "Step goal", d));
+  Object.entries(s.weekly || {}).forEach(([ws, v]) => {
+    const got = v === true ? { "w-train4": true } : v || {};
+    Object.keys(got).filter((id) => got[id]).forEach((id) => { const c = WEEKLY_POOL.find((x) => x.id === id); if (c) add(`wk_${ws}_${id}`, c.xp, `Weekly: ${c.title}`, minDay(shift(ws, 6), t), true); });
+  });
+  Object.entries(s.monthly || {}).forEach(([mk, v]) => Object.keys(v || {}).filter((id) => v[id]).forEach((id) => { const c = MONTHLY_POOL.find((x) => x.id === id); if (c) add(`mo_${mk}_${id}`, c.xp, `Monthly: ${c.title}`, minDay(monthEnd(mk), t), true); }));
+  const achs = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
+  Object.entries(s.ach || {}).forEach(([id, d]) => { const a = achs[id]; if (a) add(`ach_${id}`, a.xp, `Achievement: ${a.title}`, typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : t, typeof d !== "string"); });
+  Object.keys(s.loot?.claimed || {}).forEach((k) => { const mk = k.slice(0, 7); const b = bossFor(mk, k.endsWith("_crew") ? "crew" : "global"); add(`boss_${k}`, BOSS_XP, `Defeated ${b.name}`, minDay(monthEnd(mk), t), true); });
+  Object.entries(s.mogClaimed || {}).forEach(([id, v]) => v && add(`mog_${id}`, MOG_XP, "Mog-off win", t, true));
+  Object.entries(s.duelClaimed || {}).forEach(([id, v]) => v && add(`duel_${id}`, DUEL_XP, "Duel win", t, true));
+  // Borrow real timestamps (and real days for undated awards) from the old per-day detail log where they match
+  const pool = Object.entries(s.xpDetail || {}).flatMap(([d, list]) => (list || []).map((x) => ({ ...x, d, used: false })));
+  const byDay = {};
+  pool.forEach((x) => { (byDay[x.d] = byDay[x.d] || []).push(x); });
+  rows.forEach((r) => {
+    const hit = r.find ? pool.find((x) => !x.used && x.m === r.m && x.a === r.a) : (byDay[r.d] || []).find((x) => !x.used && x.a === r.a && (x.m === r.m || (r.e.startsWith("wo_") && /^(Workout|Card deck|[\d.]+ mi)/.test(x.m))));
+    if (hit) { hit.used = true; r.t = hit.t; if (r.find) r.d = hit.d; }
+    if (!r.t) r.t = new Date(`${r.d}T12:00:00`).getTime();
+  });
+  return rows.sort((a, b) => a.t - b.t);
+}
+
+// One-time (per version) rebuild: totals, per-day log and detail all come from the rows above
+const XP_VERSION = 2;
+function recountXp(s) {
+  const before = s.xp || 0;
+  const { s: fixed, reverted } = revertBossExploit(s);
+  // Achievements can depend on XP (the Leveler series), so settle them against the recounted total
+  let st = fixed;
+  for (let i = 0; i < 4; i++) {
+    const xp = Math.max(0, xpFromRecords(st).reduce((a, r) => a + r.a, 0));
+    const next = reconcileAchievements({ ...st, xp }, false);
+    const same = Object.keys(next.ach || {}).length === Object.keys(st.ach || {}).length;
+    st = next;
+    if (same) break;
+  }
+  const rows = xpFromRecords(st);
+  const xpLog = {}, xpDetail = {};
+  rows.forEach((r) => { xpLog[r.d] = (xpLog[r.d] || 0) + r.a; (xpDetail[r.d] = xpDetail[r.d] || []).push({ m: r.m, a: r.a, t: r.t }); });
+  Object.keys(xpDetail).forEach((d) => { xpDetail[d] = xpDetail[d].slice(-120); });
+  const after = Math.max(0, rows.reduce((a, r) => a + r.a, 0));
+  const xpDone = { ...(st.xpDone || {}) };
+  rows.forEach((r) => { xpDone[r.e] = 1; });
+  const next = { ...st, xp: after, xpLog, xpDetail, xpDone, xpV: XP_VERSION, xpRecount: { at: Date.now(), before, after, gravemaw: reverted ? BOSS_XP : 0, seen: false } };
+  return { s: next, rows };
+}
+
+// Offline-safe sync to the xp_logs table. Rows wait in localStorage until the server has them.
+const SB_URL = import.meta.env?.VITE_SUPABASE_URL, SB_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+const toServerRow = (r) => ({ event_id: String(r.e).slice(0, 120), amount: r.a, source: String(r.m || "").slice(0, 120), day: r.d, at: new Date(r.t || Date.now()).toISOString() });
+const XpSync = {
+  busy: false,
+  key() { return `ascend-xp-outbox:${(typeof window !== "undefined" && window.ascendUserId) || "me"}`; },
+  read() { try { return JSON.parse(localStorage.getItem(this.key()) || "null") || { replace: null, add: [] }; } catch (e) { return { replace: null, add: [] }; } },
+  write(o) {
+    try { localStorage.setItem(this.key(), JSON.stringify(o)); } catch (e) { /* storage full: rows stay in memory state */ }
+    try { window.dispatchEvent(new CustomEvent("ascend-xp-sync")); } catch (e) { /* UI refresh only */ }
+  },
+  add(row) { const o = this.read(); o.add = [...o.add.filter((x) => x.e !== row.e), row]; this.write(o); this.flush(); },
+  replace(rows) { this.write({ replace: rows, add: [] }); this.flush(); },
+  pending() { const o = this.read(); return (o.replace ? o.replace.length : 0) + o.add.length; },
+  async headers() {
+    const token = await window.ascendAuth?.token?.().catch(() => null);
+    return token && SB_URL && SB_KEY ? { apikey: SB_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null;
+  },
+  async flush() {
+    if (this.busy || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
+    this.busy = true;
+    try {
+      const h = await this.headers();
+      if (!h) return;
+      let o = this.read();
+      if (o.replace) {
+        const r = await fetch(`${SB_URL}/rest/v1/rpc/xp_replace`, { method: "POST", headers: h, body: JSON.stringify({ p_rows: o.replace.map(toServerRow) }) });
+        if (!r.ok) return;
+        o = this.read(); o.replace = null; this.write(o);
+      }
+      while (o.add.length) {
+        const batch = o.add.slice(0, 200);
+        const r = await fetch(`${SB_URL}/rest/v1/xp_logs?on_conflict=user_id,event_id`, { method: "POST", headers: { ...h, Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(batch.map(toServerRow)) });
+        if (!r.ok) return;
+        o = this.read(); const sent = new Set(batch.map((x) => x.e)); o.add = o.add.filter((x) => !sent.has(x.e)); this.write(o);
+      }
+    } catch (e) { /* offline or server hiccup: try again later */ } finally { this.busy = false; }
+  },
+  async page(offset = 0, limit = 50) {
+    const h = await this.headers();
+    if (!h) return null;
+    const r = await fetch(`${SB_URL}/rest/v1/xp_logs?select=event_id,amount,source,day,at&order=at.desc,event_id.desc&offset=${offset}&limit=${limit}`, { headers: h });
+    return r.ok ? r.json() : null;
+  },
+  async summary(seasonFrom, monthFrom) {
+    const h = await this.headers();
+    if (!h) return null;
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/xp_summary`, { method: "POST", headers: h, body: JSON.stringify({ p_season_from: seasonFrom, p_month_from: monthFrom }) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return Array.isArray(j) ? j[0] : j;
+  },
+};
+
 function XpLedger({ s, onBack }) {
-  const days = Object.keys(s.xpDetail || {}).sort().reverse();
-  const total = Object.values(s.xpLog || {}).reduce((a, v) => a + v, 0);
-  const kinds = {};
-  days.forEach((d) => (s.xpDetail[d] || []).forEach((x) => { const k = x.m.replace(/\d+/g, "").trim(); kinds[k] = (kinds[k] || 0) + x.a; }));
-  const top = Object.entries(kinds).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const [rows, setRows] = useState(null); // server rows, or null while loading / unavailable
+  const [src, setSrc] = useState("loading");
+  const [more, setMore] = useState(false);
+  const [sum, setSum] = useState(null);
+  const [pending, setPending] = useState(() => XpSync.pending());
+  const sk = seasonKey(), seasonFrom = seasonStart(sk), monthFrom = `${monthKey()}-01`;
+  const sumRange = (from) => Object.entries(s.xpLog || {}).filter(([d]) => d >= from).reduce((a, [, v]) => a + v, 0);
+  const totals = { all: s.xp || 0, season: seasonXp(s, sk), month: sumRange(monthFrom) };
+  const local = useMemo(() => Object.entries(s.xpDetail || {}).flatMap(([d, list]) => (list || []).map((x, i) => ({ event_id: `${d}_${i}`, amount: x.a, source: x.m, day: d, at: new Date(x.t || `${d}T12:00`).toISOString() }))).sort((a, b) => (a.at < b.at ? 1 : -1)), [s.xpDetail]);
+  const load = async (offset = 0) => {
+    await XpSync.flush();
+    setPending(XpSync.pending());
+    const page = await XpSync.page(offset, 60).catch(() => null);
+    if (!page) { setSrc("local"); setRows(null); return; }
+    setSrc("server"); setMore(page.length === 60);
+    setRows((r) => (offset ? [...(r || []), ...page] : page));
+    if (!offset) XpSync.summary(seasonFrom, monthFrom).then(setSum).catch(() => {});
+  };
+  useEffect(() => { load(0); const on = () => setPending(XpSync.pending()); window.addEventListener("ascend-xp-sync", on); return () => window.removeEventListener("ascend-xp-sync", on); }, []);
+  const list = src === "server" ? rows || [] : local;
+  const groups = [];
+  list.forEach((x) => { const g = groups[groups.length - 1]; if (g && g.day === x.day) g.items.push(x); else groups.push({ day: x.day, items: [x] }); });
+  const matches = sum && +sum.total === totals.all && +sum.season === totals.season && +sum.month === totals.month;
+  const rc = s.xpRecount;
+  const fmtT = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2"><button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button><h1 className="text-2xl font-bold flex-1">XP history</h1></div>
-      <div className="panel p-4">
-        <div className="flex justify-between items-baseline"><span className="body text-sm" style={{ color: C.dim }}>Total XP</span><span className="text-2xl font-bold">{s.xp.toLocaleString()}</span></div>
-        <div className="body text-xs mt-1" style={{ color: C.mute }}>Logged history covers {total.toLocaleString()} XP across {days.length} days.{Math.abs(total - s.xp) > 50 ? " Older XP was earned before this ledger existed." : ""}</div>
+      <div className="flex items-center gap-2"><button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button><h1 className="text-2xl font-bold glowtext">XP history</h1></div>
+      <div className="panel p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {[["All time", totals.all], ["This season", totals.season], ["This month", totals.month]].map(([l, v]) => <div key={l}><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums glowtext">{v.toLocaleString()}</div></div>)}
+        </div>
+        <div className="body text-xs flex items-center gap-1.5" style={{ color: pending ? C.orange : matches ? C.green : C.dim }}>
+          {pending ? <><Loader2 size={12} className="animate-spin" />{pending} {pending === 1 ? "entry" : "entries"} waiting to sync</> : matches ? <><Check size={13} />Every point is logged, and the server totals match these numbers.</> : src === "server" ? "Checking totals…" : src === "local" ? "Showing what's saved on this phone. The full log loads when you're online." : "Loading…"}
+        </div>
       </div>
-      {top.length > 0 && (
-        <div className="panel p-4 space-y-1.5">
-          <div className="font-semibold text-sm mb-1">Where it came from</div>
-          {top.map(([k, v]) => <div key={k}><div className="flex justify-between body text-sm"><span style={{ color: C.sub }}>{k}</span><span className="font-semibold">{v.toLocaleString()}</span></div><div className="mt-0.5"><Bar pct={(v / top[0][1]) * 100} color={C.cyan} /></div></div>)}
+      {rc && (
+        <div className="panel p-3 body text-xs space-y-0.5" style={{ color: C.dim }}>
+          <div className="text-sm font-semibold" style={{ color: C.text }}>Recounted {new Date(rc.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}: {rc.before.toLocaleString()} → {rc.after.toLocaleString()} XP</div>
+          <div>XP is now rebuilt from what you actually logged, so deleted workouts and double counts no longer add up.{rc.gravemaw ? ` Includes −${rc.gravemaw} XP from the Gravemaw crew-boss exploit.` : ""}</div>
         </div>
       )}
-      {days.length === 0 && <Empty>Nothing logged yet. Every XP gain from here on shows up in this list.</Empty>}
-      {days.map((d) => (
-        <div key={d} className="panel p-3">
-          <div className="flex justify-between items-center mb-1"><span className="font-semibold text-sm">{fmtDay(d)}</span><span className="font-bold" style={{ color: C.gold }}>+{(s.xpLog?.[d] || 0).toLocaleString()}</span></div>
-          {(s.xpDetail[d] || []).slice().reverse().map((x, i) => (
-            <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.sub }}>{x.m}</span><span className="tabular-nums" style={{ color: x.a >= 0 ? C.dim : C.orange }}>{x.a >= 0 ? "+" : ""}{x.a}</span></div>
+      {src !== "loading" && list.length === 0 && <Empty>No XP yet. Every point you earn shows up here with where it came from.</Empty>}
+      {groups.map((g) => (
+        <div key={g.day} className="panel overflow-hidden">
+          <div className="flex justify-between items-center px-3 py-2" style={{ background: C.soft, borderBottom: `1px solid ${C.glassLine}` }}>
+            <span className="font-semibold text-sm">{fmtDay(g.day)}</span>
+            <span className="text-sm font-bold tabular-nums" style={{ color: C.gold }}>{(s.xpLog?.[g.day] || 0) >= 0 ? "+" : ""}{(s.xpLog?.[g.day] || 0).toLocaleString()}</span>
+          </div>
+          {g.items.map((x, i) => (
+            <div key={x.event_id} className="flex items-center gap-3 px-3 py-2" style={i ? { borderTop: `1px solid ${C.glassLine}` } : null}>
+              <div className="flex-1 min-w-0"><div className="body text-sm truncate" style={{ color: C.text }}>{x.source}</div><div className="body text-xs" style={{ color: C.mute }}>{fmtT(x.at)}</div></div>
+              <div className="font-bold tabular-nums text-sm" style={{ color: x.amount >= 0 ? C.gold : C.orange }}>{x.amount >= 0 ? "+" : "−"}{Math.abs(x.amount).toLocaleString()}</div>
+            </div>
           ))}
         </div>
       ))}
+      {src === "server" && more && <button onClick={() => load((rows || []).length)} className="ghost w-full py-3 text-sm font-bold">Load older</button>}
     </div>
   );
 }
@@ -7576,21 +7815,26 @@ function HydrationBar({ s, setS, gainXp, d }) {
   const target = Math.max(8, Math.round((+s.profile.weight || 170) / 2 / 8));
   const w = s.water?.[d] || { n: 0, xp: false };
   const pct = Math.min(100, (w.n / target) * 100);
-  const set = (n) => setS((p) => {
-    const cur = p.water?.[d] || { n: 0, xp: false };
-    const next = { ...cur, n: Math.max(0, n) };
-    if (!cur.xp && next.n >= target) { next.xp = true; setTimeout(() => { gainXp(WATER_XP, "Water goal", `water_${d}`); SFX.water(); }, 0); }
-    return { ...p, water: { ...(p.water || {}), [d]: next } };
-  });
+  // Going under the goal after hitting it takes the water XP back; hitting it again gives it back.
+  const set = (n) => {
+    const cur = s.water?.[d] || { n: 0, xp: false };
+    const next = { ...cur, n: Math.max(0, Math.min(40, n)) };
+    const k = cur.k || 0;
+    if (!cur.xp && next.n >= target) { next.xp = true; setTimeout(() => { gainXp(WATER_XP, "Water goal", k ? `water_${d}_${k}` : `water_${d}`); SFX.water(); }, 0); }
+    else if (cur.xp && next.n < target) { next.xp = false; next.k = k + 1; setTimeout(() => gainXp(-WATER_XP, "Water goal undone", `water_${d}_undo${k + 1}`), 0); }
+    setS((p) => ({ ...p, water: { ...(p.water || {}), [d]: next } }));
+  };
+  const btn = { width: 34, height: 30, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${C.glassLine}`, background: C.glass };
   return (
     <div className="flex flex-col items-center gap-1.5 shrink-0" style={{ width: 54 }}>
-      <button aria-label="Add a cup of water" onClick={() => set(w.n + 1)} className="relative overflow-hidden" style={{ width: 34, height: 104, borderRadius: 10, border: `1px solid ${C.glassLine}`, background: C.track }}>
+      <button aria-label="Add a cup of water" onClick={() => set(w.n + 1)} style={{ ...btn, color: C.cyan, borderColor: `${C.cyan}66` }}><Plus size={16} /></button>
+      <button aria-label="Add a cup of water" onClick={() => set(w.n + 1)} className="relative overflow-hidden" style={{ width: 34, height: 84, borderRadius: 10, border: `1px solid ${C.glassLine}`, background: C.track }}>
         <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${pct}%`, background: `linear-gradient(180deg, ${C.cyan}, #2F6BFF)`, transition: "height .4s cubic-bezier(.2,.8,.2,1)", boxShadow: `0 0 12px ${C.glow}` }} />
         <span style={{ position: "absolute", left: 0, right: 0, bottom: `calc(${pct}% - 3px)`, height: 3, background: "rgba(255,255,255,.55)", opacity: pct > 0 && pct < 100 ? 1 : 0 }} />
         <Droplets size={15} style={{ position: "absolute", left: "50%", top: 6, transform: "translateX(-50%)", color: pct > 85 ? "#fff" : C.dim }} />
       </button>
-      <div className="body text-xs text-center leading-tight" style={{ color: w.n >= target ? C.green : C.dim }}>{w.n}/{target}<br />cups</div>
-      <button aria-label="Remove a cup" onClick={() => set(w.n - 1)} className="body text-xs px-2" style={{ color: C.mute }}>−</button>
+      <button aria-label="Remove a cup of water" disabled={w.n <= 0} onClick={() => set(w.n - 1)} style={{ ...btn, color: w.n > 0 ? C.text : C.mute, opacity: w.n > 0 ? 1 : 0.5 }}><Minus size={16} /></button>
+      <div className="body text-xs text-center leading-tight tabular-nums" style={{ color: w.n >= target ? C.green : C.dim }}>{w.n}/{target}<br />cups</div>
     </div>
   );
 }
