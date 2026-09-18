@@ -637,7 +637,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5e.1";
+const APP_VERSION = "5f";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
 const runningBundle = () => { try { return [...document.querySelectorAll('script[src*="/assets/"]')].map((x) => x.getAttribute("src").split("/assets/").pop()).find((n) => /^index-/.test(n)) || null; } catch (e) { return null; } };
 export default function App() {
@@ -789,7 +789,7 @@ export default function App() {
       try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
     }, 1200);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight]);
+  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults]);
 
   useEffect(() => {
     const go = () => XpSync.flush();
@@ -836,6 +836,17 @@ export default function App() {
     if (fresh.length <= 3) fresh.forEach((a) => postFeed(s, "ach", `unlocked ${a.title} (${TIER_STYLE[a.tier].name})`, {}, `ach_${a.id}`));
     setTimeout(() => setToast(null), 3200);
   }, [loaded, s.workouts, s.days, s.xp, s.profile.weight]);
+
+  // Settle finished duels (lifetime record, Nemesis rewards) on open and whenever the app comes back
+  useEffect(() => {
+    if (!loaded || !s.lb) return;
+    const say = (text) => { setToast({ big: true, text }); setTimeout(() => setToast(null), 3600); };
+    const go = () => resolveDuels(sRef.current, setS, say).catch(() => {});
+    const t = setTimeout(go, 2500);
+    const v = () => document.visibilityState === "visible" && go();
+    document.addEventListener("visibilitychange", v);
+    return () => { clearTimeout(t); document.removeEventListener("visibilitychange", v); };
+  }, [loaded, s.lb]);
 
   // Feat auras: the first time a condition is met, save it for good and tell the crew
   useEffect(() => {
@@ -2317,7 +2328,7 @@ function Board({ s, setS, openProfile, gainXp }) {
               <span className="w-7 text-center text-lg font-extrabold" style={{ color: C.dim }}>{i + 4}</span>
               <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} look={r.look} />
               <div className="flex-1 min-w-0 ml-1">
-                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{s.nemesis?.id === r.id && <span className="ml-1" title="Your nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
+                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{isMutualNemesis(s, r) && <span className="ml-1" title="Your Nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="body text-xs" style={{ color: C.dim }}><span className="ranklabel">{r.rank}{r.div ? ` ${r.div}` : ""}</span> · Level {r.lvl} · {r.streak} day streak{r.atGym && Date.now() - r.atGym < 3 * 3600 * 1000 ? <span style={{ color: C.green }}> · at the gym</span> : null}</div>
               </div>
@@ -3448,7 +3459,7 @@ function profileCard(s) {
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && isWorkout(w)).length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: s.profile.shareWeight ? Object.fromEntries(wl) : null,
     month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); ex.sets.forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && isWorkout(w)).length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
-    uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null,
+    uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null, daily: dailyStats(s), rivalWith: s.nemesis?.id || null, nemWins: nemesisWins(s),
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
     badges: s.seasonBadges || {},
     groups: groupScores(s),
@@ -3586,6 +3597,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
               <div className="flex-1 min-w-0">
                 <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
                 {data.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: data.look?.accent || C.cyan }}>{data.title}</div>}
+                {(me ? nemesisWins(s) : data.nemWins) > 0 && <div className="mt-1"><RivalBadge wins={me ? nemesisWins(s) : data.nemWins} /></div>}
                 {Object.keys(data.badges || {}).length > 0 && <div className="mt-1"><SeasonBadges badges={data.badges} /></div>}
                 <div className="body text-sm" style={{ color: rank.color }}>{data.rank}{data.div ? ` ${data.div}` : ""} · Level {data.lvl}</div>
                 <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{(data.points || 0).toLocaleString()} pts · {data.streak} day streak{st?.since ? ` · since ${new Date(st.since + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}</div>
@@ -3750,7 +3762,7 @@ function FancyName({ name, look, className = "", style = {}, size }) {
 /* ---------- Look studio: tabbed profile customization ---------- */
 const NAME_COLORS = ["#00D9FF", "#3DF08A", "#FFD447", "#FF9340", "#FF2D6F", "#B14BFF", "#F4FBFF", "#E8C872"];
 const AURA_GROUPS = [["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", ""]];
-const titleGroup = (t) => (t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" ? "season" : "progress");
+const titleGroup = (t) => (t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" ? "season" : t.id === "nemesis_slayer" ? "rivalry" : "progress");
 function StudioTabs({ tab, setTab, tabs }) {
   const i = Math.max(0, tabs.findIndex((t) => t[0] === tab));
   return (
@@ -3832,7 +3844,7 @@ function LookStudio({ s, setS }) {
           );
         })}
 
-        {tab === "titles" && [["progress", "Milestones"], ["boss", "Boss slayer"], ["season", "Seasons"]].map(([g, label]) => {
+        {tab === "titles" && [["progress", "Milestones"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"]].map(([g, label]) => {
           const list = TITLES.filter((t) => titleGroup(t) === g);
           return (
             <div key={g} className="space-y-2">
@@ -4758,6 +4770,7 @@ const TITLES = [
   { id: "yogurtmale", name: "Yogurt Male", req: (s) => !!s.ach?.["yogurt-0"], how: "Log 100 yogurts" },
   { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
   { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
+  { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 3, how: "Beat your Nemesis in 3 duels" },
 ];
 
 /* ---------- Progression + coaching helpers ---------- */
@@ -5347,6 +5360,8 @@ function FeedMealSheet({ s, setS, post, onClose }) {
     </Sheet>
   );
 }
+// Posts from before exact tiers said "D-Rank · Beginner". Crossing into a letter always lands on division III.
+const fixRankText = (t) => String(t || "").replace(/\b(SS|[EDCBAS])-Rank(?: · [A-Za-z' -]+?)?(?=( overall)?$)/, "$1 III");
 function Feed({ s, setS, openProfile, rows = [] }) {
   const [items, setItems] = useState(null);
   const [openPost, setOpenPost] = useState(null);
@@ -5398,7 +5413,7 @@ function Feed({ s, setS, openProfile, rows = [] }) {
                     {rk && <RankChip rank={rk.rank} div={rk.div} />}
                     <span className="body text-xs shrink-0 ml-auto" style={{ color: C.mute }}>{ago(it.t)}</span>
                   </div>
-                  <div className="body text-sm" style={{ color: C.text }}>{it.text}</div>
+                  <div className="body text-sm" style={{ color: C.text }}>{it.type === "rank" ? fixRankText(it.text) : it.text}</div>
                   {it.type === "meal" && it.meal ? (
                     <div className="body text-xs mt-0.5 tabular-nums" style={{ color: C.dim }}>{it.meal.cal} cal · P {it.meal.p} · C {it.meal.c} · F {it.meal.f}</div>
                   ) : wo ? (
@@ -5424,65 +5439,12 @@ function Feed({ s, setS, openProfile, rows = [] }) {
 }
 const CREW_PER_PLAYER = 12, CREW_XP = 500, DUEL_XP = 100;
 function Crew({ s, setS, gainXp, rows, openProfile }) {
-  const ws = weekStart();
-  const [duels, setDuels] = useState([]);
-  useEffect(() => { readShared("duel:").then((d) => setDuels(d.filter((x) => x.from === s.playerId || x.to === s.playerId).sort((a, b) => (b.t || 0) - (a.t || 0)))); }, []);
-  const cardOf = (id) => rows.find((r) => r.id === id || r.key === `lb:${id}`);
-  const weekXpOf = (id, key) => { const c = cardOf(id); if (!c) return null; if (c.weekOf === key) return c.weekXp || 0; if (c.prevWeek?.key === key) return c.prevWeek.xp; return null; };
-  const accept = async (d) => { try { await window.storage.set(d.key, JSON.stringify({ ...d, key: undefined, status: "on" }), true); setDuels((x) => x.map((y) => (y.key === d.key ? { ...y, status: "on" } : y))); } catch (e) { /* ignore */ } };
-  const remove = async (d) => { try { await window.storage.delete(d.key, true); setDuels((x) => x.filter((y) => y.key !== d.key)); } catch (e) { /* ignore */ } };
   return (
     <div className="space-y-3">
       <CrewPanel s={s} setS={setS} rows={rows} />
       {s.crew?.code && <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="crew" crewId={s.crew.code} />}
       <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="global" />
-      <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} />XP duels</h2>
-      {duels.length === 0 && <Empty>No duels. Open a cousin's profile from the board and challenge them to a 7-day XP duel.</Empty>}
-      {duels.map((d) => {
-        const me = d.from === s.playerId, other = me ? d.toName : d.fromName, otherId = me ? d.to : d.from;
-        const over = ws > d.ws;
-        const mine = weekXpOf(s.playerId, d.ws), theirs = weekXpOf(otherId, d.ws);
-        const liveMine = d.ws === ws ? Object.entries(s.xpLog || {}).filter(([k]) => k >= ws).reduce((a, [, v]) => a + v, 0) : mine;
-        const winner = over && liveMine !== null && theirs !== null ? (liveMine > theirs ? s.playerId : theirs > liveMine ? otherId : "tie") : null;
-        return (
-          <div key={d.key} className="panel p-3 space-y-1">
-            {(() => { const mc = cardOf(s.playerId), oc = cardOf(otherId); return (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 text-right min-w-0"><div className="font-bold text-sm truncate"><FancyName name={s.profile.name} look={s.profile.look} /></div>{mc?.title && <div className="text-xs font-bold uppercase tracking-wider" style={{ color: s.profile.look?.accent || C.cyan }}>{mc.title}</div>}</div>
-                <span className="font-extrabold px-2" style={{ color: "#FF2D6F", fontFamily: "'Cinzel', serif" }}>VS</span>
-                <button onClick={() => openProfile(otherId)} className="flex-1 text-left min-w-0"><div className="font-bold text-sm truncate"><FancyName name={other} look={oc?.look} /></div>{oc?.title && <div className="text-xs font-bold uppercase tracking-wider" style={{ color: oc?.look?.accent || C.cyan }}>{oc.title}</div>}</button>
-              </div>
-            ); })()}
-            <div className="body text-xs text-center" style={{ color: C.dim }}>week of {new Date(d.ws + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
-            {d.forfeit && <div className="body text-xs" style={{ color: C.orange }}>Loser: {d.forfeit}</div>}
-            {d.status === "pending" && !me && <button onClick={() => accept(d)} className="btn w-full py-2 text-sm">Accept duel</button>}
-            {d.status === "pending" && me && <div className="body text-xs" style={{ color: C.dim }}>Waiting for {other} to accept.</div>}
-            {d.status === "on" && !over && <div className="body text-sm">You {liveMine ?? "?"} XP · {other} {theirs ?? "?"} XP <span style={{ color: C.dim }}>(live this week)</span></div>}
-            {d.status === "on" && over && winner === null && <div className="body text-xs" style={{ color: C.dim }}>Waiting for {other} to open the app so their final score posts.</div>}
-            {winner && <div className="font-bold" style={{ color: C.gold }}>{winner === "tie" ? "Dead heat." : winner === s.playerId ? `You won ${liveMine} to ${theirs}` : `${other} won ${theirs} to ${liveMine}`}{winner === s.playerId && !(s.duelClaimed || {})[d.id] && <button onClick={() => { setS((p) => ({ ...p, duelClaimed: { ...(p.duelClaimed || {}), [d.id]: true } })); gainXp(DUEL_XP, "Duel win", `duel_${d.id}`); }} className="ml-2 px-3 py-1 text-xs" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{DUEL_XP}</button>}</div>}
-            <button onClick={() => ask("Delete this duel?", () => remove(d), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-function DuelButton({ s, targetId, targetName, targetUid }) {
-  const [forfeit, setForfeit] = useState("");
-  const [sent, setSent] = useState(false);
-  const [open, setOpen] = useState(false);
-  const send = async () => {
-    if (!s.lb || !s.profile.name) return;
-    const id = uid();
-    try { await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromUid: window.ascendUserId || null, fromName: s.profile.name, to: targetId, toUid: targetUid || null, toName: targetName, ws: weekStart(), forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true); setSent(true); } catch (e) { /* ignore */ }
-  };
-  if (sent) return <div className="body text-sm" style={{ color: C.green }}>Duel sent. Check the Crew tab on the Board for standings.</div>;
-  if (!open) return <button onClick={() => setOpen(true)} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Swords size={16} />Challenge to a 7-day XP duel</button>;
-  return (
-    <div className="panel p-3 space-y-2">
-      <div className="body text-sm" style={{ color: C.sub }}>Most XP earned this week wins {DUEL_XP} XP. Loser owes the forfeit.</div>
-      <input className="inp text-sm" placeholder="Forfeit (optional), e.g. buys the shakes" value={forfeit} onChange={(e) => setForfeit(e.target.value)} />
-      <div className="grid grid-cols-2 gap-2"><button onClick={() => setOpen(false)} className="ghost py-2 text-sm">Cancel</button><button onClick={send} className="btn py-2 text-sm">Send duel</button></div>
+      <DuelsPanel s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />
     </div>
   );
 }
@@ -5598,8 +5560,8 @@ function VersusPanel({ s, data, me, id, setS, gainXp }) {
         {row("XP this week", mine.weekXp, them.weekOf === mine.weekOf ? them.weekXp : 0, (v) => v.toLocaleString())}
         {row("workouts", mine.stats?.workouts, them.stats?.workouts)}
       </div>
-      <button onClick={() => setS((p) => ({ ...p, nemesis: p.nemesis?.id === id ? null : { id, name: them.name }, nemesisSeen: {} }))} className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: s.nemesis?.id === id ? "#FF6B8F" : C.text, borderColor: s.nemesis?.id === id ? "rgba(255,45,111,.5)" : C.glassLine }}>😈 {s.nemesis?.id === id ? "Your nemesis · tap to remove" : "Mark as nemesis"}</button>
-      <DuelButton s={s} targetId={id} targetName={them.name} targetUid={them.uid} />
+      <RivalryButton s={s} setS={setS} them={{ ...them, id }} />
+      <DuelButton s={s} targetId={id} targetName={them.name} targetUid={them.uid} nemesis={isMutualNemesis(s, { ...them, id })} />
       <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={them.name} targetUid={them.uid} embedded />
     </div>
   );
@@ -5659,6 +5621,7 @@ const AURAS = [
   { id: "void", name: "Void", how: "Defeat the Void Sovereign", loot: "void", group: "boss", colors: ["#6A00FF", "#000000"] },
   { id: "yogurt", name: "Yogurt", how: "Yogurt Male achievement (100 yogurts)", ach: "yogurt-0", group: "special", colors: ["#FFF8E7", "#F1DDB5"] },
   { id: "champion", name: "Champion", how: "Win a season", season: true, group: "special", colors: ["#FFD447", "#FF9340"] },
+  { id: "vendetta", name: "Vendetta", how: "Beat your Nemesis in 5 duels", nemesis: 5, group: "special", colors: ["#FF1F4B", "#3A0010"] },
 ];
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
@@ -5682,6 +5645,7 @@ const AURA_TASKS = {
 function unlocked(item, s) {
   if (item.id === "none") return true;
   if (item.task) return !!s.auraUnlocks?.[item.id] || AURA_TASKS[item.task](s).done;
+  if (item.nemesis) return nemesisWins(s) >= item.nemesis;
   if (item.tier !== undefined) return bestTier(s) >= item.tier;
   if (item.loot) return item.loot === "any" ? (s.loot?.bosses || []).length > 0 : (s.loot?.bosses || []).includes(item.loot);
   if (item.ach) return !!s.ach?.[item.ach];
@@ -5725,6 +5689,7 @@ const AURA_FX = {
   sand: { glow: 0.4, layers: [{ k: "orbit", n: 44, shape: "dot", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.4, 2.4], r: [0.9, 1.45], sz: [0.8, 1.8], wave: 0.18, a: 0.9 }] },
   void: { glow: 0.65, dark: 1, layers: [{ k: "inward", n: 30, shape: "dot", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.45, 0.8], life: [1.4, 2.4], sz: [3, 7], blend: "source-over", a: 0.9 }, { k: "orbit", n: 22, shape: "star", c: ["#FFFFFF", "#C9A8FF"], w: [0.25, 0.5], r: [1.05, 1.4], sz: [0.8, 1.6], tw: 1 }] },
   yogurt: { glow: 0.4, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.45, 0.45], r: [1.12, 1.12], sz: [0.16, 0.16], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.5, 3.5] }] },
+  vendetta: { glow: 0.6, bolts: { every: [1.3, 2.6], c: ["#FF4D6D", "#FFB3C1"] }, layers: [{ k: "inward", n: 22, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.5, 0.9], life: [1.2, 2.2], sz: [2.5, 6], blend: "source-over", a: 0.85 }, { k: "rise", n: 22, shape: "spark", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [18, 36], life: [0.9, 1.8], sz: [1, 2], sway: 8 }, { k: "orbit", n: 10, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [0.9, 1.4], r: [1, 1.2], sz: [2.5, 4] }] },
   champion: { glow: 0.65, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.6, a: 0.18 }, layers: [{ k: "rise", n: 24, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [14, 30], life: [1.2, 2.2], sz: [1.6, 3], sway: 14, spin: 1 }] },
 };
 
@@ -6204,13 +6169,290 @@ function SeasonBadges({ badges }) {
   return <div className="flex gap-2 flex-wrap">{list.map(([k, b]) => <span key={k} className="px-2.5 py-1 text-xs font-semibold" style={{ borderRadius: 999, background: "rgba(255,212,71,.12)", border: "1px solid rgba(255,212,71,.35)", color: "#FFD447" }}>{MEDAL[b.place]} {k.replace("-S", " S")}</span>)}</div>;
 }
 
-/* ---------- Nemesis ---------- */
+/* ---------- PVP: 7-day duels + mutual Nemesis ---------- */
+const DUEL_DAYS = 7;
+const DUEL_CONDS = {
+  xp: { label: "Most XP", short: "XP", unit: "XP", idx: 0 },
+  steps: { label: "Most steps", short: "Steps", unit: "steps", idx: 1 },
+  workouts: { label: "Most workouts", short: "Workouts", unit: "workouts", idx: 2 },
+};
+const duelCond = (d) => (DUEL_CONDS[d?.cond] ? d.cond : "xp");
+// Legacy duels ran the calendar week they were sent in; new ones run 7 days from the day they're accepted
+const duelWindow = (d) => { const start = d?.start || d?.ws; return start ? { start, end: shift(start, DUEL_DAYS - 1) } : null; };
+const fmtShort = (d) => new Date(`${d}T12:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+// Last 21 days of [xp, steps, workouts] for the board card. Zeros included, so others can tell the card is current.
+function dailyStats(s, n = 21) {
+  const out = {}, t = today();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = shift(t, -i);
+    out[d] = [Math.round(s.xpLog?.[d] || 0), Math.round(+s.steps?.[d] || 0), (s.workouts || []).filter((w) => w.date === d && isWorkout(w)).length];
+  }
+  return out;
+}
+function selfScore(s, cond, start, end) {
+  if (cond === "steps") return Object.entries(s.steps || {}).filter(([d]) => d >= start && d <= end).reduce((a, [, v]) => a + Math.round(+v || 0), 0);
+  if (cond === "workouts") return (s.workouts || []).filter((w) => w.date >= start && w.date <= end && isWorkout(w)).length;
+  return Object.entries(s.xpLog || {}).filter(([d]) => d >= start && d <= end).reduce((a, [, v]) => a + v, 0);
+}
+// Opponent's score from their board card: { v, final } or null if their card can't tell yet
+function cardScore(card, cond, start, end) {
+  if (!card) return null;
+  if (card.daily) {
+    const idx = DUEL_CONDS[cond].idx;
+    const v = Object.entries(card.daily).filter(([d]) => d >= start && d <= end).reduce((a, [, arr]) => a + (+arr?.[idx] || 0), 0);
+    return { v, final: Object.keys(card.daily).some((d) => d > end) };
+  }
+  // Older app versions only publish weekly XP
+  if (cond !== "xp") return null;
+  if (card.weekOf === start) return { v: card.weekXp || 0, final: false };
+  if (card.prevWeek?.key === start) return { v: card.prevWeek.xp || 0, final: true };
+  return null;
+}
+function duelState(d, s, otherCard) {
+  const w = duelWindow(d), cond = duelCond(d), t = today();
+  if (!w || d.status !== "on") return { w, cond, phase: d.status === "pending" ? "pending" : "unknown" };
+  const mine = selfScore(s, cond, w.start, w.end);
+  const th = cardScore(otherCard, cond, w.start, w.end);
+  const over = t > w.end;
+  const day = Math.min(DUEL_DAYS, Math.max(1, Math.round((new Date(`${t}T12:00`) - new Date(`${w.start}T12:00`)) / 86400000) + 1));
+  if (!over) return { w, cond, phase: "live", mine, theirs: th?.v ?? null, day };
+  if (!th?.final) return { w, cond, phase: "waiting", mine, theirs: th?.v ?? null };
+  const r = mine > th.v ? "w" : th.v > mine ? "l" : "t";
+  return { w, cond, phase: "done", mine, theirs: th.v, r };
+}
+const nemesisWins = (s) => Object.values(s.duelResults || {}).filter((x) => x.nem && x.r === "w").length;
+function rivalRecord(s, id) {
+  const rec = { w: 0, l: 0, t: 0 };
+  Object.values(s.duelResults || {}).forEach((x) => { if (x.vs === id) rec[x.r] = (rec[x.r] || 0) + 1; });
+  return rec;
+}
+const isMutualNemesis = (s, card) => !!card && s.nemesis?.id === card.id && card.rivalWith === s.playerId;
+const NEMESIS_REWARDS = [
+  { wins: 1, kind: "Badge", name: "Rivalbreaker badge" },
+  { wins: 3, kind: "Title", name: "Nemesis Slayer title" },
+  { wins: 5, kind: "Aura", name: "Vendetta aura" },
+];
+
+// Settles finished duels in the background: records W/L/T in your own save (so the lifetime record survives
+// deleted duels), posts Nemesis wins to the feed, and announces newly earned rivalry rewards.
+async function resolveDuels(s, setS, toast) {
+  if (!s.playerId) return;
+  let duels = [];
+  try { duels = (await readShared("duel:")).filter((d) => (d.from === s.playerId || d.to === s.playerId) && d.status === "on" && !(s.duelResults || {})[d.id]); } catch (e) { return; }
+  const settled = [];
+  for (const d of duels) {
+    const w = duelWindow(d);
+    if (!w || today() <= w.end) continue;
+    const otherId = d.from === s.playerId ? d.to : d.from;
+    let card = null;
+    try { const r = await window.storage.get(`lb:${otherId}`, true); card = r?.value ? JSON.parse(r.value) : null; } catch (e) { /* not on board */ }
+    const st = duelState(d, s, card);
+    if (st.phase !== "done") continue;
+    settled.push({ id: d.id, r: st.r, vs: otherId, name: d.from === s.playerId ? d.toName : d.fromName, cond: st.cond, nem: !!d.nemesis, mine: st.mine, theirs: st.theirs, end: w.end });
+  }
+  if (!settled.length) return;
+  const before = nemesisWins(s);
+  const results = { ...(s.duelResults || {}) };
+  settled.forEach((x) => { results[x.id] = x; });
+  setS((p) => ({ ...p, duelResults: { ...(p.duelResults || {}), ...Object.fromEntries(settled.map((x) => [x.id, x])) } }));
+  settled.filter((x) => x.nem && x.r === "w").forEach((x) => postFeed(s, "duel", `defeated their Nemesis ${x.name} in ${x.cond === "xp" ? "an XP" : x.cond === "steps" ? "a steps" : "a workouts"} duel`, { detail: `${x.mine.toLocaleString()} to ${x.theirs.toLocaleString()} ${DUEL_CONDS[x.cond].unit}` }, `nemwin_${x.id}`));
+  const after = nemesisWins({ ...s, duelResults: results });
+  const earned = NEMESIS_REWARDS.filter((r) => before < r.wins && after >= r.wins);
+  if (earned.length) toast?.(`Nemesis defeated! Unlocked: ${earned.map((r) => r.name).join(", ")}`);
+  else if (settled.some((x) => x.r === "w")) toast?.(settled.length === 1 ? `You won your duel against ${settled[0].name}` : "Duel results are in");
+}
+
+function RivalBadge({ wins, size = "sm" }) {
+  if (!wins) return null;
+  return (
+    <span title={`Beat their Nemesis ${wins} time${wins === 1 ? "" : "s"}`} className={`inline-flex items-center gap-1 font-bold shrink-0 ${size === "sm" ? "text-xs px-1.5" : "text-sm px-2 py-0.5"}`} style={{ borderRadius: 999, color: "#FFD9DF", background: "linear-gradient(135deg,#7A0019,#FF1F4B)", border: "1px solid #FF6B8F", boxShadow: "0 0 10px rgba(255,31,75,.45)" }}>
+      <Swords size={size === "sm" ? 11 : 13} />Rivalbreaker{wins > 1 ? ` ×${wins}` : ""}
+    </span>
+  );
+}
+
+function DuelButton({ s, targetId, targetName, targetUid, nemesis = false, onSent }) {
+  const [forfeit, setForfeit] = useState("");
+  const [cond, setCond] = useState("xp");
+  const [sent, setSent] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [err, setErr] = useState("");
+  const send = async () => {
+    if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
+    const id = uid();
+    try {
+      await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromUid: window.ascendUserId || null, fromName: s.profile.name, to: targetId, toUid: targetUid || null, toName: targetName, cond, forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true);
+      setSent(true); onSent?.();
+    } catch (e) { setErr("Couldn't send the duel. Check your connection."); }
+  };
+  if (sent) return <div className="body text-sm" style={{ color: C.green }}>Duel sent. It starts the day {targetName} accepts. Track it on Board → Crew.</div>;
+  if (!open) return <button onClick={() => setOpen(true)} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: nemesis ? "#FF6B8F" : C.cyan, borderColor: nemesis ? "rgba(255,45,111,.5)" : undefined }}><Swords size={16} />{nemesis ? "Challenge your Nemesis" : "Challenge to a 7-day duel"}</button>;
+  return (
+    <div className="panel p-3 space-y-2.5" style={nemesis ? { borderColor: "rgba(255,45,111,.5)" } : null}>
+      <div className="text-sm font-bold">Win condition</div>
+      <div role="radiogroup" aria-label="Win condition" className="grid grid-cols-3 gap-2">
+        {Object.entries(DUEL_CONDS).map(([k, c]) => (
+          <button key={k} role="radio" aria-checked={cond === k} onClick={() => setCond(k)} className="py-2 text-sm font-bold flex flex-col items-center gap-0.5" style={{ borderRadius: 12, background: cond === k ? `${C.cyan}1F` : C.glass, border: `1.5px solid ${cond === k ? C.cyan : C.glassLine}`, color: cond === k ? C.text : C.dim }}>
+            {k === "xp" ? <Zap size={16} /> : k === "steps" ? <Footprints size={16} /> : <Dumbbell size={16} />}{c.label}
+          </button>
+        ))}
+      </div>
+      <div className="body text-xs" style={{ color: C.sub }}>Runs 7 days from the day {targetName} accepts. Winner gets {DUEL_XP} XP.{nemesis ? " This is a Nemesis duel: wins count toward your rivalry rewards." : ""}</div>
+      <input className="inp text-sm" placeholder="Forfeit (optional), e.g. buys the shakes" value={forfeit} onChange={(e) => setForfeit(e.target.value)} />
+      {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
+      <div className="grid grid-cols-2 gap-2"><button onClick={() => setOpen(false)} className="ghost py-2 text-sm">Cancel</button><button onClick={send} className="btn py-2 text-sm">Send duel</button></div>
+    </div>
+  );
+}
+
+// Profile head-to-head: propose / accept / show the rivalry
+function RivalryButton({ s, setS, them }) {
+  const mineOn = s.nemesis?.id === them.id, theirsOn = them.rivalWith === s.playerId;
+  const rec = rivalRecord(s, them.id);
+  const set = (n) => setS((p) => ({ ...p, nemesis: n, nemesisSeen: {} }));
+  const replace = (fn) => (s.nemesis?.id && s.nemesis.id !== them.id ? ask(`Replace ${s.nemesis.name || "your current Nemesis"} with ${them.name}? Your record against them stays saved.`, fn, "Replace") : fn());
+  const style = { color: "#FF6B8F", borderColor: "rgba(255,45,111,.5)" };
+  if (mineOn && theirsOn) return <button onClick={() => ask(`End your rivalry with ${them.name}? Your ${rec.w}–${rec.l}${rec.t ? `–${rec.t}` : ""} record stays saved.`, () => set(null), "End rivalry")} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={style}>😈 Your Nemesis · {rec.w}–{rec.l}{rec.t ? `–${rec.t}` : ""}</button>;
+  if (mineOn) return <button onClick={() => set(null)} className="ghost w-full py-2.5 text-sm font-semibold" style={{ color: C.dim }}>Rivalry proposed · waiting for {them.name} · tap to cancel</button>;
+  if (theirsOn) return <button onClick={() => replace(() => set({ id: them.id, name: them.name, since: today() }))} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2">😈 Accept {them.name}'s rivalry</button>;
+  return <button onClick={() => replace(() => set({ id: them.id, name: them.name, since: today() }))} className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={style}>😈 Propose a Nemesis rivalry</button>;
+}
+
+function RivalryCard({ s, setS, rows, openProfile }) {
+  const [challenge, setChallenge] = useState(false);
+  const cardOf = (id) => rows.find((r) => r.id === id);
+  const nemCard = s.nemesis?.id ? cardOf(s.nemesis.id) : null;
+  const mutual = isMutualNemesis(s, nemCard);
+  const incoming = rows.filter((r) => r.rivalWith === s.playerId && r.id !== s.playerId && s.nemesis?.id !== r.id && !(s.rivalDeclined || {})[r.id]);
+  const wins = nemesisWins(s);
+  const accept = (r) => {
+    const go = () => setS((p) => ({ ...p, nemesis: { id: r.id, name: r.name, since: today() }, nemesisSeen: {} }));
+    if (s.nemesis?.id) ask(`Replace ${s.nemesis.name || "your current Nemesis"} with ${r.name}? Your record against them stays saved.`, go, "Replace"); else go();
+  };
+  return (
+    <div className="space-y-2">
+      {incoming.map((r) => (
+        <div key={r.id} className="panel p-3 flex items-center gap-3" style={{ borderColor: "rgba(255,45,111,.5)" }}>
+          <Avatar src={r.avatar} name={r.name} size={36} look={r.look} />
+          <div className="flex-1 min-w-0"><div className="text-sm font-bold truncate"><FancyName name={r.name} look={r.look} /> wants you as their Nemesis</div><div className="body text-xs" style={{ color: C.dim }}>Accept to make it official. Duels between you count toward rivalry rewards.</div></div>
+          <div className="flex flex-col gap-1.5 shrink-0"><button onClick={() => accept(r)} className="btn px-3 py-1.5 text-xs">Accept</button><button onClick={() => setS((p) => ({ ...p, rivalDeclined: { ...(p.rivalDeclined || {}), [r.id]: Date.now() } }))} className="ghost px-3 py-1.5 text-xs">Decline</button></div>
+        </div>
+      ))}
+      {s.nemesis?.id && mutual ? (() => {
+        const rec = rivalRecord(s, s.nemesis.id);
+        return (
+          <div className="panel p-4 space-y-3" style={{ borderColor: "rgba(255,45,111,.55)", background: "linear-gradient(160deg, rgba(122,0,25,.28), transparent 60%)" }}>
+            <div className="flex items-center gap-3">
+              <button onClick={() => openProfile(nemCard.id)} aria-label={`Open ${nemCard.name}'s profile`}><Avatar src={nemCard.avatar} name={nemCard.name} size={52} look={nemCard.look} /></button>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold uppercase tracking-wider" style={{ color: "#FF6B8F" }}>😈 Your Nemesis</div>
+                <div className="text-lg font-bold truncate"><FancyName name={nemCard.name} look={nemCard.look} /></div>
+                <div className="body text-xs" style={{ color: C.dim }}>Rivals since {fmtShort(s.nemesis.since || today())}</div>
+              </div>
+              <div className="text-center shrink-0">
+                <div className="text-2xl font-extrabold tabular-nums" aria-label={`Record ${rec.w} wins, ${rec.l} losses${rec.t ? `, ${rec.t} ties` : ""}`}><span style={{ color: C.green }}>{rec.w}</span><span style={{ color: C.mute }}>–</span><span style={{ color: "#FF6B8F" }}>{rec.l}</span>{rec.t ? <><span style={{ color: C.mute }}>–</span><span style={{ color: C.dim }}>{rec.t}</span></> : null}</div>
+                <div className="body" style={{ fontSize: 10.5, color: C.mute }}>lifetime W–L{rec.t ? "–T" : ""}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {NEMESIS_REWARDS.map((r) => { const got = wins >= r.wins; return (
+                <div key={r.wins} className="text-center py-2 px-1" style={{ borderRadius: 10, background: got ? "rgba(255,31,75,.16)" : C.glass, border: `1px solid ${got ? "#FF6B8F" : C.glassLine}` }}>
+                  <div className="text-xs font-bold" style={{ color: got ? "#FFD9DF" : C.dim }}>{got ? "✓ " : ""}{r.kind}</div>
+                  <div className="body" style={{ fontSize: 10.5, color: got ? C.sub : C.mute }}>{got ? r.name.replace(/ (badge|title|aura)$/, "") : `${Math.min(wins, r.wins)}/${r.wins} Nemesis wins`}</div>
+                </div>
+              ); })}
+            </div>
+            {challenge ? <DuelButton s={s} targetId={nemCard.id} targetName={nemCard.name} targetUid={nemCard.uid} nemesis onSent={() => setChallenge(false)} /> : <button onClick={() => setChallenge(true)} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2"><Swords size={16} />Challenge {nemCard.name}</button>}
+          </div>
+        );
+      })() : s.nemesis?.id ? (
+        <div className="panel p-3 body text-sm flex items-center justify-between gap-2" style={{ color: C.dim }}><span>Rivalry proposed to <b style={{ color: C.text }}>{s.nemesis.name}</b>. Waiting for them to accept.</span><button onClick={() => setS((p) => ({ ...p, nemesis: null }))} className="text-xs underline shrink-0" style={{ color: C.mute }}>Cancel</button></div>
+      ) : !incoming.length ? (
+        <div className="body text-xs" style={{ color: C.dim }}>No Nemesis yet. Open a player's profile from the board and propose a rivalry. Beat your Nemesis in duels to earn the Rivalbreaker badge (1 win), Nemesis Slayer title (3) and Vendetta aura (5).</div>
+      ) : null}
+    </div>
+  );
+}
+
+function DuelsPanel({ s, setS, gainXp, rows, openProfile }) {
+  const [duels, setDuels] = useState(null);
+  useEffect(() => { readShared("duel:").then((d) => setDuels(d.filter((x) => x.from === s.playerId || x.to === s.playerId).sort((a, b) => (b.t || 0) - (a.t || 0)))).catch(() => setDuels([])); }, []);
+  const cardOf = (id) => rows.find((r) => r.id === id || r.key === `lb:${id}`);
+  const accept = async (d) => {
+    const other = cardOf(d.from);
+    const rec = { ...d, key: undefined, status: "on", start: today(), acceptedAt: Date.now(), nemesis: isMutualNemesis(s, other) };
+    try { await window.storage.set(d.key, JSON.stringify(rec), true); setDuels((x) => x.map((y) => (y.key === d.key ? { ...rec, key: d.key } : y))); } catch (e) { /* ignore */ }
+  };
+  const remove = async (d) => { try { await window.storage.delete(d.key, true); setDuels((x) => x.filter((y) => y.key !== d.key)); } catch (e) { /* ignore */ } };
+  const claim = (d) => { setS((p) => ({ ...p, duelClaimed: { ...(p.duelClaimed || {}), [d.id]: true } })); gainXp(DUEL_XP, "Duel win", `duel_${d.id}`); };
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} />Duels &amp; rivalry</h2>
+      <RivalryCard s={s} setS={setS} rows={rows} openProfile={openProfile} />
+      {duels === null && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading duels…</div>}
+      {duels?.length === 0 && <Empty>No duels yet. Open someone's profile from the board and challenge them: most XP, most steps, or most workouts over 7 days.</Empty>}
+      {duels?.map((d) => {
+        const me = d.from === s.playerId, other = me ? d.toName : d.fromName, otherId = me ? d.to : d.from;
+        const oc = cardOf(otherId), mc = cardOf(s.playerId);
+        const saved = (s.duelResults || {})[d.id];
+        const st = saved ? { ...duelState(d, s, oc), phase: "done", r: saved.r, mine: saved.mine, theirs: saved.theirs } : duelState(d, s, oc);
+        const c = DUEL_CONDS[st.cond], fmtV = (v) => (v === null || v === undefined ? "?" : Number(v).toLocaleString());
+        const expired = d.status === "pending" && Date.now() - (d.t || 0) > 7 * 86400000;
+        return (
+          <div key={d.key} className="panel p-3 space-y-1.5" style={d.nemesis ? { borderColor: "rgba(255,45,111,.5)" } : null}>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 text-right min-w-0"><div className="font-bold text-sm truncate"><FancyName name={s.profile.name} look={s.profile.look} /></div>{mc?.title && <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: s.profile.look?.accent || C.cyan }}>{mc.title}</div>}</div>
+              <span className="font-extrabold px-2" style={{ color: "#FF2D6F", fontFamily: "'Cinzel', serif" }}>VS</span>
+              <button onClick={() => openProfile(otherId)} className="flex-1 text-left min-w-0"><div className="font-bold text-sm truncate"><FancyName name={other} look={oc?.look} /></div>{oc?.title && <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: oc?.look?.accent || C.cyan }}>{oc.title}</div>}</button>
+            </div>
+            <div className="flex items-center justify-center gap-2 flex-wrap body text-xs" style={{ color: C.dim }}>
+              <span className="font-bold px-2" style={{ borderRadius: 999, color: C.cyan, border: `1px solid ${C.cyan}55` }}>{c.label}</span>
+              {d.nemesis && <span className="font-bold px-2" style={{ borderRadius: 999, color: "#FF6B8F", border: "1px solid rgba(255,45,111,.5)" }}>😈 Nemesis duel</span>}
+              <span>{st.w ? `${fmtShort(st.w.start)} – ${fmtShort(st.w.end)}` : "Starts the day it's accepted"}{st.phase === "live" ? ` · day ${st.day} of 7` : ""}</span>
+            </div>
+            {d.forfeit && <div className="body text-xs text-center" style={{ color: C.orange }}>Loser: {d.forfeit}</div>}
+            {expired ? <div className="body text-xs text-center" style={{ color: C.mute }}>Expired. Never accepted.</div>
+              : d.status === "pending" && !me ? <div className="grid grid-cols-2 gap-2"><button onClick={() => remove(d)} className="ghost py-2 text-sm">Decline</button><button onClick={() => accept(d)} className="btn py-2 text-sm">Accept · starts today</button></div>
+              : d.status === "pending" ? <div className="body text-xs text-center" style={{ color: C.dim }}>Waiting for {other} to accept.</div> : null}
+            {st.phase === "live" && <div className="body text-sm text-center">You <b className="tabular-nums">{fmtV(st.mine)}</b> · {other} <b className="tabular-nums">{fmtV(st.theirs)}</b> <span style={{ color: C.dim }}>{c.unit}</span></div>}
+            {st.phase === "waiting" && <div className="body text-xs text-center" style={{ color: C.dim }}>Finished. Waiting for {other} to open the app so their final score posts.</div>}
+            {st.phase === "done" && (
+              <div className="font-bold text-center" style={{ color: st.r === "w" ? C.gold : st.r === "l" ? "#FF6B8F" : C.dim }}>
+                {st.r === "t" ? `Dead heat, ${fmtV(st.mine)} each.` : st.r === "w" ? `You won ${fmtV(st.mine)} to ${fmtV(st.theirs)}` : `${other} won ${fmtV(st.theirs)} to ${fmtV(st.mine)}`}
+                {st.r === "w" && !(s.duelClaimed || {})[d.id] && <button onClick={() => claim(d)} className="btn px-3 py-1 text-xs ml-2">Claim {DUEL_XP} XP</button>}
+              </div>
+            )}
+            <div className="text-center"><button onClick={() => ask("Delete this duel? Your win/loss record stays saved.", () => remove(d), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Nemesis alerts (mutual rivals only) ---------- */
 function NemesisAlert({ s, setS, openProfile }) {
   const [card, setCard] = useState(null);
+  const [incoming, setIncoming] = useState([]);
   const nem = s.nemesis;
-  useEffect(() => { if (!nem?.id) return; window.storage.get(`lb:${nem.id}`, true).then((r) => setCard(r?.value ? JSON.parse(r.value) : null)).catch(() => {}); }, [nem?.id]);
-  useEffect(() => { if (card && s.nemesisSeen?.workouts === undefined) setS((p) => ({ ...p, nemesisSeen: { workouts: card.stats?.workouts || 0, points: card.points || 0 } })); }, [card]);
-  if (!nem?.id || !card) return null;
+  useEffect(() => { if (!nem?.id) { setCard(null); return; } window.storage.get(`lb:${nem.id}`, true).then((r) => setCard(r?.value ? JSON.parse(r.value) : null)).catch(() => {}); }, [nem?.id]);
+  useEffect(() => { if (!s.lb) return; readShared("lb:").then((rows) => setIncoming(rows.filter((r) => r.rivalWith === s.playerId && r.id !== s.playerId && s.nemesis?.id !== r.id && !(s.rivalDeclined || {})[r.id]))).catch(() => {}); }, [s.lb, s.nemesis?.id]);
+  const mutual = isMutualNemesis(s, card);
+  useEffect(() => { if (mutual && s.nemesisSeen?.workouts === undefined) setS((p) => ({ ...p, nemesisSeen: { workouts: card.stats?.workouts || 0, points: card.points || 0 } })); }, [mutual, card]);
+  if (incoming.length) {
+    const r = incoming[0];
+    return (
+      <div className="panel p-4 flex items-start gap-3" style={{ borderColor: "rgba(255,45,111,.45)" }}>
+        <span className="text-2xl">😈</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold" style={{ color: "#FF6B8F" }}>{r.name} wants you as their Nemesis</div>
+          <div className="body text-sm" style={{ color: C.sub }}>Accept on their profile or in Board → Crew → Duels &amp; rivalry.</div>
+          <button onClick={() => openProfile(r.id)} className="body text-sm font-semibold mt-1.5" style={{ color: C.cyan }}>View {r.name}</button>
+        </div>
+      </div>
+    );
+  }
+  if (!mutual) return null;
   const seen = s.nemesisSeen || {};
   const myPoints = pointsOf(s);
   const alerts = [];
