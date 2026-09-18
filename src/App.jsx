@@ -717,7 +717,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5l";
+const APP_VERSION = "5m";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -788,6 +788,7 @@ export default function App() {
     return () => window.removeEventListener("ascend-juice", on);
   }, []);
   const [offline, setOffline] = useState(false);
+  const [lastSaveAt, setLastSaveAt] = useState(null);
   useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
   const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
   AskRef.current = (message, onYes, yesLabel = "Confirm") => setDialog({ message, onYes, yesLabel });
@@ -833,6 +834,7 @@ export default function App() {
       let ok = !!window.storage?.set;
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
       setStorageOk(ok);
+      if (ok) setLastSaveAt(Date.now());
       setS(st); setLoaded(true);
       loadCommunity().then((c) => { if (c) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
       setTimeout(pullSteps, 800);
@@ -846,7 +848,7 @@ export default function App() {
     if (!loaded) return;
     dirtyRef.current = true;
     const t = setTimeout(async () => {
-      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); }
+      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); setLastSaveAt(Date.now()); }
       catch (e) { setOffline(true); }
     }, 400);
     return () => clearTimeout(t);
@@ -855,7 +857,7 @@ export default function App() {
     if (!loaded) return;
     const id = setInterval(async () => {
       if (!dirtyRef.current) return;
-      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); } catch (e) { setOffline(true); }
+      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); setLastSaveAt(Date.now()); } catch (e) { setOffline(true); }
     }, 15000);
     return () => clearInterval(id);
   }, [loaded]);
@@ -875,9 +877,15 @@ export default function App() {
 
   useEffect(() => {
     const go = () => XpSync.flush();
+    const retrySave = async () => {
+      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); setLastSaveAt(Date.now()); } catch (e) { setOffline(true); }
+    };
+    const lost = () => setOffline(true);
     window.addEventListener("online", go);
+    window.addEventListener("online", retrySave);
+    window.addEventListener("offline", lost);
     const iv = setInterval(go, 60000);
-    return () => { window.removeEventListener("online", go); clearInterval(iv); };
+    return () => { window.removeEventListener("online", go); window.removeEventListener("online", retrySave); window.removeEventListener("offline", lost); clearInterval(iv); };
   }, []);
 
   const gainXp = (amt, msg, once = null) => {
@@ -1133,7 +1141,7 @@ export default function App() {
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 2) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
-        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => setXpOpen(true)} />}
+        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} />}
         {onboard === null && tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
         {onboard === null && tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
         {onboard === null && tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
@@ -1229,7 +1237,7 @@ function Sheet({ title, onClose, children }) {
 }
 
 /* ---------- Status ---------- */
-function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, openXp, openRival }) {
+function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, openXp, openRival, saveOk, saveAt, storageOk }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -1303,7 +1311,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
         ))}
       </div>
 
-      <Dashboard s={s} setS={setS} goTrain={goTrain} goRun={goRun} />
+      <Dashboard s={s} setS={setS} goTrain={goTrain} goRun={goRun} saveOk={saveOk} saveAt={saveAt} storageOk={storageOk} />
       <StepsPanel s={s} setS={setS} gainXp={gainXp} openRun={goRun} openAssistant={openAssistant} />
       <RoastCard s={s} setS={setS} />
       <NemesisAlert s={s} setS={setS} openProfile={openProfile} />
@@ -1546,6 +1554,15 @@ function Train({ s, setS, gainXp, openRun }) {
       </div>
 
       {!a.editId && <WarmUp s={s} a={a} setActive={setActive} />}
+      {a.exercises.length === 0 && !a.editId && (() => {
+        const last = [...s.workouts].reverse().find((w) => isWorkout(w) && w.exercises?.length && (!a.title || w.title === a.title));
+        if (!last) return null;
+        return (
+          <button onClick={() => setActive((w) => ({ ...w, title: w.title || last.title || "", exercises: last.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: (e.sets || []).map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false, drop: !!st.drop })) })) }))} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
+            <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
+          </button>
+        );
+      })()}
       {a.exercises.length === 0 && <Empty>Add your first exercise. Check off each set as you finish it, and only checked sets count.</Empty>}
 
       {a.exercises.map((ex, ei) => {
@@ -1578,6 +1595,11 @@ function Train({ s, setS, gainXp, openRun }) {
               <div className="body text-xs mb-2 space-y-0.5" style={{ color: C.dim }}>
                 {past.map((ps) => <div key={ps.id} className="truncate"><span style={{ color: C.mute }}>{new Date(ps.date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {ps.sets.map((st) => setLabel(def, st)).join(", ")}</div>)}
               </div>
+            )}
+            {prev.length > 0 && !a.editId && (
+              <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: prev.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false, drop: !!st.drop })) }) }))} className="ghost w-full mb-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.cyan }}>
+                <Repeat size={12} />Same as last time
+              </button>
             )}
             <div className="grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
               <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : (ex.wMode || (def.perHand ? "hand" : "total")) === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
@@ -5173,7 +5195,7 @@ function ExercisePage({ s, name, onBack, openMuscle }) {
 const SLEEP_OPTS = [5, 6, 7, 8, 9];
 const SCALE_COLORS = ["#FF4D6D", "#FF9340", "#FFD447", "#9BE15D", "#3DF08A"];
 const MOOD_OPTS = ["Wrecked", "Meh", "Good", "Fired up"];
-function Dashboard({ s, setS, goTrain, goRun }) {
+function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
   const d = today();
   const t = targets(s.profile), tot = mealTotals(s.meals[d]);
   const day = s.days?.[d];
@@ -5198,6 +5220,19 @@ function Dashboard({ s, setS, goTrain, goRun }) {
         <button onClick={goTrain} className="btn py-2.5 text-sm flex items-center justify-center gap-2"><Dumbbell size={16} />{s.active ? "Resume workout" : "Start training"}</button>
         <button onClick={() => setS((p) => ({ ...p, atGym: atGym ? null : Date.now() }))} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: atGym ? C.green : C.cyan, borderColor: atGym ? C.green : C.border }}><MapPin size={16} />{atGym ? "At the gym ✓" : "Check in at gym"}</button>
       </div>
+      {(() => {
+        const blocked = storageOk === false;
+        const bad = blocked || saveOk === false;
+        const age = saveAt ? Math.round((Date.now() - saveAt) / 1000) : null;
+        const when = age == null ? "" : age < 12 ? "just now" : age < 60 ? `${age}s ago` : age < 3600 ? `${Math.max(1, Math.round(age / 60))}m ago` : "a while ago";
+        const text = blocked ? "Progress can't save on this device. Check your connection or sign back in." : bad ? "Last save didn't go through. Gyms eat signal — keep logging, we'll retry." : saveAt ? `You're good. Last saved ${when}.` : "You're good. Saves are landing.";
+        return (
+          <div className="flex items-center gap-2 body text-xs px-1" style={{ color: bad ? C.orange : C.green }}>
+            {bad ? <RefreshCw size={12} /> : <Check size={12} />}
+            <span>{text}</span>
+          </div>
+        );
+      })()}
       {ci.sleep && ci.mood && !ci.edit ? (
         <button onClick={() => setCi("edit", true)} className="w-full flex items-center justify-between body text-xs px-1">
           <span style={{ color: C.dim }}>Checked in <Check size={12} className="inline" style={{ color: C.green }} /></span>
