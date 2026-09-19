@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -732,7 +732,7 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, bossRecaps: {}, streakNagDay: null, worldFirsts: {}, wfClaim: {}, crewBanners: {}, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, ghost: null, bossRecaps: {}, streakNagDay: null, worldFirsts: {}, wfClaim: {}, crewBanners: {}, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
@@ -749,7 +749,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6i";
+const APP_VERSION = "6k";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -902,10 +902,13 @@ export default function App() {
       let toWrite = null;
       setS((p) => {
         const base = snapRef.current || {};
-        const merged = remote && JSON.stringify(remote) !== JSON.stringify(base) ? mergeState(p, remote, base) : p;
-        toWrite = { ...merged, rev: Math.max(+p.rev || 0, +remote?.rev || 0, +merged.rev || 0) + 1 };
+        const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
+        // A stale read (older rev than we last ack'd) must not replace newer local data
+        const useRemote = remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
+        const merged = useRemote ? mergeState(p, remote, base) : p;
+        toWrite = { ...merged, rev: Math.max(+p.rev || 0, remoteRev, +merged.rev || 0) + 1 };
         sRef.current = toWrite;
-        return merged === p ? p : merged;
+        return JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
       });
       const res = await window.storage.set("ascend-state", JSON.stringify(toWrite || sRef.current), false);
       if (res?.queued) throw new Error("queued");
@@ -1513,6 +1516,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
       </div>
 
       <BossRecapBanner s={s} setS={setS} />
+      <GymSpotBanner s={s} setS={setS} />
       <StreakRisk s={s} setS={setS} goTrain={goTrain} />
       <NextGoal s={s} openExercise={openExercise} goQuests={goQuests} />
       <Dashboard s={s} setS={setS} goTrain={goTrain} goRun={goRun} saveOk={saveOk} saveAt={saveAt} storageOk={storageOk} />
@@ -1680,7 +1684,7 @@ function Train({ s, setS, gainXp, openRun }) {
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
-    if (s.crew?.code) noteRaidHit(s.crew.code, s.playerId, s.profile.name, workout);
+    noteRaidHitFor(s, setS, workout);
     juice(prs ? "pr" : "finish");
     if (prs) { postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
     gainXp(xp, prs ? `Workout · ${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete", `wo_${workout.id}`);
@@ -2737,7 +2741,7 @@ function Board({ s, setS, openProfile, gainXp }) {
               <div className="flex-1 min-w-0 ml-1">
                 <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{isMutualNemesis(s, r) && <span className="ml-1" title="Your Nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
-                <div className="body text-xs" style={{ color: C.dim }}><span className="ranklabel">{r.rank}{r.div ? ` ${r.div}` : ""}</span> · Level {r.lvl} · {r.streak} day streak{r.atGym && Date.now() - r.atGym < 3 * 3600 * 1000 ? <span style={{ color: C.green }}> · at the gym</span> : null}</div>
+                <div className="body text-xs" style={{ color: C.dim }}><span className="ranklabel">{r.rank}{r.div ? ` ${r.div}` : ""}</span> · Level {r.lvl} · {r.streak} day streak</div>
               </div>
               <div className="text-right">
                 <div className="font-bold glowtext">{show(r)}</div>
@@ -3897,7 +3901,6 @@ function profileCard(s) {
     title: equippedTitle(s).name,
     weekXp: Object.entries(s.xpLog || {}).filter(([d]) => d >= ws).reduce((a, [, v]) => a + v, 0),
     prevWeek: (() => { const pw = shift(ws, -7); return { key: pw, xp: Object.entries(s.xpLog || {}).filter(([d]) => d >= pw && d < ws).reduce((a, [, v]) => a + v, 0) }; })(),
-    atGym: s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000 ? s.atGym : null,
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && isWorkout(w)).length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: s.profile.shareWeight ? Object.fromEntries(wl) : null,
@@ -5652,10 +5655,18 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
   const day = s.days?.[d];
   const qDone = (day?.list || []).filter((q) => q.claimed).length, qAll = Math.max(3, (day?.list || []).length || 3);
   const ci = s.checkins?.[d] || {};
-  const setCi = (k, v) => setS((p) => ({ ...p, checkins: { ...(p.checkins || {}), [d]: { ...(p.checkins?.[d] || {}), [k]: v } } }));
-  const atGym = s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000;
+  const [ciEdit, setCiEdit] = useState(false);
+  const setCi = (k, v) => {
+    setS((p) => {
+      const cur = { ...(p.checkins?.[d] || {}), [k]: v };
+      delete cur.edit;
+      return { ...p, checkins: { ...(p.checkins || {}), [d]: cur } };
+    });
+    setCiEdit(false);
+  };
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick((n) => n + 1), 15000); return () => clearInterval(id); }, []);
+  const ciDone = ci.sleep && ci.mood && !ciEdit;
   return (
     <div className="panel p-3 space-y-3">
       <div className="grid grid-cols-4 gap-2 text-center">
@@ -5671,7 +5682,7 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
       </button>
       <div className="grid grid-cols-2 gap-2">
         <button onClick={goTrain} className="btn py-2.5 text-sm flex items-center justify-center gap-2"><Dumbbell size={16} />{s.active ? "Resume workout" : "Start training"}</button>
-        <button onClick={() => setS((p) => ({ ...p, atGym: atGym ? null : Date.now() }))} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: atGym ? C.green : C.cyan, borderColor: atGym ? C.green : C.border }}><MapPin size={16} />{atGym ? "At the gym ✓" : "Check in at gym"}</button>
+        <GymCheckBtn s={s} setS={setS} />
       </div>
       {(() => {
         const blocked = storageOk === false;
@@ -5686,8 +5697,8 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
           </div>
         );
       })()}
-      {ci.sleep && ci.mood && !ci.edit ? (
-        <button onClick={() => setCi("edit", true)} className="w-full flex items-center justify-between body text-xs px-1">
+      {ciDone ? (
+        <button onClick={() => setCiEdit(true)} className="w-full flex items-center justify-between body text-xs px-1">
           <span style={{ color: C.dim }}>Checked in · +15 pts <Check size={12} className="inline" style={{ color: C.green }} /></span>
           <span><span style={{ color: SCALE_COLORS[SLEEP_OPTS.indexOf(ci.sleep)] }}>{ci.sleep}{ci.sleep === 9 ? "+" : ""}h sleep</span> · <span style={{ color: SCALE_COLORS[[0, 1, 3, 4][MOOD_OPTS.indexOf(ci.mood)]] }}>{ci.mood}</span></span>
         </button>
@@ -5695,11 +5706,11 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
         <>
           <div className="flex items-center gap-1.5 flex-wrap body text-xs">
             <span className="w-10" style={{ color: C.dim }}>Sleep</span>
-            {SLEEP_OPTS.map((h, i) => { const col = SCALE_COLORS[i], on = ci.sleep === h; return <button key={h} onClick={() => setCi("sleep", h) || setCi("edit", false)} className="px-2.5 py-1 font-bold" style={{ borderRadius: 999, background: on ? col : "transparent", color: on ? "#06101A" : col, border: `1px solid ${col}`, opacity: ci.sleep && !on ? 0.45 : 1 }}>{h}{h === 9 ? "+" : ""}h</button>; })}
+            {SLEEP_OPTS.map((h, i) => { const col = SCALE_COLORS[i], on = ci.sleep === h; return <button key={h} onClick={() => setCi("sleep", h)} className="px-2.5 py-1 font-bold" style={{ borderRadius: 999, background: on ? col : "transparent", color: on ? "#06101A" : col, border: `1px solid ${col}`, opacity: ci.sleep && !on ? 0.45 : 1 }}>{h}{h === 9 ? "+" : ""}h</button>; })}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap body text-xs">
             <span className="w-10" style={{ color: C.dim }}>Mood</span>
-            {MOOD_OPTS.map((m, i) => { const col = SCALE_COLORS[[0, 1, 3, 4][i]], on = ci.mood === m; return <button key={m} onClick={() => setCi("mood", m) || setCi("edit", false)} className="px-2.5 py-1 font-bold" style={{ borderRadius: 999, background: on ? col : "transparent", color: on ? "#06101A" : col, border: `1px solid ${col}`, opacity: ci.mood && !on ? 0.45 : 1 }}>{m}</button>; })}
+            {MOOD_OPTS.map((m, i) => { const col = SCALE_COLORS[[0, 1, 3, 4][i]], on = ci.mood === m; return <button key={m} onClick={() => setCi("mood", m)} className="px-2.5 py-1 font-bold" style={{ borderRadius: 999, background: on ? col : "transparent", color: on ? "#06101A" : col, border: `1px solid ${col}`, opacity: ci.mood && !on ? 0.45 : 1 }}>{m}</button>; })}
           </div>
         </>
       )}
@@ -6100,21 +6111,231 @@ function Feed({ s, setS, openProfile, rows = [] }) {
   );
 }
 const CREW_PER_PLAYER = 12, CREW_XP = 500, DUEL_XP = 100;
-const RAID_MS = 45 * 60 * 1000, RAID_NEED = 3, RAID_XP = 80;
-function raidActive(raid) { return !!(raid && Date.now() >= raid.start && Date.now() < raid.end); }
+const IOS_LOC = "On iPhone: Settings → Privacy & Security → Location Services (on), then Settings → Apps → Safari → Location → Allow. Reload this page in Safari (not an in-app browser) and tap Allow when asked. The site has to be HTTPS.";
+const fmtHMS = (sec) => {
+  const s = Math.max(0, Math.floor(+sec || 0));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`;
+};
+const fmtAgo = (t, now = Date.now()) => {
+  const m = Math.max(0, Math.floor((now - t) / 60000));
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
+};
+function ghostBundle(s) {
+  const pid = s.playerId || "me";
+  if (s.ghost?.crew) return s.ghost;
+  return {
+    crew: { code: "LOCAL", name: "Test crew (this device only)", owner: pid, members: [pid, "g1", "g2", "g3"] },
+    gym: { lat: 41.8827, lng: -87.6233, t: 1 },
+    presence: {},
+    ping: null,
+    onWay: {},
+    raid: null,
+    mocks: { g1: { id: "g1", name: "Mock Rio" }, g2: { id: "g2", name: "Mock Sage" }, g3: { id: "g3", name: "Mock Quinn" } },
+  };
+}
+function patchGhost(setS, fn) {
+  setS((p) => ({ ...p, ghost: fn(ghostBundle(p)) }));
+}
+function getGps(opts = {}) {
+  if (opts.test && opts.gym && Number.isFinite(+opts.gym.lat)) return Promise.resolve({ lat: +opts.gym.lat, lng: +opts.gym.lng, mock: true });
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject({ code: 0, message: "no-geo" }); return; }
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      (e) => reject(e),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 8000 },
+    );
+  });
+}
+function locErrorText(err) {
+  if (err?.code === 1) return `Location is blocked. ${IOS_LOC}`;
+  if (err?.code === 2) return "Couldn't find you. Step outside or near a window and try again.";
+  if (err?.code === 3) return "Location timed out. Try again in a spot with a clearer sky.";
+  if (err?.message === "no-geo") return "This browser can't share location.";
+  return "Couldn't get your location.";
+}
+async function readPres(code) {
+  try { const r = await window.storage.get(`crewpres:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
+}
+async function writePres(code, rec) {
+  try { await window.storage.set(`crewpres:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
+}
 async function readRaid(code) {
   try { const r = await window.storage.get(`crewraid:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
 }
 async function writeRaid(code, rec) {
   try { await window.storage.set(`crewraid:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
 }
-async function noteRaidHit(code, playerId, name, workout) {
-  if (!code || !playerId) return;
-  const raid = await readRaid(code);
-  if (!raidActive(raid)) return;
-  const hits = { ...(raid.hits || {}), [playerId]: { name: name || "Teammate", t: Date.now(), vol: Math.round(workout.volume || 0), xp: workout.xp || 0 } };
-  const cleared = raid.cleared || Object.keys(hits).length >= RAID_NEED;
-  await writeRaid(code, { ...raid, hits, cleared });
+async function casRaid(code, action, ctx) {
+  if (ctx.ghostMode) {
+    const { ok, raid, reason } = applyRaidAction(ctx.ghostRaid, action, ctx);
+    return { ok, raid, reason };
+  }
+  for (let i = 0; i < 8; i++) {
+    const remote = await readRaid(code);
+    const { ok, raid, reason } = applyRaidAction(remote, action, ctx);
+    if (!ok) return { ok, raid: remote, reason };
+    const latest = await readRaid(code);
+    if ((latest?.rev || 0) !== (remote?.rev || 0)) {
+      const merged = reconcileRaid(raid, latest);
+      const again = applyRaidAction(merged, action, ctx);
+      const out = again.ok ? again.raid : merged;
+      if (await writeRaid(code, out)) return { ok: true, raid: out };
+      continue;
+    }
+    if (await writeRaid(code, raid)) return { ok: true, raid };
+  }
+  return { ok: false, reason: "busy", raid: null };
+}
+async function noteRaidHitFor(s, setS, workout) {
+  const ctxBase = { playerId: s.playerId, name: s.profile.name, workout, now: Date.now() };
+  if (s.test) {
+    const g = ghostBundle(s);
+    const presence = prunePresence(g.presence, ctxBase.now);
+    const { ok, raid } = applyRaidAction(g.raid, "hit", { ...ctxBase, presence, memberCount: g.crew.members.length, ghostMode: true, ghostRaid: g.raid });
+    if (ok) patchGhost(setS, (prev) => ({ ...prev, raid }));
+    return;
+  }
+  if (!s.crew?.code || !s.playerId) return;
+  const pres = await readPres(s.crew.code);
+  await casRaid(s.crew.code, "hit", { ...ctxBase, presence: prunePresence(pres?.at, ctxBase.now), memberCount: RAID_NEED });
+}
+async function stampPresence(s, setS, t, drop = false) {
+  const now = t || Date.now();
+  if (s.test) {
+    patchGhost(setS, (g) => {
+      const presence = { ...(g.presence || {}) };
+      if (drop) delete presence[s.playerId];
+      else presence[s.playerId] = now;
+      let raid = g.raid;
+      if (drop && raidPhase(raid, now) === "lobby") {
+        const got = applyRaidAction(raid, "drop", { playerId: s.playerId, now, presence, memberCount: g.crew.members.length });
+        if (got.ok) raid = got.raid;
+      }
+      return { ...g, presence, raid };
+    });
+    setS((p) => ({ ...p, atGym: drop ? null : now }));
+    return;
+  }
+  setS((p) => ({ ...p, atGym: drop ? null : now }));
+  if (!s.crew?.code) return;
+  const rec = (await readPres(s.crew.code)) || { at: {}, ping: null, onWay: {}, rev: 0 };
+  const at = { ...(rec.at || {}) };
+  if (drop) delete at[s.playerId];
+  else at[s.playerId] = now;
+  await writePres(s.crew.code, { ...rec, at, rev: (rec.rev || 0) + 1 });
+  if (drop && s.crew?.code) await casRaid(s.crew.code, "drop", { playerId: s.playerId, now, presence: prunePresence(at, now), memberCount: RAID_NEED });
+}
+function GymCheckBtn({ s, setS }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const now = Date.now();
+  const here = presenceActive(s.atGym, now);
+  const gym = s.test ? ghostBundle(s).gym : null;
+  const [crewGym, setCrewGym] = useState(gym);
+  useEffect(() => {
+    if (s.test) { setCrewGym(ghostBundle(s).gym); return; }
+    if (!s.crew?.code) { setCrewGym(null); return; }
+    let stop = false;
+    readCrew(s.crew.code).then((rec) => { if (!stop) setCrewGym(rec?.gym || null); }).catch(() => {});
+    return () => { stop = true; };
+  }, [s.test, s.crew?.code, s.ghost?.gym?.t]);
+  useEffect(() => {
+    if (!here) return;
+    const pin = s.test ? ghostBundle(s).gym : crewGym;
+    let stop = false;
+    const watch = async () => {
+      if (stop) return;
+      try {
+        const pos = await getGps({ test: s.test, gym: pin });
+        const chk = checkGymPin(pos, pin);
+        if (!chk.ok) { await stampPresence(s, setS, Date.now(), true); setMsg(chk.reason === "too-far" ? "You left the gym pin — check-in dropped." : "Crew gym isn't set yet."); }
+      } catch (e) {
+        if (e?.code === 1) { await stampPresence(s, setS, Date.now(), true); setMsg(locErrorText(e)); }
+      }
+    };
+    watch();
+    const id = setInterval(watch, 45000);
+    return () => { stop = true; clearInterval(id); };
+  }, [here, s.test, s.crew?.code, crewGym?.lat, crewGym?.lng]);
+  const tap = async () => {
+    setBusy(true); setMsg("");
+    const pin = s.test ? ghostBundle(s).gym : crewGym;
+    if (!pin) { setMsg(s.test ? "Set a test gym on the crew tab." : "Your crew leader hasn't pinned a gym yet."); setBusy(false); return; }
+    try {
+      const pos = await getGps({ test: s.test, gym: pin });
+      const chk = checkGymPin(pos, pin);
+      if (!chk.ok) { setMsg(chk.reason === "too-far" ? `You have to be within ${GYM_RADIUS_M} m of the crew gym.` : "Crew gym isn't set yet."); setBusy(false); return; }
+      await stampPresence(s, setS, Date.now(), false);
+    } catch (e) { setMsg(locErrorText(e)); }
+    setBusy(false);
+  };
+  const ping = async () => {
+    if (!here) return;
+    const nowT = Date.now();
+    if (s.test) {
+      patchGhost(setS, (g) => ({ ...g, ping: { by: s.playerId, name: s.profile.name || "You", t: nowT }, onWay: {} }));
+      return;
+    }
+    if (!s.crew?.code) return;
+    const rec = (await readPres(s.crew.code)) || { at: {}, ping: null, onWay: {}, rev: 0 };
+    await writePres(s.crew.code, { ...rec, ping: { by: s.playerId, name: s.profile.name || "Teammate", t: nowT }, onWay: {}, rev: (rec.rev || 0) + 1 });
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <button type="button" disabled={busy} onClick={tap} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: here ? C.green : C.cyan, borderColor: here ? C.green : C.border }}><MapPin size={16} />{busy ? "Checking…" : here ? "At the gym ✓" : "At the gym"}</button>
+      {here && <button type="button" onClick={ping} className="body text-[11px] font-bold" style={{ color: C.orange }}>Who wants a spot?</button>}
+      {msg && <div className="body text-[11px] leading-snug" style={{ color: C.orange }}>{msg}</div>}
+    </div>
+  );
+}
+function GymSpotBanner({ s, setS }) {
+  const [ping, setPing] = useState(s.test ? ghostBundle(s).ping : null);
+  const [onWay, setOnWay] = useState(s.test ? ghostBundle(s).onWay || {} : {});
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 15000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    if (s.test) { const g = ghostBundle(s); setPing(g.ping); setOnWay(g.onWay || {}); return; }
+    if (!s.crew?.code) { setPing(null); return; }
+    let stop = false;
+    const pull = async () => {
+      const rec = await readPres(s.crew.code);
+      if (stop) return;
+      setPing(rec?.ping || null);
+      setOnWay(rec?.onWay || {});
+    };
+    pull();
+    const id = setInterval(pull, 8000);
+    return () => { stop = true; clearInterval(id); };
+  }, [s.test, s.crew?.code, s.ghost?.ping?.t, s.ghost?.onWay]);
+  const now = Date.now();
+  if (!pingActive(ping, now) || ping.by === s.playerId) return null;
+  const going = onWay?.[s.playerId];
+  const sayComing = async () => {
+    const t = Date.now();
+    if (s.test) { patchGhost(setS, (g) => ({ ...g, onWay: { ...(g.onWay || {}), [s.playerId]: t } })); return; }
+    const rec = (await readPres(s.crew.code)) || { at: {}, ping: ping, onWay: {}, rev: 0 };
+    await writePres(s.crew.code, { ...rec, ping: rec.ping || ping, onWay: { ...(rec.onWay || {}), [s.playerId]: t }, rev: (rec.rev || 0) + 1 });
+    setOnWay((p) => ({ ...p, [s.playerId]: t }));
+  };
+  const who = Object.entries(onWay || {}).filter(([, t]) => presenceActive(t, now)).map(([id]) => (id === s.playerId ? "you" : "a teammate"));
+  return (
+    <div className="panel p-3 flex items-center gap-2" style={{ borderColor: `${C.orange}66` }}>
+      <MapPin size={16} style={{ color: C.orange }} />
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-sm">{ping.name || "A teammate"} wants a spot</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{fmtAgo(ping.t, now)} ago · lasts {Math.max(1, Math.ceil((PRESENCE_MS - (now - ping.t)) / 60000))}m{who.length ? ` · on the way: ${who.join(", ")}` : ""}</div>
+      </div>
+      <button type="button" disabled={!!going} onClick={sayComing} className="ghost px-3 py-2 text-xs font-bold whitespace-nowrap" style={{ color: going ? C.green : C.cyan }}>{going ? "On my way ✓" : "On my way"}</button>
+    </div>
+  );
 }
 function Crew({ s, setS, gainXp, rows, openProfile }) {
   return (
@@ -9180,6 +9401,194 @@ function CrewQuests({ s, setS, rows, crew, code }) {
     </div>
   );
 }
+function raidStatus(id, presence, raid, now) {
+  const gym = presenceActive(presence?.[id], now);
+  const ready = raidPhase(raid, now) === "lobby" && gym && raid?.ready?.[id] != null && !(raid.left?.[id] != null && +raid.left[id] >= +raid.ready[id]);
+  if (ready) return "ready";
+  if (gym) return "at-gym";
+  return "not-here";
+}
+function RaidNight({ s, setS, crew, code, people, presence, raid, setRaid, ghost, gainXp }) {
+  const [now, setNow] = useState(Date.now());
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const names = Object.fromEntries((people || []).map((p) => [p.id, p.name || "Teammate"]));
+  names[s.playerId] = s.profile.name || "You";
+  const n = Math.max(people?.length || 0, (crew?.members || []).length, 1);
+  const ctx = () => ({ playerId: s.playerId, now: Date.now(), presence, memberCount: n, ghostMode: !!ghost, ghostRaid: raid });
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const ph = raidPhase(raid, now);
+    if (ph !== "lobby" || !raid?.countdownAt || now < raid.countdownAt + RAID_COUNTDOWN_MS) return;
+    (async () => {
+      const got = await casRaid(code, "tick", ctx());
+      if (got.raid) {
+        setRaid(got.raid);
+        if (ghost) patchGhost(setS, (g) => ({ ...g, raid: got.raid }));
+      }
+    })();
+  }, [now, raid?.countdownAt, raid?.phase]);
+  useEffect(() => {
+    if (!raid?.cleared || !s.playerId || !raid.hits?.[s.playerId] || !raid.start) return;
+    const eid = `raid_${code}_${raid.start}`;
+    if (s.xpDone?.[eid]) return;
+    gainXp?.(RAID_XP, "Raid night clear", eid);
+  }, [raid?.cleared, raid?.start, code, s.playerId]);
+  const act = async (action) => {
+    setBusy(true); setErr("");
+    const got = await casRaid(code, action, ctx());
+    if (got.raid) {
+      setRaid(got.raid);
+      if (ghost) patchGhost(setS, (g) => ({ ...g, raid: got.raid }));
+    }
+    if (!got.ok) {
+      const why = { "crew-size": `Need ${RAID_NEED} members to raid.`, "not-at-gym": "Check in at the crew gym first.", active: "A raid is already open.", "not-host": "Only the host can cancel.", "no-lobby": "No lobby to join." }[got.reason] || "Couldn't update the raid.";
+      setErr(why);
+    }
+    setBusy(false);
+  };
+  const live = raidActive(raid, now);
+  const lobby = raidPhase(raid, now) === "lobby";
+  const cd = lobby ? raidCountdownLeft(raid, now) : null;
+  const readyIds = Object.keys(raid?.ready || {}).filter((id) => raidStatus(id, presence, raid, now) === "ready");
+  const hostName = names[raid?.by] || "Host";
+  const myGym = presenceActive(presence?.[s.playerId], now);
+  const myReady = readyIds.includes(s.playerId);
+  const canRaid = canProposeRaid(n);
+  return (
+    <div className="panel p-3 space-y-2" style={{ borderColor: live || (cd != null && cd <= 3) ? C.orange : C.border }}>
+      <div className="font-bold text-sm">Raid night</div>
+      <div className="body text-xs" style={{ color: C.dim }}>Ready up at the crew gym. After 3 people ready, a 3-2-1 starts the raid. Then you have 3 hours to log a workout there. +{RAID_XP} XP each if {RAID_NEED} of you finish. Boss HP is unchanged.</div>
+      {!canRaid && <div className="body text-xs" style={{ color: C.orange }}>Crews need {RAID_NEED} members to raid.</div>}
+      {lobby && (
+        <div className="space-y-1">
+          {(people || []).map((p) => {
+            const st = raidStatus(p.id, presence, raid, now);
+            const label = st === "ready" ? "ready" : st === "at-gym" ? "at the gym" : "not here";
+            const col = st === "ready" ? C.green : st === "at-gym" ? C.cyan : C.mute;
+            return (
+              <div key={p.id} className="flex justify-between text-xs">
+                <span className="truncate font-semibold">{p.name || "Teammate"}{p.id === s.playerId ? " (you)" : ""}{raid?.by === p.id ? " · host" : ""}</span>
+                <span style={{ color: col }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {lobby && cd != null && (
+        <div className="text-center space-y-1">
+          <div className="font-extrabold tabular-nums" style={{ fontSize: 42, color: C.orange, lineHeight: 1 }}>{cd || "GO"}</div>
+          <div className="body text-xs font-bold" style={{ color: C.sub }}>Starting with {readyIds.map((id) => names[id] || "Teammate").join(", ")}</div>
+        </div>
+      )}
+      {live && (
+        <>
+          <div className="flex justify-between text-sm font-bold tabular-nums"><span style={{ color: C.orange }}>Live · {fmtHMS(Math.max(0, Math.ceil((raid.end - now) / 1000)))}</span><span>{Object.keys(raid.hits || {}).length}/{RAID_NEED} logged</span></div>
+          {Object.values(raid.hits || {}).map((h, i) => <div key={i} className="body text-xs" style={{ color: C.sub }}>{h.name} · {Math.round(h.vol || 0).toLocaleString()} lb</div>)}
+          {raid.cleared && <div className="body text-xs font-bold" style={{ color: C.green }}>Raid cleared.</div>}
+        </>
+      )}
+      {raid?.cleared && raid.end > now - 6 * 3600 * 1000 && !live && !lobby && (
+        <div className="body text-xs" style={{ color: C.green }}>Last raid cleared · {Object.keys(raid.hits || {}).length} raiders</div>
+      )}
+      {raid?.cancelled && !live && !lobby && <div className="body text-xs" style={{ color: C.mute }}>Last raid cancelled. Nothing awarded.</div>}
+      {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
+      <div className="flex flex-col gap-1.5">
+        {!lobby && !live && canRaid && <button type="button" disabled={busy} onClick={() => act("propose")} className="btn w-full py-2.5 text-sm">Propose raid</button>}
+        {lobby && !myReady && <button type="button" disabled={busy || !myGym} onClick={() => act("ready")} className="btn w-full py-2.5 text-sm">{myGym ? "Ready" : "Check in at the gym to ready"}</button>}
+        {lobby && myReady && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm font-bold">Leave lobby</button>}
+        {lobby && !myReady && raid?.in?.[s.playerId] && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm">Leave lobby</button>}
+        {(lobby || (live && !raid.cleared)) && raid?.by === s.playerId && <button type="button" disabled={busy} onClick={() => act("cancel")} className="ghost w-full py-2 text-sm" style={{ color: C.red }}>Cancel raid</button>}
+      </div>
+      {lobby && <div className="body text-[11px]" style={{ color: C.mute }}>Host: {hostName}. If they leave, someone still in the lobby takes over.</div>}
+    </div>
+  );
+}
+function CrewGymBlock({ s, setS, crew, setCrew, presence, people, ghost }) {
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const now = Date.now();
+  const owner = crew?.owner === s.playerId;
+  const pinGym = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const here = await getGps({ test: !!ghost, gym: ghost ? { lat: 41.8827, lng: -87.6233 } : null });
+      const gym = { lat: here.lat, lng: here.lng, t: Date.now() };
+      if (ghost) patchGhost(setS, (g) => ({ ...g, gym }));
+      else {
+        const rec = { ...crew, gym };
+        await window.storage.set(`crew:${crew.code}`, JSON.stringify(rec), true);
+        setCrew(rec);
+      }
+      setMsg("Crew gym pinned to where you're standing.");
+    } catch (e) { setMsg(locErrorText(e)); }
+    setBusy(false);
+  };
+  const at = people.filter((p) => presenceActive(presence?.[p.id], now));
+  return (
+    <div className="panel p-3 space-y-2">
+      <div className="font-bold text-sm">Crew gym</div>
+      <div className="body text-xs" style={{ color: C.dim }}>{crew?.gym ? "Pinned. Only the crew creator can move it. We never save your phone's coordinates — only this gym pin." : "The crew creator pins the gym while standing in it. Raids and check-ins use that pin."}</div>
+      {owner && <button type="button" disabled={busy} onClick={pinGym} className="ghost w-full py-2 text-sm font-bold" style={{ color: C.cyan }}>{crew?.gym ? "Move gym to where I am" : "Set gym to where I am"}</button>}
+      {!owner && !crew?.gym && <div className="body text-xs" style={{ color: C.orange }}>Ask the crew creator to pin a gym.</div>}
+      {msg && <div className="body text-xs" style={{ color: C.sub }}>{msg}</div>}
+      <div className="body text-xs font-bold" style={{ color: C.dim }}>At the gym now</div>
+      {at.length === 0 ? <div className="body text-xs" style={{ color: C.mute }}>Nobody's checked in.</div> : at.map((p) => (
+        <div key={p.id} className="flex justify-between text-xs"><span className="truncate">{p.name}{p.id === s.playerId ? " (you)" : ""}</span><span style={{ color: C.green }}>{fmtAgo(presence[p.id], now)}</span></div>
+      ))}
+    </div>
+  );
+}
+function GhostCrew({ s, setS, gainXp }) {
+  const g = ghostBundle(s);
+  useEffect(() => { if (!s.ghost?.crew) patchGhost(setS, () => g); }, []);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+  const people = [
+    { id: s.playerId, name: s.profile.name || "You" },
+    ...Object.values(g.mocks || {}),
+  ];
+  const presence = prunePresence({ ...(g.presence || {}) }, now);
+  const toggleMock = (id) => {
+    patchGhost(setS, (prev) => {
+      const presenceNext = { ...(prev.presence || {}) };
+      if (presenceActive(presenceNext[id], Date.now())) delete presenceNext[id];
+      else presenceNext[id] = Date.now();
+      let raid = prev.raid;
+      const atGym = presenceActive(presenceNext[id], Date.now());
+      if (raidPhase(raid, Date.now()) === "lobby") {
+        const got = applyRaidAction(raid, atGym ? "ready" : "drop", { playerId: id, now: Date.now(), presence: presenceNext, memberCount: prev.crew.members.length });
+        if (got.ok) raid = got.raid;
+      }
+      return { ...prev, presence: presenceNext, raid };
+    });
+  };
+  return (
+    <div className="panel p-4 space-y-2">
+      <div className="flex justify-between items-start">
+        <div>
+          <div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Test crew</div>
+          <div className="font-bold">{g.crew.name}</div>
+        </div>
+        <div className="body text-xs text-right" style={{ color: C.orange }}>local only · no board</div>
+      </div>
+      <div className="body text-xs" style={{ color: C.dim }}>Ghost mode uses fake teammates and a fake gym on this device. Nothing is written to a real crew or the leaderboard.</div>
+      <div className="space-y-1">
+        {people.map((p) => (
+          <div key={p.id} className="flex items-center gap-2 text-sm">
+            <span className="flex-1 truncate font-semibold">{p.name}{p.id === s.playerId ? " (you)" : ""}</span>
+            {p.id !== s.playerId && <button type="button" onClick={() => toggleMock(p.id)} className="ghost px-2 py-1 text-[11px] font-bold" style={{ color: presenceActive(presence[p.id], now) ? C.green : C.cyan }}>{presenceActive(presence[p.id], now) ? "At gym · ready" : "Simulate at gym"}</button>}
+          </div>
+        ))}
+      </div>
+      <CrewGymBlock s={s} setS={setS} crew={{ ...g.crew, gym: g.gym }} setCrew={() => {}} presence={presence} people={people} ghost />
+      <RaidNight s={s} setS={setS} crew={g.crew} code={g.crew.code} people={people} presence={presence} raid={tickRaid(g.raid, { now, presence })} setRaid={(r) => patchGhost(setS, (prev) => ({ ...prev, raid: r }))} ghost gainXp={gainXp} />
+    </div>
+  );
+}
 function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
@@ -9188,7 +9597,7 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [raid, setRaid] = useState(null);
-  const [now, setNow] = useState(Date.now());
+  const [pres, setPres] = useState({ at: {} });
   const mine = s.crew;
   const refreshRoster = async () => {
     if (!mine?.code) { setRoster([]); return; }
@@ -9201,13 +9610,19 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
   useEffect(() => { if (mine?.code) readCrew(mine.code).then(setCrew); }, [mine?.code]);
   useEffect(() => { refreshRoster(); }, [mine?.code, rows]);
   useEffect(() => {
-    if (!mine?.code) { setRaid(null); return; }
+    if (!mine?.code) { setRaid(null); setPres({ at: {} }); return; }
     let stop = false;
-    const pull = async () => { try { const r = await readRaid(mine.code); if (!stop) setRaid(r); } catch { /* */ } };
+    const pull = async () => {
+      try {
+        const [r, p] = await Promise.all([readRaid(mine.code), readPres(mine.code)]);
+        if (stop) return;
+        setRaid(r);
+        setPres(p || { at: {} });
+      } catch { /* */ }
+    };
     pull();
     const id = setInterval(pull, 8000);
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => { stop = true; clearInterval(id); clearInterval(tick); };
+    return () => { stop = true; clearInterval(id); };
   }, [mine?.code]);
   useEffect(() => {
     if (!raid?.cleared || !mine?.code || !s.playerId || !raid.hits?.[s.playerId]) return;
@@ -9216,7 +9631,6 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     gainXp?.(RAID_XP, "Raid night clear", eid);
   }, [raid?.cleared, raid?.start, mine?.code, s.playerId]);
   const create = async () => {
-    if (s.test) { setErr("Ghost accounts can't join a crew (crew boss HP scales with members)."); return; }
     if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
     setBusy(true); setErr("");
     const c = crewCode(), rec = { code: c, name: name.trim().slice(0, 30) || `${s.profile.name}'s crew`, owner: s.playerId, members: [s.playerId], t: Date.now() };
@@ -9225,7 +9639,6 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     setBusy(false);
   };
   const join = async () => {
-    if (s.test) { setErr("Ghost accounts can't join a crew (crew boss HP scales with members)."); return; }
     const c = code.trim().toUpperCase();
     if (c.length < 4) return;
     setBusy(true); setErr("");
@@ -9242,8 +9655,10 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     }, "Leave for good"), 80);
   }, "Continue");
   const memberRows = liveBoard(roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [])).filter((r) => !(s.test && r.id === s.playerId));
-  // The crew record knows everyone, even members whose cards haven't loaded yet
   const headcount = Math.max(memberRows.length, new Set([...(crew?.members || []), s.playerId]).size, 1);
+  const presence = prunePresence(pres?.at, Date.now());
+  const people = memberRows.map((r) => ({ id: r.id, name: r.name }));
+  if (s.test) return <GhostCrew s={s} setS={setS} gainXp={gainXp} />;
   if (mine?.code) {
     return (
       <div className="panel p-4 space-y-2">
@@ -9263,35 +9678,8 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
           <button type="button" onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>
         </div>
         <CrewQuests s={s} setS={setS} rows={memberRows} crew={crew} code={mine.code} />
-        {(() => {
-          const live = raidActive(raid);
-          const left = live ? Math.max(0, Math.ceil((raid.end - now) / 1000)) : 0;
-          const hitN = Object.keys(raid?.hits || {}).length;
-          const startRaid = async () => {
-            setBusy(true);
-            const rec = { start: Date.now(), end: Date.now() + RAID_MS, hits: {}, cleared: false, by: s.playerId };
-            const ok = await writeRaid(mine.code, rec);
-            setRaid(rec); setBusy(false);
-            if (!ok) setErr("Couldn't start the raid. Check your connection.");
-          };
-          return (
-            <div className="panel p-3 space-y-2" style={{ borderColor: live ? C.orange : C.border }}>
-              <div className="font-bold text-sm">Raid night</div>
-              <div className="body text-xs" style={{ color: C.dim }}>45-minute window. If {RAID_NEED}+ members finish a workout before it ends, everyone who hit gets +{RAID_XP} XP. Damage still counts on the crew boss.</div>
-              {live ? (
-                <>
-                  <div className="flex justify-between text-sm font-bold tabular-nums"><span style={{ color: C.orange }}>Live · {fmtClock(left)}</span><span>{hitN}/{RAID_NEED} logged</span></div>
-                  {Object.values(raid.hits || {}).map((h, i) => <div key={i} className="body text-xs" style={{ color: C.sub }}>{h.name} · {Math.round(h.vol || 0).toLocaleString()} lb</div>)}
-                  {raid.cleared && <div className="body text-xs font-bold" style={{ color: C.green }}>Raid cleared.</div>}
-                </>
-              ) : raid?.cleared && raid.end > now - 6 * 3600 * 1000 ? (
-                <div className="body text-xs" style={{ color: C.green }}>Last raid cleared · {Object.keys(raid.hits || {}).length} raiders</div>
-              ) : (
-                <button type="button" disabled={busy} onClick={startRaid} className="btn w-full py-2.5 text-sm">Start 45-min raid</button>
-              )}
-            </div>
-          );
-        })()}
+        <CrewGymBlock s={s} setS={setS} crew={crew} setCrew={setCrew} presence={presence} people={people} />
+        <RaidNight s={s} setS={setS} crew={crew} code={mine.code} people={people} presence={presence} raid={raid} setRaid={setRaid} gainXp={gainXp} />
       </div>
     );
   }

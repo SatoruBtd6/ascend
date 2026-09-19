@@ -136,3 +136,236 @@ export function pickNextGoal(candidates, { min = 0.1 } = {}) {
   const sorted = [...usable].sort((a, b) => frac(b) - frac(a) || (a.tie ?? 0) - (b.tie ?? 0));
   return sorted.find((c) => frac(c) >= min) || sorted.find((c) => +c.value > 0) || null;
 }
+
+// Gym pin + raid lobby. Pure so tests can cover ready-up, cancel, races, and GPS range
+// without touching shared crew:/lb: keys or boss HP.
+export const GYM_RADIUS_M = 150;
+export const PRESENCE_MS = 90 * 60 * 1000;
+export const RAID_NEED = 3;
+export const RAID_MS = 3 * 3600 * 1000;
+export const RAID_COUNTDOWN_MS = 3000;
+export const RAID_XP = 80;
+
+const toRad = (d) => (+d * Math.PI) / 180;
+export function haversineMeters(a, b) {
+  if (!a || !b || !Number.isFinite(+a.lat) || !Number.isFinite(+a.lng) || !Number.isFinite(+b.lat) || !Number.isFinite(+b.lng)) return Infinity;
+  const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+  const la1 = toRad(a.lat), la2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+export function inGymRadius(here, gym, radius = GYM_RADIUS_M) {
+  return haversineMeters(here, gym) <= radius;
+}
+export function presenceActive(t, now = Date.now(), ms = PRESENCE_MS) {
+  const n = +t;
+  return Number.isFinite(n) && now >= n && now - n < ms;
+}
+export function prunePresence(map, now = Date.now()) {
+  const out = {};
+  Object.entries(map || {}).forEach(([id, t]) => { if (presenceActive(t, now)) out[id] = +t; });
+  return out;
+}
+export function checkGymPin(here, gym, radius = GYM_RADIUS_M) {
+  if (!gym || !Number.isFinite(+gym.lat) || !Number.isFinite(+gym.lng)) return { ok: false, reason: "no-gym" };
+  if (!here || !Number.isFinite(+here.lat) || !Number.isFinite(+here.lng)) return { ok: false, reason: "no-gps" };
+  if (!inGymRadius(here, gym, radius)) return { ok: false, reason: "too-far" };
+  return { ok: true };
+}
+export function canProposeRaid(memberCount) {
+  return (memberCount || 0) >= RAID_NEED;
+}
+export function canReadyUp({ atGym, memberCount, phase } = {}) {
+  if (!canProposeRaid(memberCount)) return false;
+  if (phase && phase !== "lobby") return false;
+  return !!atGym;
+}
+export function pingActive(ping, now = Date.now()) {
+  return !!(ping && presenceActive(ping.t, now));
+}
+
+const copy = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
+
+export function raidPhase(raid, now = Date.now()) {
+  if (!raid) return null;
+  if (raid.cancelled) return "cancelled";
+  if (raid.cleared) return "cleared";
+  if (raid.phase === "lobby") return "lobby";
+  if (raid.phase === "live" || (raid.start && raid.end && raid.phase !== "cancelled")) {
+    if (Number.isFinite(+raid.start) && Number.isFinite(+raid.end) && now >= raid.start && now < raid.end) return "live";
+    if (raid.phase === "live" || !raid.phase) return "expired";
+  }
+  return raid.phase || null;
+}
+export function raidActive(raid, now = Date.now()) {
+  return raidPhase(raid, now) === "live";
+}
+
+export function nextHost(raid, leavingId) {
+  const ids = Object.keys(raid?.in || {}).filter((id) => id !== leavingId && !raid?.left?.[id]);
+  const ready = ids.filter((id) => raid?.ready?.[id]);
+  return ready[0] || ids[0] || null;
+}
+
+function activeReady(raid, presence, now) {
+  const pres = prunePresence(presence, now);
+  const out = {};
+  Object.entries(raid?.ready || {}).forEach(([id, t]) => {
+    if (raid?.left?.[id] != null && +raid.left[id] >= +t) return;
+    if (pres[id] != null) out[id] = t;
+  });
+  return out;
+}
+
+export function tickRaid(raid, { now = Date.now(), presence = {} } = {}) {
+  if (!raid || raid.cancelled) return raid;
+  const next = copy(raid);
+  next.ready = activeReady(next, presence, now);
+  if (Object.keys(next.ready).length < RAID_NEED) next.countdownAt = null;
+  if (next.phase === "lobby" && next.countdownAt && Object.keys(next.ready).length >= RAID_NEED && now >= next.countdownAt + RAID_COUNTDOWN_MS) {
+    next.phase = "live";
+    next.start = next.countdownAt + RAID_COUNTDOWN_MS;
+    next.end = next.start + RAID_MS;
+    next.hits = next.hits || {};
+    next.cleared = false;
+  }
+  if (next.phase === "live" && !next.cleared && Object.keys(next.hits || {}).length >= RAID_NEED) next.cleared = true;
+  return next;
+}
+
+export function raidCountdownLeft(raid, now = Date.now()) {
+  if (!raid?.countdownAt || raid.phase !== "lobby") return null;
+  return Math.max(0, Math.ceil((raid.countdownAt + RAID_COUNTDOWN_MS - now) / 1000));
+}
+
+export function applyRaidAction(raid, action, ctx = {}) {
+  const now = ctx.now ?? Date.now();
+  const presence = ctx.presence || {};
+  const playerId = ctx.playerId;
+  const memberCount = ctx.memberCount ?? 0;
+  const cur = tickRaid(raid, { now, presence });
+  const bump = (n) => ({ ...n, rev: (raid?.rev || 0) + 1 });
+
+  if (action === "propose") {
+    if (!canProposeRaid(memberCount)) return { ok: false, reason: "crew-size", raid: cur };
+    const ph = raidPhase(cur, now);
+    if (ph === "lobby" || ph === "live") return { ok: false, reason: "active", raid: cur };
+    return {
+      ok: true,
+      raid: bump({
+        phase: "lobby", by: playerId, proposedBy: playerId,
+        in: { [playerId]: now }, ready: {}, left: {}, hits: {},
+        cleared: false, cancelled: false, countdownAt: null, start: null, end: null, t: now,
+      }),
+    };
+  }
+
+  if (action === "ready") {
+    if (raidPhase(cur, now) !== "lobby") return { ok: false, reason: "no-lobby", raid: cur };
+    if (!presenceActive(presence[playerId], now)) return { ok: false, reason: "not-at-gym", raid: cur };
+    const next = copy(cur) || {};
+    next.left = { ...(next.left || {}) };
+    delete next.left[playerId];
+    next.in = { ...(next.in || {}), [playerId]: now };
+    next.ready = { ...(next.ready || {}), [playerId]: now };
+    const n = Object.keys(activeReady(next, presence, now)).length;
+    if (n >= RAID_NEED && !next.countdownAt) next.countdownAt = now;
+    return { ok: true, raid: bump(next) };
+  }
+
+  if (action === "leave" || action === "drop") {
+    if (raidPhase(cur, now) !== "lobby") return { ok: false, reason: "no-lobby", raid: cur };
+    const next = copy(cur) || {};
+    next.ready = { ...(next.ready || {}) };
+    delete next.ready[playerId];
+    if (action === "leave") {
+      next.left = { ...(next.left || {}), [playerId]: now };
+      next.in = { ...(next.in || {}) };
+      delete next.in[playerId];
+      if (next.by === playerId) {
+        const host = nextHost(next, playerId);
+        if (host) next.by = host;
+      }
+    }
+    const n = Object.keys(activeReady(next, presence, now)).length;
+    if (n < RAID_NEED) next.countdownAt = null;
+    return { ok: true, raid: bump(next) };
+  }
+
+  if (action === "cancel") {
+    const ph = raidPhase(cur, now);
+    if (ph !== "lobby" && ph !== "live") return { ok: false, reason: "not-cancellable", raid: cur };
+    if (cur?.cleared) return { ok: false, reason: "cleared", raid: cur };
+    if (cur?.by !== playerId) return { ok: false, reason: "not-host", raid: cur };
+    return { ok: true, raid: bump({ ...copy(cur), phase: "cancelled", cancelled: true, cancelledAt: now, countdownAt: null }) };
+  }
+
+  if (action === "hit") {
+    if (raidPhase(cur, now) !== "live") return { ok: false, reason: "not-live", raid: cur };
+    if (!presenceActive(presence[playerId], now)) return { ok: false, reason: "not-at-gym", raid: cur };
+    const w = ctx.workout || {};
+    const next = copy(cur);
+    next.hits = { ...(next.hits || {}), [playerId]: { name: ctx.name || "Teammate", t: now, vol: Math.round(w.volume || 0), xp: w.xp || 0 } };
+    if (Object.keys(next.hits).length >= RAID_NEED) next.cleared = true;
+    return { ok: true, raid: bump(next) };
+  }
+
+  if (action === "tick") {
+    const changed = JSON.stringify(cur || {}) !== JSON.stringify(raid || {});
+    return { ok: true, raid: changed ? bump(cur) : cur };
+  }
+
+  return { ok: false, reason: "unknown", raid: cur };
+}
+
+export function reconcileRaid(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  if (a.cleared || b.cleared) {
+    const hits = { ...(a.hits || {}), ...(b.hits || {}) };
+    const base = a.start && b.start ? (a.start <= b.start ? a : b) : (a.cleared ? a : b);
+    return { ...base, hits, cleared: true, cancelled: false, phase: "live", rev: Math.max(a.rev || 0, b.rev || 0) };
+  }
+  const aLive = a.phase === "live", bLive = b.phase === "live";
+  if (a.cancelled && !aLive) return bLive ? b : a;
+  if (b.cancelled && !bLive) return aLive ? a : b;
+  if (a.cancelled && b.cancelled) return (a.cancelledAt || 0) <= (b.cancelledAt || 0) ? a : b;
+  if (aLive || bLive) {
+    const live = aLive ? a : b;
+    const other = aLive ? b : a;
+    if (other.cancelled && other.start && live.start && other.start === live.start && !live.cleared) {
+      return { ...live, phase: "cancelled", cancelled: true, cancelledAt: other.cancelledAt, rev: Math.max(a.rev || 0, b.rev || 0) };
+    }
+    const hits = { ...(other.hits || {}), ...(live.hits || {}) };
+    const cleared = live.cleared || other.cleared || Object.keys(hits).length >= RAID_NEED;
+    return {
+      ...live,
+      hits,
+      cleared,
+      start: Math.min(+live.start || Infinity, +other.start || Infinity) || live.start,
+      end: live.end || other.end,
+      ready: { ...(other.ready || {}), ...(live.ready || {}) },
+      rev: Math.max(a.rev || 0, b.rev || 0),
+    };
+  }
+  const ready = { ...(a.ready || {}) };
+  Object.entries(b.ready || {}).forEach(([id, t]) => { if (ready[id] == null || +t < +ready[id]) ready[id] = t; });
+  const inMap = { ...(a.in || {}), ...(b.in || {}) };
+  const left = { ...(a.left || {}), ...(b.left || {}) };
+  Object.keys(ready).forEach((id) => { if (left[id] != null && +ready[id] >= +left[id]) delete left[id]; });
+  let by = (a.t || 0) <= (b.t || 0) ? a.by : b.by;
+  if (left[by]) by = nextHost({ in: inMap, left, ready, by }, by) || a.by || b.by;
+  const n = Object.keys(ready).length;
+  const cands = [a.countdownAt, b.countdownAt].filter((x) => Number.isFinite(+x));
+  return {
+    ...a,
+    by,
+    in: inMap,
+    ready,
+    left,
+    countdownAt: n >= RAID_NEED ? (cands.length ? Math.min(...cands) : null) : null,
+    phase: "lobby",
+    cancelled: false,
+    rev: Math.max(a.rev || 0, b.rev || 0) + 1,
+  };
+}

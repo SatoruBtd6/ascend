@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -171,5 +171,136 @@ test("mergeState merges nested profile: local weight, server look", () => {
   assert.equal(got.profile.weight, 182);
   assert.equal(got.profile.look.aura, "tide");
   assert.equal(got.profile.name, "Finn");
+});
+
+const gym = { lat: 0, lng: 0 };
+const at = (ids, t = 0) => Object.fromEntries(ids.map((id) => [id, t]));
+const propose = (now = 0, n = 4) => applyRaidAction(null, "propose", { playerId: "h", memberCount: n, now }).raid;
+
+test("haversine / 150 m gym radius", () => {
+  assert.equal(inGymRadius({ lat: 0, lng: 0 }, gym), true);
+  assert.ok(haversineMeters({ lat: 0.001, lng: 0 }, gym) < GYM_RADIUS_M);
+  assert.equal(inGymRadius({ lat: 0.001, lng: 0 }, gym), true);
+  assert.ok(haversineMeters({ lat: 0.002, lng: 0 }, gym) > GYM_RADIUS_M);
+  assert.equal(inGymRadius({ lat: 0.002, lng: 0 }, gym), false);
+  assert.equal(checkGymPin({ lat: 0, lng: 0 }, gym).ok, true);
+  assert.equal(checkGymPin({ lat: 0.002, lng: 0 }, gym).reason, "too-far");
+  assert.equal(checkGymPin({ lat: 0, lng: 0 }, null).reason, "no-gym");
+});
+
+test("presence lasts 90 minutes and refreshes", () => {
+  assert.equal(presenceActive(0, PRESENCE_MS - 1), true);
+  assert.equal(presenceActive(0, PRESENCE_MS), false);
+  assert.equal(presenceActive(100, 100 + PRESENCE_MS - 1), true);
+  const pruned = prunePresence({ a: 0, b: 1 }, PRESENCE_MS);
+  assert.equal(pruned.a, undefined);
+  assert.equal(pruned.b, 1);
+});
+
+test("ready-up rules: count, crew size, must be at gym", () => {
+  assert.equal(canProposeRaid(2), false);
+  assert.equal(canProposeRaid(RAID_NEED), true);
+  assert.equal(canReadyUp({ atGym: true, memberCount: 2 }), false);
+  assert.equal(canReadyUp({ atGym: false, memberCount: 4, phase: "lobby" }), false);
+  assert.equal(canReadyUp({ atGym: true, memberCount: 4, phase: "lobby" }), true);
+  assert.equal(applyRaidAction(null, "propose", { playerId: "h", memberCount: 2, now: 0 }).reason, "crew-size");
+  const lobby = propose();
+  const noGym = applyRaidAction(lobby, "ready", { playerId: "a", presence: {}, now: 1, memberCount: 4 });
+  assert.equal(noGym.ok, false);
+  assert.equal(noGym.reason, "not-at-gym");
+  const ok = applyRaidAction(lobby, "ready", { playerId: "a", presence: at(["a"]), now: 1, memberCount: 4 });
+  assert.equal(ok.ok, true);
+  assert.ok(ok.raid.ready.a);
+});
+
+test("3rd ready starts a 3-2-1 countdown then a 3-hour live window", () => {
+  let r = propose();
+  const pres = at(["a", "b", "c"]);
+  r = applyRaidAction(r, "ready", { playerId: "a", presence: pres, now: 10 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "b", presence: pres, now: 11 }).raid;
+  assert.equal(r.countdownAt, null);
+  r = applyRaidAction(r, "ready", { playerId: "c", presence: pres, now: 12 }).raid;
+  assert.equal(r.countdownAt, 12);
+  assert.equal(r.phase, "lobby");
+  const live = tickRaid(r, { now: 12 + RAID_COUNTDOWN_MS, presence: pres });
+  assert.equal(live.phase, "live");
+  assert.equal(live.end - live.start, RAID_MS);
+  assert.equal(raidActive(live, 12 + RAID_COUNTDOWN_MS), true);
+});
+
+test("leaving GPS range drops ready and aborts countdown", () => {
+  let r = propose();
+  const pres = at(["a", "b", "c"]);
+  r = applyRaidAction(r, "ready", { playerId: "a", presence: pres, now: 1 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "b", presence: pres, now: 2 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "c", presence: pres, now: 3 }).raid;
+  assert.ok(r.countdownAt);
+  r = applyRaidAction(r, "drop", { playerId: "c", presence: at(["a", "b"]), now: 4 }).raid;
+  assert.equal(r.ready.c, undefined);
+  assert.equal(r.countdownAt, null);
+  const gone = tickRaid(r, { now: 5, presence: at(["a", "b"]) });
+  assert.equal(gone.ready.c, undefined);
+});
+
+test("host leaving the lobby transfers host and does not cancel others", () => {
+  let r = propose();
+  const pres = at(["h", "a"]);
+  r = applyRaidAction(r, "ready", { playerId: "h", presence: pres, now: 1 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "a", presence: pres, now: 2 }).raid;
+  const left = applyRaidAction(r, "leave", { playerId: "h", presence: pres, now: 3 });
+  assert.equal(left.ok, true);
+  assert.equal(left.raid.by, "a");
+  assert.ok(left.raid.ready.a);
+  assert.equal(left.raid.cancelled, false);
+  assert.equal(left.raid.phase, "lobby");
+});
+
+test("cancel before clear awards nothing; hits after cancel do not land", () => {
+  let r = propose();
+  const pres = at(["h", "a", "b"]);
+  r = applyRaidAction(r, "ready", { playerId: "h", presence: pres, now: 1 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "a", presence: pres, now: 2 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "b", presence: pres, now: 3 }).raid;
+  r = tickRaid(r, { now: 3 + RAID_COUNTDOWN_MS, presence: pres });
+  const cancelled = applyRaidAction(r, "cancel", { playerId: "h", presence: pres, now: 4 + RAID_COUNTDOWN_MS });
+  assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.raid.cleared, false);
+  const hit = applyRaidAction(cancelled.raid, "hit", { playerId: "a", presence: pres, now: 5 + RAID_COUNTDOWN_MS, workout: { volume: 1000 } });
+  assert.equal(hit.ok, false);
+  assert.equal(hit.raid.cleared, false);
+  assert.equal(Object.keys(hit.raid.hits || {}).length, 0);
+});
+
+test("simultaneous ready-ups keep both players; only one live raid starts", () => {
+  const lobby = propose();
+  const pres = at(["a", "b", "c"]);
+  const fromA = applyRaidAction(lobby, "ready", { playerId: "a", presence: pres, now: 5 }).raid;
+  const fromB = applyRaidAction(lobby, "ready", { playerId: "b", presence: pres, now: 5 }).raid;
+  const merged = reconcileRaid(fromA, fromB);
+  assert.ok(merged.ready.a && merged.ready.b);
+  const withC = applyRaidAction(merged, "ready", { playerId: "c", presence: pres, now: 6 }).raid;
+  const liveA = tickRaid(withC, { now: 6 + RAID_COUNTDOWN_MS, presence: pres });
+  const liveB = tickRaid(withC, { now: 6 + RAID_COUNTDOWN_MS, presence: pres });
+  const one = reconcileRaid(liveA, liveB);
+  assert.equal(one.phase, "live");
+  assert.equal(liveA.start, liveB.start);
+  assert.equal(one.start, liveA.start);
+  const second = applyRaidAction(one, "propose", { playerId: "h", memberCount: 4, now: one.start + 1, presence: pres });
+  assert.equal(second.ok, false);
+  assert.equal(second.reason, "active");
+});
+
+test("raid hits only count at the gym; 3 at-gym logs clear", () => {
+  let r = propose();
+  const pres = at(["a", "b", "c"]);
+  ["a", "b", "c"].forEach((id, i) => { r = applyRaidAction(r, "ready", { playerId: id, presence: pres, now: i + 1 }).raid; });
+  r = tickRaid(r, { now: 10 + RAID_COUNTDOWN_MS, presence: pres });
+  const miss = applyRaidAction(r, "hit", { playerId: "a", presence: {}, now: 11 + RAID_COUNTDOWN_MS, workout: { volume: 9 } });
+  assert.equal(miss.ok, false);
+  r = applyRaidAction(r, "hit", { playerId: "a", presence: pres, now: 11 + RAID_COUNTDOWN_MS, workout: { volume: 9 } }).raid;
+  r = applyRaidAction(r, "hit", { playerId: "b", presence: pres, now: 12 + RAID_COUNTDOWN_MS, workout: { volume: 9 } }).raid;
+  assert.equal(r.cleared, false);
+  r = applyRaidAction(r, "hit", { playerId: "c", presence: pres, now: 13 + RAID_COUNTDOWN_MS, workout: { volume: 9 } }).raid;
+  assert.equal(r.cleared, true);
 });
 
