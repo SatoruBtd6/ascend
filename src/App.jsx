@@ -425,14 +425,32 @@ function overallInfo(s) {
   return { score, groups: g, ...rankFromScore(score) };
 }
 const overallRank = (s) => overallInfo(s).rank;
-// Leaderboard points: all workout XP + points for the rank of every lift
-function pointsOf(s) {
-  const fromWorkouts = s.workouts.reduce((a, w) => a + (w.xp || 0), 0);
+// Leaderboard points: workout XP + lift ranks + hustle XP, then vault aura, then crate spends.
+function crateAuraMult(s) {
+  let best = 0;
+  (AURAS || []).forEach((a) => { if (a.crate && a.ptsMult && unlocked(a, s)) best = Math.max(best, a.ptsMult); });
+  return 1 + best;
+}
+function crateAuraBest(s) {
+  return (AURAS || []).filter((a) => a.crate && a.ptsMult && unlocked(a, s)).sort((a, b) => b.ptsMult - a.ptsMult)[0] || null;
+}
+function pointsParts(s) {
+  const fromWorkouts = (s.workouts || []).reduce((a, w) => a + (w.xp || 0), 0);
   const fromRanks = rankedLifts(s).reduce((a, r) => a + Math.round(r.score * r.score * 30), 0);
-  return fromWorkouts + fromRanks;
+  const fromHustle = Math.max(0, Math.round(s.xp || 0) - fromWorkouts);
+  const fromStreak = streakOf(s) * 25;
+  const fromCheckins = Object.values(s.checkins || {}).filter((c) => c.sleep && c.mood).length * 15;
+  const gross = fromWorkouts + fromRanks + fromHustle + fromStreak + fromCheckins;
+  const mult = crateAuraMult(s);
+  const boosted = Math.round(gross * mult);
+  const spent = crateSpentOf(s);
+  return { fromWorkouts, fromRanks, fromHustle, fromStreak, fromCheckins, gross, mult, boosted, spent, total: Math.max(0, boosted - spent) };
+}
+function pointsOf(s) {
+  return pointsParts(s).total;
 }
 const crateSpentOf = (s) => Math.max(0, Math.round(+s.crateSpent || 0));
-const crateBank = (s) => Math.max(0, pointsOf(s) - crateSpentOf(s));
+const crateBank = (s) => pointsOf(s);
 // A "workout" is a real session. Card-deck flips and quest top-ups still give XP and reps, but don't count as one.
 const isWorkout = (w) => w.source !== "quest" && w.source !== "deck";
 function activeDays(s) {
@@ -719,7 +737,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5p";
+const APP_VERSION = "5q";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -875,7 +893,7 @@ export default function App() {
       try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
     }, 1200);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults]);
+  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins]);
 
   useEffect(() => {
     const go = () => XpSync.flush();
@@ -1308,6 +1326,17 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
           <span className="body text-sm" style={{ color: C.dim }}>Leaderboard points</span>
           <span className="text-xl font-bold" style={{ color: C.gold, textShadow: "0 0 12px rgba(255,212,71,.5)" }}>{points.toLocaleString()}</span>
         </div>
+        {(() => {
+          const pp = pointsParts(s);
+          const aura = crateAuraBest(s);
+          const bits = [];
+          if (pp.fromHustle) bits.push("quests & daily XP count");
+          if (pp.fromStreak) bits.push(`streak +${pp.fromStreak.toLocaleString()}`);
+          if (pp.fromCheckins) bits.push(`check-ins +${pp.fromCheckins.toLocaleString()}`);
+          if (aura) bits.push(`${aura.name} +${Math.round(aura.ptsMult * 100)}%`);
+          if (pp.spent) bits.push(`${pp.spent.toLocaleString()} spent on crates`);
+          return bits.length ? <div className="body text-xs mt-1 text-right" style={{ color: C.mute }}>{bits.join(" · ")}</div> : null;
+        })()}
         <CrateTeaser s={s} onOpen={openProfile} />
       </div>
 
@@ -2498,7 +2527,7 @@ function Board({ s, setS, openProfile, gainXp }) {
       {sort === "season" && <SeasonBanner />}
       {sort === "month" && <div className="body text-xs" style={{ color: C.mute }}>XP earned since the 1st. Resets every month, so anyone can take the top spot.</div>}
       {sort === "muscle" && <div className="body text-xs" style={{ color: C.mute }}>Ranked by each player's best lift in {muscle}. Numbers hide, ranks show.</div>}
-      {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Points come from all XP earned in workouts, plus a bonus for the rank of every lift that grows fast as you climb (about 1,000 for a maxed S lift).</div>}
+      {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Board score is the points you have right now. Workouts, lift ranks, quests, fuel, steps, challenges, streak, and sleep/mood check-ins all add. Vault auras multiply that. Opening crates spends points and drops your place.</div>}
 
       {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
       {!loading && !err && sorted.length === 0 && <Empty>No one's on the board yet. Join and send your cousins the link.</Empty>}
@@ -4015,7 +4044,7 @@ function FancyName({ name, look, className = "", style = {}, size }) {
 
 /* ---------- Look studio: tabbed profile customization ---------- */
 const NAME_COLORS = ["#00D9FF", "#3DF08A", "#FFD447", "#FF9340", "#FF2D6F", "#B14BFF", "#F4FBFF", "#E8C872"];
-const AURA_GROUPS = [["crate", "Vault", "Opened from the Reliquary crate with leaderboard points."], ["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", "Limited and exclusive."], ["soon", "Coming soon", "More exclusive auras on the way."]];
+const AURA_GROUPS = [["crate", "Vault", "Opened from the Reliquary crate. Owned vault auras multiply your board points — best one counts, even if another aura is equipped."], ["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", "Limited and exclusive."], ["soon", "Coming soon", "More exclusive auras on the way."]];
 const titleGroup = (t) => (t.soon ? "soon" : t.crate ? "crate" : t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" || t.id === "reigning" ? "season" : t.id === "nemesis_slayer" ? "rivalry" : "progress");
 function StudioTabs({ tab, setTab, tabs }) {
   const i = Math.max(0, tabs.findIndex((t) => t[0] === tab));
@@ -4045,6 +4074,7 @@ function AuraTile({ a, s, sel, onPick }) {
         </span>
       </span>
       <span className="text-xs font-bold leading-tight mt-0.5" style={{ color: ok ? C.text : C.dim }}>{a.name}</span>
+      {ok && a.ptsMult ? <span className="body leading-tight" style={{ fontSize: 10.5, color: C.gold }}>+{Math.round(a.ptsMult * 100)}% pts</span> : null}
       {!ok && !prog && <span className="body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{a.how}</span>}
       {!ok && prog && (
         <span className="w-full mt-1 px-1">
@@ -5444,7 +5474,7 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
       })()}
       {ci.sleep && ci.mood && !ci.edit ? (
         <button onClick={() => setCi("edit", true)} className="w-full flex items-center justify-between body text-xs px-1">
-          <span style={{ color: C.dim }}>Checked in <Check size={12} className="inline" style={{ color: C.green }} /></span>
+          <span style={{ color: C.dim }}>Checked in · +15 pts <Check size={12} className="inline" style={{ color: C.green }} /></span>
           <span><span style={{ color: SCALE_COLORS[SLEEP_OPTS.indexOf(ci.sleep)] }}>{ci.sleep}{ci.sleep === 9 ? "+" : ""}h sleep</span> · <span style={{ color: SCALE_COLORS[[0, 1, 3, 4][MOOD_OPTS.indexOf(ci.mood)]] }}>{ci.mood}</span></span>
         </button>
       ) : (
@@ -6154,10 +6184,10 @@ const AURAS = [
   { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },
   { id: "soon_seraphim", name: "Seraphim", how: "Coming soon", soon: true, group: "soon", colors: ["#FFFFFF", "#FFD447"] },
   { id: "soon_wheel", name: "Living Wheel", how: "Coming soon", soon: true, group: "soon", colors: ["#38C6FF", "#FFD447"] },
-  { id: "sigil", name: "Sigil", how: "Reliquary Vault · rare", crate: true, group: "crate", colors: ["#C9A8FF", "#FFD447"] },
-  { id: "glassfire", name: "Glassfire", how: "Reliquary Vault · epic", crate: true, group: "crate", colors: ["#FF5A8A", "#7DF9FF"] },
-  { id: "crownfall", name: "Crownfall", how: "Reliquary Vault · legendary", crate: true, group: "crate", colors: ["#FFD447", "#FFF6C9"] },
-  { id: "eclipseheart", name: "Eclipseheart", how: "Reliquary Vault · mythic", crate: true, group: "crate", colors: ["#FF2D6F", "#FFD447"] },
+  { id: "sigil", name: "Sigil", how: "Reliquary Vault · rare · +3% pts", crate: true, group: "crate", ptsMult: 0.03, colors: ["#C9A8FF", "#FFD447"] },
+  { id: "glassfire", name: "Glassfire", how: "Reliquary Vault · epic · +5% pts", crate: true, group: "crate", ptsMult: 0.05, colors: ["#FF5A8A", "#7DF9FF"] },
+  { id: "crownfall", name: "Crownfall", how: "Reliquary Vault · legendary · +8% pts", crate: true, group: "crate", ptsMult: 0.08, colors: ["#FFD447", "#FFF6C9"] },
+  { id: "eclipseheart", name: "Eclipseheart", how: "Reliquary Vault · mythic · +12% pts", crate: true, group: "crate", ptsMult: 0.12, colors: ["#FF2D6F", "#FFD447"] },
 ];
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
@@ -6615,26 +6645,26 @@ function AuraRing({ aura, size, style }) {
 const CRATE_RARITY = {
   common: { name: "Common", color: "#9AA7BD", chance: "55%", refund: 80 },
   uncommon: { name: "Uncommon", color: "#3DF08A", chance: "28%", refund: 100 },
-  rare: { name: "Rare", color: "#38C6FF", chance: "12%", refund: 140 },
-  epic: { name: "Epic", color: "#B14BFF", chance: "3.5%", refund: 180 },
-  legendary: { name: "Legendary", color: "#FFD447", chance: "1%", refund: 250 },
-  mythic: { name: "Mythic", color: "#FF2D6F", chance: "0.5%", refund: 250 },
+  rare: { name: "Rare", color: "#38C6FF", chance: "12%", refund: 140, ptsMult: 0.03 },
+  epic: { name: "Epic", color: "#B14BFF", chance: "3.5%", refund: 180, ptsMult: 0.05 },
+  legendary: { name: "Legendary", color: "#FFD447", chance: "1%", refund: 250, ptsMult: 0.08 },
+  mythic: { name: "Mythic", color: "#FF2D6F", chance: "0.5%", refund: 250, ptsMult: 0.12 },
 };
 const CRATES = [
   {
     id: "reliquary-1",
     name: "Reliquary Vault",
     tag: "Season 1 crate",
-    blurb: "Gilded glass and a locked eclipse. Spend points earned from workouts and lift ranks. Leaderboard score does not drop.",
+    blurb: "Gilded glass and a locked eclipse. Opens spend your board points. Vault auras multiply what you have left.",
     cost: 250,
     theme: { gold: "#FFD447", void: "#6A00FF", rose: "#FF2D6F" },
     prizes: [
       { rarity: "common", w: 550, kind: "title", id: "chud", name: "Chud" },
       { rarity: "uncommon", w: 280, kind: "border", id: "relic", name: "Relic border" },
-      { rarity: "rare", w: 120, kind: "aura", id: "sigil", name: "Sigil" },
-      { rarity: "epic", w: 35, kind: "aura", id: "glassfire", name: "Glassfire" },
-      { rarity: "legendary", w: 10, kind: "aura", id: "crownfall", name: "Crownfall" },
-      { rarity: "mythic", w: 5, kind: "aura", id: "eclipseheart", name: "Eclipseheart" },
+      { rarity: "rare", w: 120, kind: "aura", id: "sigil", name: "Sigil", ptsMult: 0.03 },
+      { rarity: "epic", w: 35, kind: "aura", id: "glassfire", name: "Glassfire", ptsMult: 0.05 },
+      { rarity: "legendary", w: 10, kind: "aura", id: "crownfall", name: "Crownfall", ptsMult: 0.08 },
+      { rarity: "mythic", w: 5, kind: "aura", id: "eclipseheart", name: "Eclipseheart", ptsMult: 0.12 },
     ],
   },
 ];
@@ -6723,14 +6753,15 @@ function CrateVault({ s, setS }) {
       </div>
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-baseline">
-          <span className="body text-sm" style={{ color: C.dim }}>Crate points</span>
-          <span className="text-lg font-bold tabular-nums" style={{ color: bank >= crate.cost ? C.gold : C.mute }}>{bank.toLocaleString()}<span className="body text-xs font-normal" style={{ color: C.mute }}> / {pointsOf(s).toLocaleString()}</span></span>
+          <span className="body text-sm" style={{ color: C.dim }}>Board points</span>
+          <span className="text-lg font-bold tabular-nums" style={{ color: bank >= crate.cost ? C.gold : C.mute }}>{bank.toLocaleString()}</span>
         </div>
+        {crateAuraBest(s) && <div className="body text-xs" style={{ color: C.gold }}>{crateAuraBest(s).name} · +{Math.round(crateAuraBest(s).ptsMult * 100)}% on all points</div>}
         <button type="button" disabled={busy || bank < crate.cost} onClick={roll} className="btn w-full py-3 flex items-center justify-center gap-2" style={{ opacity: bank < crate.cost ? 0.5 : 1 }}>
           {busy ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
           {busy ? "Unsealing…" : `Open · ${crate.cost} pts`}
         </button>
-        {bank < crate.cost && <div className="body text-xs text-center" style={{ color: C.mute }}>Need {(crate.cost - bank).toLocaleString()} more from workouts and lift ranks.</div>}
+        {bank < crate.cost && <div className="body text-xs text-center" style={{ color: C.mute }}>Need {(crate.cost - bank).toLocaleString()} more points.</div>}
         <div className="grid grid-cols-2 gap-2">
           <div className="px-2.5 py-2" style={{ borderRadius: 10, background: C.glass, border: `1px solid ${C.glassLine}` }}>
             <div className="body text-xs" style={{ color: C.mute }}>Rare pity</div>
@@ -6748,7 +6779,7 @@ function CrateVault({ s, setS }) {
             return (
               <div key={p.id} className="flex items-center gap-2 py-1">
                 <span className="w-20 text-xs font-bold" style={{ color: r.color }}>{r.name}</span>
-                <span className="flex-1 text-sm font-semibold truncate" style={{ color: have ? C.text : C.dim }}>{p.name}</span>
+                <span className="flex-1 text-sm font-semibold truncate" style={{ color: have ? C.text : C.dim }}>{p.name}{p.ptsMult ? ` · +${Math.round(p.ptsMult * 100)}%` : ""}</span>
                 {have ? <Check size={14} style={{ color: C.green }} /> : <Lock size={12} style={{ color: C.mute }} />}
                 <span className="body text-xs tabular-nums w-12 text-right" style={{ color: C.mute }}>{r.chance}</span>
               </div>
