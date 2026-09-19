@@ -717,7 +717,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5n";
+const APP_VERSION = "5o";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -1750,8 +1750,8 @@ function ExercisePicker({ s, setS, onPick, onBack }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1000,
+          model: "claude-haiku-4-5",
+          max_tokens: 400,
           messages: [{ role: "user", content: `A gym app needs details for this exercise: "${q.trim()}".
 Respond ONLY with JSON, no markdown:
 {"name": clean title-case exercise name,
@@ -2068,7 +2068,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const onBarcode = async (e) => {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
     setLoading("barcode"); setErr(""); setFound(null);
-    try { const small = await shrinkPhoto(f, 1000); const food = await barcodeLookup(small); setFound({ ...food, r: "Scanned" }); }
+    try { const small = await shrinkPhoto(f, 480); const food = await barcodeLookup(small); setFound({ ...food, r: "Scanned" }); }
     catch (e2) { setErr(e2.message === "notfound" ? "Barcode read, but that product isn't in the database. Try the AI estimate or a photo of the label." : "Couldn't read the barcode. Fill the frame with it, flat and in focus."); }
     setLoading(null);
   };
@@ -2088,29 +2088,23 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const needle = q.trim().toLowerCase().replace(/[’']/g, "");
   const list = pool.filter((f) => f.name.toLowerCase().replace(/[’']/g, "").includes(needle));
 
-  const callClaude = async (prompt, useWeb) => {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }],
-        ...(useWeb ? { tools: [{ type: "web_search_20250305", name: "web_search" }] } : {}),
-      }),
-    });
-    const data = await res.json();
+  const callClaude = async (prompt) => {
+    const ck = `food:${q.trim().toLowerCase()}`;
+    try { const hit = sessionStorage.getItem("ascend-ai:" + ck); if (hit) return JSON.parse(hit); } catch (e) { /* */ }
+    const data = await claudeChat({ max_tokens: 280, messages: [{ role: "user", content: prompt }] });
     const texts = (data.content || []).filter((b) => b.type === "text").map((b) => b.text);
     const joined = texts.join("\n").replace(/```json|```/g, "");
     const match = joined.match(/\{[\s\S]*\}/g);
     if (!match) throw new Error("no json");
-    return JSON.parse(match[match.length - 1]);
+    const parsed = JSON.parse(match[match.length - 1]);
+    try { sessionStorage.setItem("ascend-ai:" + ck, JSON.stringify(parsed)); } catch (e) { /* */ }
+    return parsed;
   };
 
   const estimate = async () => {
     setLoading("estimate"); setErr(""); setFound(null);
     try {
-      const food = await callClaude(`Estimate nutrition for this food or meal as one serving: "${q}". Use typical US portions if none given. Respond ONLY with JSON, no markdown: {"name": short descriptive name with portion, "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}`, false);
+      const food = await callClaude(`Estimate nutrition for this food or meal as one serving: "${q}". Use typical US portions if none given. Respond ONLY with JSON, no markdown: {"name": short descriptive name with portion, "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}`);
       setFound({ name: String(food.name || q).slice(0, 70), cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), source: "ai" });
     } catch (e) {
       setErr("Couldn't get an estimate. Try describing it differently, like \"2 slices pepperoni pizza\".");
@@ -2121,8 +2115,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const lookup = async () => {
     setLoading("lookup"); setErr(""); setFound(null);
     try {
-      const food = await callClaude(`Find the published nutrition facts for this restaurant menu item: "${q}". The user is in Austin, Texas, so local chains like P. Terry's, Torchy's, Whataburger, Tacodeli, Chuy's, Kerbey Lane, Pluckers, Tumble 22 and Taco Cabana are likely. Search the web and prefer the restaurant's own nutrition page or PDF. If the restaurant doesn't publish nutrition, give your best estimate from similar items and say so.
-After searching, reply with ONLY this JSON and nothing else: {"name": "Restaurant item name (portion)", "restaurant": "Restaurant", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat, "source": "official" or "third-party" or "estimate", "note": "under 12 words about where the numbers came from"}`, true);
+      const food = await callClaude(`Published-style nutrition for this restaurant menu item: "${q}". User is in Austin, Texas (P. Terry's, Torchy's, Whataburger, Tacodeli, Chuy's, Kerbey Lane, Pluckers, Tumble 22, Taco Cabana are likely). Prefer typical published values for that chain. Respond ONLY with JSON: {"name": "Restaurant item name (portion)", "restaurant": "Restaurant", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat, "source": "official" or "third-party" or "estimate", "note": "under 12 words"}`);
       setFound({ name: String(food.name || q).slice(0, 70), r: food.restaurant || "", cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), source: food.source, note: food.note });
     } catch (e) {
       setErr("Couldn't find that one online. Try adding the restaurant name, like \"Tacodeli Cowboy taco\".");
@@ -2952,7 +2945,7 @@ function Assistant({ s, setS, onBack }) {
     if (!text || busy) return;
     // Unlock speech on iPhone while we still have the tap
     if (voiceOn && window.speechSynthesis) { try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) { /* ignore */ } }
-    const next = [...chat, { role: "user", content: text }].slice(-20);
+    const next = [...chat, { role: "user", content: text }].slice(-8);
     setS((p) => ({ ...p, chat: next }));
     setInput(""); setBusy(true); setNote("");
     try {
@@ -2960,15 +2953,18 @@ function Assistant({ s, setS, onBack }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1000,
-          system: `${coachMode ? `${STEP_COACH}\n\n` : ""}You are Sterling, the built-in AI coach inside Ascend, a leveling-style gym tracking app. You are a deeply unhinged British butler: posh vocabulary, wildly over-the-top hype, dramatic exclamations like "GOOD HEAVENS" and "by the barbell", occasional absurd similes, and you treat every set like a matter of national importance. Be funny, but the training and nutrition advice underneath must stay accurate and practical. Your replies are read aloud in a silly voice, so keep them to 1 to 3 short sentences unless asked for detail, and never use markdown, bullet points, or emojis. Whenever the user asks how to do an exercise, its form, or technique, give one or two key cues and then add a tag at the very end in exactly this format: [[yt:Exercise Name]] (the app turns it into a YouTube how-to button, so never mention the tag or the word YouTube yourself). Give practical, accurate training and nutrition guidance using the user's real data below. If they mention pain, injury, or a medical issue, advise seeing a qualified professional. App facts: ranks go E, D, C, B, A, S with divisions III, II, I; lift ranks use estimated one-rep max scaled to bodyweight and height; overall rank weights legs, back and chest most; daily quests link to logged exercises; hitting calories within 10% plus the protein target earns ${FUEL_XP} XP.\n\nUser data:\n${buildContext(s)}`,
+          model: "claude-haiku-4-5",
+          max_tokens: 500,
+          system: [
+            { type: "text", text: `${coachMode ? `${STEP_COACH}\n\n` : ""}You are Sterling, the built-in AI coach inside Ascend, a leveling-style gym tracking app. You are a deeply unhinged British butler: posh vocabulary, wildly over-the-top hype, dramatic exclamations like "GOOD HEAVENS" and "by the barbell", occasional absurd similes, and you treat every set like a matter of national importance. Be funny, but the training and nutrition advice underneath must stay accurate and practical. Your replies are read aloud in a silly voice, so keep them to 1 to 3 short sentences unless asked for detail, and never use markdown, bullet points, or emojis. Whenever the user asks how to do an exercise, its form, or technique, give one or two key cues and then add a tag at the very end in exactly this format: [[yt:Exercise Name]] (the app turns it into a YouTube how-to button, so never mention the tag or the word YouTube yourself). Give practical, accurate training and nutrition guidance using the user's real data below. If they mention pain, injury, or a medical issue, advise seeing a qualified professional. App facts: ranks go E, D, C, B, A, S with divisions III, II, I; lift ranks use estimated one-rep max scaled to bodyweight and height; overall rank weights legs, back and chest most; daily quests link to logged exercises; hitting calories within 10% plus the protein target earns ${FUEL_XP} XP.`, cache_control: { type: "ephemeral" } },
+            { type: "text", text: `User data:\n${buildContext(s)}` },
+          ],
           messages: next.map((m) => ({ role: m.role, content: m.content })),
         }),
       });
       const data = await res.json();
       const reply = (data.content || []).map((i) => i.text || "").join("").trim() || "Terribly sorry, I seem to have lost my train of thought. Do ask again.";
-      setS((p) => ({ ...p, chat: [...(p.chat || []), { role: "assistant", content: reply }].slice(-20) }));
+      setS((p) => ({ ...p, chat: [...(p.chat || []), { role: "assistant", content: reply }].slice(-8) }));
       if (voiceOn) speak(reply);
     } catch (e) {
       setNote("Sterling couldn't connect. Check your connection and try again.");
@@ -4220,7 +4216,7 @@ function MealBuilder({ s, setS, pool, onDone, onBack }) {
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1500, messages: [{ role: "user", content: `Turn this description into a recipe with per-ingredient nutrition: "${desc}". Use typical US portions and standard nutrition values. Respond ONLY with JSON, no markdown: {"name": short meal name, "ingredients": [{"name": "ingredient with portion, e.g. Whey protein (1 scoop)", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}]}` }] }),
+        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 700, messages: [{ role: "user", content: `Turn this description into a recipe with per-ingredient nutrition: "${desc}". Use typical US portions and standard nutrition values. Respond ONLY with JSON, no markdown: {"name": short meal name, "ingredients": [{"name": "ingredient with portion, e.g. Whey protein (1 scoop)", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}]}` }] }),
       });
       const data = await res.json();
       const text = (data.content || []).map((i) => i.text || "").join("").replace(/```json|```/g, "").trim();
@@ -4285,7 +4281,7 @@ async function rateMog(dataUrl) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6", max_tokens: 400,
+      model: "claude-haiku-4-5", max_tokens: 220,
       messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64data } },
         { type: "text", text: `This is a silly game between friends called a mog-off. Judge ONLY the facial expression performance, never the person's looks. The goal is the classic fashion-model "Blue Steel" face: dead-serious stare, puffed fishy pouty lips, intense eyebrows, chin up, zero smile. Score each 0-20 as integers: pucker (fishy lips), brows (intensity), stare (seriousness of the eyes), jaw (chin/jaw drama), commitment (how fully they sold it, laughing or smiling loses points). Respond ONLY with JSON: {"pucker": n, "brows": n, "stare": n, "jaw": n, "commitment": n, "quip": "one short playful judge comment, under 12 words"}` },
@@ -4397,14 +4393,39 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embe
 }
 
 /* ---------- Sterling coaching cards ---------- */
-async function askJson(system, user, maxTokens = 900) {
+async function claudeChat(body) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] }),
+    body: JSON.stringify({ model: "claude-haiku-4-5", ...body }),
   });
-  const data = await res.json();
+  return res.json();
+}
+function promptKey(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
+}
+function exerciseNameList(s, n = 70) {
+  const seen = new Set();
+  const out = [];
+  const add = (nm) => { if (nm && !seen.has(nm)) { seen.add(nm); out.push(nm); } };
+  rankedLifts(s).slice(0, 16).forEach((r) => add(r.e.name));
+  [...(s.workouts || [])].reverse().slice(0, 8).forEach((w) => (w.exercises || []).forEach((e) => add(e.name)));
+  allExercises(s).forEach((e) => add(e.name));
+  return out.slice(0, n).join(", ");
+}
+async function askJson(system, user, maxTokens = 500) {
+  const ck = promptKey(`${system}\n${user}`);
+  try { const hit = sessionStorage.getItem("ascend-ai:" + ck); if (hit) return JSON.parse(hit); } catch (e) { /* */ }
+  const data = await claudeChat({
+    max_tokens: Math.min(maxTokens, 700),
+    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content: user }],
+  });
   const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
-  return JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+  const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+  try { sessionStorage.setItem("ascend-ai:" + ck, JSON.stringify(parsed)); } catch (e) { /* */ }
+  return parsed;
 }
 const STERLING_SYS = "You are Sterling, the wildly over-the-top but genuinely competent British butler coach inside the Ascend gym app. Be brief and funny in the quip fields, but keep every recommendation accurate and practical.";
 
@@ -4414,11 +4435,11 @@ function FuelCoach({ s, setS, t, tot, onAdd }) {
   const [hidden, setHidden] = useState(false);
   const remCal = Math.round(t.cal - tot.cal), remP = Math.round(t.protein - tot.p), remC = Math.round(t.carbs - tot.c), remF = Math.round(t.fat - tot.f);
   const close = tot.cal >= t.cal * 0.55 && remCal > 80;
-  const key = `${Math.round(tot.cal / 150)}-${Math.round(tot.p / 15)}`;
+  const key = `${Math.round(tot.cal / 400)}-${Math.round(tot.p / 30)}`;
   const fetchedKey = useRef(null);
   const fetchPicks = async () => {
     setState((x) => ({ ...x, status: "loading" }));
-    const menu = [...(s.savedFoods || []), ...(s.community?.foods || []), ...FOODS].map((f) => `${f.name} (${f.cal} cal, P${f.p} C${f.c} F${f.f})`).slice(0, 90).join("; ");
+    const menu = [...(s.savedFoods || []).slice(0, 20), ...FOODS.slice(0, 25)].map((f) => `${f.name} (${f.cal} cal, P${f.p} C${f.c} F${f.f})`).join("; ");
     try {
       const r = await askJson(STERLING_SYS, `The user has ${remCal} calories, ${remP}g protein, ${remC}g carbs and ${remF}g fat left today (negative means over). Goal: ${GOALS.find((g) => g.id === s.profile.goal)?.label}. Suggest 3 things to eat that land them close to their targets, preferring items from this list when they fit: ${menu}. You may also suggest simple common foods. Respond ONLY with JSON: {"quip": "one short funny line", "picks": [{"name": "food with portion", "cal": n, "p": n, "c": n, "f": n, "why": "under 10 words"}]}`);
       setState({ status: "done", picks: (r.picks || []).slice(0, 3).map((p) => ({ name: String(p.name).slice(0, 60), cal: Math.round(+p.cal || 0), p: Math.round(+p.p || 0), c: Math.round(+p.c || 0), f: Math.round(+p.f || 0), why: p.why || "" })), quip: r.quip || "" });
@@ -4452,14 +4473,14 @@ function TrainCoach({ s, a, onAdd }) {
   const [state, setState] = useState({ status: "idle", next: [], tip: "", form: null, quip: "" });
   const [hidden, setHidden] = useState(false);
   const doneEx = a.exercises.filter((e) => e.sets.some((st) => st.done && +st.r > 0));
-  const key = `${a.title || ""}|${doneEx.map((e) => `${e.name}:${e.sets.filter((st) => st.done).length}`).join(",")}`;
+  const key = `${a.title || ""}|${doneEx.map((e) => e.name).join(",")}`;
   const fetchedKey = useRef(null);
   const fetchNext = async () => {
     setState((x) => ({ ...x, status: "loading" }));
     const done = doneEx.map((e) => { const def = findEx(s, e.name); return `${e.name}: ${e.sets.filter((st) => st.done).map((st) => setLabel(def, st)).join(", ")}`; }).join(" | ");
-    const names = allExercises(s).map((e) => e.name).join(", ");
-    const history = s.workouts.filter(isWorkout).slice(-6).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => e.name).join(", ")}`).join("\n");
-    const ranks = rankedLifts(s).slice(0, 10).map((r) => `${r.e.name} ${r.label}`).join(", ");
+    const names = exerciseNameList(s);
+    const history = s.workouts.filter(isWorkout).slice(-4).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => e.name).join(", ")}`).join("\n");
+    const ranks = rankedLifts(s).slice(0, 8).map((r) => `${r.e.name} ${r.label}`).join(", ");
     try {
       const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Done so far this session: ${done || "nothing yet"}. Recent workouts:\n${history || "none"}\nLift ranks: ${ranks || "none"}. Bodyweight ${s.profile.weight} lb.
 Recommend what to do next to make this workout as effective as possible for the stated title (balance muscle groups, sensible order, reasonable volume, don't repeat what's done unless more sets are warranted). Choose exercise names ONLY from this list, spelled exactly: ${names}.
@@ -4789,7 +4810,7 @@ async function scanMealPhoto(dataUrl) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6", max_tokens: 900,
+      model: "claude-haiku-4-5", max_tokens: 500,
       messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
         { type: "text", text: `Identify the food in this photo and estimate nutrition for what is visible, as one serving each. Use typical US portions and standard nutrition values. Be practical, not cautious. If it's a packaged product with a label, read the label. Respond ONLY with JSON: {"items": [{"name": "food with portion, e.g. Grilled chicken breast (6 oz)", "cal": n, "p": n, "c": n, "f": n}], "note": "under 12 words about confidence or what you assumed"}` },
@@ -4812,7 +4833,7 @@ function PhotoScan({ onAddAll, onCancel, sState, onShare }) {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
     setBusy(true); setErr(""); setItems(null);
     try {
-      const small = await shrinkPhoto(f, 900);
+      const small = await shrinkPhoto(f, 640);
       setImg(small);
       const r = await scanMealPhoto(small);
       if (!r.items.length) throw new Error("nothing");
@@ -5277,7 +5298,7 @@ function LineChart({ pts, color, unit = "", fmt = (v) => Math.round(v) }) {
     </svg>
   );
 }
-async function videoFrames(file, n = 5, size = 360) {
+async function videoFrames(file, n = 3, size = 240) {
   const url = URL.createObjectURL(file);
   try {
     const v = document.createElement("video");
@@ -5293,7 +5314,7 @@ async function videoFrames(file, n = 5, size = 360) {
       const t = ((i + 0.5) / n) * dur;
       await new Promise((res, rej) => { v.onseeked = res; v.onerror = () => rej(new Error("seek")); v.currentTime = t; setTimeout(res, 2500); });
       ctx.drawImage(v, 0, 0, c.width, c.height);
-      frames.push(c.toDataURL("image/jpeg", 0.6));
+      frames.push(c.toDataURL("image/jpeg", 0.5));
     }
     return frames;
   } finally { URL.revokeObjectURL(url); }
@@ -5308,7 +5329,7 @@ function FormCheck({ exercise, compact }) {
       const frames = await videoFrames(f);
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 500, system: STERLING_SYS, messages: [{ role: "user", content: [
+        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 320, system: STERLING_SYS, messages: [{ role: "user", content: [
           ...frames.map((fr) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: fr.split(",")[1] } })),
           { type: "text", text: `These are frames from a short video of someone doing ${exercise}, in time order. Give a form check: what looks good, the one or two most important fixes, and a cue to think about next set. Plain text, 3 to 5 short sentences, no markdown. If the frames don't show the lift clearly, say what angle to film from instead.` },
         ] }] }),
@@ -5521,7 +5542,7 @@ function NutritionReport({ s }) {
 async function barcodeLookup(dataUrl) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: [
+    body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 120, messages: [{ role: "user", content: [
       { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
       { type: "text", text: `Read the barcode number printed under the bars in this photo (UPC/EAN, 8 to 14 digits). Respond ONLY with JSON: {"code": "digits or empty string", "product": "product name if visible or empty"}` },
     ] }] }),
@@ -5884,12 +5905,12 @@ function PlanGenerator({ s, setS }) {
   const build = async () => {
     setState({ status: "loading", days: [] });
     try {
-      const names = allExercises(s).map((e) => e.name).join(", ");
+      const names = exerciseNameList(s, 80);
       const ranks = rankedLifts(s).slice(0, 12).map((r) => `${r.e.name} ${r.label}`).join(", ");
       const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))].join(", ");
       const g = groupScores(s);
       const weak = Object.keys(GROUP_WEIGHT).sort((a, b) => (g[a] || 0) - (g[b] || 0)).slice(0, 2).join(" and ");
-      const r = await askJson(STERLING_SYS, `Write a 4-day training week for this lifter. Ranks: ${ranks || "none yet"}. Weakest groups: ${weak}. Titles they usually use: ${titles || "none"}. Bodyweight ${s.profile.weight} lb. Use exercise names ONLY from this list, spelled exactly: ${names}. 5 to 7 exercises per day, 3 to 4 sets each, sensible splits. Respond ONLY with JSON: {"quip": "one funny line", "days": [{"name": "short day title", "exercises": [{"name": "exact name", "sets": n}]}]}`, 1400);
+      const r = await askJson(STERLING_SYS, `Write a 4-day training week for this lifter. Ranks: ${ranks || "none yet"}. Weakest groups: ${weak}. Titles they usually use: ${titles || "none"}. Bodyweight ${s.profile.weight} lb. Use exercise names ONLY from this list, spelled exactly: ${names}. 5 to 7 exercises per day, 3 to 4 sets each, sensible splits. Respond ONLY with JSON: {"quip": "one funny line", "days": [{"name": "short day title", "exercises": [{"name": "exact name", "sets": n}]}]}`, 700);
       const valid = new Set(allExercises(s).map((e) => e.name));
       const days = (r.days || []).map((d) => ({ name: String(d.name || "Day").slice(0, 24), exercises: (d.exercises || []).filter((e) => valid.has(e.name)).map((e) => ({ name: e.name, sets: Math.max(1, Math.min(6, +e.sets || 3)) })) })).filter((d) => d.exercises.length);
       if (!days.length) throw new Error("empty");
@@ -7168,11 +7189,16 @@ function WarmUp({ s, a, setActive }) {
     const names = a.exercises.map((e) => e.name).join(", ");
     const lower = /leg|lower|squat|dead/i.test(`${a.title} ${names}`), upper = /push|pull|upper|chest|back|arm|shoulder/i.test(`${a.title} ${names}`);
     let out = WARMUP_FALLBACK[lower && !upper ? "lower" : upper && !lower ? "upper" : "full"].map(([name, secs, cue]) => ({ name, secs, cue }));
-    try {
-      const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Exercises planned: ${names || "not chosen yet"}. Give a 3-minute dynamic mobility warm-up of 5 or 6 moves that prepares the joints and muscles used today. Respond ONLY with JSON: {"steps": [{"name": "move", "secs": seconds, "cue": "under 8 words"}]}`, 500);
-      const st = (r.steps || []).slice(0, 7).map((x) => ({ name: String(x.name).slice(0, 40), secs: Math.max(15, Math.min(60, +x.secs || 30)), cue: String(x.cue || "").slice(0, 60) }));
-      if (st.length >= 3) out = st;
-    } catch (e) { /* fallback */ }
+    const cacheKey = `ascend-warmup:${(a.title || "full").toLowerCase()}`;
+    let cached = false;
+    try { const hit = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (hit?.length >= 3) { out = hit; cached = true; } } catch (e) { /* */ }
+    if (!cached) {
+      try {
+        const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Exercises planned: ${names || "not chosen yet"}. Give a 3-minute dynamic mobility warm-up of 5 or 6 moves that prepares the joints and muscles used today. Respond ONLY with JSON: {"steps": [{"name": "move", "secs": seconds, "cue": "under 8 words"}]}`, 280);
+        const st = (r.steps || []).slice(0, 7).map((x) => ({ name: String(x.name).slice(0, 40), secs: Math.max(15, Math.min(60, +x.secs || 30)), cue: String(x.cue || "").slice(0, 60) }));
+        if (st.length >= 3) { out = st; try { localStorage.setItem(cacheKey, JSON.stringify(st)); } catch (e) { /* */ } }
+      } catch (e) { /* fallback */ }
+    }
     setActive((w) => ({ ...w, warmup: out }));
     setBusy(false);
   };
