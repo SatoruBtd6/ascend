@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -115,3 +115,61 @@ test("pickNextGoal hides when nothing has been started", () => {
   assert.equal(pickNextGoal([]), null);
   assert.equal(pickNextGoal(null), null);
 });
+
+const snap = {
+  rev: 1, xp: 100, crateSpent: 0,
+  meals: { "2026-09-18": [{ id: "a", name: "bun", cal: 120 }] },
+  workouts: [{ id: "w1", title: "Push" }],
+  weightLog: { "2026-09-18": 180 },
+  profile: { name: "Finn", weight: 180, look: { aura: "ember" } },
+};
+
+test("mergeState keeps other device XP when this device did not earn any", () => {
+  const local = { ...snap, meals: { ...snap.meals, "2026-09-18": [...snap.meals["2026-09-18"], { id: "b", name: "patty", cal: 250 }] } };
+  const server = { ...snap, xp: 140, crateSpent: 250 };
+  const got = mergeState(local, server, snap);
+  assert.equal(got.xp, 140);
+  assert.equal(got.crateSpent, 250);
+  assert.equal(got.meals["2026-09-18"].length, 2);
+});
+
+test("mergeState keeps local XP when this device earned it", () => {
+  const local = { ...snap, xp: 160 };
+  const server = { ...snap, xp: 140, crateSpent: 250 };
+  const got = mergeState(local, server, snap);
+  assert.equal(got.xp, 160);
+  assert.equal(got.crateSpent, 250);
+});
+
+test("mergeState keeps foods added on both devices and local qty edits", () => {
+  const local = { ...snap, meals: { "2026-09-18": [{ id: "a", name: "bun", cal: 120, qty: 2 }] } };
+  const server = { ...snap, meals: { "2026-09-18": [{ id: "a", name: "bun", cal: 120, qty: 1 }, { id: "c", name: "patty", cal: 250 }] } };
+  const got = mergeState(local, server, snap);
+  const names = got.meals["2026-09-18"].map((m) => m.name + ":" + (m.qty || 1));
+  assert.deepEqual(names, ["bun:2", "patty:1"]);
+});
+
+test("mergeState does not resurrect a deleted meal or weightLog key", () => {
+  const local = { ...snap, meals: { "2026-09-18": [] }, weightLog: {} };
+  const server = { ...snap };
+  const got = mergeState(local, server, snap);
+  assert.deepEqual(got.meals["2026-09-18"], []);
+  assert.equal(got.weightLog["2026-09-18"], undefined);
+});
+
+test("mergeState keeps a server-only workout this device never saw", () => {
+  const local = { ...snap };
+  const server = { ...snap, workouts: [...snap.workouts, { id: "w2", title: "Pull" }] };
+  const got = mergeState(local, server, snap);
+  assert.deepEqual(got.workouts.map((w) => w.id), ["w1", "w2"]);
+});
+
+test("mergeState merges nested profile: local weight, server look", () => {
+  const local = { ...snap, profile: { ...snap.profile, weight: 182 } };
+  const server = { ...snap, profile: { ...snap.profile, look: { aura: "tide" } } };
+  const got = mergeState(local, server, snap);
+  assert.equal(got.profile.weight, 182);
+  assert.equal(got.profile.look.aura, "tide");
+  assert.equal(got.profile.name, "Finn");
+});
+

@@ -59,18 +59,21 @@ export function installStorage(supabase, userId) {
         q = readQueue().slice(1); writeQueue(q);
       }
     } finally { flushing = false; }
+    return readQueue().length === 0;
   };
   window.addEventListener("online", flush);
+  window.addEventListener("pagehide", () => { flush(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
   setInterval(flush, 20000);
   flush();
 
   window.storage = {
-    async get(key, shared = false) {
+    async get(key, shared = false, opts = {}) {
       const ck = id(shared, key);
       const c = cache.get(ck);
-      if (c && Date.now() - c.t < 4000) return { key, value: c.value, shared };
+      if (!opts.fresh && c && Date.now() - c.t < 4000) return { key, value: c.value, shared };
       // If this key has unsent local changes, the local copy is the newest
-      if (!shared && readQueue().some((x) => x.scope === scope(false) && x.key === key)) {
+      if (!opts.fresh && !shared && readQueue().some((x) => x.scope === scope(false) && x.key === key)) {
         const v = lsGet(ck); if (v !== null) return { key, value: v, shared };
       }
       try {
@@ -133,6 +136,7 @@ export function installStorage(supabase, userId) {
       }
     },
     pending: () => readQueue().length,
+    flush,
   };
 }
 

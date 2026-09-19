@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect, useMemo, useRef, useId } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress } from "./math.js";
-import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen } from "lucide-react";
+﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext } from "react";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState } from "./math.js";
+import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
 const THEMES = {
@@ -736,9 +736,20 @@ const DEFAULT = {
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
+const SaveCtx = React.createContext({ status: "idle" });
+const URGENT_SAVE = ["meals", "workouts", "active", "weightLog", "presets", "savedFoods", "dayTemplates", "fuelClaimed", "water", "measure"];
+function SaveMark() {
+  const { status } = useContext(SaveCtx);
+  const common = { size: 14, className: "shrink-0", "aria-hidden": true };
+  if (status === "saving") return <Loader2 {...common} className="shrink-0 animate-spin" style={{ color: C.cyan }} />;
+  if (status === "error") return <CloudOff {...common} style={{ color: C.orange }} />;
+  if (status === "saved") return <Check {...common} style={{ color: C.green }} />;
+  return <Cloud {...common} style={{ color: C.mute }} />;
+}
+
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6h";
+const APP_VERSION = "6i";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -810,6 +821,13 @@ export default function App() {
   }, []);
   const [offline, setOffline] = useState(false);
   const [lastSaveAt, setLastSaveAt] = useState(null);
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const [saveNote, setSaveNote] = useState(null);
+  const snapRef = useRef(null);
+  const persistLock = useRef(false);
+  const persistAgain = useRef(false);
+  const persistUrgent = useRef(false);
+  const saveNoteTimer = useRef(null);
   useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
   const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
   AskRef.current = (message, onYes, yesLabel = "Confirm") => setDialog({ message, onYes, yesLabel });
@@ -860,6 +878,7 @@ export default function App() {
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
       setStorageOk(ok);
       if (ok) setLastSaveAt(Date.now());
+      snapRef.current = JSON.parse(JSON.stringify(st));
       setS(st); setLoaded(true);
       loadCommunity().then((c) => { if (c) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
       setTimeout(pullSteps, 800);
@@ -869,22 +888,80 @@ export default function App() {
 
   // Save state; if it fails (no signal), keep retrying until it lands
   const dirtyRef = useRef(false);
+  const persistNow = async ({ urgent = false } = {}) => {
+    if (!loaded || !window.storage?.set) return;
+    if (persistLock.current) { persistAgain.current = true; if (urgent) persistUrgent.current = true; return; }
+    persistLock.current = true;
+    setSaveStatus("saving");
+    try {
+      let remote = null;
+      try {
+        const r = await window.storage.get("ascend-state", false, { fresh: true });
+        if (r?.value) remote = JSON.parse(r.value);
+      } catch (e) { /* first save or offline read */ }
+      let toWrite = null;
+      setS((p) => {
+        const base = snapRef.current || {};
+        const merged = remote && JSON.stringify(remote) !== JSON.stringify(base) ? mergeState(p, remote, base) : p;
+        toWrite = { ...merged, rev: Math.max(+p.rev || 0, +remote?.rev || 0, +merged.rev || 0) + 1 };
+        sRef.current = toWrite;
+        return merged === p ? p : merged;
+      });
+      const res = await window.storage.set("ascend-state", JSON.stringify(toWrite || sRef.current), false);
+      if (res?.queued) throw new Error("queued");
+      dirtyRef.current = false;
+      snapRef.current = JSON.parse(JSON.stringify(sRef.current));
+      setOffline(false);
+      setLastSaveAt(Date.now());
+      setSaveStatus("saved");
+      if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
+      if (urgent || persistUrgent.current) {
+        setSaveNote("Saved");
+        saveNoteTimer.current = setTimeout(() => setSaveNote(null), 1800);
+      } else {
+        setSaveNote((n) => (n === "Couldn't save. Retrying…" ? null : n));
+      }
+    } catch (e) {
+      setOffline(true);
+      setSaveStatus("error");
+      if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
+      setSaveNote("Couldn't save. Retrying…");
+    } finally {
+      persistLock.current = false;
+      const again = persistAgain.current || dirtyRef.current;
+      const u = persistUrgent.current;
+      persistAgain.current = false;
+      persistUrgent.current = false;
+      if (again) persistNow({ urgent: u || urgent });
+    }
+  };
+  const persistRef = useRef(() => {});
+  persistRef.current = persistNow;
+  const prevSave = useRef(s);
   useEffect(() => {
     if (!loaded) return;
+    const prev = prevSave.current;
+    prevSave.current = s;
+    if (JSON.stringify({ ...s, rev: 0 }) === JSON.stringify({ ...(snapRef.current || {}), rev: 0 })) return;
+    const urgent = URGENT_SAVE.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(s[k]));
     dirtyRef.current = true;
-    const t = setTimeout(async () => {
-      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); setLastSaveAt(Date.now()); }
-      catch (e) { setOffline(true); }
-    }, 400);
+    const t = setTimeout(() => persistRef.current({ urgent }), urgent ? 0 : 400);
     return () => clearTimeout(t);
   }, [s, loaded]);
   useEffect(() => {
     if (!loaded) return;
-    const id = setInterval(async () => {
-      if (!dirtyRef.current) return;
-      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); setLastSaveAt(Date.now()); } catch (e) { setOffline(true); }
-    }, 15000);
+    const id = setInterval(() => { if (dirtyRef.current) persistRef.current({ urgent: false }); }, 15000);
     return () => clearInterval(id);
+  }, [loaded]);
+  useEffect(() => {
+    const hide = () => {
+      if (dirtyRef.current) persistRef.current({ urgent: true });
+      window.storage?.flush?.();
+    };
+    const vis = () => { if (document.visibilityState === "hidden") hide(); };
+    document.addEventListener("visibilitychange", vis);
+    window.addEventListener("pagehide", hide);
+    return () => { document.removeEventListener("visibilitychange", vis); window.removeEventListener("pagehide", hide); };
   }, [loaded]);
   // Settings also live on this device so colors and fonts survive account or connection hiccups
   useEffect(() => { if (loaded) { try { localStorage.setItem("ascend-settings", JSON.stringify(s.settings)); } catch (e) { /* private mode */ } } }, [s.settings, loaded]);
@@ -913,9 +990,7 @@ export default function App() {
 
   useEffect(() => {
     const go = () => XpSync.flush();
-    const retrySave = async () => {
-      try { await window.storage.set("ascend-state", JSON.stringify(sRef.current), false); dirtyRef.current = false; setOffline(false); setLastSaveAt(Date.now()); } catch (e) { setOffline(true); }
-    };
+    const retrySave = () => persistRef.current({ urgent: true });
     const lost = () => setOffline(true);
     window.addEventListener("online", go);
     window.addEventListener("online", retrySave);
@@ -1042,6 +1117,7 @@ export default function App() {
   const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
 
   return (
+    <SaveCtx.Provider value={{ status: saveStatus }}>
     <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       {updateReady && (
         <div role="alert" className="fixed left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
@@ -1218,7 +1294,11 @@ export default function App() {
       {burst && <JuiceBurst key={burst.id} kind={burst.kind} />}
       {confetti && <Confetti onDone={() => setConfetti(false)} />}
       {liveRun && <RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onClose={() => { setLiveRun(null); setTab("run"); }} />}
-      {offline && <div className="fixed right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
+      {saveNote && (
+        <div className="fixed left-1/2 z-50 px-4 py-1.5 text-xs font-bold" style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)", transform: "translateX(-50%)", borderRadius: 999, whiteSpace: "nowrap",
+          background: C.sheet, color: saveNote.startsWith("Couldn't") ? C.orange : C.green, border: `1px solid ${saveNote.startsWith("Couldn't") ? C.orange : C.green}` }}>{saveNote}</div>
+      )}
+      {offline && !saveNote && <div className="fixed right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
       {dialog && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.65)" }} onClick={() => setDialog(null)}>
           <div role="dialog" aria-modal="true" className="panel w-full max-w-sm p-5" style={{ background: C.sheet }} onClick={(e) => e.stopPropagation()}>
@@ -1252,6 +1332,7 @@ export default function App() {
         </div>
       </nav>
     </div>
+    </SaveCtx.Provider>
   );
 }
 
@@ -1634,7 +1715,7 @@ function Train({ s, setS, gainXp, openRun }) {
     const presets = s.presets || [];
     return (
       <div className="space-y-4">
-        <Title>Train</Title>
+        <Title right={<SaveMark />}>Train</Title>
         <div className="grid gap-2" style={{ gridTemplateColumns: "1.6fr 1fr 1fr" }}>
           <button type="button" onClick={() => setTitling(true)} className="btn py-4 text-lg">Start workout</button>
           <button type="button" onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Run</button>
@@ -1642,7 +1723,7 @@ function Train({ s, setS, gainXp, openRun }) {
         </div>
         {showPresets && (
           <div className="panel p-4 space-y-2">
-            <div className="font-bold">Workout presets</div>
+            <div className="font-bold flex items-center gap-2">Workout presets<SaveMark /></div>
             {presets.length === 0 && <div className="body text-sm" style={{ color: C.dim }}>None yet. Start a workout, add your exercises, then tap "Save as preset" at the bottom. Next time, load it and just fill in the numbers.</div>}
             <SharedPresets s={s} setS={setS} />
             <PlanGenerator s={s} setS={setS} />
@@ -1715,7 +1796,7 @@ function Train({ s, setS, gainXp, openRun }) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          {a.editId ? <div className="text-xl font-bold glowtext">Editing {fmtDay(a.date)}</div> : <Timer start={a.start} />}
+          {a.editId ? <div className="text-xl font-bold glowtext flex items-center gap-2">Editing {fmtDay(a.date)}<SaveMark /></div> : <div className="flex items-center gap-2"><Timer start={a.start} /><SaveMark /></div>}
           <input className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} placeholder="Workout title" value={a.title || ""} onChange={(e) => setActive((w) => ({ ...w, title: e.target.value }))} aria-label="Workout title" />
           <div className="text-sm font-bold" style={{ color: C.gold }}>≈ {live.xp} XP{live.prs ? ` · ${live.prs} PR${live.prs > 1 ? "s" : ""}` : ""}</div>
         </div>
@@ -2106,7 +2187,7 @@ function Fuel({ s, setS, gainXp }) {
 
   return (
     <div className="space-y-4">
-      <Title>Fuel</Title>
+      <Title right={<SaveMark />}>Fuel</Title>
 
       <div className="panel p-2 flex items-center justify-between">
         <button aria-label="Previous day" onClick={() => setD(shift(d, -1))} className="p-2" style={{ color: C.cyan }}><ChevronLeft /></button>
@@ -2481,7 +2562,7 @@ function WeightTracker({ s, setS }) {
   };
   return (
     <>
-      <h2 className="text-lg font-bold">Weight</h2>
+      <h2 className="text-lg font-bold flex items-center gap-2">Weight<SaveMark /></h2>
       <div className="panel p-4 space-y-3">
         <div className="flex gap-2 items-center">
           <input type="number" inputMode="decimal" className="inp" aria-label="Today's weight" placeholder={`Today's weight (now ${s.profile.weight} lb)`} value={wIn} onChange={(e) => setWIn(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logWeight()} />
@@ -5600,7 +5681,7 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
         const text = blocked ? "Progress can't save on this device. Check your connection or sign back in." : bad ? "Last save didn't go through. Gyms eat signal — keep logging, we'll retry." : saveAt ? `You're good. Last saved ${when}.` : "You're good. Saves are landing.";
         return (
           <div className="flex items-center gap-2 body text-xs px-1" style={{ color: bad ? C.orange : C.green }}>
-            {bad ? <RefreshCw size={12} /> : <Check size={12} />}
+            <SaveMark />
             <span>{text}</span>
           </div>
         );
