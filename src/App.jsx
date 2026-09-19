@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId } from "react";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -292,12 +293,12 @@ function fillQuests(p, d, exercises) {
   const day = p.days?.[d] || newDay();
   const list = day.list.map((q) => {
     if (q.qid === "run" && !q.claimed) {
-      const mi = exercises.filter((e) => /^(Running|Walking|Incline Walk)$/.test(e.name)).reduce((a, e) => a + e.sets.reduce((b, st) => b + (+st.w || 0), 0), 0);
+      const mi = exercises.filter((e) => /^(Running|Walking|Incline Walk)$/.test(e.name)).reduce((a, e) => a + workSets(e.sets).reduce((b, st) => b + (+st.w || 0), 0), 0);
       return mi ? { ...q, progress: Math.round((q.progress + mi) * 100) / 100, fromWorkout: Math.round(((q.fromWorkout || 0) + mi) * 100) / 100 } : q;
     }
     const exName = QUEST_EX[q.qid];
     if (q.claimed || !exName) return q;
-    const amt = exercises.filter((e) => e.name === exName).reduce((a, e) => a + e.sets.reduce((b, st) => b + (+st.r || 0), 0), 0);
+    const amt = exercises.filter((e) => e.name === exName).reduce((a, e) => a + workSets(e.sets).reduce((b, st) => b + (+st.r || 0), 0), 0);
     return amt ? { ...q, progress: q.progress + amt, fromWorkout: (q.fromWorkout || 0) + amt } : q;
   });
   return { ...p, days: { ...p.days, [d]: { ...day, list } } };
@@ -401,7 +402,7 @@ function computeBests(s) {
   s.workouts.forEach((w) => w.exercises.forEach((ex) => {
     const def = findEx(s, ex.name);
     if (def.type === "timed") return;
-    ex.sets.forEach((st) => {
+    workSets(ex.sets).forEach((st) => {
       const v = bestValue(def, st, s.profile, ex);
       const k = def.type === "assisted" ? def.rankAs : ex.name;
       if (v > (b[k] || 0)) b[k] = v;
@@ -534,7 +535,7 @@ function workoutXp(s, exercises, bests) {
   exercises.forEach((ex) => {
     const def = findEx(s, ex.name);
     const line = { name: ex.name, xp: 0, sets: [] };
-    ex.sets.forEach((st) => {
+    workSets(ex.sets).forEach((st) => {
       sets++;
       const { xp: sx, note } = setXp(s, def, st, ex);
       line.xp += sx; xp += sx;
@@ -555,7 +556,7 @@ function workoutXp(s, exercises, bests) {
 function workoutRecap(s, workout) {
   const lifts = (workout.exercises || []).map((ex) => {
     const def = findEx(s, ex.name);
-    const working = (ex.sets || []).filter((st) => +st.r > 0);
+    const working = workSets(ex.sets).filter((st) => +st.r > 0);
     let rank = null, best = 0;
     if (def.type !== "timed" && working.length) {
       best = Math.max(...working.map((st) => bestValue(def, st, s.profile, ex)));
@@ -674,7 +675,7 @@ function lifetimeStats(s) {
     if (isWorkout(w)) workouts++;
     w.exercises.forEach((ex) => {
       const def = findEx(s, ex.name);
-      ex.sets.forEach((st) => {
+      workSets(ex.sets).forEach((st) => {
         const r = +st.r || 0, wt = +st.w || 0;
         if (def.type === "timed") { if (def.group === "Cardio") miles += wt; return; }
         reps += r; volume += (def.type === "assisted" ? movedLb(s.profile, wt) : wt) * r;
@@ -731,13 +732,13 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, bossRecaps: {}, streakNagDay: null, worldFirsts: {}, wfClaim: {}, crewBanners: {}, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5z";
+const APP_VERSION = "6g";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -1183,7 +1184,7 @@ export default function App() {
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 2) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
-        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} />}
+        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} />}
         {onboard === null && tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
         {onboard === null && tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
         {onboard === null && tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
@@ -1279,7 +1280,72 @@ function Sheet({ title, onClose, children }) {
 }
 
 /* ---------- Status ---------- */
-function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, openXp, openRival, saveOk, saveAt, storageOk }) {
+// One line on Status: the single goal you're closest to finishing, across quests, challenges, and lift ranks
+const goalLeft = (n, unit) => {
+  const v = unit === "mi" ? Math.round(n * 10) / 10 : Math.ceil(n);
+  return `${v.toLocaleString()} ${unit}`;
+};
+function nextGoalFor(s) {
+  const out = [];
+  (s.days?.[today()]?.list || []).forEach((q) => {
+    if (q.claimed || !(q.target > 0)) return;
+    const v = Math.min(+q.progress || 0, q.target);
+    out.push({ kind: "quest", tie: 0, value: v, goal: q.target, label: `${goalLeft(q.target - v, q.unit)} from today's ${q.title}` });
+  });
+  const ws = weekStart(), mk = monthKey();
+  const wc = s.weekly?.[ws], wClaimed = wc === true ? { "w-train4": true } : (wc || {});
+  const mClaimed = s.monthly?.[mk] || {};
+  const add = (list, stats, claimed, word) => list.forEach((c) => {
+    if (claimed[c.id]) return;
+    const v = Math.min(c.get(stats), c.target);
+    out.push({ kind: "challenge", tie: 1, value: v, goal: c.target, label: `${goalLeft(c.target - v, c.unit)} from the ${word}` });
+  });
+  add([...pickChallenges(WEEKLY_POOL, ws, 3), WEEKLY_REPS], rangeStats(s, ws, shift(ws, 6)), wClaimed, "weekly");
+  add([...pickChallenges(MONTHLY_POOL, mk, 3), MONTHLY_REPS], rangeStats(s, `${mk}-01`, `${mk}-31`), mClaimed, "monthly");
+  rankedLifts(s).forEach((r) => {
+    if (!r.next) return;
+    out.push({ kind: "lift", tie: 2, name: r.e.name, value: r.best, goal: r.next, label: `${goalLeft(r.next - r.best, r.e.type === "bodyweight" ? "reps" : "lb")} from ${r.nextLabel} ${r.e.name}` });
+  });
+  return pickNextGoal(out);
+}
+// Streak about to break: past your usual training hour with nothing logged today
+function StreakRisk({ s, setS, goTrain }) {
+  const d = today();
+  const streak = streakOf(s);
+  if (!streak || activeDays(s).has(d) || s.streakNagDay === d) return null;
+  const hour = usualTrainHour((s.workouts || []).filter((w) => w.startedAt && isWorkout(w)).map((w) => new Date(w.startedAt).getHours()));
+  if (new Date().getHours() < hour) return null;
+  const when = new Date(new Date().setHours(hour, 0, 0, 0)).toLocaleTimeString([], { hour: "numeric" });
+  return (
+    <div className="panel p-4 flex items-start gap-3" style={{ borderColor: "rgba(255,147,64,.55)" }}>
+      <Flame size={22} className="shrink-0" style={{ color: C.orange }} />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold" style={{ color: C.orange }}>{streak} day streak on the line</div>
+        <div className="body text-sm" style={{ color: C.sub }}>You usually train by {when} and today is still empty. A workout or a cleared quest keeps it alive.</div>
+        <div className="flex gap-3 mt-2">
+          <button onClick={goTrain} className="body text-sm font-semibold" style={{ color: C.cyan }}>Train now</button>
+          <button onClick={() => setS((p) => ({ ...p, streakNagDay: d }))} className="body text-sm" style={{ color: C.dim }}>Dismiss</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function NextGoal({ s, openExercise, goQuests }) {
+  const goal = useMemo(() => nextGoalFor(s), [s]);
+  if (!goal) return null;
+  return (
+    <button onClick={() => (goal.kind === "lift" ? openExercise(goal.name) : goQuests())} className="panel p-3 w-full text-left flex items-center gap-3">
+      <TrendingUp size={18} className="shrink-0" style={{ color: C.cyan }} />
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm truncate">{goal.label}</div>
+        <div className="mt-1.5"><Bar pct={(goal.value / goal.goal) * 100} color={C.cyan} /></div>
+      </div>
+      <ChevronRight size={18} className="shrink-0" style={{ color: C.mute }} />
+    </button>
+  );
+}
+
+function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, goQuests, openXp, openRival, saveOk, saveAt, storageOk }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -1365,6 +1431,9 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
         ))}
       </div>
 
+      <BossRecapBanner s={s} setS={setS} />
+      <StreakRisk s={s} setS={setS} goTrain={goTrain} />
+      <NextGoal s={s} openExercise={openExercise} goQuests={goQuests} />
       <Dashboard s={s} setS={setS} goTrain={goTrain} goRun={goRun} saveOk={saveOk} saveAt={saveAt} storageOk={storageOk} />
       <StepsPanel s={s} setS={setS} gainXp={gainXp} openRun={goRun} openAssistant={openAssistant} />
       <RoastCard s={s} setS={setS} />
@@ -1447,14 +1516,14 @@ function pastSessions(s, name, excludeId, n = 3) {
     if (w.id === excludeId || !isWorkout(w)) continue;
     const ex = (w.exercises || []).find((e) => namesMatch(e.name, name));
     if (!ex) continue;
-    const sets = (ex.sets || []).filter((st) => +st.r > 0 || +st.w > 0);
+    const sets = workSets(ex.sets).filter((st) => +st.r > 0 || +st.w > 0);
     if (!sets.length) continue;
-    out.push({ date: w.date, sets: ex.sets, id: w.id, title: w.title || "" });
+    out.push({ date: w.date, sets, id: w.id, title: w.title || "" });
   }
   return out;
 }
 function cloneSets(sets) {
-  return (sets || []).map((st) => ({ w: st.w === 0 || st.w ? String(st.w) : "", r: st.r === 0 || st.r ? String(st.r) : "", done: false, drop: !!st.drop }));
+  return (sets || []).map((st) => ({ w: st.w === 0 || st.w ? String(st.w) : "", r: st.r === 0 || st.r ? String(st.r) : "", done: false, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) }));
 }
 function lastWorkingSets(s, name, excludeId) {
   for (const ps of pastSessions(s, name, excludeId, 8)) {
@@ -1463,15 +1532,23 @@ function lastWorkingSets(s, name, excludeId) {
   }
   return null;
 }
-function lastWorkout(s, titleHint) {
-  const list = [...(s.workouts || [])].reverse().filter((w) => isWorkout(w) && (w.exercises || []).some((e) => (e.sets || []).some((st) => +st.r > 0 || +st.w > 0)));
+function loggedWorkouts(s) {
+  return [...(s.workouts || [])].reverse().filter((w) => isWorkout(w) && (w.exercises || []).some((e) => (e.sets || []).some((st) => +st.r > 0 || +st.w > 0)));
+}
+// strict: only ever return a session with the same title, so Push never offers your last Legs day
+function lastWorkout(s, titleHint, strict = false) {
+  const list = loggedWorkouts(s);
   if (!list.length) return null;
   const t = (titleHint || "").trim().toLowerCase();
-  if (t) {
-    const hit = list.find((w) => (w.title || "").trim().toLowerCase() === t);
-    if (hit) return hit;
-  }
-  return list[0];
+  const hit = list.find((w) => (w.title || "").trim().toLowerCase() === t);
+  if (hit) return hit;
+  return strict ? null : list[0];
+}
+// Most recent finished workout that was started from this preset
+function lastPresetWorkout(s, preset) {
+  const p = (preset || "").trim().toLowerCase();
+  if (!p) return null;
+  return loggedWorkouts(s).find((w) => (w.preset || "").trim().toLowerCase() === p) || null;
 }
 function copyWorkoutExercises(w) {
   return (w.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: cloneSets(e.sets) }));
@@ -1487,7 +1564,7 @@ function applyTargetSets(lastSets, target) {
 }
 const setLabel = (def, st) => {
   const core = def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`;
-  return st.drop ? `${core} drop` : core;
+  return st.warm ? `${core} W` : st.drop ? `${core} drop` : core;
 };
 
 function Train({ s, setS, gainXp, openRun }) {
@@ -1518,7 +1595,7 @@ function Train({ s, setS, gainXp, openRun }) {
     }
     const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, computeBests(s));
     const d = today();
-    const workout = { id: uid(), date: d, title: a.title || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start };
+    const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start };
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
@@ -1546,12 +1623,12 @@ function Train({ s, setS, gainXp, openRun }) {
     setNaming(false); setPresetName("");
   };
   const editWorkout = (w) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop })) })) } }));
+    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) })) })) } }));
     window.scrollTo?.(0, 0);
   };
 
   if (a && picker) return <ExercisePicker s={s} setS={setS} onPick={addExercise} onBack={() => setPicker(false)} />;
-  if (!a && titling) return <TitlePicker onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { start: Date.now(), title, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
+  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { start: Date.now(), title, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
 
   if (!a) {
     const presets = s.presets || [];
@@ -1563,15 +1640,6 @@ function Train({ s, setS, gainXp, openRun }) {
           <button type="button" onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Run</button>
           <button type="button" onClick={() => setShowPresets(!showPresets)} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: showPresets ? C.cyan : C.text, borderColor: showPresets ? C.cyan : C.border }}><Layers size={18} />Presets</button>
         </div>
-        {(() => {
-          const last = lastWorkout(s);
-          if (!last) return null;
-          return (
-            <button type="button" onClick={() => { setS((p) => ({ ...p, active: { start: Date.now(), title: last.title || "", exercises: copyWorkoutExercises(last) } })); window.scrollTo?.(0, 0); }} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
-              <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
-            </button>
-          );
-        })()}
         {showPresets && (
           <div className="panel p-4 space-y-2">
             <div className="font-bold">Workout presets</div>
@@ -1655,18 +1723,23 @@ function Train({ s, setS, gainXp, openRun }) {
       </div>
 
       {!a.editId && <WarmUp s={s} a={a} setActive={setActive} />}
+      {!a.editId && (() => {
+        // Overload only makes sense on a preset you've already finished once, so there's a session to beat
+        const pl = a.preset ? lastPresetWorkout(s, a.preset) : null;
+        if (!pl) return null;
+        return (
+          <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: pl.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: applyTargetSets(e.sets, suggestNext(s, e.name, a.editId)) })) }))} className="ghost w-full py-2.5 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.green, borderColor: C.green }}>
+            <TrendingUp size={16} />Overload last session · {a.preset} · {fmtDay(pl.date)}
+          </button>
+        );
+      })()}
       {a.exercises.length === 0 && !a.editId && (() => {
-        const last = lastWorkout(s, a.title);
+        const last = lastWorkout(s, a.title, true);
         if (!last) return null;
         return (
-          <div className="space-y-2">
-            <button type="button" onClick={() => setActive((w) => ({ ...w, title: w.title || last.title || "", exercises: copyWorkoutExercises(last) }))} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
-              <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
-            </button>
-            <button type="button" onClick={() => setActive((w) => ({ ...w, title: w.title || last.title || "", exercises: last.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: applyTargetSets(e.sets, suggestNext(s, e.name, a.editId)) })) }))} className="ghost w-full py-2.5 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.green, borderColor: C.green }}>
-              <TrendingUp size={16} />Overload last session
-            </button>
-          </div>
+          <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: copyWorkoutExercises(last) }))} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
+            <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
+          </button>
         );
       })()}
       {a.exercises.length === 0 && <Empty>Add your first exercise. Check off each set as you finish it, and only checked sets count.</Empty>}
@@ -1722,8 +1795,8 @@ function Train({ s, setS, gainXp, openRun }) {
               const cmp = st.done && pv && +st.r > 0 ? ((+st.w || 0) * (+st.r || 0) || +st.r) - ((+pv.w || 0) * (+pv.r || 0) || +pv.r) : null;
               return (
                 <React.Fragment key={si}>
-                <div className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3 }}>
-                  <span className="font-semibold text-center" style={{ color: st.drop ? C.orange : C.text }}>{st.drop ? "D" : si + 1}</span>
+                <div className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3, opacity: st.warm ? 0.55 : 1 }}>
+                  <span className="font-semibold text-center" style={{ color: st.warm ? C.mute : st.drop ? C.orange : C.text }}>{st.warm ? "W" : st.drop ? "D" : si + 1}</span>
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
                   {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
                   <input type="number" inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
@@ -1731,7 +1804,10 @@ function Train({ s, setS, gainXp, openRun }) {
                     className="h-8 flex items-center justify-center" style={{ background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
                   <button aria-label="Delete set" onClick={() => delSet(si)} className="h-8 flex items-center justify-center" style={{ color: C.mute }}><X size={14} /></button>
                 </div>
-                {def.type !== "timed" && <button onClick={() => upd(si, { drop: !st.drop, w: !st.drop && +st.w > 0 ? String(Math.round(+st.w * 0.8)) : st.w })} className="body text-xs pl-9 -mt-0.5 mb-1 text-left" style={{ color: st.drop ? C.orange : C.mute }}>{st.drop ? "Drop set · tap to unmark" : "Mark as drop set"}</button>}
+                <div className="flex gap-4 pl-9 -mt-0.5 mb-1">
+                  <button onClick={() => upd(si, { warm: !st.warm, ...(st.warm ? {} : { drop: false }) })} className="body text-xs text-left" style={{ color: st.warm ? C.cyan : C.mute }}>{st.warm ? "Warm-up · tap to unmark" : "Mark as warm-up"}</button>
+                  {def.type !== "timed" && !st.warm && <button onClick={() => upd(si, { drop: !st.drop, w: !st.drop && +st.w > 0 ? String(Math.round(+st.w * 0.8)) : st.w })} className="body text-xs text-left" style={{ color: st.drop ? C.orange : C.mute }}>{st.drop ? "Drop set · tap to unmark" : "Mark as drop set"}</button>}
+                </div>
                 {def.type === "assisted" && (+st.w > 0 || +st.r > 0) && <div className="body text-xs pl-9 -mt-0.5 mb-1" style={{ color: C.dim }}>You moved <span style={{ color: C.text, fontWeight: 600 }}>{Math.round(movedLb(s.profile, st.w))} lb</span> ({Math.round(Math.max(80, +s.profile.weight || 170))} − {+st.w || 0}){+st.r > 0 ? ` · counts as ${Math.round(assistedReps(s.profile, st) * 10) / 10} ${def.rankAs.toLowerCase()}s` : ""}</div>}
                 </React.Fragment>
               );
@@ -1744,6 +1820,7 @@ function Train({ s, setS, gainXp, openRun }) {
                 const dropW = +last.w > 0 ? String(Math.round(+last.w * 0.8)) : (last.w || "");
                 return { ...e, sets: [...e.sets, { w: dropW, r: last.r || "", done: false, drop: true }] };
               }) }))} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.orange, borderColor: C.orange }}>Drop set</button>}
+              <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i !== ei ? e : { ...e, sets: [...e.sets, { w: "", r: "", done: false, warm: true }] })) }))} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Warm-up set</button>
             </div>
             <FormCheck exercise={ex.name} compact />
           </div>
@@ -3743,12 +3820,15 @@ function profileCard(s) {
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && isWorkout(w)).length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: s.profile.shareWeight ? Object.fromEntries(wl) : null,
-    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); ex.sets.forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && isWorkout(w)).length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
+    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); workSets(ex.sets).forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && isWorkout(w)).length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
     uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null, daily: dailyStats(s), rivalWith: s.nemesis?.id || null, nemWins: nemesisWins(s),
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
     badges: s.seasonBadges || {},
     reigning: !!s.lbReigning,
     ghost: !!s.test,
+    // Crew weekly quest pool + how many crew banners this player has earned
+    wk: (() => { const st = rangeStats(s, ws, shift(ws, 6)); return { key: ws, workouts: st.workouts, miles: Math.round(st.miles * 10) / 10, fuel: st.fuel }; })(),
+    cb: Object.keys(s.crewBanners || {}).length,
     groups: groupScores(s),
     lifts: rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 6).map((r) => ({ name: r.e.name, label: r.label, rank: r.rank.id, best: Math.round(r.best), bw: r.e.type === "bodyweight" })),
   };
@@ -3907,6 +3987,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
                 {data.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: data.look?.accent || C.cyan }}>{data.title}</div>}
                 {(me ? nemesisWins(s) : data.nemWins) > 0 && <div className="mt-1"><RivalBadge wins={me ? nemesisWins(s) : data.nemWins} /></div>}
                 {Object.keys(data.badges || {}).length > 0 && <div className="mt-1"><SeasonBadges badges={data.badges} /></div>}
+                {(data.cb || 0) > 0 && <div className="mt-1"><CrewBanner count={data.cb} /></div>}
                 <div className="body text-sm" style={{ color: rank.color }}>{data.rank}{data.div ? ` ${data.div}` : ""} · Level {data.lvl}</div>
                 <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{(data.points || 0).toLocaleString()} pts · {data.streak} day streak{st?.since ? ` · since ${new Date(st.since + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}</div>
               </div>
@@ -4586,17 +4667,27 @@ Respond ONLY with JSON: {"quip": "one short funny line", "tip": "one sentence of
 }
 
 const WORKOUT_TITLES = ["Push", "Pull", "Legs", "Upper", "Lower", "Full body", "Chest & back", "Arms", "Shoulders", "Core", "Cardio"];
-function TitlePicker({ onPick, onBack }) {
+function TitlePicker({ s, onPick, onBack }) {
   const [custom, setCustom] = useState("");
+  const mine = [...new Set((s?.workouts || []).map((w) => w.title).filter(Boolean))].filter((t) => !WORKOUT_TITLES.includes(t));
+  const titles = [...WORKOUT_TITLES, ...mine];
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
         <h1 className="text-2xl font-bold glowtext">What are you training?</h1>
       </div>
-      <div className="body text-sm" style={{ color: C.dim }}>The title helps Sterling plan your next moves and keeps your history sorted.</div>
+      <div className="body text-sm" style={{ color: C.dim }}>The title helps Sterling plan your next moves and keeps your history sorted. Pick one and you can load that same session again on the next screen.</div>
       <div className="grid grid-cols-3 gap-2">
-        {WORKOUT_TITLES.map((t) => <button key={t} onClick={() => onPick(t)} className="ghost py-3 font-bold text-sm">{t}</button>)}
+        {titles.map((t) => {
+          const prev = lastWorkout(s, t, true);
+          return (
+            <button key={t} onClick={() => onPick(t)} className="ghost py-3 font-bold text-sm flex flex-col items-center gap-0.5">
+              {t}
+              {prev && <span className="body text-xs font-normal" style={{ color: C.mute }}>last {fmtShort(prev.date)}</span>}
+            </button>
+          );
+        })}
       </div>
       <div className="flex gap-2">
         <input autoFocus className="inp" placeholder="Or type your own" value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onPick(custom.trim())} />
@@ -4793,10 +4884,10 @@ const rangeStats = (s, from, to = "9999") => {
   const ws = inRange.filter(isWorkout);
   // Reps count from everything, card decks and quest top-ups included
   let reps = 0;
-  inRange.forEach((w) => w.exercises.forEach((ex) => { if (findEx(s, ex.name).type !== "timed") ex.sets.forEach((st) => { reps += Math.max(0, Math.round(+st.r || 0)); }); }));
+  inRange.forEach((w) => w.exercises.forEach((ex) => { if (findEx(s, ex.name).type !== "timed") workSets(ex.sets).forEach((st) => { reps += Math.max(0, Math.round(+st.r || 0)); }); }));
   const groups = new Set();
   let volume = 0, prs = 0, miles = 0;
-  ws.forEach((w) => { volume += w.volume || 0; prs += Math.round((w.prBonus || 0) / 40); w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") groups.add(d.group); else if (d.group === "Cardio") ex.sets.forEach((st) => { miles += +st.w || 0; }); }); });
+  ws.forEach((w) => { volume += w.volume || 0; prs += Math.round((w.prBonus || 0) / 40); w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") { if (workSets(ex.sets).length) groups.add(d.group); } else if (d.group === "Cardio") workSets(ex.sets).forEach((st) => { miles += +st.w || 0; }); }); });
   const quests = Object.entries(s.days || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, day]) => a + (day.list || []).filter((q) => q.claimed).length, 0);
   const fuel = Object.keys(s.fuelClaimed || {}).filter((d) => d >= from && d <= to).length;
   const xp = Object.entries(s.xpLog || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, v]) => a + v, 0);
@@ -5127,9 +5218,14 @@ const TITLES = [
   { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
   { id: "reigning", name: "Reigning", req: (s) => !!s.lbReigning, how: "Hold #1 on the season board" },
   { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 3, how: "Beat your Nemesis in 3 duels" },
-  { id: "soon_seraph", name: "Seraph", req: () => false, how: "Coming soon", soon: true },
-  { id: "soon_first", name: "World First", req: () => false, how: "Coming soon", soon: true },
+  { id: "world_first", name: "World First", req: (s) => Object.keys(s.worldFirsts || {}).length > 0, how: "Land the killing blow on a global boss" },
+  { id: "seraph_title", name: "Seraph", req: (s) => backToBackSeasonFirsts(s), how: "Finish #1 two seasons in a row" },
 ];
+// Two seasons back to back at the top of the board
+function backToBackSeasonFirsts(s) {
+  const b = s.seasonBadges || {};
+  return Object.entries(b).some(([k, v]) => v?.place === 1 && b[prevSeasonKey(k)]?.place === 1);
+}
 const TITLE_LEGACY = { wyrmslayer: "boss_wyrm", icebreaker: "boss_colossus", gravebane: "boss_gravemaw" };
 function titleIdOf(s) {
   return TITLE_LEGACY[s.profile?.title] || s.profile?.title || "rookie";
@@ -6219,9 +6315,10 @@ const AURAS = [
   { id: "champion", name: "Champion", how: "Win a season", season: true, group: "special", colors: ["#FFD447", "#FF9340"] },
   { id: "vendetta", name: "Vendetta", how: "Beat your Nemesis in 5 duels", nemesis: 5, group: "special", colors: ["#FF1F4B", "#3A0010"] },
   { id: "ascended", name: "Ascended", how: "Reigning #1 on the season board", reigning: true, group: "special", colors: ["#FFD447", "#7DF9FF"] },
+  { id: "huntersmoon", name: "Hunter's Moon", how: "Land the killing blow on a global boss", worldFirst: true, group: "special", colors: ["#C2001F", "#E4E8F2"] },
+  { id: "wheel", name: "Living Wheel", how: "Finish #1 two seasons in a row", seraph: true, group: "special", colors: ["#38C6FF", "#FFD447"] },
   { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },
   { id: "soon_seraphim", name: "Seraphim", how: "Coming soon", soon: true, group: "soon", colors: ["#FFFFFF", "#FFD447"] },
-  { id: "soon_wheel", name: "Living Wheel", how: "Coming soon", soon: true, group: "soon", colors: ["#38C6FF", "#FFD447"] },
   { id: "sigil", name: "Sigil", how: "Reliquary Vault · rare · +3% pts", crate: true, group: "crate", ptsMult: 0.03, colors: ["#C9A8FF", "#E8C56A"] },
   { id: "glassfire", name: "Glassfire", how: "Reliquary Vault · epic · +5% pts", crate: true, group: "crate", ptsMult: 0.05, colors: ["#FF5A8A", "#7DF9FF"] },
   { id: "crownfall", name: "Crownfall", how: "Reliquary Vault · legendary · +8% pts", crate: true, group: "crate", ptsMult: 0.08, colors: ["#FFD447", "#FFF6C9"] },
@@ -6253,6 +6350,8 @@ function unlocked(item, s) {
   if (item.crate && s.crateUnlocks?.[item.id]) return true;
   if (item.soon) return false;
   if (item.reigning) return !!s.lbReigning;
+  if (item.worldFirst) return Object.keys(s.worldFirsts || {}).length > 0;
+  if (item.seraph) return backToBackSeasonFirsts(s);
   if (item.seasonFirst) return Object.values(s.seasonBadges || {}).some((b) => b.place === 1);
   if (item.task) return !!s.auraUnlocks?.[item.id] || AURA_TASKS[item.task](s).done;
   if (item.nemesis) return nemesisWins(s) >= item.nemesis;
@@ -6309,7 +6408,29 @@ const AURA_FX = {
   ] },
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
-  soon_wheel: { spd: 1.3, glow: 0.5, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#38C6FF", "#FFD447"], w: [1.2, 2], r: [0.95, 1.22], sz: [1.2, 2.1] }, { k: "orbit", n: 8, shape: "shard", c: ["#FFD447", "#7DF9FF"], w: [-0.6, -0.6], r: [1.08, 1.08], sz: [2.4, 3.4], even: 1 }] },
+  // Hunter's Moon: pale moon behind, crimson mist, cold silver rings, a blade-slash sweep, ash and blood
+  huntersmoon: { spd: 0.92, glow: 0.9, corona: { inner: "#E4E8F2", outer: "#7A0018" },
+    sweep: { c: "#FFE9EC", a: 1, spd: 1.45, r: 1.12, w: 3.6, span: 0.46 },
+    rays: { n: 6, c: "#E4E8F2", spin: 0.03, len: 1.4, a: 0.16 },
+    rings: [{ r: 1.32, c: "#E4E8F2", spin: -0.05, a: 0.85, w: 1.3, ink: 1 }, { r: 1.12, c: "#C2001F", spin: 0.06, a: 0.96, w: 2.8, filigree: 12, ink: 1 }],
+    layers: [
+      { k: "rise", n: 12, shape: "smoke", c: ["#6E0014", "#B00020"], sp: [6, 14], life: [1.6, 2.8], sz: [3.2, 6], sway: 7, blend: "source-over", a: 0.5 },
+      { k: "fall", n: 14, shape: "dot", c: ["#9AA3B2", "#E4E8F2"], sp: [10, 22], drift: 3, sz: [0.8, 1.4], blend: "source-over", a: 0.5 },
+      { k: "rise", n: 9, shape: "ember", c: ["#FF6A3D", "#C2001F"], sp: [16, 30], life: [0.8, 1.6], sz: [1, 1.8], sway: 9, a: 0.8 },
+      { k: "fall", n: 7, shape: "drop", c: ["#C2001F", "#7A0018"], sp: [26, 44], drift: 1.5, sz: [0.9, 1.6], blend: "source-over", a: 0.9 },
+      { k: "orbit", n: 6, shape: "spark", c: ["#E4E8F2", "#FFFFFF"], w: [1.6, 2.4], r: [1, 1.18], sz: [1.1, 1.9], even: 1 },
+    ] },
+  // Living Wheel: wheels inside wheels, gold filigree, watching eyes on the rim
+  wheel: { spd: 0.9, glow: 0.85,
+    sweep: { c: "#FFF6C9", a: 0.95, spd: 0.7, r: 1.16, w: 3.4, span: 1 },
+    rays: { n: 12, c: "#FFD447", spin: 0.04, len: 1.42, a: 0.26 },
+    rings: [{ r: 1.34, c: "#7DF9FF", spin: -0.06, a: 0.8, w: 1.2, dash: 1, ink: 1 }, { r: 1.16, c: "#FFD447", spin: 0.09, a: 0.96, w: 3.2, filigree: 16, ink: 1 }, { r: 0.98, c: "#FFFFFF", spin: -0.14, a: 0.7, w: 1, ink: 1 }],
+    layers: [
+      { k: "orbit", n: 4, shape: "eye", c: ["#FFFFFF"], w: [0.22, 0.22], r: [1.16, 1.16], sz: [1.5, 1.5], even: 1, blend: "source-over", a: 0.9 },
+      { k: "orbit", n: 8, shape: "gem", c: ["#FFD447", "#7DF9FF"], w: [-0.5, -0.5], r: [1.34, 1.34], sz: [1.6, 2.2], even: 1, blend: "source-over", a: 0.85 },
+      { k: "orbit", n: 14, shape: "star", c: ["#FFF6C9", "#7DF9FF"], w: [0.5, 0.95], r: [1, 1.26], sz: [1, 1.8], tw: 1 },
+      { k: "inward", n: 10, shape: "dot", c: ["#FFD447", "#FFFFFF"], sp: [0.5, 1.1], life: [1.2, 2.2], sz: [1.4, 2.4] },
+    ] },
   sigil: { spd: 0.72, glow: 0.78, rays: { n: 6, c: "#C9A8FF", spin: 0.06, len: 1.22, a: 0.22 }, rings: [{ r: 1.04, c: "#E8C56A", spin: 0.08, a: 0.92, w: 1.7, filigree: 8, ink: 1 }, { r: 1.22, c: "#9B6DFF", spin: -0.05, a: 0.78, w: 1.25, dash: 1, ink: 1 }], layers: [
     { k: "orbit", n: 4, shape: "glyph", c: ["#C9A8FF", "#E8C56A"], w: [0.28, 0.28], r: [1.12, 1.12], sz: [2.2, 2.2], even: 1, blend: "source-over", a: 0.9 },
     { k: "orbit", n: 8, shape: "dot", c: ["#E8C56A", "#C9A8FF", "#FFF6C9"], w: [0.22, 0.38], r: [1.02, 1.2], sz: [1.6, 2.6], tw: 1, blend: "source-over", a: 0.95 },
@@ -7015,7 +7136,7 @@ function dayDamageMap(s, mk = monthKey()) {
   const out = {};
   (s.workouts || []).filter((w) => w.date.startsWith(mk)).forEach((w) => {
     let dmg = 0;
-    w.exercises.forEach((ex) => { const def = findEx(s, ex.name); ex.sets.forEach((st) => {
+    w.exercises.forEach((ex) => { const def = findEx(s, ex.name); workSets(ex.sets).forEach((st) => {
       if (def.type === "timed") { if (def.group === "Cardio") dmg += (+st.w || 0) * 800; return; }
       const wt = def.type === "assisted" ? movedLb(s.profile, +st.w || 0) : +st.w || 0;
       dmg += wt * (+st.r || 0) + (+st.r || 0) * 5;
@@ -7071,6 +7192,45 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
   const [hit, setHit] = useState(false);
   const [raid, setRaid] = useState(null);
   const prev = useRef(total);
+  // Kill recap: saved once, the first time you see the global boss dead with damage of your own on it
+  useEffect(() => {
+    if (scope !== "global" || !dead || mine <= 0) return;
+    const key = `${mk}_global`;
+    setS((p) => (p.bossRecaps?.[key] ? p : { ...p, bossRecaps: { ...(p.bossRecaps || {}), [key]: { boss: boss.id, name: boss.name, mk, mine, total, players, hp, t: Date.now(), seen: false } } }));
+  }, [scope, dead, mine, total, players, hp, mk, boss.id]);
+  // World First: claim the killing blow if the boss was still alive before my latest workout,
+  // stamped with when that workout ended so every device resolves the same winner.
+  const [worldFirst, setWorldFirst] = useState(null);
+  useEffect(() => {
+    if (scope !== "global" || !dead || mine <= 0 || s.test || s.wfClaim?.[mk] || !window.storage?.set) return;
+    const mineW = (s.workouts || []).filter((w) => isWorkout(w) && w.date.startsWith(mk));
+    const lastW = mineW[mineW.length - 1];
+    if (!lastW) return;
+    const before = bossDamage(meRow, mk, { ...s, workouts: (s.workouts || []).filter((w) => w.id !== lastW.id) }, sinceOf(meRow));
+    if (total - (mine - before) >= hp) return;
+    const t = lastW.startedAt ? lastW.startedAt + (lastW.minutes || 0) * 60000 : Date.now();
+    (async () => {
+      try {
+        await window.storage.set(`wfclaim:${mk}:${s.playerId}`, JSON.stringify({ id: s.playerId, name: s.profile.name, t, boss: boss.id }), true);
+        setS((p) => ({ ...p, wfClaim: { ...(p.wfClaim || {}), [mk]: true } }));
+      } catch { /* offline, try again next open */ }
+    })();
+  }, [scope, dead, mine, total, hp, mk]);
+  useEffect(() => {
+    if (scope !== "global" || !window.storage?.list) return;
+    let stop = false;
+    const pull = async () => {
+      try {
+        const win = resolveWorldFirst(await readShared(`wfclaim:${mk}:`));
+        if (stop) return;
+        setWorldFirst(win);
+        if (win && win.id === s.playerId) setS((p) => (p.worldFirsts?.[mk] ? p : { ...p, worldFirsts: { ...(p.worldFirsts || {}), [mk]: boss.id } }));
+      } catch { /* offline */ }
+    };
+    pull();
+    const id = setInterval(pull, 30000);
+    return () => { stop = true; clearInterval(id); };
+  }, [scope, mk, dead, s.wfClaim?.[mk]]);
   useEffect(() => { if (total > prev.current) { setHit(true); const t = setTimeout(() => setHit(false), 500); prev.current = total; return () => clearTimeout(t); } prev.current = total; }, [total]);
   useEffect(() => {
     if (scope !== "crew" || !crewId) { setRaid(null); return; }
@@ -7098,6 +7258,7 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
         </div>
         <div className="text-xl font-bold mt-1" style={{ color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
         <div className="body text-xs" style={{ color: C.dim }}>{boss.tag}</div>
+        {scope === "global" && worldFirst && <div className="body text-xs font-semibold mt-1" style={{ color: "#C2001F" }}>World First · {worldFirst.id === s.playerId ? "you" : worldFirst.name} landed the killing blow</div>}
       </div>
       <div>
         <div className="h-4 overflow-hidden relative" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)", boxShadow: pct <= 0.5 && !dead ? "0 0 14px rgba(255,45,45,.5)" : "none" }}>
@@ -7126,8 +7287,56 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
       {dead && mine > 0 && !claimed && <button onClick={claim} className="btn w-full py-3">Claim loot</button>}
       {claimed && <div className="body text-sm text-center" style={{ color: C.green }}>Loot claimed. Equip it in Profile → Customize.</div>}
       {dead && mine === 0 && <div className="body text-xs text-center" style={{ color: C.dim }}>Log a workout this month to earn a share of the loot.</div>}
+      {scope === "global" && <PastKills s={s} />}
     </div>
   );
+}
+// Everything you earned from a boss you helped kill, in one card you can also share
+const recapLoot = (bossId) => {
+  const b = BOSSES.find((x) => x.id === bossId);
+  return b ? [AURAS.find((a) => a.loot === b.id)?.name, b.title, "Bone crown"].filter(Boolean) : [];
+};
+const recapShare = (rec) => Math.round((rec.mine / Math.max(1, rec.total)) * 100);
+function BossRecapCard({ s, rec, onDismiss }) {
+  const boss = BOSSES.find((b) => b.id === rec.boss);
+  const monthName = new Date(`${rec.mk}-01T12:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  if (!boss) return null;
+  return (
+    <div className="panel p-4 space-y-3" style={{ borderColor: `${boss.color}66` }}>
+      <div className="flex items-center gap-3">
+        <BossArt boss={boss} pct={0} dead size={56} />
+        <div className="flex-1 min-w-0">
+          <div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{monthName} · boss defeated</div>
+          <div className="text-lg font-bold truncate" style={{ color: boss.color }}>{boss.name}</div>
+          <div className="body text-xs" style={{ color: C.sub }}>{rec.mine.toLocaleString()} damage · {recapShare(rec)}% of the kill</div>
+        </div>
+      </div>
+      <div className="body text-xs" style={{ color: C.dim }}>Loot: {recapLoot(rec.boss).join(", ")}, and {BOSS_XP} XP.</div>
+      <div className="flex gap-2">
+        {onDismiss && <button onClick={onDismiss} className="ghost flex-1 py-2 text-sm font-bold">Nice</button>}
+        <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: "Boss defeated", headline: boss.name, sub: monthName, tierImg: Math.floor(overallInfo(s).score), rows: [["Your damage", rec.mine.toLocaleString()], ["Share of the kill", `${recapShare(rec)}%`], ["Fighters", rec.players], ["Loot", recapLoot(rec.boss)[0] || "—"]] })} />
+      </div>
+    </div>
+  );
+}
+function PastKills({ s }) {
+  const [open, setOpen] = useState(false);
+  const list = Object.entries(s.bossRecaps || {}).filter(([k]) => k.endsWith("_global")).map(([, v]) => v).sort((a, b) => (a.mk < b.mk ? 1 : -1));
+  if (!list.length) return null;
+  return (
+    <div className="space-y-2">
+      <button onClick={() => setOpen(!open)} className="body text-xs underline" style={{ color: C.cyan }}>{open ? "Hide" : `Past kills (${list.length})`}</button>
+      {open && list.map((rec) => <BossRecapCard key={rec.mk} s={s} rec={rec} />)}
+    </div>
+  );
+}
+// First app open after the kill: show the recap once, then it lives under the boss
+function BossRecapBanner({ s, setS }) {
+  const entry = Object.entries(s.bossRecaps || {}).find(([k, v]) => k.endsWith("_global") && !v.seen);
+  if (!entry) return null;
+  const [key, rec] = entry;
+  const seen = () => setS((p) => ({ ...p, bossRecaps: { ...(p.bossRecaps || {}), [key]: { ...p.bossRecaps[key], seen: true } } }));
+  return <BossRecapCard s={s} rec={rec} onDismiss={seen} />;
 }
 
 /* ---------- Seasons ---------- */
@@ -8839,6 +9048,46 @@ async function writeCrewMembership(code, rec, s, join) {
   try { if (rec) await window.storage.set(`crew:${code}`, JSON.stringify({ ...rec, members }), true); } catch (e) { /* owner-only */ }
   return rec ? { ...rec, members } : rec;
 }
+// Cosmetic only: a pennant showing how many weekly crew quests this player has banked
+function CrewBanner({ count = 1, size = 16 }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5" style={{ borderRadius: 999, border: `1px solid ${C.cyan}66`, background: "rgba(56,198,255,.12)" }}>
+      <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M3 1h10v11l-5-3-5 3z" fill={C.cyan} opacity="0.85" />
+        <path d="M3 1h10v11l-5-3-5 3z" fill="none" stroke={C.cyan} strokeWidth="1" />
+      </svg>
+      <span className="body text-xs font-bold" style={{ color: C.cyan }}>Crew banner{count > 1 ? ` ×${count}` : ""}</span>
+    </span>
+  );
+}
+// Shared weekly quests for the crew. Pooled across members, targets scale with headcount,
+// and none of it touches boss HP or boss damage.
+function CrewQuests({ s, setS, rows, code }) {
+  const ws = weekStart();
+  const cards = (rows || []).map((r) => (r.id === s.playerId ? profileCard(s) : r));
+  const { quests, members, done } = crewQuestProgress(cards, ws, cards.length);
+  const key = `${code}_${ws}`;
+  const earned = !!s.crewBanners?.[key];
+  useEffect(() => {
+    if (!done || earned || !code) return;
+    setS((p) => (p.crewBanners?.[key] ? p : { ...p, crewBanners: { ...(p.crewBanners || {}), [key]: { code, week: ws, t: Date.now() } } }));
+  }, [done, earned, key]);
+  return (
+    <div className="panel p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="font-bold text-sm">Crew quests · this week</div>
+        {(earned || done) && <CrewBanner count={Object.keys(s.crewBanners || {}).length} />}
+      </div>
+      <div className="body text-xs" style={{ color: C.dim }}>Pooled across all {members} member{members === 1 ? "" : "s"}. Clear all three by Saturday night for a crew banner. No effect on the boss.</div>
+      {quests.map((q) => (
+        <div key={q.id} className="space-y-1">
+          <div className="flex justify-between text-xs body"><span style={{ color: q.done ? C.green : C.sub }}>{q.title}</span><span className="tabular-nums" style={{ color: C.dim }}>{q.value} / {q.target} {q.unit}</span></div>
+          <Bar pct={Math.min(1, q.value / Math.max(1, q.target)) * 100} color={q.done ? C.green : C.cyan} />
+        </div>
+      ))}
+    </div>
+  );
+}
 function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
@@ -8919,6 +9168,7 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
           <button type="button" onClick={() => navigator.clipboard?.writeText(mine.code)} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Copy code</button>
           <button type="button" onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>
         </div>
+        <CrewQuests s={s} setS={setS} rows={memberRows} code={mine.code} />
         {(() => {
           const live = raidActive(raid);
           const left = live ? Math.max(0, Math.ceil((raid.end - now) / 1000)) : 0;
