@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -46,10 +46,6 @@ function applyTheme(settings = {}) {
   Object.assign(C, THEMES[mode], settings.zesty ? ZEST[mode] : {}, settings.custom?.on && !settings.zesty ? customTheme(settings.custom) : {});
   RANKS.forEach((r, i) => { r.color = mode === "light" ? RANK_LIGHT[i] : RANK_DARK[i]; });
 }
-// Bench-equivalent strength multiples for D, C, B, A, S at the reference lifter (180 lb, 5'10", male).
-// S (1.95) is elite territory: about a 350 lb bench for a 180 lb lifter.
-const RATIO_STEPS = [1.0, 1.35, 1.7, 2.1, 2.55];
-const REP_STEPS = [10, 17, 24, 33, 42];
 const DIVS = ["III", "II", "I"];
 const RANK_INFO = {
   E: ["Awakening", "Just getting started. Everyone begins here."],
@@ -57,13 +53,11 @@ const RANK_INFO = {
   C: ["Regular", "Consistent lifter with a real foundation."],
   B: ["Strong", "Clearly trained. Stronger than most people in any gym."],
   A: ["Advanced", "Years of serious, disciplined training."],
-  S: ["Elite", "Genuinely jacked for your frame. Very few ever get here."],
+  S: ["Elite", "Genuinely strong for your frame. Very few ever get here."],
   SS: ["Gym God", "Beyond elite. Nobody is supposed to get here."],
 };
 // Minimum strength factor per group so custom lifts (especially machines) can't be rated too easy
 const FACTOR_FLOOR = { Chest: 0.35, Back: 0.4, Legs: 0.5, Shoulders: 0.25, Arms: 0.3, Core: 1.3 };
-// Some muscle groups are held to a stricter standard for rank
-const GROUP_HARD = { Shoulders: 1.25, Arms: 1.1 };
 // How much each muscle group counts toward overall rank; groups you haven't trained count as zero
 const GROUP_WEIGHT = { Legs: 3, Back: 3, Chest: 3, Shoulders: 2, Arms: 1, Core: 1 };
 
@@ -332,21 +326,8 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 const e1rm = (w, r) => (r <= 0 ? 0 : w * (1 + r / 30));
 const fmtDay = (d) => new Date(d + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
-// Strength scale in lb for this person. Heavier lifters need more (but not linearly, since strength
-// grows slower than bodyweight), and taller frames need more because a jacked physique at that height carries more muscle.
-function strengthScale(p) {
-  const bw = Math.max(80, +p.weight || 170), h = Math.max(48, +p.height || 70) * 0.0254;
-  const frameLb = 24 * h * h * 2.2046; // bodyweight of a very muscular build at this height
-  const mass = 0.65 * bw + 0.35 * frameLb;
-  return 180 * Math.pow(mass / 180, 0.67) * (p.sex === "f" ? 0.65 : 1);
-}
-function thresholds(ex, p) {
-  if (ex.type === "assisted") return REP_STEPS.map((r) => Math.round(r * (p.sex === "f" ? 0.6 : 1)));
-  if (ex.type === "bodyweight") return REP_STEPS.map((r) => Math.round(r * (ex.reps || 1) * (p.sex === "f" ? 0.6 : 1)));
-  const sc = strengthScale(p);
-  const hard = GROUP_HARD[ex.group] || 1;
-  return RATIO_STEPS.map((r) => Math.round((r * ex.factor * sc * hard) / 5) * 5);
-}
+const sexLabel = (p) => (bodySex(p) === "f" ? "female" : "male");
+const sexLine = (p) => `Body type: ${sexLabel(p)}.`;
 // Score from 0 to 6: E is 0–1, D 1–2 ... S 5–6 (S I is 15% past the S line)
 // Score 0–7: E 0–1 … S 5–6, and a hidden SS tier 6–7. S I ends 35% past the S line; SS caps at 75% past it.
 function scoreFor(best, steps) {
@@ -468,17 +449,6 @@ function streakOf(s) {
 }
 function weekStart() { const x = new Date(); x.setDate(x.getDate() - x.getDay()); return dkey(x); }
 
-function targets(p) {
-  const kg = p.weight * 0.4536, cm = p.height * 2.54;
-  const bmr = 10 * kg + 6.25 * cm - 5 * p.age + (p.sex === "m" ? 5 : -161);
-  const tdee = Math.round(bmr * p.activity);
-  const goal = GOALS.find((g) => g.id === p.goal) || GOALS[1];
-  const cal = tdee + goal.adj;
-  const protein = Math.round(p.weight * (p.goal === "cut" ? 1 : 0.85));
-  const fat = Math.round((cal * 0.25) / 9);
-  const carbs = Math.max(0, Math.round((cal - protein * 4 - fat * 9) / 4));
-  return { tdee, cal, protein, fat, carbs };
-}
 const mealTotals = (meals = []) => meals.reduce((a, m) => ({ cal: a.cal + m.cal * m.qty, p: a.p + m.p * m.qty, c: a.c + m.c * m.qty, f: a.f + m.f * m.qty }), { cal: 0, p: 0, c: 0, f: 0 });
 
 function makeQuest(exclude = [], tier = 1) {
@@ -578,7 +548,7 @@ function WorkoutRecap({ s, setS }) {
     if (fetched.current || sum.sterling) return;
     fetched.current = true;
     const lifts = recap.lifts.map((l) => `${l.name}${l.rank ? ` ${l.rank.label}` : ""} ${l.sets.map((st) => setLabel(findEx(s, l.name), st)).join(", ")}`).join(" | ");
-    askJson(STERLING_SYS, `Just finished a workout titled "${sum.title || "untitled"}". Overall session rank: ${recap.overall?.label || "unranked"}. PRs: ${sum.prNames?.join(", ") || "none"}. Volume ${Math.round(sum.volume)} lb in ${sum.minutes || "?"} min. Lifts: ${lifts || "none"}. Bodyweight ${s.profile.weight} lb. Give 3 specific tips to improve the next time they do this session. Respond ONLY with JSON: {"quip": "one short funny line", "tips": ["tip 1", "tip 2", "tip 3"]}`)
+    askJson(STERLING_SYS, `Just finished a workout titled "${sum.title || "untitled"}". Overall session rank: ${recap.overall?.label || "unranked"}. PRs: ${sum.prNames?.join(", ") || "none"}. Volume ${Math.round(sum.volume)} lb in ${sum.minutes || "?"} min. Lifts: ${lifts || "none"}. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)} Give 3 specific tips to improve the next time they do this session. Respond ONLY with JSON: {"quip": "one short funny line", "tips": ["tip 1", "tip 2", "tip 3"]}`)
       .then((r) => setS((p) => p.lastSummary ? { ...p, lastSummary: { ...p.lastSummary, sterling: { quip: r.quip || "", tips: (r.tips || []).slice(0, 3).map(String) } } } : p))
       .catch(() => setS((p) => p.lastSummary ? { ...p, lastSummary: { ...p.lastSummary, sterling: { quip: "", tips: [], err: true } } } : p));
   }, []);
@@ -749,7 +719,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6l";
+const APP_VERSION = "6n";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -850,7 +820,7 @@ export default function App() {
       let st = DEFAULT;
       try {
         const r = await window.storage.get("ascend-state", false);
-        if (r?.value) { const v = JSON.parse(r.value); st = { ...DEFAULT, ...v, settings: { ...DEFAULT.settings, ...(v.settings || {}) } }; }
+        if (r?.value) { const v = JSON.parse(r.value); st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } }; }
       } catch (e) { /* first run */ }
       try {
         const ls = JSON.parse(localStorage.getItem("ascend-settings") || "null");
@@ -978,7 +948,7 @@ export default function App() {
       try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
     }, 1200);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.test, s.profile.name, s.profile.avatar, s.profile.look, s.profile.title, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins, s.lbReigning, s.loot]);
+  }, [loaded, s.lb, s.test, s.profile.name, s.profile.avatar, s.profile.look, s.profile.title, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.profile.sex, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins, s.lbReigning, s.loot]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -1099,7 +1069,7 @@ export default function App() {
     if (changed) setS((p) => ({ ...p, rankSnap: snap }));
     if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.feedLabel} overall` : `${cer.name} hit ${cer.label}`, { tier: cer.kind === "overall" ? Math.floor(snap.overall) : cer.tier }, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.kind === "overall" ? cer.feedLabel.replace(" ", "") : cer.rank.id}`); }
     if (cer?.kind !== "overall" && prev.od != null && snap.od > prev.od && snap.overall === prev.overall && snap.overall >= 1) { postFeed(s, "rank", `climbed to ${oi.label} overall`, { tier: snap.overall }, `rank_overall_${oi.label.replace(" ", "")}`); }
-  }, [loaded, s.workouts, s.profile.weight, s.custom]);
+  }, [loaded, s.workouts, s.profile.weight, s.profile.sex, s.custom]);
 
   // Weekly snapshot for the rank report
   useEffect(() => {
@@ -1262,7 +1232,7 @@ export default function App() {
 
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
-        {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 2) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
+        {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
         {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} />}
         {onboard === null && tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
         {onboard === null && tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
@@ -1475,7 +1445,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
             <div className="text-sm body mt-2" style={{ color: C.dim }}>Overall rank · {RANK_INFO[oc.id][0]}</div>
             <div className="ranklabel text-4xl" style={{ color: oc.color }}>{overall.label}</div>
           </div>
-          <Physique tier={overall.score} height={150} aura={s.profile.look?.aura} />
+          <Physique tier={overall.score} height={150} aura={s.profile.look?.aura} sex={s.profile.sex} />
         </div>
         <div className="mt-3 relative"><Bar pct={overall.divPct} color={oc.color} /></div>
         <button onClick={openProfile} className="btn mt-4 w-full py-2.5 text-sm flex items-center justify-center gap-2 relative"><User size={16} />Profile · achievements · weight chart</button>
@@ -1583,7 +1553,14 @@ function Profile({ s, setS }) {
           <label>Weight (lb)<input type="number" className="inp mt-1" value={p.weight} onChange={(e) => { const w = +e.target.value; set("weight", w); if (w > 50) setS((x) => ({ ...x, weightLog: { ...(x.weightLog || {}), [today()]: w } })); }} /></label>
           <label>Height (in)<input type="number" className="inp mt-1" value={p.height} onChange={(e) => set("height", +e.target.value)} /></label>
           <label>Age<input type="number" className="inp mt-1" value={p.age} onChange={(e) => set("age", +e.target.value)} /></label>
-          <label>Sex<select className="inp mt-1" value={p.sex} onChange={(e) => set("sex", e.target.value)}><option value="m">Male</option><option value="f">Female</option></select></label>
+          <label>Body type<select className="inp mt-1" value={bodySex(p)} onChange={(e) => {
+            const v = e.target.value === "f" ? "f" : "m";
+            if (v === bodySex(p)) return;
+            e.target.value = bodySex(p);
+            ask("This changes rank targets and calorie math. Achievements, XP, titles, and cosmetics stay. Rank letters may go up or down.", () => {
+              setS((x) => { const n = applyBodyType(x, v); return { ...n, rankSnap: rankSnapshot(n) }; });
+            }, "Switch");
+          }}><option value="m">Male</option><option value="f">Female</option></select></label>
           <label className="col-span-2">Activity<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
           <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings, test: !!s.test }), "Reset")}>Reset all progress</button>
         </div>
@@ -2789,7 +2766,7 @@ function Ranks({ s, openMuscle }) {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold tracking-wide glowtext">Ranks</h1>
       <div className="body text-sm" style={{ color: C.dim }}>
-        Targets are built for you: {p.weight} lb, {ft}'{inch}", {p.sex === "f" ? "female" : "male"}. Heavier lifters need to lift more, and taller frames need more too, because being jacked at your height means carrying more muscle. Update your body stats on the Status tab whenever they change.
+        Targets are built for you: {p.weight} lb, {ft}'{inch}", {sexLabel(p)}. Heavier lifters need to lift more, and taller frames need more too, because a strong physique at that height means carrying more muscle. Update your body stats on the Status tab whenever they change.
       </div>
 
       <div className="space-y-2">
@@ -2972,7 +2949,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
           {st.voice ? <Volume2 size={22} style={{ color: C.cyan }} /> : <VolumeX size={22} style={{ color: C.mute }} />}
           <div className="flex-1">
             <div className="font-bold">Assistant voice</div>
-            <div className="body text-xs" style={{ color: C.dim }}>Sterling reads his replies out loud.</div>
+            <div className="body text-xs" style={{ color: C.dim }}>Sterling reads replies out loud.</div>
           </div>
           <Toggle label="Assistant voice" on={!!st.voice} onClick={() => setSet("voice", !st.voice)} />
         </div>
@@ -3096,7 +3073,7 @@ function buildContext(s) {
   const quests = (s.days?.[d]?.list || []).map((q) => `${q.title} ${q.progress}/${q.target} ${q.unit}${q.claimed ? " (cleared)" : ""}`).join("; ");
   const tot = mealTotals(s.meals[d]);
   const recent = s.workouts.filter(isWorkout).slice(-5).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => `${e.name} ${e.sets.map((x) => (x.w ? `${x.w}x${x.r}` : x.r)).join(",")}`).join(" | ")}`).join("\n");
-  return `Name: ${p.name || "unknown"}. Bodyweight ${p.weight} lb, height ${p.height} in, age ${p.age}, ${p.sex === "f" ? "female" : "male"}. Goal: ${GOALS.find((g) => g.id === p.goal)?.label}.
+  return `Name: ${p.name || "unknown"}. Bodyweight ${p.weight} lb, height ${p.height} in, age ${p.age}. ${sexLine(p)} Goal: ${GOALS.find((g) => g.id === p.goal)?.label}.
 Level ${levelFromXp(s.xp).lvl} (${s.xp} XP), overall rank ${o.label}, streak ${streakOf(s)} days, leaderboard points ${pointsOf(s)}.
 Lift ranks: ${lifts || "none logged yet"}.
 Today (${d}) quests: ${quests || "none yet"}.
@@ -3898,6 +3875,7 @@ function profileCard(s) {
   const wl = Object.entries(s.weightLog || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-40);
   return {
     id: s.playerId, name: s.profile.name, avatar: s.profile.avatar || null, goal: s.profile.goal, look: s.profile.look || null, song: s.profile.song || null,
+    sex: bodySex(s.profile),
     title: equippedTitle(s).name,
     weekXp: Object.entries(s.xpLog || {}).filter(([d]) => d >= ws).reduce((a, [, v]) => a + v, 0),
     prevWeek: (() => { const pw = shift(ws, -7); return { key: pw, xp: Object.entries(s.xpLog || {}).filter(([d]) => d >= pw && d < ws).reduce((a, [, v]) => a + v, 0) }; })(),
@@ -4161,7 +4139,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
             </>
           )}
 
-          {!me && <div className="flex justify-center"><Physique tier={data.tier ?? (RANKS.findIndex((r) => r.id === data.rank) || 0)} height={220} aura={data.look?.aura} caption={`${data.name}'s physique`} /></div>}
+          {!me && <div className="flex justify-center"><Physique tier={data.tier ?? (RANKS.findIndex((r) => r.id === data.rank) || 0)} height={220} aura={data.look?.aura} sex={data.sex} caption={`${data.name}'s physique`} /></div>}
           {!me ? <VersusPanel s={s} data={data} me={me} id={id} setS={setS} gainXp={gainXp} /> : <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} />}
 
           <h2 className="text-lg font-bold flex items-center gap-2"><MessageCircle size={18} />Comments</h2>
@@ -4294,7 +4272,7 @@ function LookStudio({ s, setS }) {
   return (
     <div className="panel overflow-hidden">
       <div className="relative px-4 pt-4 pb-3 flex items-center gap-3" style={{ backgroundImage: lookStyle(look, 0.5)?.background || `radial-gradient(120% 90% at 20% 30%, ${oi.rank.glow}, transparent 60%)`, backgroundSize: "cover", borderBottom: `1px solid ${C.glassLine}` }}>
-        <div className="shrink-0" style={{ width: 104 }}><Physique tier={oi.score} height={150} aura={look.aura} /></div>
+        <div className="shrink-0" style={{ width: 104 }}><Physique tier={oi.score} height={150} aura={look.aura} sex={s.profile.sex} /></div>
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <Avatar src={s.profile.avatar} name={s.profile.name} size={44} ring={look.accent || oi.rank.color} look={{ ...look, aura: "none" }} />
@@ -4658,7 +4636,7 @@ async function askJson(system, user, maxTokens = 500) {
   try { sessionStorage.setItem("ascend-ai:" + ck, JSON.stringify(parsed)); } catch (e) { /* */ }
   return parsed;
 }
-const STERLING_SYS = "You are Sterling, the wildly over-the-top but genuinely competent British butler coach inside the Ascend gym app. Be brief and funny in the quip fields, but keep every recommendation accurate and practical.";
+const STERLING_SYS = "You are Sterling, the wildly over-the-top but genuinely competent British butler coach inside the Ascend gym app. Be brief and funny in the quip fields, but keep every recommendation accurate and practical. Match advice to the user's body type (male or female) when it affects training or nutrition.";
 
 // Pops up on the Fuel tab once most of the day's calories are in, with foods that finish the macros
 function FuelCoach({ s, setS, t, tot, onAdd }) {
@@ -4672,7 +4650,7 @@ function FuelCoach({ s, setS, t, tot, onAdd }) {
     setState((x) => ({ ...x, status: "loading" }));
     const menu = [...(s.savedFoods || []).slice(0, 20), ...FOODS.slice(0, 25)].map((f) => `${f.name} (${f.cal} cal, P${f.p} C${f.c} F${f.f})`).join("; ");
     try {
-      const r = await askJson(STERLING_SYS, `The user has ${remCal} calories, ${remP}g protein, ${remC}g carbs and ${remF}g fat left today (negative means over). Goal: ${GOALS.find((g) => g.id === s.profile.goal)?.label}. Suggest 3 things to eat that land them close to their targets, preferring items from this list when they fit: ${menu}. You may also suggest simple common foods. Respond ONLY with JSON: {"quip": "one short funny line", "picks": [{"name": "food with portion", "cal": n, "p": n, "c": n, "f": n, "why": "under 10 words"}]}`);
+      const r = await askJson(STERLING_SYS, `The user has ${remCal} calories, ${remP}g protein, ${remC}g carbs and ${remF}g fat left today (negative means over). Goal: ${GOALS.find((g) => g.id === s.profile.goal)?.label}. ${sexLine(s.profile)} Suggest 3 things to eat that land them close to their targets, preferring items from this list when they fit: ${menu}. You may also suggest simple common foods. Respond ONLY with JSON: {"quip": "one short funny line", "picks": [{"name": "food with portion", "cal": n, "p": n, "c": n, "f": n, "why": "under 10 words"}]}`);
       setState({ status: "done", picks: (r.picks || []).slice(0, 3).map((p) => ({ name: String(p.name).slice(0, 60), cal: Math.round(+p.cal || 0), p: Math.round(+p.p || 0), c: Math.round(+p.c || 0), f: Math.round(+p.f || 0), why: p.why || "" })), quip: r.quip || "" });
     } catch (e) { setState({ status: "error", picks: [], quip: "" }); }
   };
@@ -4713,7 +4691,7 @@ function TrainCoach({ s, a, onAdd }) {
     const history = s.workouts.filter(isWorkout).slice(-4).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => e.name).join(", ")}`).join("\n");
     const ranks = rankedLifts(s).slice(0, 8).map((r) => `${r.e.name} ${r.label}`).join(", ");
     try {
-      const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Done so far this session: ${done || "nothing yet"}. Recent workouts:\n${history || "none"}\nLift ranks: ${ranks || "none"}. Bodyweight ${s.profile.weight} lb.
+      const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Done so far this session: ${done || "nothing yet"}. Recent workouts:\n${history || "none"}\nLift ranks: ${ranks || "none"}. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)}
 Recommend what to do next to make this workout as effective as possible for the stated title (balance muscle groups, sensible order, reasonable volume, don't repeat what's done unless more sets are warranted). Choose exercise names ONLY from this list, spelled exactly: ${names}.
 Respond ONLY with JSON: {"quip": "one short funny line", "tip": "one sentence of practical advice about the session so far", "next": [{"exercise": "exact name from list", "sets": n, "reps": "e.g. 8-10", "why": "under 10 words"}]}`);
       const valid = new Set(allExercises(s).map((e) => e.name));
@@ -4906,7 +4884,7 @@ function MusclePage({ s, group, onBack, openExercise }) {
   const askAi = async () => {
     setAi({ status: "loading", text: "", next: [] });
     try {
-      const rr = await askJson(STERLING_SYS, `Muscle group: ${group}. Current group rank ${sc ? r.label : "untrained"} (score ${sc.toFixed(2)} of 6). Lifts logged: ${lifts.map((x) => `${x.e.name} ${x.label} best ${Math.round(x.best)}${x.e.type === "bodyweight" ? " reps" : " lb est max"}${x.next ? `, next rank at ${x.next}` : ""}`).join("; ") || "none"}. Last 30 days: ${sessions30.size} sessions, ${sets30} sets, ${Math.round(vol30).toLocaleString()} lb volume. Bodyweight ${s.profile.weight} lb. Give a specific plan to raise this muscle group's rank. Respond ONLY with JSON: {"quip": "one funny line", "plan": "2-3 sentences of specific advice", "next": [{"exercise": "name", "scheme": "e.g. 4×6", "why": "under 10 words"}]}`);
+      const rr = await askJson(STERLING_SYS, `Muscle group: ${group}. Current group rank ${sc ? r.label : "untrained"} (score ${sc.toFixed(2)} of 6). Lifts logged: ${lifts.map((x) => `${x.e.name} ${x.label} best ${Math.round(x.best)}${x.e.type === "bodyweight" ? " reps" : " lb est max"}${x.next ? `, next rank at ${x.next}` : ""}`).join("; ") || "none"}. Last 30 days: ${sessions30.size} sessions, ${sets30} sets, ${Math.round(vol30).toLocaleString()} lb volume. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)} Give a specific plan to raise this muscle group's rank. Respond ONLY with JSON: {"quip": "one funny line", "plan": "2-3 sentences of specific advice", "next": [{"exercise": "name", "scheme": "e.g. 4×6", "why": "under 10 words"}]}`);
       setAi({ status: "done", text: `${rr.quip ? `"${rr.quip}" ` : ""}${rr.plan || ""}`, next: (rr.next || []).slice(0, 3) });
     } catch (e) { setAi({ status: "error", text: "", next: [] }); }
   };
@@ -4919,7 +4897,7 @@ function MusclePage({ s, group, onBack, openExercise }) {
         <span className="font-extrabold text-xl" style={{ color: sc ? r.rank.color : C.mute, textShadow: `0 0 12px ${r.rank.glow}` }}>{sc ? r.label : "Untrained"}</span>
       </div>
       <div className="panel p-3">
-        <MusclePhoto group={group} tier={preview ?? sc} height={300} />
+        <MusclePhoto group={group} tier={preview ?? sc} height={300} sex={s.profile.sex} />
         <div className="body text-xs text-center mb-2" style={{ color: preview !== null ? C.cyan : C.dim }}>{preview !== null ? `Preview: ${RANKS[preview].id}-rank ${info.name.toLowerCase()} · tap again to go back` : `Your ${info.name.toLowerCase()} at ${sc ? r.label : "untrained"} · tap a rank to preview`}</div>
         <div className="flex justify-between items-center px-1">
           {[0, 1, 2, 3, 4, 5, 6].map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <button key={t} onClick={() => setPreview(preview === t ? null : t)} className="flex flex-col items-center gap-1" style={{ opacity: reached || preview === t ? 1 : 0.4, transform: preview === t ? "scale(1.15)" : "none", transition: "transform .2s" }}><RankBadge rank={rk} size={26} still /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></button>; })}
@@ -6410,7 +6388,7 @@ function PlanGenerator({ s, setS }) {
       const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))].join(", ");
       const g = groupScores(s);
       const weak = Object.keys(GROUP_WEIGHT).sort((a, b) => (g[a] || 0) - (g[b] || 0)).slice(0, 2).join(" and ");
-      const r = await askJson(STERLING_SYS, `Write a 4-day training week for this lifter. Ranks: ${ranks || "none yet"}. Weakest groups: ${weak}. Titles they usually use: ${titles || "none"}. Bodyweight ${s.profile.weight} lb. Use exercise names ONLY from this list, spelled exactly: ${names}. 5 to 7 exercises per day, 3 to 4 sets each, sensible splits. Respond ONLY with JSON: {"quip": "one funny line", "days": [{"name": "short day title", "exercises": [{"name": "exact name", "sets": n}]}]}`, 700);
+      const r = await askJson(STERLING_SYS, `Write a 4-day training week for this lifter. Ranks: ${ranks || "none yet"}. Weakest groups: ${weak}. Titles they usually use: ${titles || "none"}. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)} Use exercise names ONLY from this list, spelled exactly: ${names}. 5 to 7 exercises per day, 3 to 4 sets each, sensible splits. Respond ONLY with JSON: {"quip": "one funny line", "days": [{"name": "short day title", "exercises": [{"name": "exact name", "sets": n}]}]}`, 700);
       const valid = new Set(allExercises(s).map((e) => e.name));
       const days = (r.days || []).map((d) => ({ name: String(d.name || "Day").slice(0, 24), exercises: (d.exercises || []).filter((e) => valid.has(e.name)).map((e) => ({ name: e.name, sets: Math.max(1, Math.min(6, +e.sets || 3)) })) })).filter((d) => d.exercises.length);
       if (!days.length) throw new Error("empty");
@@ -6601,14 +6579,30 @@ function QuestAdd({ unit, onAdd }) {
 
 /* ---------- Physique avatars ---------- */
 const TIER_IDS = ["E", "D", "C", "B", "A", "S", "SS"];
-function Physique({ tier = 0, height = 220, aura, caption }) {
+const MUSCLE_SLUG = { Chest: "chest", Back: "back", Legs: "legs", Shoulders: "shoulders", Arms: "arms", Core: "core" };
+const physiqueSrc = (sex, tier) => `/avatars/${bodySex({ sex }) === "f" ? "female/" : ""}${TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))]}.webp`;
+const muscleSrc = (sex, group, tier) => `/muscles/${bodySex({ sex }) === "f" ? "female/" : ""}${MUSCLE_SLUG[group] || "chest"}_${TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))]}.webp`;
+function PhysiquePlaceholder({ female, height, color }) {
+  const w = Math.round(height * 0.42);
+  return (
+    <svg width={w} height={height} viewBox="0 0 80 200" aria-hidden="true" style={{ position: "relative" }}>
+      <ellipse cx="40" cy="22" rx="14" ry="16" fill={color} opacity=".85" />
+      <path d={female ? "M26 42 Q40 48 54 42 L58 88 Q40 96 22 88 Z" : "M24 42 Q40 46 56 42 L62 90 Q40 98 18 90 Z"} fill={color} opacity=".8" />
+      <path d={female ? "M22 86 Q40 100 58 86 L62 188 L50 188 L46 118 L34 118 L30 188 L18 188 Z" : "M18 88 Q40 98 62 88 L66 188 L52 188 L48 118 L32 118 L28 188 L14 188 Z"} fill={color} opacity=".7" />
+    </svg>
+  );
+}
+function Physique({ tier = 0, height = 220, aura, caption, sex }) {
   const id = TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))];
   const rank = RANKS[Math.max(0, Math.min(6, Math.floor(tier)))];
+  const female = bodySex({ sex }) === "f";
+  const [fail, setFail] = useState(false);
+  useEffect(() => { setFail(false); }, [id, female]);
   return (
     <div className="relative flex flex-col items-center" style={{ height: height + (caption ? 24 : 0) }}>
       <div className="absolute" style={{ top: height * 0.08, width: height * 0.62, height: height * 0.8, borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(10px)" }} />
       {aura && aura !== "none" && <AuraCanvas aura={aura} mode="body" w={Math.round(height * (aura === "ascended" ? 0.48 : 0.8))} h={Math.round(height * (aura === "ascended" ? 0.66 : 1.02))} style={{ left: "50%", top: -height * 0.02, transform: "translateX(-50%)" }} />}
-      <img src={`/avatars/${id}.webp`} alt={`${id}-rank physique`} loading="lazy" style={{ height, width: "auto", position: "relative", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />
+      {fail ? <PhysiquePlaceholder female={female} height={height} color={rank.color} /> : <img src={physiqueSrc(sex, tier)} alt={`${id}-rank physique`} loading="lazy" onError={() => setFail(true)} style={{ height, width: "auto", position: "relative", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />}
       {caption && <div className="body text-xs mt-1" style={{ color: C.dim }}>{caption}</div>}
     </div>
   );
@@ -7385,7 +7379,7 @@ async function buildReceipt({ s, kind, headline, sub, rows, tierImg, footer }) {
   const oc = overallRank(s);
   const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0b1430"); g.addColorStop(1, "#000"); x.fillStyle = g; x.fillRect(0, 0, W, H);
   const rg = x.createRadialGradient(W / 2, 380, 40, W / 2, 380, 620); rg.addColorStop(0, `${oc.color}55`); rg.addColorStop(1, "transparent"); x.fillStyle = rg; x.fillRect(0, 0, W, H);
-  const [logo, phys] = await Promise.all([loadImg("/logo.webp"), tierImg !== undefined ? loadImg(`/avatars/${TIER_IDS[tierImg]}.webp`) : Promise.resolve(null)]);
+  const [logo, phys] = await Promise.all([loadImg("/logo.webp"), tierImg !== undefined ? loadImg(physiqueSrc(s.profile.sex, tierImg)) : Promise.resolve(null)]);
   if (logo) { const lw = 150, lh = (logo.height / logo.width) * lw; x.drawImage(logo, 70, 60, lw, lh); }
   x.fillStyle = "#C9B57A"; x.font = "600 28px Inter, system-ui, sans-serif"; x.textAlign = "right"; x.fillText("ASCEND", W - 70, 110);
   x.fillStyle = "rgba(255,255,255,.55)"; x.font = "500 26px Inter, system-ui, sans-serif"; x.fillText(new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), W - 70, 150);
@@ -8128,14 +8122,16 @@ function WarmUp({ s, a, setActive }) {
 }
 
 /* ---------- Muscle photos ---------- */
-const MUSCLE_SLUG = { Chest: "chest", Back: "back", Legs: "legs", Shoulders: "shoulders", Arms: "arms", Core: "core" };
-function MusclePhoto({ group, tier = 0, height = 300 }) {
+function MusclePhoto({ group, tier = 0, height = 300, sex }) {
   const t = Math.max(0, Math.min(6, Math.floor(tier)));
   const id = TIER_IDS[t], rank = RANKS[t];
+  const female = bodySex({ sex }) === "f";
+  const [fail, setFail] = useState(false);
+  useEffect(() => { setFail(false); }, [group, id, female]);
   return (
     <div className="relative flex items-center justify-center" style={{ height }}>
       <div className="absolute" style={{ width: "70%", height: "80%", borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(14px)" }} />
-      <img key={`${group}-${id}`} src={`/muscles/${MUSCLE_SLUG[group] || "chest"}_${id}.webp`} alt={`${group} at ${id} rank`} style={{ maxHeight: height, maxWidth: "100%", width: "auto", position: "relative", objectFit: "contain", animation: "musclein .35s ease-out", filter: "drop-shadow(0 10px 28px rgba(0,0,0,.55))" }} />
+      {fail ? <PhysiquePlaceholder female={female} height={height} color={rank.color} /> : <img key={`${group}-${id}-${female}`} src={muscleSrc(sex, group, t)} alt={`${group} at ${id} rank`} onError={() => setFail(true)} style={{ maxHeight: height, maxWidth: "100%", width: "auto", position: "relative", objectFit: "contain", animation: "musclein .35s ease-out", filter: "drop-shadow(0 10px 28px rgba(0,0,0,.55))" }} />}
     </div>
   );
 }
@@ -9280,7 +9276,7 @@ function Onboarding({ s, setS, step, onNext }) {
   const setHeight = (f, i2) => set("height", Math.max(48, Math.min(90, f * 12 + i2)));
   const wrap = (children) => (
     <div className="space-y-5">
-      <div className="flex items-center justify-center gap-1.5 pt-2">{[0, 1, 2].map((i) => <span key={i} style={{ width: i === step ? 22 : 8, height: 8, borderRadius: 999, background: i <= step ? C.cyan : C.glassLine, transition: "width .2s" }} />)}</div>
+      <div className="flex items-center justify-center gap-1.5 pt-2">{[0, 1, 2, 3].map((i) => <span key={i} style={{ width: i === step ? 22 : 8, height: 8, borderRadius: 999, background: i <= step ? C.cyan : C.glassLine, transition: "width .2s" }} />)}</div>
       {children}
     </div>
   );
@@ -9297,14 +9293,27 @@ function Onboarding({ s, setS, step, onNext }) {
     );
   }
   if (step === 1) {
+    const cur = bodySex(p);
+    return wrap(
+      <div className="panel p-5 space-y-4">
+        <div><div className="text-xl font-bold">Body type</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Ranks and calorie targets use this so a given letter is equally hard for everyone. You can change it later; achievements, XP, titles, and cosmetics stay.</div></div>
+        <div className="grid grid-cols-2 gap-2">
+          {[["m", "Male"], ["f", "Female"]].map(([id, label]) => (
+            <button key={id} type="button" onClick={() => set("sex", id)} className="py-4 font-bold" style={{ borderRadius: 12, background: cur === id ? C.blue : C.glass, color: cur === id ? "#fff" : C.text, border: `1px solid ${cur === id ? C.cyan : C.glassLine}` }}>{label}</button>
+          ))}
+        </div>
+        <button onClick={onNext} className="btn w-full py-3">Continue</button>
+      </div>,
+    );
+  }
+  if (step === 2) {
     return wrap(
       <div className="panel p-5 space-y-4">
         <div><div className="text-xl font-bold">Your body stats</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Every rank target and calorie goal is built from these. You can change them any time.</div></div>
         <div className="grid grid-cols-2 gap-3 body text-sm">
           <label>Weight (lb)<input type="number" inputMode="decimal" className="inp mt-1" value={p.weight} onChange={(e) => set("weight", +e.target.value)} /></label>
           <label>Age<input type="number" inputMode="numeric" className="inp mt-1" value={p.age} onChange={(e) => set("age", +e.target.value)} /></label>
-          <label>Height<div className="flex gap-1 mt-1"><input type="number" inputMode="numeric" className="inp text-center" value={ft} onChange={(e) => setHeight(+e.target.value || 0, inch)} aria-label="Feet" /><span className="self-center body text-xs" style={{ color: C.dim }}>ft</span><input type="number" inputMode="numeric" className="inp text-center" value={inch} onChange={(e) => setHeight(ft, +e.target.value || 0)} aria-label="Inches" /><span className="self-center body text-xs" style={{ color: C.dim }}>in</span></div></label>
-          <label>Sex<select className="inp mt-1" value={p.sex} onChange={(e) => set("sex", e.target.value)}><option value="m">Male</option><option value="f">Female</option></select></label>
+          <label className="col-span-2">Height<div className="flex gap-1 mt-1"><input type="number" inputMode="numeric" className="inp text-center" value={ft} onChange={(e) => setHeight(+e.target.value || 0, inch)} aria-label="Feet" /><span className="self-center body text-xs" style={{ color: C.dim }}>ft</span><input type="number" inputMode="numeric" className="inp text-center" value={inch} onChange={(e) => setHeight(ft, +e.target.value || 0)} aria-label="Inches" /><span className="self-center body text-xs" style={{ color: C.dim }}>in</span></div></label>
           <label className="col-span-2">Training now<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
           <label className="col-span-2">Goal<select className="inp mt-1" value={p.goal} onChange={(e) => set("goal", e.target.value)}>{GOALS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>
         </div>

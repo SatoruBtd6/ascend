@@ -369,3 +369,56 @@ export function reconcileRaid(a, b) {
     rev: Math.max(a.rev || 0, b.rev || 0) + 1,
   };
 }
+
+// Rank / calorie math. Male lines stay the original allometric curve; female lines use
+// group multipliers from FitnessCalcs male vs female elite bodyweight ratios
+// (https://fitnesscalcs.com/reference/strength-standards-table/).
+export const RATIO_STEPS = [1.0, 1.35, 1.7, 2.1, 2.55];
+export const REP_STEPS = [10, 17, 24, 33, 42];
+export const GROUP_HARD = { Shoulders: 1.25, Arms: 1.1 };
+export const FEMALE_GROUP_SCALE = { Chest: 0.68, Shoulders: 0.68, Arms: 0.68, Back: 0.75, Legs: 0.78, Core: 0.78 };
+export const FEMALE_REP_SCALE = 0.7;
+const GOAL_CAL = { cut: -400, maintain: 0, lean: 250, bulk: 450 };
+
+export function bodySex(p) {
+  return p?.sex === "f" ? "f" : "m";
+}
+
+export function femaleScale(group, type) {
+  if (type === "assisted" || type === "bodyweight") return FEMALE_REP_SCALE;
+  return FEMALE_GROUP_SCALE[group] || 0.72;
+}
+
+export function strengthScale(p) {
+  const bw = Math.max(80, +p?.weight || 170), h = Math.max(48, +p?.height || 70) * 0.0254;
+  const frameLb = 24 * h * h * 2.2046;
+  const mass = 0.65 * bw + 0.35 * frameLb;
+  return 180 * Math.pow(mass / 180, 0.67);
+}
+
+export function thresholds(ex, p) {
+  const f = bodySex(p) === "f" ? femaleScale(ex.group, ex.type) : 1;
+  if (ex.type === "assisted") return REP_STEPS.map((r) => Math.round(r * f));
+  if (ex.type === "bodyweight") return REP_STEPS.map((r) => Math.round(r * (ex.reps || 1) * f));
+  const sc = strengthScale(p) * f;
+  const hard = GROUP_HARD[ex.group] || 1;
+  return RATIO_STEPS.map((r) => Math.round((r * ex.factor * sc * hard) / 5) * 5);
+}
+
+export function targets(p = {}) {
+  const kg = (+p.weight || 170) * 0.4536, cm = (+p.height || 70) * 2.54;
+  const bmr = 10 * kg + 6.25 * cm - 5 * (+p.age || 20) + (bodySex(p) === "m" ? 5 : -161);
+  const tdee = Math.round(bmr * (p.activity || 1.55));
+  const adj = GOAL_CAL[p.goal] ?? 250;
+  const cal = tdee + adj;
+  const protein = Math.round((+p.weight || 170) * (p.goal === "cut" ? 1 : 0.85));
+  const fat = Math.round((cal * 0.25) / 9);
+  const carbs = Math.max(0, Math.round((cal - protein * 4 - fat * 9) / 4));
+  return { tdee, cal, protein, fat, carbs };
+}
+
+// Switch Male/Female without touching achievements, XP, titles, loot, or cosmetics.
+export function applyBodyType(s, sex) {
+  const next = sex === "f" ? "f" : "m";
+  return { ...s, profile: { ...(s.profile || {}), sex: next } };
+}

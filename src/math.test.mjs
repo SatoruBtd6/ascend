@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -310,5 +310,66 @@ test("raid hits only count at the gym; 3 at-gym logs clear", () => {
   assert.equal(r.cleared, false);
   r = applyRaidAction(r, "hit", { playerId: "c", presence: pres, now: 13 + RAID_COUNTDOWN_MS, workout: { volume: 9 } }).raid;
   assert.equal(r.cleared, true);
+});
+
+const REF = { weight: 170, height: 70, age: 25, sex: "m", activity: 1.55, goal: "lean" };
+const benchEx = { type: "weighted", group: "Chest", factor: 1 };
+const squatEx = { type: "weighted", group: "Legs", factor: 1.25 };
+const pullEx = { type: "bodyweight", group: "Back", reps: 0.85 };
+
+test("female rank lines are group-scaled vs the same male inputs", () => {
+  const mBench = thresholds(benchEx, REF);
+  const fBench = thresholds(benchEx, { ...REF, sex: "f" });
+  const mSquat = thresholds(squatEx, REF);
+  const fSquat = thresholds(squatEx, { ...REF, sex: "f" });
+  const mPull = thresholds(pullEx, REF);
+  const fPull = thresholds(pullEx, { ...REF, sex: "f" });
+  assert.ok(fBench[4] < mBench[4]);
+  assert.ok(fSquat[4] < mSquat[4]);
+  assert.ok(Math.abs(fBench[4] / mBench[4] - FEMALE_GROUP_SCALE.Chest) < 0.03);
+  assert.ok(Math.abs(fSquat[4] / mSquat[4] - FEMALE_GROUP_SCALE.Legs) < 0.03);
+  assert.ok(fPull[4] < mPull[4]);
+  assert.ok(Math.abs(fPull[4] / mPull[4] - FEMALE_REP_SCALE) < 0.08);
+  assert.deepEqual(thresholds(benchEx, { ...REF, sex: "x" }), mBench);
+});
+
+test("female calorie targets use Mifflin-St Jeor −161 on the same stats", () => {
+  const m = targets(REF);
+  const f = targets({ ...REF, sex: "f" });
+  assert.ok(f.cal < m.cal);
+  assert.ok(f.tdee < m.tdee);
+  assert.equal(f.protein, m.protein);
+  const kg = REF.weight * 0.4536, cm = REF.height * 2.54;
+  const bmrM = 10 * kg + 6.25 * cm - 5 * REF.age + 5;
+  const bmrF = 10 * kg + 6.25 * cm - 5 * REF.age - 161;
+  assert.equal(m.tdee, Math.round(bmrM * REF.activity));
+  assert.equal(f.tdee, Math.round(bmrF * REF.activity));
+  assert.equal(targets({ ...REF, sex: undefined }).cal, m.cal);
+});
+
+test("switching body type does not remove achievements, XP, titles, or cosmetics", () => {
+  const s = {
+    profile: { ...REF, title: "iron", look: { aura: "ember" } },
+    ach: { "rank-s": 1, "bench-2": 1, "yogurt-0": 1 },
+    xp: 8400,
+    loot: { wyrm: true },
+    crateUnlocks: { sigil: 1 },
+    seasonBadges: { "2026-S1": "gold" },
+    auraUnlocks: { ember: "2026-01-01" },
+  };
+  const f = applyBodyType(s, "f");
+  const m = applyBodyType(f, "m");
+  assert.equal(bodySex(f.profile), "f");
+  assert.equal(bodySex(m.profile), "m");
+  assert.deepEqual(f.ach, s.ach);
+  assert.deepEqual(m.ach, s.ach);
+  assert.equal(f.xp, 8400);
+  assert.equal(m.xp, 8400);
+  assert.deepEqual(f.loot, s.loot);
+  assert.equal(f.profile.title, "iron");
+  assert.equal(f.profile.look.aura, "ember");
+  assert.deepEqual(f.crateUnlocks, s.crateUnlocks);
+  assert.deepEqual(f.seasonBadges, s.seasonBadges);
+  assert.deepEqual(f.auraUnlocks, s.auraUnlocks);
 });
 
