@@ -29,13 +29,13 @@ const RAINBOW = "linear-gradient(90deg,#ff3cac,#ffb43c,#f7ff3c,#3cff9e,#3cc8ff,#
 
 /* ---------- Game data ---------- */
 const RANKS = [
-  { id: "E", color: "#B8C6DC", alt: "#F4FBFF", glow: "rgba(184,198,220,.55)" },
-  { id: "D", color: "#4DFF9A", alt: "#E8FFE8", glow: "rgba(77,255,154,.75)" },
-  { id: "C", color: "#4DD4FF", alt: "#E8FBFF", glow: "rgba(77,212,255,.8)" },
-  { id: "B", color: "#C86BFF", alt: "#F3E0FF", glow: "rgba(200,107,255,.82)" },
-  { id: "A", color: "#FF4D82", alt: "#FFD08A", glow: "rgba(255,77,130,.88)" },
-  { id: "S", color: "#FFE066", alt: "#FFFFFF", glow: "rgba(255,224,102,.95)" },
-  { id: "SS", color: "#F7FDFF", alt: "#9EFBFF", glow: "rgba(230,252,255,1)" },
+  { id: "E", color: "#A8B4C4", alt: "#D7DEE8", glow: "rgba(168,180,196,.4)" },
+  { id: "D", color: "#4A8C46", alt: "#8B6F47", glow: "rgba(74,140,70,.5)" },
+  { id: "C", color: "#2B8CFF", alt: "#4EB6FF", glow: "rgba(43,140,255,.62)" },
+  { id: "B", color: "#8B3DFF", alt: "#C9A8FF", glow: "rgba(139,61,255,.62)" },
+  { id: "A", color: "#E0243A", alt: "#FF6A2B", glow: "rgba(224,36,58,.68)" },
+  { id: "S", color: "#E6B422", alt: "#FFD447", glow: "rgba(230,180,34,.72)" },
+  { id: "SS", color: "#FFD447", alt: "#7DF9FF", glow: "rgba(255,212,71,.78)" },
 ];
 const RANK_DARK = RANKS.map((r) => r.color);
 const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#D6194F", "#C28A00", "#0B1220"];
@@ -737,7 +737,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5r";
+const APP_VERSION = "5s";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -1140,15 +1140,16 @@ export default function App() {
         @keyframes ophspinrev{from{transform:translate(-50%,-50%) rotate(360deg)}to{transform:translate(-50%,-50%) rotate(0)}}
         @keyframes ophpulse{0%,100%{opacity:.35;filter:drop-shadow(0 0 8px rgba(255,212,71,.5))}50%{opacity:.7;filter:drop-shadow(0 0 18px rgba(125,249,255,.9))}}
         @media (prefers-reduced-motion:reduce){.oph-wings,.oph-wheel,.oph-wheel-r{animation:none!important}}
-        @keyframes rkbreathe{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.08);opacity:1}}
-        @keyframes rkpulse{0%,100%{filter:brightness(1.05) saturate(1.05)}40%{filter:brightness(1.7) saturate(1.25)}100%{filter:brightness(1.05) saturate(1.05)}}
         @keyframes rkorbit{to{transform:rotate(360deg)}}
-        @keyframes rktwinkle{0%,100%{opacity:.15}50%{opacity:1}}
-        @keyframes rkspark{0%,100%{opacity:.18;transform:scale(.5)}50%{opacity:1;transform:scale(1.45)}}
-        @keyframes rkhalo{0%{transform:scale(.72);opacity:.55}100%{transform:scale(1.85);opacity:0}}
-        @keyframes rkshine{0%{transform:skewX(-22deg) translateX(-46px);opacity:0}14%{opacity:1}42%{transform:skewX(-22deg) translateX(128px);opacity:0}100%{transform:skewX(-22deg) translateX(128px);opacity:0}}
-        @keyframes rkglint{0%,100%{filter:brightness(1.1)}50%{filter:brightness(1.55)}}
-        @keyframes rkflare{0%,100%{opacity:.35;transform:scale(.94)}50%{opacity:.8;transform:scale(1.08)}}
+        @keyframes rktwinkle{0%,100%{opacity:.18}50%{opacity:.7}}
+        @keyframes rkdust{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(1px,-5px);opacity:.55}}
+        @keyframes rkvine{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(6deg)}}
+        @keyframes rkbolt{0%,68%,100%{opacity:0}74%,86%{opacity:1}}
+        @keyframes rktrace{0%{stroke-dashoffset:240}100%{stroke-dashoffset:0}}
+        @keyframes rkfire{0%{transform:translateY(4px) scaleY(.65);opacity:.15}35%{opacity:.85}100%{transform:translateY(-20px) scaleY(1.25);opacity:0}}
+        @keyframes rkwing{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(8deg)}}
+        @keyframes rkgold{0%,100%{filter:drop-shadow(0 0 3px #C9962E)}50%{filter:drop-shadow(0 0 9px #E6B422)}}
+        @keyframes rkvoid{0%,100%{opacity:.35;transform:scale(.96)}50%{opacity:.7;transform:scale(1.06)}}
         @keyframes nm-pulse{0%,100%{text-shadow:0 0 4px var(--nc)}50%{text-shadow:0 0 12px var(--nc)}}
         .fancyname{background:transparent}
         .fancyname:not(.nm-rainbow),.zesty .fancyname:not(.nm-rainbow){background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;-webkit-text-fill-color:currentColor!important}
@@ -1308,7 +1309,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
         <div className="absolute -right-4 -top-10 font-extrabold select-none" style={{ fontSize: 170, color: oc.color, opacity: 0.07, lineHeight: 1 }}>{oc.id}</div>
         <div className="flex items-center gap-4 relative">
           <div className="flex-1 min-w-0">
-            <div className="breathe inline-block" style={{ "--g": oc.glow }}><RankBadge rank={oc} size={60} /></div>
+            <div className="inline-block"><RankBadge rank={oc} size={60} /></div>
             <div className="text-sm body mt-2" style={{ color: C.dim }}>Overall rank · {RANK_INFO[oc.id][0]}</div>
             <div className="ranklabel text-4xl" style={{ color: oc.color }}>{overall.label}</div>
           </div>
@@ -4607,86 +4608,148 @@ function MogInbox({ s, openProfile }) {
   );
 }
 
-/* ---------- Rank emblems ---------- */
+/* ---------- Rank emblems (one theme each) ---------- */
 function RankBadge({ rank, size = 44, still = false }) {
-  const tier = Math.max(0, RANKS.indexOf(rank));
   const uid = useId().replace(/:/g, "");
   const id = `rk${rank.id}${uid}`;
-  const hex = (r, cx = 50, cy = 50, rot = 0) => Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i - Math.PI / 2 + rot; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
   const anim = !still;
-  const c2 = rank.alt || rank.color;
-  const sparks = [0, 3, 5, 8, 11, 15, 18][tier] || 0;
-  const shineMs = Math.max(1.6, 3.8 - tier * 0.35);
+  const cx = 70, cy = 70;
+  const k = rank.id;
+  const hex = (r, rot = 0, jag = 0) => Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i - Math.PI / 2 + rot;
+    const rr = r + (jag ? (i % 2 ? jag : -jag * 0.6) : 0);
+    return `${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a)).toFixed(1)}`;
+  }).join(" ");
+  const ly = k === "SS" ? 80 : 86;
+  const ls = k === "SS" ? 38 : 46;
+  const Letter = ({ fill, stroke = "none", sw = 0, extra }) => (
+    <text x={cx} y={ly} textAnchor="middle" fontSize={ls} fontWeight="900" fontFamily="'Cinzel', 'Oxanium', serif" fill={fill} stroke={stroke} strokeWidth={sw} paintOrder="stroke" style={extra}>{k}</text>
+  );
+  const eye = (r, n, spin, col) => Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2;
+    return (
+      <g key={`${r}${i}`} transform={`translate(${cx + Math.cos(a) * r} ${cy + Math.sin(a) * r}) rotate(${(a * 180) / Math.PI + 90})`}>
+        <ellipse rx="3.6" ry="2.1" fill="#1A2A6A" stroke={col} strokeWidth="0.7" />
+        <circle r="0.85" fill="#7DF9FF" />
+      </g>
+    );
+  });
+  const wing = (side, spread, lift, delay) => (
+    <g style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: `rkwing ${2.6 + delay}s ease-in-out infinite`, animationDelay: `${delay}s` } : null}>
+      <path d={`M${cx} ${cy - 4} C${cx + side * 18} ${cy - 28 - lift}, ${cx + side * (48 + spread)} ${cy - 8}, ${cx + side * (62 + spread)} ${cy + 6} C${cx + side * (44 + spread)} ${cy - 2}, ${cx + side * 16} ${cy + 8}, ${cx} ${cy + 2} Z`} fill={k === "SS" ? "#F3E2A0" : "#E6B422"} opacity=".88" stroke="#C9962E" strokeWidth="0.8" />
+      <path d={`M${cx + side * 14} ${cy - 6} Q${cx + side * (36 + spread)} ${cy - 18} ${cx + side * (52 + spread)} ${cy + 2}`} fill="none" stroke="#7A5A12" strokeWidth="0.7" opacity=".55" />
+    </g>
+  );
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" className="shrink-0" role="img" aria-label={`${rank.id} rank`} style={{ filter: `drop-shadow(0 0 ${6 + tier * 3.5}px ${rank.glow}) drop-shadow(0 0 ${14 + tier * 4}px ${rank.color}88)`, overflow: "visible" }}>
+    <svg width={size} height={size} viewBox="0 0 140 140" className="shrink-0" role="img" aria-label={`${k} rank`} style={{ overflow: "visible", filter: `drop-shadow(0 0 8px ${rank.glow})` }}>
       <defs>
-        <radialGradient id={`${id}core`} cx="38%" cy="30%" r="72%">
-          <stop offset="0" stopColor="#ffffff" stopOpacity={0.78 + tier * 0.03} />
-          <stop offset=".22" stopColor={c2} stopOpacity=".95" />
-          <stop offset=".55" stopColor={rank.color} stopOpacity=".92" />
-          <stop offset="1" stopColor="#050814" />
-        </radialGradient>
-        <linearGradient id={`${id}ring`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset=".28" stopColor={c2} />
-          <stop offset=".62" stopColor={rank.color} />
-          <stop offset="1" stopColor="#ffffff" />
-        </linearGradient>
-        <linearGradient id={`${id}m`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset=".32" stopColor={c2} />
-          <stop offset=".55" stopColor={rank.color} />
-          <stop offset=".78" stopColor={c2} />
-          <stop offset="1" stopColor="#ffffff" />
-        </linearGradient>
-        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#fff" stopOpacity="0" />
-          <stop offset=".45" stopColor="#fff" stopOpacity=".95" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
-        <radialGradient id={`${id}bloom`} cx="50%" cy="50%" r="50%"><stop offset="0" stopColor={c2} stopOpacity={0.45 + tier * 0.06} /><stop offset="1" stopColor={rank.color} stopOpacity="0" /></radialGradient>
-        <clipPath id={`${id}c`}><polygon points={hex(42)} /></clipPath>
+        <radialGradient id={`${id}e`} cx="35%" cy="30%" r="70%"><stop offset="0" stopColor="#E8EDF4" /><stop offset=".45" stopColor="#A8B4C4" /><stop offset="1" stopColor="#5C6775" /></radialGradient>
+        <radialGradient id={`${id}d`} cx="40%" cy="32%" r="72%"><stop offset="0" stopColor="#7A9A58" /><stop offset=".4" stopColor="#4A6B3A" /><stop offset=".75" stopColor="#6B5340" /><stop offset="1" stopColor="#3A2E24" /></radialGradient>
+        <linearGradient id={`${id}c`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#1A4A9A" /><stop offset=".45" stopColor="#2B8CFF" /><stop offset="1" stopColor="#12366E" /></linearGradient>
+        <radialGradient id={`${id}b`} cx="50%" cy="45%" r="60%"><stop offset="0" stopColor="#2A0858" /><stop offset=".55" stopColor="#5A1AAA" /><stop offset="1" stopColor="#0A0018" /></radialGradient>
+        <radialGradient id={`${id}a`} cx="40%" cy="30%" r="70%"><stop offset="0" stopColor="#8A1020" /><stop offset=".5" stopColor="#C41E32" /><stop offset="1" stopColor="#2A0408" /></radialGradient>
+        <radialGradient id={`${id}s`} cx="40%" cy="32%" r="65%"><stop offset="0" stopColor="#F6D56A" /><stop offset=".5" stopColor="#C9962E" /><stop offset="1" stopColor="#5A3C0A" /></radialGradient>
+        <filter id={`${id}glow`} x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="1.4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
       </defs>
-      <circle cx="50" cy="50" r={36 + tier} fill={`url(#${id}bloom)`} style={anim ? { transformOrigin: "50px 50px", animation: `rkflare ${2.4 - tier * 0.12}s ease-in-out infinite` } : null} />
-      {tier >= 4 && (
-        <g opacity={tier >= 6 ? 0.95 : 0.78} style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${14 - tier * 1.4}s linear infinite` } : null}>
-          {Array.from({ length: tier >= 6 ? 20 : 16 }, (_, i) => <line key={i} x1="50" y1="50" x2={50 + (62 + (i % 2) * 6) * Math.cos((Math.PI * 2 * i) / (tier >= 6 ? 20 : 16))} y2={50 + (62 + (i % 2) * 6) * Math.sin((Math.PI * 2 * i) / (tier >= 6 ? 20 : 16))} stroke={i % 2 ? c2 : "#fff"} strokeWidth={i % 4 === 0 ? 2.8 : 1.15} strokeLinecap="round" opacity={i % 2 ? 0.55 : 0.95} />)}
+
+      {k === "E" && (
+        <g>
+          <polygon points={hex(34)} fill={`url(#${id}e)`} stroke="#8A94A4" strokeWidth="2.4" strokeLinejoin="round" />
+          <polygon points={hex(26)} fill="none" stroke="#C9D2DE" strokeWidth="1" opacity=".55" />
+          <Letter fill="#6E7886" stroke="#3E4650" sw="1.1" />
+          {[0, 1, 2, 3, 4, 5].map((i) => {
+            const a = (i / 6) * Math.PI * 2, r = 40 + (i % 2) * 5;
+            return <circle key={i} cx={cx + Math.cos(a) * r} cy={cy + Math.sin(a) * r} r="1.15" fill="#B7C0CC" style={anim ? { animation: `rkdust ${2.8 + i * 0.25}s ease-in-out infinite`, animationDelay: `${i * 0.2}s` } : null} />;
+          })}
         </g>
       )}
-      {tier >= 6 && (
-        <g opacity=".55" style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${9}s linear infinite reverse` } : null}>
-          {Array.from({ length: 8 }, (_, i) => <line key={i} x1="50" y1="50" x2={50 + 70 * Math.cos((Math.PI / 4) * i + 0.2)} y2={50 + 70 * Math.sin((Math.PI / 4) * i + 0.2)} stroke={c2} strokeWidth="1.6" strokeLinecap="round" />)}
+
+      {k === "D" && (
+        <g>
+          {[[38, 28, "M38 42 C22 28 12 48 8 32", "M12 36 C6 24 10 18 4 20"], [102, 30, "M102 44 C118 26 128 50 132 34", "M128 38 C136 24 130 16 138 22"], [36, 96, "M42 98 C24 108 18 92 10 112", null], [104, 98, "M98 100 C118 112 122 94 132 114", null]].map(([ox, oy, p, p2], i) => (
+            <g key={i} style={anim ? { transformOrigin: `${ox}px ${oy}px`, animation: `rkvine ${3.2 + i * 0.4}s ease-in-out infinite`, animationDelay: `${i * 0.15}s` } : null}>
+              <path d={p} fill="none" stroke="#2F6A32" strokeWidth="2.3" strokeLinecap="round" />
+              {p2 && <path d={p2} fill="none" stroke="#3D7A3A" strokeWidth="1.5" strokeLinecap="round" />}
+              <ellipse cx={ox + (i < 2 ? (i ? 28 : -28) : (i === 2 ? -22 : 22))} cy={oy + (i < 2 ? -6 : 10)} rx="3.2" ry="1.8" fill="#3D8C40" transform={`rotate(${i * 40} ${ox} ${oy})`} />
+            </g>
+          ))}
+          <polygon points={hex(36, 0.12, 3.2)} fill={`url(#${id}d)`} stroke="#4A3A2A" strokeWidth="2.6" strokeLinejoin="round" />
+          <polygon points={hex(28, 0.4, 1.8)} fill="none" stroke="#8B6F47" strokeWidth="1.6" opacity=".8" />
+          {[[62, 58, 4], [78, 74, 3.2], [66, 80, 2.6], [80, 56, 2.4]].map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill={i % 2 ? "#5A4634" : "#3E4E32"} opacity=".85" />)}
+          <Letter fill="#DCE8C8" stroke="#2A3A20" sw="1.3" />
         </g>
       )}
-      {tier >= 5 && <circle cx="50" cy="50" r="58" fill="none" stroke="#fff" strokeWidth="1.7" strokeDasharray={tier >= 6 ? "3 8" : "2 12"} opacity=".95" style={anim ? { transformOrigin: "50px 50px", animation: "rkspin 3.6s linear infinite reverse" } : null} />}
-      {tier >= 2 && <polygon points={hex(52, 50, 50, Math.PI / 6)} fill="none" stroke={`url(#${id}ring)`} strokeWidth={tier >= 4 ? 2.6 : 1.7} strokeDasharray={tier >= 4 ? "16 7" : "7 7"} opacity=".95" style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${11 - tier}s linear infinite reverse` } : null} />}
-      {tier >= 1 && <polygon points={hex(48)} fill="none" stroke={c2} strokeWidth="1.35" opacity=".75" style={anim ? { transformOrigin: "50px 50px", animation: "rkbreathe 2.4s ease-in-out infinite" } : null} />}
-      <polygon points={hex(42)} fill={`url(#${id}core)`} stroke={`url(#${id}ring)`} strokeWidth="3.8" strokeLinejoin="round" style={anim ? { animation: "rkglint 3.2s ease-in-out infinite" } : null} />
-      <polygon points={hex(34)} fill="none" stroke="#fff" strokeWidth={0.85 + tier * 0.22} opacity={0.4 + tier * 0.08} strokeDasharray={tier >= 3 ? "5 3" : "0"} style={anim && tier >= 3 ? { transformOrigin: "50px 50px", animation: "rkspin 16s linear infinite" } : null} />
-      {tier >= 2 && <polygon points={hex(38, 50, 50, Math.PI / 6)} fill="none" stroke={c2} strokeWidth="1.15" opacity=".7" />}
-      {tier >= 6 && <polygon points={hex(28)} fill="none" stroke="#fff" strokeWidth="0.9" opacity=".55" style={anim ? { transformOrigin: "50px 50px", animation: "rkspin 8s linear infinite reverse" } : null} />}
-      <text x="50" y="66" textAnchor="middle" fontSize={rank.id.length > 1 ? 36 : 48} fontWeight="900" fontFamily="'Cinzel', 'Oxanium', serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.35)} strokeWidth="1.2" paintOrder="stroke" style={{ filter: "drop-shadow(0 0 6px rgba(255,255,255,.55))", ...(anim ? { animation: `rkpulse ${3.2 - tier * 0.28}s ease-in-out infinite` } : {}) }}>{rank.id}</text>
-      {anim && (
-        <g clipPath={`url(#${id}c)`}>
-          <rect x="-70" y="-8" width={tier >= 5 ? 42 : 32} height="116" fill={`url(#${id}s)`} transform="skewX(-22)" style={{ animation: `rkshine ${shineMs}s ease-in-out infinite` }} />
-          {tier >= 4 && <rect x="-90" y="-8" width="22" height="116" fill={`url(#${id}s)`} transform="skewX(-22)" style={{ animation: `rkshine ${shineMs + 1.1}s ease-in-out infinite`, animationDelay: `${shineMs * 0.45}s` }} />}
+
+      {k === "C" && (
+        <g filter={`url(#${id}glow)`}>
+          <path d={`M${cx} 32 L106 46 L100 96 L${cx} 118 L40 96 L34 46 Z`} fill={`url(#${id}c)`} stroke="#4EB6FF" strokeWidth="2.4" />
+          <path d={`M${cx} 40 L96 50 L92 90 L${cx} 108 L48 90 L44 50 Z`} fill="none" stroke="#1A5AB0" strokeWidth="1.4" opacity=".7" />
+          <path d={`M${cx} 38 L${cx} 110`} stroke="#4EB6FF" strokeWidth="1.1" opacity=".35" />
+          {anim && [[`M118 50 L128 44 L122 58 L136 52`, 0], [`M22 52 L10 46 L16 62 L4 54`, 0.35], [`M110 92 L124 100 L116 110`, 0.7], [`M30 94 L16 104 L24 112`, 1]].map(([d, delay], i) => (
+            <path key={i} d={d} fill="none" stroke="#4EB6FF" strokeWidth="1.6" strokeLinecap="round" style={{ animation: `rkbolt ${1.5 + i * 0.15}s ${delay}s linear infinite` }} />
+          ))}
+          {Array.from({ length: 10 }, (_, i) => {
+            const a = (i / 10) * Math.PI * 2, r = 50 + (i % 3) * 4;
+            return <circle key={i} cx={cx + Math.cos(a) * r} cy={cy + Math.sin(a) * r} r={i % 2 ? 1.1 : 1.6} fill="#2B8CFF" style={anim ? { animation: `rktwinkle ${0.9 + (i % 4) * 0.2}s ease-in-out infinite`, animationDelay: `${i * 0.08}s` } : null} />;
+          })}
+          <Letter fill="#D6ECFF" stroke="#0E3A7A" sw="1.4" />
         </g>
       )}
-      {sparks > 0 && Array.from({ length: sparks }, (_, i) => {
-        const a = (2 * Math.PI * i) / sparks + (i % 2) * 0.12, r = 45 + (i % 4) * 5.5;
-        const x = 50 + r * Math.cos(a), y = 50 + r * Math.sin(a);
-        const big = i % 3 === 0;
-        return big ? (
-          <g key={i} style={anim ? { transformOrigin: "50px 50px", animation: `rkorbit ${6.5 + (i % 5)}s linear infinite${i % 2 ? " reverse" : ""}` } : null}>
-            <line x1={x - 3.2} y1={y} x2={x + 3.2} y2={y} stroke="#fff" strokeWidth="1.1" strokeLinecap="round" style={anim ? { transformOrigin: `${x}px ${y}px`, animation: `rkspark ${0.9 + (i % 4) * 0.22}s ease-in-out infinite`, animationDelay: `${(i % 7) * 0.12}s` } : null} />
-            <line x1={x} y1={y - 3.2} x2={x} y2={y + 3.2} stroke="#fff" strokeWidth="1.1" strokeLinecap="round" style={anim ? { transformOrigin: `${x}px ${y}px`, animation: `rkspark ${0.9 + (i % 4) * 0.22}s ease-in-out infinite`, animationDelay: `${(i % 7) * 0.12}s` } : null} />
+
+      {k === "B" && (
+        <g>
+          <circle cx={cx} cy={cy} r="52" fill="#120024" opacity=".55" style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkvoid 3.4s ease-in-out infinite" } : null} />
+          <ellipse cx={cx} cy={cy} rx="50" ry="20" fill="none" stroke="#8B3DFF" strokeWidth="1.8" opacity=".75" style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkspin 9s linear infinite" } : null} />
+          <ellipse cx={cx} cy={cy} rx="22" ry="46" fill="none" stroke="#C9A8FF" strokeWidth="1.4" opacity=".55" style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkspin 13s linear infinite reverse" } : null} />
+          <ellipse cx={cx} cy={cy} rx="40" ry="28" fill="none" stroke="#6A00FF" strokeWidth="1.2" opacity=".5" style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkspin 7s linear infinite" } : null} />
+          <polygon points={hex(32)} fill={`url(#${id}b)`} stroke="#C9A8FF" strokeWidth="1.8" />
+          <Letter fill="#E6D4FF" stroke="#3A1070" sw="1.2" />
+          <Letter fill="none" stroke="#05010A" sw="3.4" extra={anim ? { strokeDasharray: "18 110", strokeLinecap: "round", animation: "rktrace 2.1s linear infinite" } : { strokeDasharray: "18 110" }} />
+        </g>
+      )}
+
+      {k === "A" && (
+        <g>
+          <path d={`M48 40 Q30 6 16 22 Q34 16 52 44`} fill="#2A060C" stroke="#6A1018" strokeWidth="1.2" />
+          <path d={`M92 40 Q110 6 124 22 Q106 16 88 44`} fill="#2A060C" stroke="#6A1018" strokeWidth="1.2" />
+          <path d={`M46 36 Q38 14 28 10`} fill="none" stroke="#E0243A" strokeWidth="1.4" />
+          <path d={`M94 36 Q102 14 112 10`} fill="none" stroke="#E0243A" strokeWidth="1.4" />
+          {Array.from({ length: 8 }, (_, i) => (
+            <path key={i} d={`M${48 + i * 6} 100 q ${i % 2 ? 3 : -2} -14 0 -26`} fill="none" stroke={i % 2 ? "#FF6A2B" : "#E0243A"} strokeWidth="2.3" strokeLinecap="round"
+              style={anim ? { transformOrigin: `${48 + i * 6}px 100px`, animation: `rkfire ${0.72 + (i % 3) * 0.12}s ${i * 0.08}s ease-out infinite` } : null} />
+          ))}
+          <polygon points={hex(34)} fill={`url(#${id}a)`} stroke="#FF6A2B" strokeWidth="2.2" strokeLinejoin="round" />
+          <polygon points={hex(26, Math.PI / 6)} fill="none" stroke="#6A1018" strokeWidth="1.2" opacity=".8" />
+          <Letter fill="#FFD0C8" stroke="#4A0810" sw="1.3" />
+        </g>
+      )}
+
+      {(k === "S" || k === "SS") && (
+        <g>
+          {k === "SS" && <>{wing(-1, 10, 8, 0)}{wing(1, 10, 8, 0)}{wing(-1, 22, 18, 0.2)}{wing(1, 22, 18, 0.2)}</>}
+          {k === "S" && <>{wing(-1, 4, 4, 0)}{wing(1, 4, 4, 0)}</>}
+          <g style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkspin 18s linear infinite" } : null}>
+            <circle cx={cx} cy={cy} r={k === "SS" ? 56 : 48} fill="none" stroke="#C9962E" strokeWidth="2.2" strokeDasharray="6 5" />
+            {eye(k === "SS" ? 56 : 48, k === "SS" ? 12 : 8, 18, "#E6B422")}
           </g>
-        ) : (
-          <circle key={i} cx={x} cy={y} r={i % 2 ? 1.15 : 1.7} fill={i % 2 ? "#fff" : c2} style={anim ? { transformOrigin: "50px 50px", animation: `rkorbit ${7 + (i % 4)}s linear infinite${i % 2 ? " reverse" : ""}, rktwinkle ${0.8 + (i % 5) * 0.25}s ease-in-out infinite` } : null} />
-        );
-      })}
-      {tier >= 5 && <circle cx="50" cy="50" r="31" fill="none" stroke="#fff" strokeWidth="7" opacity=".22" style={anim ? { transformOrigin: "50px 50px", animation: "rkhalo 2s ease-out infinite" } : null} />}
-      {tier >= 6 && <circle cx="50" cy="50" r="38" fill="none" stroke={c2} strokeWidth="5" opacity=".2" style={anim ? { transformOrigin: "50px 50px", animation: "rkhalo 2.6s ease-out infinite", animationDelay: ".7s" } : null} />}
+          <g style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkspin 11s linear infinite reverse" } : null}>
+            <circle cx={cx} cy={cy} r={k === "SS" ? 42 : 36} fill="none" stroke="#7DF9FF" strokeWidth="1.4" opacity=".7" strokeDasharray="3 7" />
+            {eye(k === "SS" ? 42 : 36, k === "SS" ? 8 : 6, 11, "#7DF9FF")}
+          </g>
+          {k === "SS" && (
+            <g style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkspin 7s linear infinite" } : null}>
+              <circle cx={cx} cy={cy} r="30" fill="none" stroke="#FFD447" strokeWidth="1.1" strokeDasharray="2 6" />
+              {eye(30, 6, 7, "#FFD447")}
+            </g>
+          )}
+          <polygon points={hex(30)} fill={`url(#${id}s)`} stroke="#E6B422" strokeWidth="2.4" />
+          <Letter fill="#E6B422" stroke="#5A3C0A" sw="1.6" extra={anim ? { animation: "rkgold 2.4s ease-in-out infinite" } : null} />
+          {Array.from({ length: k === "SS" ? 12 : 8 }, (_, i) => {
+            const a = (i / (k === "SS" ? 12 : 8)) * Math.PI * 2, r = (k === "SS" ? 62 : 54) + (i % 3);
+            return <circle key={i} cx={cx + Math.cos(a) * r} cy={cy + Math.sin(a) * r} r={i % 2 ? 1.1 : 1.5} fill="#E6B422" style={anim ? { animation: `rktwinkle ${1.1 + (i % 3) * 0.25}s ease-in-out infinite`, animationDelay: `${i * 0.1}s` } : null} />;
+          })}
+        </g>
+      )}
     </svg>
   );
 }
@@ -5101,7 +5164,7 @@ function Ceremony({ c, onClose }) {
       <style>{`@keyframes cerein{0%{transform:scale(.3) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
         @keyframes ceretext{0%{transform:translateY(20px);opacity:0}100%{transform:none;opacity:1}}
         @keyframes cerespark{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}}`}</style>
-      {Array.from({ length: 26 }, (_, i) => { const a = (i / 26) * Math.PI * 2, d = 120 + (i % 5) * 40; return <span key={i} className="absolute rounded-full" style={{ left: "50%", top: "45%", width: i % 3 ? 6 : 10, height: i % 3 ? 6 : 10, background: i % 2 ? "#fff" : rank.color, boxShadow: `0 0 10px ${rank.color}`, "--dx": `${Math.cos(a) * d}px`, "--dy": `${Math.sin(a) * d}px`, animation: `cerespark ${1.2 + (i % 4) * 0.3}s ${(i % 6) * 0.08}s ease-out forwards` }} />; })}
+      {Array.from({ length: 26 }, (_, i) => { const a = (i / 26) * Math.PI * 2, d = 120 + (i % 5) * 40; return <span key={i} className="absolute rounded-full" style={{ left: "50%", top: "45%", width: i % 3 ? 6 : 10, height: i % 3 ? 6 : 10, background: i % 2 ? rank.alt : rank.color, boxShadow: `0 0 10px ${rank.color}`, "--dx": `${Math.cos(a) * d}px`, "--dy": `${Math.sin(a) * d}px`, animation: `cerespark ${1.2 + (i % 4) * 0.3}s ${(i % 6) * 0.08}s ease-out forwards` }} />; })}
       <div style={{ animation: "cerein .9s cubic-bezier(.2,.9,.3,1.3) both" }}><RankBadge rank={rank} size={170} /></div>
       <div className="text-4xl font-extrabold tracking-widest mt-6" style={{ color: rank.color, textShadow: `0 0 24px ${rank.glow}`, animation: "ceretext .6s .5s ease-out both", fontFamily: "'Oxanium', sans-serif" }}>RANK UP</div>
       <div className="text-xl font-bold mt-2 text-center" style={{ color: "#fff", animation: "ceretext .6s .7s ease-out both" }}>{c.kind === "overall" ? "Overall rank" : c.name}</div>
