@@ -29,13 +29,13 @@ const RAINBOW = "linear-gradient(90deg,#ff3cac,#ffb43c,#f7ff3c,#3cff9e,#3cc8ff,#
 
 /* ---------- Game data ---------- */
 const RANKS = [
-  { id: "E", color: "#A8B4C4", alt: "#D7DEE8", glow: "rgba(168,180,196,.4)" },
-  { id: "D", color: "#4A8C46", alt: "#8B6F47", glow: "rgba(74,140,70,.5)" },
-  { id: "C", color: "#2B8CFF", alt: "#4EB6FF", glow: "rgba(43,140,255,.62)" },
-  { id: "B", color: "#8B3DFF", alt: "#C9A8FF", glow: "rgba(139,61,255,.62)" },
-  { id: "A", color: "#E0243A", alt: "#FF6A2B", glow: "rgba(224,36,58,.68)" },
-  { id: "S", color: "#E6B422", alt: "#FFD447", glow: "rgba(230,180,34,.72)" },
-  { id: "SS", color: "#FFD447", alt: "#7DF9FF", glow: "rgba(255,212,71,.78)" },
+  { id: "E", color: "#9AA7BD", alt: "#DDE6F2", glow: "rgba(154,167,189,.4)" },
+  { id: "D", color: "#3DF08A", alt: "#B6FFD9", glow: "rgba(61,240,138,.55)" },
+  { id: "C", color: "#38C6FF", alt: "#B3ECFF", glow: "rgba(56,198,255,.6)" },
+  { id: "B", color: "#B14BFF", alt: "#E6BFFF", glow: "rgba(177,75,255,.65)" },
+  { id: "A", color: "#FF2D6F", alt: "#FF9A3D", glow: "rgba(255,45,111,.7)" },
+  { id: "S", color: "#FFD447", alt: "#FFFFFF", glow: "rgba(255,212,71,.85)" },
+  { id: "SS", color: "#F4FBFF", alt: "#7DF9FF", glow: "rgba(200,240,255,.95)" },
 ];
 const RANK_DARK = RANKS.map((r) => r.color);
 const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#D6194F", "#C28A00", "#0B1220"];
@@ -593,7 +593,7 @@ function WorkoutRecap({ s, setS }) {
         <button aria-label="Dismiss" onClick={() => setS((p) => ({ ...p, lastSummary: null }))} style={{ color: C.mute }}><X size={16} /></button>
       </div>
       <div className="flex items-center gap-3">
-        {overall ? <RankBadge rank={overall.rank} size={64} /> : <div className="font-bold" style={{ color: C.mute }}>Unranked</div>}
+        {overall ? <RankBadge rank={overall.rank} size={48} /> : <div className="font-bold" style={{ color: C.mute }}>Unranked</div>}
         <div>
           <div className="font-extrabold text-xl" style={{ color: overall?.rank.color || C.mute, textShadow: overall ? `0 0 12px ${overall.rank.glow}` : "none" }}>{overall ? overall.label : "Cardio / timed"}</div>
           <div className="body text-xs" style={{ color: C.dim }}>Overall session rank from the lifts you logged</div>
@@ -617,7 +617,7 @@ function WorkoutRecap({ s, setS }) {
         {recap.lifts.map((l) => (
           <button key={l.name} onClick={() => setOpen(open === l.name ? null : l.name)} className="panel p-3 w-full text-left space-y-1">
             <div className="flex items-center gap-2">
-              {l.rank ? <RankBadge rank={l.rank.rank} size={36} /> : <span className="body text-xs" style={{ color: C.mute }}>–</span>}
+              {l.rank ? <RankBadge rank={l.rank.rank} size={28} /> : <span className="body text-xs" style={{ color: C.mute }}>–</span>}
               <div className="flex-1 min-w-0"><div className="font-semibold truncate">{l.name}</div><div className="body text-xs" style={{ color: C.dim }}>{l.rank ? l.rank.label : "Unranked"} · {Math.round(l.vol).toLocaleString()} lb{l.drops ? ` · ${l.drops} drop${l.drops > 1 ? "s" : ""}` : ""}</div></div>
               <ChevronDown size={14} style={{ transform: open === l.name ? "rotate(180deg)" : "none", color: C.mute }} />
             </div>
@@ -737,7 +737,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5t";
+const APP_VERSION = "5u";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -1140,16 +1140,12 @@ export default function App() {
         @keyframes ophspinrev{from{transform:translate(-50%,-50%) rotate(360deg)}to{transform:translate(-50%,-50%) rotate(0)}}
         @keyframes ophpulse{0%,100%{opacity:.35;filter:drop-shadow(0 0 8px rgba(255,212,71,.5))}50%{opacity:.7;filter:drop-shadow(0 0 18px rgba(125,249,255,.9))}}
         @media (prefers-reduced-motion:reduce){.oph-wings,.oph-wheel,.oph-wheel-r{animation:none!important}}
+        @keyframes rkbreathe{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.06);opacity:.9}}
+        @keyframes rkpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.6)}}
         @keyframes rkorbit{to{transform:rotate(360deg)}}
-        @keyframes rktwinkle{0%,100%{opacity:.18}50%{opacity:.7}}
-        @keyframes rkdust{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(1px,-5px);opacity:.55}}
-        @keyframes rkvine{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(6deg)}}
-        @keyframes rkbolt{0%,68%,100%{opacity:0}74%,86%{opacity:1}}
-        @keyframes rktrace{0%{stroke-dashoffset:240}100%{stroke-dashoffset:0}}
-        @keyframes rkfire{0%{transform:translateY(4px) scaleY(.65);opacity:.15}35%{opacity:.85}100%{transform:translateY(-20px) scaleY(1.25);opacity:0}}
-        @keyframes rkwing{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(8deg)}}
-        @keyframes rkgold{0%,100%{filter:drop-shadow(0 0 3px #C9962E)}50%{filter:drop-shadow(0 0 9px #E6B422)}}
-        @keyframes rkvoid{0%,100%{opacity:.35;transform:scale(.96)}50%{opacity:.7;transform:scale(1.06)}}
+        @keyframes rktwinkle{0%,100%{opacity:.2}50%{opacity:1}}
+        @keyframes rkhalo{0%{transform:scale(.6);opacity:.4}100%{transform:scale(2);opacity:0}}
+        @keyframes rkshine{0%,60%{transform:skewX(-20deg) translateX(0)}100%{transform:skewX(-20deg) translateX(190px)}}
         @keyframes nm-pulse{0%,100%{text-shadow:0 0 4px var(--nc)}50%{text-shadow:0 0 12px var(--nc)}}
         .fancyname{background:transparent}
         .fancyname:not(.nm-rainbow),.zesty .fancyname:not(.nm-rainbow){background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;-webkit-text-fill-color:currentColor!important}
@@ -1309,7 +1305,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
         <div className="absolute -right-4 -top-10 font-extrabold select-none" style={{ fontSize: 170, color: oc.color, opacity: 0.07, lineHeight: 1 }}>{oc.id}</div>
         <div className="flex items-center gap-4 relative">
           <div className="flex-1 min-w-0">
-            <div className="inline-block"><RankBadge rank={oc} size={92} /></div>
+            <div className="breathe inline-block" style={{ "--g": oc.glow }}><RankBadge rank={oc} size={60} /></div>
             <div className="text-sm body mt-2" style={{ color: C.dim }}>Overall rank · {RANK_INFO[oc.id][0]}</div>
             <div className="ranklabel text-4xl" style={{ color: oc.color }}>{overall.label}</div>
           </div>
@@ -1365,7 +1361,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
       <div className="grid grid-cols-3 gap-2">
         {Object.keys(GROUP_WEIGHT).map((gk) => { const sc = g[gk] || 0; const rr = rankFromScore(sc); return (
           <button key={gk} onClick={() => openMuscle(gk)} className="panel p-2 flex flex-col items-center gap-1">
-            <RankBadge rank={sc ? rr.rank : RANKS[0]} size={52} still={!sc} />
+            <RankBadge rank={sc ? rr.rank : RANKS[0]} size={40} still={!sc} />
             <div className="text-xs font-bold">{gk}</div>
             <div className="ranklabel text-xs" style={{ color: sc ? rr.rank.color : C.mute }}>{sc ? rr.label : "–"}</div>
           </button>
@@ -1381,7 +1377,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
             const unit = e.type === "bodyweight" ? " reps" : " lb";
             return (
               <button key={e.name} onClick={() => openExercise(e.name)} className="panel p-3 flex items-center gap-4 w-full text-left">
-                <RankBadge rank={rank} size={44} />
+                <RankBadge rank={rank} size={34} />
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between gap-2">
                     <span className="font-semibold truncate">{e.name}</span>
@@ -2624,7 +2620,7 @@ function Ranks({ s, openMuscle }) {
           const mine = overall.rank.id === r.id;
           return (
             <div key={r.id} className="panel p-3 flex items-center gap-4" style={mine ? { borderColor: r.color, boxShadow: `0 0 22px ${r.glow}` } : null}>
-              <RankBadge rank={r} size={52} />
+              <RankBadge rank={r} size={36} />
               <div className="flex-1 ml-1">
                 <div className="flex justify-between items-baseline">
                   <span className="font-bold" style={{ color: r.color }}>{r.id}-Rank · {RANK_INFO[r.id][0]}</span>
@@ -3968,7 +3964,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
               <h2 className="text-lg font-bold">Top lifts</h2>
               <div className="space-y-2">
                 {data.lifts.map((l) => { const r = RANKS.find((x) => x.id === l.rank) || RANKS[0]; return (
-                  <div key={l.name} className="panel p-3 flex items-center gap-3"><RankBadge rank={r} size={42} /><span className="flex-1 font-semibold ml-1">{l.name}</span><span className="font-bold" style={{ color: r.color }}>{l.label}</span><span className="body text-xs" style={{ color: C.dim }}>{l.best}{l.bw ? " reps" : " lb"}</span></div>
+                  <div key={l.name} className="panel p-3 flex items-center gap-3"><RankBadge rank={r} size={30} /><span className="flex-1 font-semibold ml-1">{l.name}</span><span className="font-bold" style={{ color: r.color }}>{l.label}</span><span className="body text-xs" style={{ color: C.dim }}>{l.best}{l.bw ? " reps" : " lb"}</span></div>
                 ); })}
               </div>
             </>
@@ -4608,217 +4604,42 @@ function MogInbox({ s, openProfile }) {
   );
 }
 
-/* ---------- Rank emblems (unique full themes) ---------- */
-function RankOphanim({ size, crazy, still }) {
-  const [src, setSrc] = useState(ophanimSrc);
-  useEffect(() => { loadOphanimSrc().then(setSrc); }, []);
-  const box = { position: "absolute", left: "50%", top: "50%", objectFit: "contain", pointerEvents: "none" };
-  const spin = still ? "none" : undefined;
-  return (
-    <>
-      {crazy && <img src={src} alt="" style={{ ...box, width: size * 1.42, height: size * 1.42, opacity: 0.32, animation: spin || "ophspin 22s linear infinite" }} />}
-      <img src={src} alt="" style={{ ...box, width: size * (crazy ? 1.18 : 1.05), height: size * (crazy ? 1.18 : 1.05), opacity: crazy ? 0.5 : 0.42, animation: spin || "ophspin 16s linear infinite, ophpulse 2.4s ease-in-out infinite" }} />
-      <img src={src} alt="" style={{ ...box, width: size * (crazy ? 0.86 : 0.74), height: size * (crazy ? 0.86 : 0.74), opacity: 0.4, animation: spin || "ophspinrev 9s linear infinite" }} />
-      <img src={src} alt="" style={{ ...box, width: size * (crazy ? 1.02 : 0.88), height: size * (crazy ? 1.02 : 0.88), animation: spin || "ophfloat 4.2s ease-in-out infinite", filter: "drop-shadow(0 0 8px rgba(230,180,34,.9)) drop-shadow(0 0 12px rgba(125,249,255,.35))" }} />
-    </>
-  );
-}
-function RankBadge({ rank, size = 56, still = false }) {
-  const uid = useId().replace(/:/g, "");
-  const id = `rk${rank.id}${uid}`;
+/* ---------- Rank emblems v3 ---------- */
+function RankBadge({ rank, size = 44, still = false }) {
+  const tier = Math.max(0, RANKS.indexOf(rank));
+  const id = `rk${rank.id}`;
+  const hex = (r, cx = 50, cy = 50, rot = 0) => Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i - Math.PI / 2 + rot; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
   const anim = !still;
-  const cx = 100, cy = 100;
-  const k = rank.id;
-  const hex = (r, rot = 0, jag = 0) => Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 3) * i - Math.PI / 2 + rot;
-    const rr = r + (jag ? Math.sin(i * 1.7) * jag : 0);
-    return `${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a)).toFixed(1)}`;
-  }).join(" ");
-  const ly = k === "SS" ? 114 : 122;
-  const ls = k === "SS" ? 52 : 68;
-  const Letter = ({ fill, stroke = "none", sw = 0, extra }) => (
-    <text x={cx} y={ly} textAnchor="middle" fontSize={ls} fontWeight="900" fontFamily="'Cinzel', 'Oxanium', serif" fill={fill} stroke={stroke} strokeWidth={sw} paintOrder="stroke" style={extra}>{k}</text>
-  );
-  const Eye = ({ r, i, n, rx = 6.2, ry = 3.6, gold = "#E6B422" }) => {
-    const a = (i / n) * Math.PI * 2;
-    return (
-      <g transform={`translate(${cx + Math.cos(a) * r} ${cy + Math.sin(a) * r}) rotate(${(a * 180) / Math.PI + 90})`}>
-        <ellipse rx={rx + 0.8} ry={ry + 0.7} fill="#2A1A06" />
-        <ellipse rx={rx} ry={ry} fill="#F2E4B8" />
-        <ellipse rx={rx * 0.52} ry={ry * 0.82} fill="#163A88" />
-        <ellipse rx={rx * 0.26} ry={ry * 0.48} fill="#071018" />
-        <circle cx={-rx * 0.18} cy={-ry * 0.22} r={ry * 0.2} fill="#7DF9FF" opacity=".9" />
-        <path d={`M${-rx} 0 Q0 ${-ry - 0.6} ${rx} 0`} fill="none" stroke={gold} strokeWidth="0.7" />
-        <ellipse rx={rx} ry={ry} fill="none" stroke={gold} strokeWidth="0.65" />
-      </g>
-    );
-  };
-  const Wheel = ({ r, n, color, dash, sec, rev }) => (
-    <g style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: `rkspin ${sec}s linear infinite${rev ? " reverse" : ""}` } : null}>
-      <circle cx={cx} cy={cy} r={r + 3.2} fill="none" stroke={color} strokeWidth="0.7" opacity=".35" />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="2.8" />
-      <circle cx={cx} cy={cy} r={r - 2.6} fill="none" stroke={color} strokeWidth="1" strokeDasharray={dash} opacity=".8" />
-      {Array.from({ length: n }, (_, i) => {
-        const a = (i / n) * Math.PI * 2;
-        return <line key={`s${i}`} x1={cx + Math.cos(a) * (r - 8)} y1={cy + Math.sin(a) * (r - 8)} x2={cx + Math.cos(a) * (r + 1.5)} y2={cy + Math.sin(a) * (r + 1.5)} stroke={color} strokeWidth="0.75" opacity=".45" />;
-      })}
-      {Array.from({ length: n }, (_, i) => <Eye key={`e${i}`} r={r} i={i} n={n} gold={color} rx={r > 70 ? 6.6 : 5.2} ry={r > 70 ? 3.8 : 3.1} />)}
-    </g>
-  );
-  const Wing = ({ side, layer }) => {
-    const n = 7 + layer;
-    return (
-      <g style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: `rkwing ${2.3 + layer * 0.28}s ease-in-out infinite`, animationDelay: `${layer * 0.1}s` } : null}>
-        {Array.from({ length: n }, (_, i) => {
-          const t = i / (n - 1);
-          const y0 = cy - 28 + t * 58;
-          const x2 = cx + side * (78 + layer * 16 + t * 18);
-          const x1 = cx + side * (32 + layer * 12 + t * 10);
-          return (
-            <g key={i}>
-              <path d={`M${cx + side * 10} ${y0} Q${x1} ${y0 - 16 - layer * 3} ${x2} ${y0 + 2} Q${x1 + side * 4} ${y0 + 10} ${cx + side * 12} ${y0 + 7} Z`} fill={i % 2 ? "#E6B422" : "#F6E3A0"} stroke="#7A5A12" strokeWidth="0.55" opacity={0.72 + t * 0.2} />
-              <path d={`M${cx + side * 16} ${y0 + 1} Q${x1} ${y0 - 4} ${x2 - side * 8} ${y0 + 2}`} fill="none" stroke="#5A3C0A" strokeWidth="0.4" opacity=".45" />
-            </g>
-          );
-        })}
-      </g>
-    );
-  };
-  const svg = (
-    <svg width={size} height={size} viewBox="0 0 200 200" className="relative z-[1]" role="img" aria-label={`${k} rank`} style={{ overflow: "visible", filter: `drop-shadow(0 0 10px ${rank.glow})` }}>
-      <defs>
-        <radialGradient id={`${id}e`} cx="32%" cy="28%" r="72%"><stop offset="0" stopColor="#F0F4F8" /><stop offset=".28" stopColor="#C5CDD8" /><stop offset=".62" stopColor="#8A94A4" /><stop offset="1" stopColor="#4A5560" /></radialGradient>
-        <linearGradient id={`${id}e2`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#FFFFFF" stopOpacity=".35" /><stop offset="1" stopColor="#000" stopOpacity=".25" /></linearGradient>
-        <radialGradient id={`${id}d`} cx="38%" cy="30%" r="75%"><stop offset="0" stopColor="#8AAB62" /><stop offset=".35" stopColor="#4E6E38" /><stop offset=".7" stopColor="#6B5340" /><stop offset="1" stopColor="#2E241C" /></radialGradient>
-        <linearGradient id={`${id}c`} x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stopColor="#3A6BC8" /><stop offset=".4" stopColor="#1E5BB8" /><stop offset=".75" stopColor="#12366E" /><stop offset="1" stopColor="#0A1E44" /></linearGradient>
-        <radialGradient id={`${id}b`} cx="48%" cy="40%" r="62%"><stop offset="0" stopColor="#4A148C" /><stop offset=".45" stopColor="#2A0858" /><stop offset="1" stopColor="#080014" /></radialGradient>
-        <radialGradient id={`${id}a`} cx="38%" cy="28%" r="72%"><stop offset="0" stopColor="#B01828" /><stop offset=".45" stopColor="#7A0E18" /><stop offset="1" stopColor="#1A0408" /></radialGradient>
-        <radialGradient id={`${id}s`} cx="38%" cy="30%" r="68%"><stop offset="0" stopColor="#F2D36A" /><stop offset=".45" stopColor="#C9962E" /><stop offset="1" stopColor="#5A3C0A" /></radialGradient>
-        <filter id={`${id}glow`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-      </defs>
-
-      {k === "E" && (
-        <g>
-          <polygon points={hex(52)} fill={`url(#${id}e)`} stroke="#6E7886" strokeWidth="3.2" strokeLinejoin="round" />
-          <polygon points={hex(52)} fill={`url(#${id}e2)`} />
-          <polygon points={hex(40)} fill="none" stroke="#D5DCE6" strokeWidth="1.4" opacity=".65" />
-          <polygon points={hex(28)} fill="none" stroke="#6E7886" strokeWidth="0.8" opacity=".4" />
-          {Array.from({ length: 6 }, (_, i) => {
-            const a = (Math.PI / 3) * i - Math.PI / 2;
-            return <circle key={i} cx={cx + Math.cos(a) * 52} cy={cy + Math.sin(a) * 52} r="2.4" fill="#C5CDD8" stroke="#5C6775" strokeWidth="0.7" />;
-          })}
-          <Letter fill="#5C6775" stroke="#2E343C" sw="1.4" />
-          {Array.from({ length: 14 }, (_, i) => {
-            const a = (i / 14) * Math.PI * 2, r = 58 + (i % 4) * 5;
-            return <circle key={i} cx={cx + Math.cos(a) * r} cy={cy + Math.sin(a) * r} r={i % 3 ? 1.1 : 1.6} fill="#A8B4C4" style={anim ? { animation: `rkdust ${3 + (i % 5) * 0.35}s ease-in-out infinite`, animationDelay: `${i * 0.12}s` } : null} />;
-          })}
-        </g>
-      )}
-
-      {k === "D" && (
-        <g>
-          {[[42, 38, -1], [158, 40, 1], [44, 150, -1], [156, 152, 1], [28, 92, -1], [172, 96, 1]].map(([ox, oy, s], i) => (
-            <g key={i} style={anim ? { transformOrigin: `${ox}px ${oy}px`, animation: `rkvine ${3 + i * 0.28}s ease-in-out infinite`, animationDelay: `${i * 0.1}s` } : null}>
-              <path d={`M${cx + s * 36} ${cy - 8 + (i % 3) * 10} C${ox} ${oy - 18}, ${ox + s * 16} ${oy + 8}, ${ox + s * 28} ${oy - 6}`} fill="none" stroke="#245828" strokeWidth="2.8" strokeLinecap="round" />
-              <path d={`M${ox + s * 4} ${oy - 4} C${ox + s * 18} ${oy - 22}, ${ox + s * 22} ${oy + 2}, ${ox + s * 32} ${oy - 10}`} fill="none" stroke="#3D7A3A" strokeWidth="1.7" strokeLinecap="round" />
-              {[0, 1, 2, 3].map((j) => <ellipse key={j} cx={ox + s * (8 + j * 7)} cy={oy - 8 + (j % 2 ? 5 : -6)} rx="4.4" ry="2.3" fill={j % 2 ? "#3D8C40" : "#2F6A32"} transform={`rotate(${s * (20 + j * 18)} ${ox} ${oy})`} />)}
-            </g>
-          ))}
-          <polygon points={hex(54, 0.08, 5)} fill={`url(#${id}d)`} stroke="#3A2E24" strokeWidth="3.4" strokeLinejoin="round" />
-          <polygon points={hex(42, 0.3, 3)} fill="none" stroke="#8B6F47" strokeWidth="2.2" />
-          <path d={`M${cx - 18} ${cy - 8} L${cx - 6} ${cy + 16} M${cx + 10} ${cy - 20} L${cx + 18} ${cy + 8} M${cx - 4} ${cy + 22} L${cx + 14} ${cy + 28}`} stroke="#3A2E24" strokeWidth="1.3" opacity=".7" />
-          {[[88, 84, 6.5, "#5A4634"], [118, 108, 5.2, "#3E4E32"], [96, 118, 4.4, "#6B5340"], [122, 80, 3.8, "#4A3A2A"], [84, 102, 3.2, "#5A4634"], [110, 92, 2.8, "#3E4E32"]].map(([x, y, r, f], i) => (
-            <ellipse key={i} cx={x} cy={y} rx={r} ry={r * 0.78} fill={f} stroke="#2A2018" strokeWidth="0.6" />
-          ))}
-          {Array.from({ length: 10 }, (_, i) => <circle key={i} cx={82 + (i * 9) % 40} cy={78 + ((i * 13) % 36)} r="1.3" fill="#4A8C46" opacity=".7" />)}
-          <Letter fill="#DCE8C8" stroke="#1E2A14" sw="1.6" />
-        </g>
-      )}
-
-      {k === "C" && (
-        <g>
-          <path d={`M${cx} 36 L158 58 L148 132 Q${cx} 172 52 132 L42 58 Z`} fill={`url(#${id}c)`} stroke="#4EB6FF" strokeWidth="3" filter={`url(#${id}glow)`} />
-          <path d={`M${cx} 48 L146 66 L138 126 Q${cx} 158 62 126 L54 66 Z`} fill="none" stroke="#9FD4FF" strokeWidth="1.5" opacity=".55" />
-          <path d={`M${cx} 54 L${cx} 150`} stroke="#4EB6FF" strokeWidth="1.3" opacity=".3" />
-          <path d={`M${cx} 70 L118 88 L${cx} 108 L82 88 Z`} fill="#1A4A9A" stroke="#4EB6FF" strokeWidth="1.2" opacity=".85" />
-          {[[70, 58], [130, 58], [66, 128], [134, 128], [100, 44], [100, 158]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.6" fill="#8EC8FF" stroke="#12366E" strokeWidth="0.6" />)}
-          {[[`M168 62 L184 50 L176 72 L196 66 L180 80`, 0], [`M32 64 L14 50 L22 76 L6 68 L24 84`, 0.25], [`M160 140 L180 152 L168 166 L188 158`, 0.5], [`M40 142 L18 156 L32 168 L12 160`, 0.75], [`M${cx} 24 L${cx - 8} 8 L${cx + 4} 14 L${cx} 2`, 0.15], [`M150 100 L176 96 L168 112 L186 104`, 0.4]].map(([d, delay], i) => (
-            <path key={i} d={d} fill="none" stroke="#3AA0FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={anim ? { animation: `rkbolt ${1.35 + i * 0.12}s ${delay}s linear infinite` } : null} />
-          ))}
-          {Array.from({ length: 16 }, (_, i) => {
-            const a = (i / 16) * Math.PI * 2, r = 78 + (i % 4) * 5;
-            return <circle key={i} cx={cx + Math.cos(a) * r} cy={cy + Math.sin(a) * r} r={i % 2 ? 1.2 : 1.8} fill="#2B8CFF" style={anim ? { animation: `rktwinkle ${0.85 + (i % 4) * 0.18}s ease-in-out infinite`, animationDelay: `${i * 0.07}s` } : null} />;
-          })}
-          <Letter fill="#C8E6FF" stroke="#0A2A66" sw="1.8" />
-        </g>
-      )}
-
-      {k === "B" && (
-        <g>
-          <circle cx={cx} cy={cy} r="78" fill="#0A0014" opacity=".62" style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: "rkvoid 3.6s ease-in-out infinite" } : null} />
-          {[[76, 28, 11, "#8B3DFF"], [58, 42, 15, "#C9A8FF"], [44, 22, 8, "#6A00FF"], [62, 34, 18, "#B14BFF"], [36, 48, 10, "#4A148C"]].map(([rx, ry, sec, col], i) => (
-            <ellipse key={i} cx={cx} cy={cy} rx={rx} ry={ry} fill="none" stroke={col} strokeWidth={i % 2 ? 2.2 : 1.4} opacity={0.45 + i * 0.08} style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: `rkspin ${sec}s linear infinite${i % 2 ? " reverse" : ""}` } : null} />
-          ))}
-          {Array.from({ length: 8 }, (_, i) => {
-            const a = (i / 8) * Math.PI * 2;
-            return <path key={i} d={`M${cx} ${cy} C${cx + Math.cos(a) * 30} ${cy + Math.sin(a) * 30}, ${cx + Math.cos(a + 0.8) * 55} ${cy + Math.sin(a + 0.8) * 55}, ${cx + Math.cos(a + 1.4) * 74} ${cy + Math.sin(a + 1.4) * 74}`} fill="none" stroke="#8B3DFF" strokeWidth="1.3" opacity=".4" style={anim ? { transformOrigin: `${cx}px ${cy}px`, animation: `rkspin ${10 + i}s linear infinite` } : null} />;
-          })}
-          <polygon points={hex(48)} fill={`url(#${id}b)`} stroke="#C9A8FF" strokeWidth="2.4" />
-          <polygon points={hex(36, Math.PI / 6)} fill="none" stroke="#6A00FF" strokeWidth="1.2" opacity=".7" />
-          <Letter fill="#E8D6FF" stroke="#2A0858" sw="1.5" />
-          <Letter fill="none" stroke="#05010A" sw="4.2" extra={anim ? { strokeDasharray: "22 140", strokeLinecap: "round", animation: "rktrace 1.9s linear infinite" } : { strokeDasharray: "22 140" }} />
-          <Letter fill="none" stroke="#1A0030" sw="2.2" extra={anim ? { strokeDasharray: "14 160", strokeLinecap: "round", animation: "rktrace 2.6s linear infinite reverse", opacity: 0.8 } : { strokeDasharray: "14 160" }} />
-        </g>
-      )}
-
-      {k === "A" && (
-        <g>
-          <path d="M78 62 C62 28 40 8 22 18 C38 10 52 28 72 70 C70 52 74 46 78 62 Z" fill="#1A060A" stroke="#6A1018" strokeWidth="1.6" />
-          <path d="M78 50 C60 22 44 4 26 8" fill="none" stroke="#E0243A" strokeWidth="1.3" />
-          <path d="M64 34 L58 18 M70 42 L62 24" stroke="#4A0810" strokeWidth="1.1" />
-          <path d="M122 62 C138 28 160 8 178 18 C162 10 148 28 128 70 C130 52 126 46 122 62 Z" fill="#1A060A" stroke="#6A1018" strokeWidth="1.6" />
-          <path d="M122 50 C140 22 156 4 174 8" fill="none" stroke="#E0243A" strokeWidth="1.3" />
-          <path d="M136 34 L142 18 M130 42 L138 24" stroke="#4A0810" strokeWidth="1.1" />
-          <path d="M72 58 C60 40 52 22 40 12 L46 36 Z" fill="#3A0A10" />
-          <path d="M128 58 C140 40 148 22 160 12 L154 36 Z" fill="#3A0A10" />
-          {Array.from({ length: 12 }, (_, i) => (
-            <g key={i}>
-              <path d={`M${64 + i * 6.4} 148 q ${i % 2 ? 5 : -4} -22 ${i % 3 ? 2 : -2} -40`} fill="none" stroke={i % 2 ? "#FF6A2B" : "#E0243A"} strokeWidth="2.8" strokeLinecap="round"
-                style={anim ? { transformOrigin: `${64 + i * 6.4}px 148px`, animation: `rkfire ${0.62 + (i % 4) * 0.1}s ${i * 0.06}s ease-out infinite` } : null} />
-              <circle cx={66 + i * 6} cy={142} r="1.4" fill="#FF9340" style={anim ? { animation: `rkdust ${0.9 + (i % 3) * 0.15}s ${i * 0.05}s ease-out infinite` } : null} />
-            </g>
-          ))}
-          <polygon points={hex(50)} fill={`url(#${id}a)`} stroke="#FF6A2B" strokeWidth="2.8" strokeLinejoin="round" />
-          <polygon points={hex(38, Math.PI / 6)} fill="none" stroke="#4A0810" strokeWidth="1.5" />
-          <path d={`M${cx - 16} ${cy - 6} L${cx - 2} ${cy + 22} M${cx + 8} ${cy - 18} L${cx + 16} ${cy + 10}`} stroke="#2A0408" strokeWidth="1.2" opacity=".65" />
-          <Letter fill="#FFC8BC" stroke="#3A0810" sw="1.7" />
-        </g>
-      )}
-
-      {(k === "S" || k === "SS") && (
-        <g>
-          {k === "SS" && <><Wing side={-1} layer={0} /><Wing side={1} layer={0} /><Wing side={-1} layer={1} /><Wing side={1} layer={1} /><Wing side={-1} layer={2} /><Wing side={1} layer={2} /></>}
-          {k === "S" && <><Wing side={-1} layer={0} /><Wing side={1} layer={0} /><Wing side={-1} layer={1} /><Wing side={1} layer={1} /></>}
-          <Wheel r={k === "SS" ? 88 : 78} n={k === "SS" ? 16 : 12} color="#C9962E" dash="7 5" sec={22} />
-          <Wheel r={k === "SS" ? 68 : 60} n={k === "SS" ? 12 : 10} color="#E6B422" dash="4 6" sec={14} rev />
-          <Wheel r={k === "SS" ? 50 : 44} n={8} color="#7DF9FF" dash="3 7" sec={9} />
-          {k === "SS" && <Wheel r={34} n={6} color="#FFD447" dash="2 5" sec={6} rev />}
-          <polygon points={hex(40)} fill={`url(#${id}s)`} stroke="#E6B422" strokeWidth="3" />
-          <polygon points={hex(28, Math.PI / 6)} fill="none" stroke="#7A5A12" strokeWidth="1.2" opacity=".7" />
-          <Letter fill="#E6B422" stroke="#5A3C0A" sw="2.2" extra={anim ? { animation: "rkgold 2.6s ease-in-out infinite" } : null} />
-          {Array.from({ length: k === "SS" ? 18 : 12 }, (_, i) => {
-            const a = (i / (k === "SS" ? 18 : 12)) * Math.PI * 2, r = (k === "SS" ? 94 : 84) + (i % 4) * 3;
-            return <circle key={i} cx={cx + Math.cos(a) * r} cy={cy + Math.sin(a) * r} r={i % 2 ? 1.3 : 1.9} fill="#E6B422" style={anim ? { animation: `rktwinkle ${1.05 + (i % 4) * 0.2}s ease-in-out infinite`, animationDelay: `${i * 0.08}s` } : null} />;
-          })}
-        </g>
-      )}
-    </svg>
-  );
+  const c2 = rank.alt || rank.color;
+  const sparks = tier >= 3 ? 6 + tier * 2 : 0;
   return (
-    <div className="shrink-0 relative" style={{ width: size, height: size, overflow: "visible" }}>
-      {(k === "S" || k === "SS") && <RankOphanim size={size} crazy={k === "SS"} still={still} />}
-      {svg}
-    </div>
+    <svg width={size} height={size} viewBox="0 0 100 100" className="shrink-0" role="img" aria-label={`${rank.id} rank`} style={{ filter: `drop-shadow(0 0 ${5 + tier * 3}px ${rank.glow})`, overflow: "visible" }}>
+      <defs>
+        <radialGradient id={`${id}core`} cx="50%" cy="42%" r="60%"><stop offset="0" stopColor="#fff" stopOpacity={0.35 + tier * 0.08} /><stop offset=".35" stopColor={rank.color} stopOpacity=".55" /><stop offset="1" stopColor="#02040c" /></radialGradient>
+        <linearGradient id={`${id}ring`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff" /><stop offset=".3" stopColor={rank.color} /><stop offset=".65" stopColor={c2} /><stop offset="1" stopColor="#fff" /></linearGradient>
+        <linearGradient id={`${id}m`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset=".4" stopColor={rank.color} /><stop offset=".55" stopColor={darken(rank.color, 0.55)} /><stop offset=".75" stopColor={c2} /><stop offset="1" stopColor="#ffffff" /></linearGradient>
+        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".7" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
+        <clipPath id={`${id}c`}><polygon points={hex(42)} /></clipPath>
+      </defs>
+      {tier >= 4 && (
+        <g style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${16 - tier * 2}s linear infinite` } : null} opacity=".7">
+          {Array.from({ length: 16 }, (_, i) => <line key={i} x1="50" y1="50" x2={50 + 66 * Math.cos((Math.PI / 8) * i)} y2={50 + 66 * Math.sin((Math.PI / 8) * i)} stroke={i % 2 ? c2 : rank.color} strokeWidth={i % 4 === 0 ? 3 : 1.2} strokeLinecap="round" opacity={i % 2 ? 0.5 : 0.95} />)}
+        </g>
+      )}
+      {tier >= 5 && <circle cx="50" cy="50" r="58" fill="none" stroke="#fff" strokeWidth="1.5" strokeDasharray="2 14" opacity=".9" style={anim ? { transformOrigin: "50px 50px", animation: "rkspin 4s linear infinite reverse" } : null} />}
+      {tier >= 2 && <polygon points={hex(52, 50, 50, Math.PI / 6)} fill="none" stroke={`url(#${id}ring)`} strokeWidth={tier >= 4 ? 2.5 : 1.5} strokeDasharray={tier >= 4 ? "18 8" : "8 8"} opacity=".9" style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${12 - tier}s linear infinite reverse` } : null} />}
+      {tier >= 1 && <polygon points={hex(48)} fill="none" stroke={rank.color} strokeWidth="1" opacity=".5" style={anim ? { transformOrigin: "50px 50px", animation: `rkbreathe 2.6s ease-in-out infinite` } : null} />}
+      <polygon points={hex(42)} fill={`url(#${id}core)`} stroke={`url(#${id}ring)`} strokeWidth="3.5" strokeLinejoin="round" />
+      <polygon points={hex(34)} fill="none" stroke="#fff" strokeWidth={0.6 + tier * 0.25} opacity={0.25 + tier * 0.08} strokeDasharray={tier >= 3 ? "4 3" : "0"} style={anim && tier >= 3 ? { transformOrigin: "50px 50px", animation: "rkspin 20s linear infinite" } : null} />
+      {tier >= 2 && <polygon points={hex(38, 50, 50, Math.PI / 6)} fill="none" stroke={c2} strokeWidth="1" opacity=".55" />}
+      <text x="50" y="66" textAnchor="middle" fontSize="48" fontWeight="900" fontFamily="'Cinzel', 'Oxanium', serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.3)} strokeWidth="1.4" paintOrder="stroke" style={anim && tier >= 1 ? { animation: `rkpulse ${3.5 - tier * 0.35}s ease-in-out infinite` } : null}>{rank.id}</text>
+      {anim && tier >= 1 && <g clipPath={`url(#${id}c)`}><rect x="-60" y="0" width="34" height="100" fill={`url(#${id}s)`} transform="skewX(-22)" style={{ animation: `rkshine ${4.2 - tier * 0.45}s ease-in-out infinite` }} /></g>}
+      {sparks > 0 && Array.from({ length: sparks }, (_, i) => {
+        const a = (2 * Math.PI * i) / sparks, r = 46 + (i % 3) * 6;
+        return <circle key={i} cx={50 + r * Math.cos(a)} cy={50 + r * Math.sin(a)} r={i % 3 === 0 ? 2.2 : 1.3} fill={i % 2 ? "#fff" : c2} style={anim ? { transformOrigin: "50px 50px", animation: `rkorbit ${7 + (i % 4) * 2}s linear infinite${i % 2 ? " reverse" : ""}, rktwinkle ${1 + (i % 5) * 0.3}s ease-in-out infinite` } : null} />;
+      })}
+      {tier >= 5 && <circle cx="50" cy="50" r="30" fill="none" stroke="#fff" strokeWidth="6" opacity=".18" style={anim ? { transformOrigin: "50px 50px", animation: "rkhalo 2.2s ease-out infinite" } : null} />}
+    </svg>
   );
 }
 /* ---------- Muscle pages ---------- */
@@ -4897,7 +4718,7 @@ function MusclePage({ s, group, onBack, openExercise }) {
         <MusclePhoto group={group} tier={preview ?? sc} height={300} />
         <div className="body text-xs text-center mb-2" style={{ color: preview !== null ? C.cyan : C.dim }}>{preview !== null ? `Preview: ${RANKS[preview].id}-rank ${info.name.toLowerCase()} · tap again to go back` : `Your ${info.name.toLowerCase()} at ${sc ? r.label : "untrained"} · tap a rank to preview`}</div>
         <div className="flex justify-between items-center px-1">
-          {[0, 1, 2, 3, 4, 5, 6].map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <button key={t} onClick={() => setPreview(preview === t ? null : t)} className="flex flex-col items-center gap-1" style={{ opacity: reached || preview === t ? 1 : 0.4, transform: preview === t ? "scale(1.15)" : "none", transition: "transform .2s" }}><RankBadge rank={rk} size={40} /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></button>; })}
+          {[0, 1, 2, 3, 4, 5, 6].map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <button key={t} onClick={() => setPreview(preview === t ? null : t)} className="flex flex-col items-center gap-1" style={{ opacity: reached || preview === t ? 1 : 0.4, transform: preview === t ? "scale(1.15)" : "none", transition: "transform .2s" }}><RankBadge rank={rk} size={26} still /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></button>; })}
         </div>
         <div className="mt-2"><Bar pct={(sc / 6) * 100} color={sc ? r.rank.color : C.mute} /></div>
         <div className="body text-xs mt-1" style={{ color: C.dim }}>The photo grows as your best lift in this group climbs. Group rank = your best-ranked lift here.</div>
@@ -4912,7 +4733,7 @@ function MusclePage({ s, group, onBack, openExercise }) {
       <div className="space-y-2">
         {lifts.map((x) => (
           <button key={x.e.name} onClick={() => openExercise?.(x.e.name)} className="panel p-3 flex items-center gap-3 w-full text-left">
-            <RankBadge rank={x.rank} size={40} />
+            <RankBadge rank={x.rank} size={30} />
             <div className="flex-1 min-w-0"><div className="font-semibold truncate">{x.e.name}</div><div className="body text-xs" style={{ color: C.dim }}>Best {Math.round(x.best)}{x.e.type === "bodyweight" ? " reps" : " lb est. max"}{x.next ? ` · ${x.nextLabel} at ${x.next}` : " · maxed"}</div></div>
             <span className="font-bold" style={{ color: x.rank.color }}>{x.label}</span>
           </button>
@@ -5231,8 +5052,8 @@ function Ceremony({ c, onClose }) {
       <style>{`@keyframes cerein{0%{transform:scale(.3) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
         @keyframes ceretext{0%{transform:translateY(20px);opacity:0}100%{transform:none;opacity:1}}
         @keyframes cerespark{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}}`}</style>
-      {Array.from({ length: 26 }, (_, i) => { const a = (i / 26) * Math.PI * 2, d = 120 + (i % 5) * 40; return <span key={i} className="absolute rounded-full" style={{ left: "50%", top: "45%", width: i % 3 ? 6 : 10, height: i % 3 ? 6 : 10, background: i % 2 ? rank.alt : rank.color, boxShadow: `0 0 10px ${rank.color}`, "--dx": `${Math.cos(a) * d}px`, "--dy": `${Math.sin(a) * d}px`, animation: `cerespark ${1.2 + (i % 4) * 0.3}s ${(i % 6) * 0.08}s ease-out forwards` }} />; })}
-      <div style={{ animation: "cerein .9s cubic-bezier(.2,.9,.3,1.3) both" }}><RankBadge rank={rank} size={220} /></div>
+      {Array.from({ length: 26 }, (_, i) => { const a = (i / 26) * Math.PI * 2, d = 120 + (i % 5) * 40; return <span key={i} className="absolute rounded-full" style={{ left: "50%", top: "45%", width: i % 3 ? 6 : 10, height: i % 3 ? 6 : 10, background: i % 2 ? "#fff" : rank.color, boxShadow: `0 0 10px ${rank.color}`, "--dx": `${Math.cos(a) * d}px`, "--dy": `${Math.sin(a) * d}px`, animation: `cerespark ${1.2 + (i % 4) * 0.3}s ${(i % 6) * 0.08}s ease-out forwards` }} />; })}
+      <div style={{ animation: "cerein .9s cubic-bezier(.2,.9,.3,1.3) both" }}><RankBadge rank={rank} size={170} /></div>
       <div className="text-4xl font-extrabold tracking-widest mt-6" style={{ color: rank.color, textShadow: `0 0 24px ${rank.glow}`, animation: "ceretext .6s .5s ease-out both", fontFamily: "'Oxanium', sans-serif" }}>RANK UP</div>
       <div className="text-xl font-bold mt-2 text-center" style={{ color: "#fff", animation: "ceretext .6s .7s ease-out both" }}>{c.kind === "overall" ? "Overall rank" : c.name}</div>
       <div className="text-2xl font-extrabold mt-1" style={{ color: rank.color, animation: "ceretext .6s .85s ease-out both" }}>{c.label}</div>
@@ -5583,7 +5404,7 @@ function ExercisePage({ s, name, onBack, openMuscle }) {
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
         <div className="flex-1 min-w-0"><h1 className="text-2xl font-bold glowtext truncate">{name}</h1><button onClick={() => openMuscle(def.group)} className="body text-xs underline" style={{ color: C.dim }}>{def.group}{def.perHand ? " · per hand" : ""} · muscle page</button></div>
-        {r && <RankBadge rank={r.rank} size={56} />}
+        {r && <RankBadge rank={r.rank} size={44} />}
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[["Rank", r ? r.label : "–"], [def.type === "bodyweight" ? "Best reps" : def.type === "timed" ? "Longest" : "Est. max", r ? `${Math.round(r.best)} ${unit}` : pts.length ? `${Math.round(pts[pts.length - 1].best)} ${unit}` : "–"], ["× bodyweight", r && def.type === "weighted" ? `${(r.best / bw).toFixed(2)}×` : "–"], ["Sessions", pts.length], ["Next rank", r?.next ? `${r.next} ${unit}` : r ? "maxed" : "–"], ["Next time", sug ? `${sug.w}×${sug.r}` : "–"]].map(([l, v]) => (
@@ -6273,7 +6094,7 @@ function VersusPanel({ s, data, me, id, setS, gainXp }) {
       <Avatar src={c.avatar} name={c.name} size={64} ring={c.look?.accent || r.color} look={c.look} />
       <div className="font-bold mt-2 truncate w-full"><FancyName name={c.name} look={c.look} /></div>
       {c.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: c.look?.accent || C.cyan }}>{c.title}</div>}
-      <div className="mt-1"><RankBadge rank={r} size={46} /></div>
+      <div className="mt-1"><RankBadge rank={r} size={34} /></div>
       <div className="ranklabel text-sm font-bold" style={{ color: r.color }}>{c.rank}{c.div ? ` ${c.div}` : ""}</div>
     </div>
   );
