@@ -738,7 +738,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6g";
+const APP_VERSION = "6h";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -9062,10 +9062,20 @@ function CrewBanner({ count = 1, size = 16 }) {
 }
 // Shared weekly quests for the crew. Pooled across members, targets scale with headcount,
 // and none of it touches boss HP or boss damage.
-function CrewQuests({ s, setS, rows, code }) {
+function CrewQuests({ s, setS, rows, crew, code }) {
   const ws = weekStart();
-  const cards = (rows || []).map((r) => (r.id === s.playerId ? profileCard(s) : r));
+  const myCard = useMemo(() => profileCard(s), [s]);
+  // Headcount comes from the crew record as well as the loaded rows: the roster can still be
+  // empty on first paint, and a member who hasn't opened the app today has no fresh card yet.
+  const cards = useMemo(() => {
+    const byId = new Map();
+    (crew?.members || []).forEach((id) => id && byId.set(id, { id }));
+    (rows || []).forEach((r) => r?.id && byId.set(r.id, r));
+    byId.set(s.playerId, myCard);
+    return [...byId.values()];
+  }, [rows, crew?.members, myCard, s.playerId]);
   const { quests, members, done } = crewQuestProgress(cards, ws, cards.length);
+  const reporting = cards.filter((c) => c.wk?.key === ws).length;
   const key = `${code}_${ws}`;
   const earned = !!s.crewBanners?.[key];
   useEffect(() => {
@@ -9079,9 +9089,10 @@ function CrewQuests({ s, setS, rows, code }) {
         {(earned || done) && <CrewBanner count={Object.keys(s.crewBanners || {}).length} />}
       </div>
       <div className="body text-xs" style={{ color: C.dim }}>Pooled across all {members} member{members === 1 ? "" : "s"}. Clear all three by Saturday night for a crew banner. No effect on the boss.</div>
+      {reporting < members && <div className="body text-xs" style={{ color: C.mute }}>{members - reporting} member{members - reporting === 1 ? "" : "s"} haven't opened the new version this week, so their progress still reads zero.</div>}
       {quests.map((q) => (
         <div key={q.id} className="space-y-1">
-          <div className="flex justify-between text-xs body"><span style={{ color: q.done ? C.green : C.sub }}>{q.title}</span><span className="tabular-nums" style={{ color: C.dim }}>{q.value} / {q.target} {q.unit}</span></div>
+          <div className="flex justify-between items-baseline gap-3 text-xs body"><span className="min-w-0 truncate" style={{ color: q.done ? C.green : C.sub }}>{q.title}</span><span className="tabular-nums shrink-0 whitespace-nowrap" style={{ color: C.dim }}>{q.value} / {q.target} {q.unit}</span></div>
           <Bar pct={Math.min(1, q.value / Math.max(1, q.target)) * 100} color={q.done ? C.green : C.cyan} />
         </div>
       ))}
@@ -9150,10 +9161,12 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     }, "Leave for good"), 80);
   }, "Continue");
   const memberRows = liveBoard(roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [])).filter((r) => !(s.test && r.id === s.playerId));
+  // The crew record knows everyone, even members whose cards haven't loaded yet
+  const headcount = Math.max(memberRows.length, new Set([...(crew?.members || []), s.playerId]).size, 1);
   if (mine?.code) {
     return (
       <div className="panel p-4 space-y-2">
-        <div className="flex justify-between items-start"><div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Your crew</div><div className="font-bold">{crew?.name || mine.name}</div></div><div className="text-right"><div className="font-mono font-bold" style={{ color: C.cyan }}>{mine.code}</div><div className="body text-xs" style={{ color: C.dim }}>{memberRows.length || 1} member{(memberRows.length || 1) === 1 ? "" : "s"}</div></div></div>
+        <div className="flex justify-between items-start"><div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Your crew</div><div className="font-bold">{crew?.name || mine.name}</div></div><div className="text-right"><div className="font-mono font-bold" style={{ color: C.cyan }}>{mine.code}</div><div className="body text-xs" style={{ color: C.dim }}>{headcount} member{headcount === 1 ? "" : "s"}</div></div></div>
         <div className="body text-xs" style={{ color: C.dim }}>Share the code so others can join. Your crew boss is sized to your crew.</div>
         <div className="space-y-1.5">
           {memberRows.map((r) => (
@@ -9168,7 +9181,7 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
           <button type="button" onClick={() => navigator.clipboard?.writeText(mine.code)} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Copy code</button>
           <button type="button" onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>
         </div>
-        <CrewQuests s={s} setS={setS} rows={memberRows} code={mine.code} />
+        <CrewQuests s={s} setS={setS} rows={memberRows} crew={crew} code={mine.code} />
         {(() => {
           const live = raidActive(raid);
           const left = live ? Math.max(0, Math.ceil((raid.end - now) / 1000)) : 0;
