@@ -731,13 +731,13 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5y";
+const APP_VERSION = "5z";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -897,7 +897,7 @@ export default function App() {
       try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
     }, 1200);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.title, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins, s.lbReigning, s.loot]);
+  }, [loaded, s.lb, s.test, s.profile.name, s.profile.avatar, s.profile.look, s.profile.title, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins, s.lbReigning, s.loot]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -983,7 +983,7 @@ export default function App() {
         const cards = await Promise.all((res?.keys || []).map(async (k) => {
           try { const r = await window.storage.get(k, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
         }));
-        if (!stop) applyReigning(sRef.current, setS, cards.filter(Boolean));
+        if (!stop) applyReigning(sRef.current, setS, liveBoard(cards.filter(Boolean)));
       } catch (e) { /* offline */ }
     };
     const t = setTimeout(go, 1800);
@@ -1431,7 +1431,7 @@ function Profile({ s, setS }) {
           <label>Age<input type="number" className="inp mt-1" value={p.age} onChange={(e) => set("age", +e.target.value)} /></label>
           <label>Sex<select className="inp mt-1" value={p.sex} onChange={(e) => set("sex", e.target.value)}><option value="m">Male</option><option value="f">Female</option></select></label>
           <label className="col-span-2">Activity<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
-          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings }), "Reset")}>Reset all progress</button>
+          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings, test: !!s.test }), "Reset")}>Reset all progress</button>
         </div>
       )}
     </div>
@@ -2456,11 +2456,11 @@ function Board({ s, setS, openProfile, gainXp }) {
     }
     if (keys === null) {
       const mine = s.lb ? await readCard(`lb:${s.playerId}`) : null;
-      setRows(mine ? [mine] : []);
+      setRows(liveBoard(mine ? [mine] : []));
       setErr("Couldn't reach the shared leaderboard. Check your connection and tap refresh in a moment.");
     } else {
       const cards = await Promise.all(keys.map(readCard));
-      const got = cards.filter(Boolean);
+      const got = liveBoard(cards.filter(Boolean));
       setRows(got);
       settleSeason(s, setS, got).catch(() => {});
       applyReigning(s, setS, got);
@@ -2517,13 +2517,13 @@ function Board({ s, setS, openProfile, gainXp }) {
       {view === "board" && !s.lb ? (
         <div className="panel p-4 space-y-3">
           <div className="font-bold">Join the leaderboard</div>
-          <div className="body text-sm" style={{ color: C.dim }}>Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private.</div>
+          <div className="body text-sm" style={{ color: C.dim }}>{s.test ? "Ghost mode is on. Joining still writes a card, but other players won't see you and you won't raise boss HP, season standings, or duel matching." : "Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private."}</div>
           {!s.profile.name && <input className="inp" placeholder="Your name" onBlur={(e) => setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } }))} />}
           <button onClick={() => setS((p) => ({ ...p, lb: true }))} disabled={!s.profile.name} className="btn w-full py-3" style={!s.profile.name ? { opacity: 0.5 } : null}>Join as {s.profile.name || "…"}</button>
         </div>
       ) : view === "board" ? (
         <div className="body text-sm flex justify-between" style={{ color: C.dim }}>
-          <span>You're on the board as {s.profile.name}</span>
+          <span>{s.test ? "Ghost mode: hidden from the board and boss HP" : `You're on the board as ${s.profile.name}`}</span>
           <button onClick={leave} className="underline" style={{ color: C.red }}>Leave</button>
         </div>
       ) : null}
@@ -2853,6 +2853,15 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
           <button onClick={() => ask("Sign out on this device? Your progress stays saved in your account.", () => window.ascendAuth.signOut(), "Sign out")} className="ghost px-4 py-2 text-sm font-bold" style={{ color: C.red }}>Sign out</button>
         </div>
       )}
+
+      <div className="panel p-4 flex items-center gap-3">
+        <Shield size={22} style={{ color: C.cyan }} />
+        <div className="flex-1">
+          <div className="font-bold">Ghost / test account</div>
+          <div className="body text-xs" style={{ color: C.dim }}>Hides this profile from other players' boards. Boss HP, season standings, and duel matching ignore it even if it joins.</div>
+        </div>
+        <Toggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => ({ ...p, test: !p.test }))} />
+      </div>
 
       <div className="body text-xs text-center" style={{ color: C.mute }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</div>
 
@@ -3720,6 +3729,7 @@ function WeightChart({ log, target }) {
   );
 }
 
+function liveBoard(rows) { return (rows || []).filter((r) => !r?.ghost); }
 function profileCard(s) {
   const ws = weekStart();
   const st = lifetimeStats(s);
@@ -3738,6 +3748,7 @@ function profileCard(s) {
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
     badges: s.seasonBadges || {},
     reigning: !!s.lbReigning,
+    ghost: !!s.test,
     groups: groupScores(s),
     lifts: rankedLifts(s).sort((a, b) => b.score - a.score).slice(0, 6).map((r) => ({ name: r.e.name, label: r.label, rank: r.rank.id, best: Math.round(r.best), bw: r.e.type === "bodyweight" })),
   };
@@ -5755,7 +5766,8 @@ async function readShared(prefix) {
   try {
     const res = await window.storage.list(prefix, true);
     const items = await Promise.all((res?.keys || []).map(async (k) => { try { const r = await window.storage.get(k, true); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; } }));
-    return items.filter(Boolean);
+    const got = items.filter(Boolean);
+    return prefix === "lb:" ? liveBoard(got) : got;
   } catch { return []; }
 }
 function FeedWorkoutSheet({ s, setS, post, onClose }) {
@@ -7047,7 +7059,7 @@ function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global", crewI
   const boss = scope === "crew" ? BOSSES[(mi + 6) % BOSSES.length] : BOSSES[mi];
   // Crew members are whoever's board card, crew record, or join key says they're in this crew
   const meRow = rows.find((r) => r.id === s.playerId) || { id: s.playerId, name: s.profile.name, look: s.profile.look };
-  const crewRows = scope === "crew" ? (roster?.length ? roster : [meRow, ...rows.filter((r) => r.id !== s.playerId && r.crew?.code === crewId)]) : rows;
+  const crewRows = liveBoard(scope === "crew" ? (roster?.length ? roster : [meRow, ...rows.filter((r) => r.id !== s.playerId && r.crew?.code === crewId)]) : rows).filter((r) => !(s.test && r.id === s.playerId));
   const players = Math.max(1, crewRows.length);
   const hp = scope === "crew" ? crewBossHp(players) : globalBossHp(players);
   const sinceOf = (r) => (scope !== "crew" ? `${mk}-01` : r.id === s.playerId ? s.crew?.since || today() : r.crew?.since || today());
@@ -7143,7 +7155,7 @@ function applyReigning(s, setS, rows) {
   const mine = seasonXp(s, sk);
   const myId = s.playerId;
   const bestOther = (rows || []).filter((r) => (r.id || (r.key || "").slice(3)) !== myId).reduce((m, r) => Math.max(m, xpOf(r)), 0);
-  const on = !!s.lb && mine > 0 && mine > bestOther;
+  const on = !!s.lb && !s.test && mine > 0 && mine > bestOther;
   setS((p) => {
     const look = { ...(p.profile.look || {}) };
     let changed = !!p.lbReigning !== on;
@@ -8794,22 +8806,25 @@ async function listCrewMemberIds(code, rec, rows) {
 async function loadCrewRoster(code, s, rows) {
   const rec = await readCrew(code);
   const ids = await listCrewMemberIds(code, rec, rows);
-  if (s?.playerId && !ids.includes(s.playerId)) ids.push(s.playerId);
+  if (s?.playerId && !s.test && !ids.includes(s.playerId)) ids.push(s.playerId);
   const byId = new Map();
-  (rows || []).forEach((r) => { if (r.id) byId.set(r.id, r); });
+  (rows || []).forEach((r) => { if (r.id && !r.ghost) byId.set(r.id, r); });
   const missing = ids.filter((id) => !byId.has(id));
   await Promise.all(missing.map(async (id) => {
     try {
       const r = await window.storage.get(`lb:${id}`, true);
-      if (r?.value) byId.set(id, { key: `lb:${id}`, ...JSON.parse(r.value) });
-      else byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" });
-    } catch { byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" }); }
+      if (r?.value) {
+        const card = JSON.parse(r.value);
+        if (card.ghost) return;
+        byId.set(id, { key: `lb:${id}`, ...card });
+      } else if (!(id === s.playerId && s.test)) byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" });
+    } catch { if (!(id === s.playerId && s.test)) byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" }); }
   }));
-  if (s?.playerId) {
+  if (s?.playerId && !s.test) {
     const me = byId.get(s.playerId) || {};
     byId.set(s.playerId, { ...me, id: s.playerId, name: s.profile.name || me.name, look: s.profile.look || me.look, avatar: s.profile.avatar || me.avatar, crew: s.crew });
   }
-  return { rec, rows: ids.map((id) => byId.get(id)).filter(Boolean) };
+  return { rec, rows: ids.map((id) => byId.get(id)).filter((r) => r && !r.ghost) };
 }
 async function writeCrewMembership(code, rec, s, join) {
   const memKey = `crewmem:${code}:${s.playerId}`;
@@ -8860,6 +8875,7 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     gainXp?.(RAID_XP, "Raid night clear", eid);
   }, [raid?.cleared, raid?.start, mine?.code, s.playerId]);
   const create = async () => {
+    if (s.test) { setErr("Ghost accounts can't join a crew (crew boss HP scales with members)."); return; }
     if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
     setBusy(true); setErr("");
     const c = crewCode(), rec = { code: c, name: name.trim().slice(0, 30) || `${s.profile.name}'s crew`, owner: s.playerId, members: [s.playerId], t: Date.now() };
@@ -8868,6 +8884,7 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     setBusy(false);
   };
   const join = async () => {
+    if (s.test) { setErr("Ghost accounts can't join a crew (crew boss HP scales with members)."); return; }
     const c = code.trim().toUpperCase();
     if (c.length < 4) return;
     setBusy(true); setErr("");
@@ -8883,7 +8900,7 @@ function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
       setS((p) => ({ ...p, crew: null })); setCrew(null); setRoster([]);
     }, "Leave for good"), 80);
   }, "Continue");
-  const memberRows = roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : []);
+  const memberRows = liveBoard(roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [])).filter((r) => !(s.test && r.id === s.playerId));
   if (mine?.code) {
     return (
       <div className="panel p-4 space-y-2">
