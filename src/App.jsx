@@ -431,6 +431,8 @@ function pointsOf(s) {
   const fromRanks = rankedLifts(s).reduce((a, r) => a + Math.round(r.score * r.score * 30), 0);
   return fromWorkouts + fromRanks;
 }
+const crateSpentOf = (s) => Math.max(0, Math.round(+s.crateSpent || 0));
+const crateBank = (s) => Math.max(0, pointsOf(s) - crateSpentOf(s));
 // A "workout" is a real session. Card-deck flips and quest top-ups still give XP and reps, but don't count as one.
 const isWorkout = (w) => w.source !== "quest" && w.source !== "deck";
 function activeDays(s) {
@@ -717,7 +719,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5o";
+const APP_VERSION = "5p";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -1033,6 +1035,9 @@ export default function App() {
         @keyframes aurapulse{0%,100%{opacity:.5;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}
         @keyframes juiceflash{0%{opacity:1}100%{opacity:0}}
         @keyframes juicespark{0%{transform:translate(0,0) rotate(0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(.2);opacity:0}}
+        @keyframes cratepulse{0%,100%{box-shadow:0 0 18px rgba(255,212,71,.25)}50%{box-shadow:0 0 34px rgba(255,212,71,.55),0 0 60px rgba(106,0,255,.25)}}
+        @keyframes cratespin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+        @keyframes cratereveal{0%{transform:scale(.4) rotate(-8deg);opacity:0}60%{transform:scale(1.08) rotate(2deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
         @keyframes juicetext{0%{transform:translateX(-50%) scale(.4);opacity:0}25%{transform:translateX(-50%) scale(1.25);opacity:1}70%{opacity:1}100%{transform:translateX(-50%) scale(1);opacity:0}}
         @keyframes shake{0%,100%{transform:translate(0,0)}15%{transform:translate(-8px,4px)}30%{transform:translate(7px,-5px)}45%{transform:translate(-6px,-3px)}60%{transform:translate(5px,4px)}75%{transform:translate(-3px,2px)}}
         @keyframes shakesoft{0%,100%{transform:translate(0,0)}30%{transform:translate(-3px,2px)}60%{transform:translate(3px,-2px)}}
@@ -1303,6 +1308,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
           <span className="body text-sm" style={{ color: C.dim }}>Leaderboard points</span>
           <span className="text-xl font-bold" style={{ color: C.gold, textShadow: "0 0 12px rgba(255,212,71,.5)" }}>{points.toLocaleString()}</span>
         </div>
+        <CrateTeaser s={s} onOpen={openProfile} />
       </div>
 
       <div className="grid grid-cols-4 gap-2">
@@ -3859,6 +3865,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
             </div>
           </div>
 
+          {me && <CrateVault s={s} setS={setS} />}
           {me && <LookStudio s={s} setS={setS} />}
           {me && (
             <div className="panel p-4 space-y-3">
@@ -4008,8 +4015,8 @@ function FancyName({ name, look, className = "", style = {}, size }) {
 
 /* ---------- Look studio: tabbed profile customization ---------- */
 const NAME_COLORS = ["#00D9FF", "#3DF08A", "#FFD447", "#FF9340", "#FF2D6F", "#B14BFF", "#F4FBFF", "#E8C872"];
-const AURA_GROUPS = [["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", "Limited and exclusive."], ["soon", "Coming soon", "More exclusive auras on the way."]];
-const titleGroup = (t) => (t.soon ? "soon" : t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" || t.id === "reigning" ? "season" : t.id === "nemesis_slayer" ? "rivalry" : "progress");
+const AURA_GROUPS = [["crate", "Vault", "Opened from the Reliquary crate with leaderboard points."], ["rank", "Rank auras", "Unlock by ranking up any lift."], ["feat", "Feats", "Earned by doing something specific, once."], ["boss", "Boss loot", "Drop from bosses you help defeat."], ["special", "Special", "Limited and exclusive."], ["soon", "Coming soon", "More exclusive auras on the way."]];
+const titleGroup = (t) => (t.soon ? "soon" : t.crate ? "crate" : t.id.startsWith("boss_") ? "boss" : t.id === "champion" || t.id === "contender" || t.id === "reigning" ? "season" : t.id === "nemesis_slayer" ? "rivalry" : "progress");
 function StudioTabs({ tab, setTab, tabs }) {
   const i = Math.max(0, tabs.findIndex((t) => t[0] === tab));
   return (
@@ -4091,7 +4098,7 @@ function LookStudio({ s, setS }) {
           );
         })}
 
-        {tab === "titles" && [["progress", "Milestones"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"], ["soon", "Coming soon"]].map(([g, label]) => {
+        {tab === "titles" && [["progress", "Milestones"], ["crate", "Vault"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"], ["soon", "Coming soon"]].map(([g, label]) => {
           const list = TITLES.filter((t) => titleGroup(t) === g);
           return (
             <div key={g} className="space-y-2">
@@ -5057,6 +5064,7 @@ const TITLES = [
   { id: "boss_pharaoh", name: "Sunbreaker", req: (s) => (s.loot?.bosses || []).includes("pharaoh"), how: "Defeat Sandstorm Pharaoh" },
   { id: "boss_void", name: "Voidwalker", req: (s) => (s.loot?.bosses || []).includes("void"), how: "Defeat The Void Sovereign" },
   { id: "yogurtmale", name: "Yogurt Male", req: (s) => !!s.ach?.["yogurt-0"], how: "Log 100 yogurts" },
+  { id: "chud", name: "Chud", req: (s) => !!s.crateUnlocks?.chud, how: "Reliquary Vault · common", crate: true },
   { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
   { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
   { id: "reigning", name: "Reigning", req: (s) => !!s.lbReigning, how: "Hold #1 on the season board" },
@@ -6146,6 +6154,10 @@ const AURAS = [
   { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },
   { id: "soon_seraphim", name: "Seraphim", how: "Coming soon", soon: true, group: "soon", colors: ["#FFFFFF", "#FFD447"] },
   { id: "soon_wheel", name: "Living Wheel", how: "Coming soon", soon: true, group: "soon", colors: ["#38C6FF", "#FFD447"] },
+  { id: "sigil", name: "Sigil", how: "Reliquary Vault · rare", crate: true, group: "crate", colors: ["#C9A8FF", "#FFD447"] },
+  { id: "glassfire", name: "Glassfire", how: "Reliquary Vault · epic", crate: true, group: "crate", colors: ["#FF5A8A", "#7DF9FF"] },
+  { id: "crownfall", name: "Crownfall", how: "Reliquary Vault · legendary", crate: true, group: "crate", colors: ["#FFD447", "#FFF6C9"] },
+  { id: "eclipseheart", name: "Eclipseheart", how: "Reliquary Vault · mythic", crate: true, group: "crate", colors: ["#FF2D6F", "#FFD447"] },
 ];
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
@@ -6156,6 +6168,7 @@ const BORDERS = [
   { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
   { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
   { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/season-one.svg", spin: true },
+  { id: "relic", name: "Relic", how: "Reliquary Vault · uncommon", crate: true, css: "conic-gradient(#2a1038,#FFD447,#6A00FF,#FFD447,#2a1038)", spin: true },
 ];
 const bestTier = (s) => Math.floor(Object.values(groupScores(s)).reduce((a, b) => Math.max(a, b), 0));
 const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; }); return best; };
@@ -6169,6 +6182,7 @@ const AURA_TASKS = {
 };
 function unlocked(item, s) {
   if (item.id === "none") return true;
+  if (item.crate && s.crateUnlocks?.[item.id]) return true;
   if (item.soon) return false;
   if (item.reigning) return !!s.lbReigning;
   if (item.seasonFirst) return Object.values(s.seasonBadges || {}).some((b) => b.place === 1);
@@ -6228,6 +6242,32 @@ const AURA_FX = {
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
   soon_wheel: { spd: 1.3, glow: 0.5, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#38C6FF", "#FFD447"], w: [1.2, 2], r: [0.95, 1.22], sz: [1.2, 2.1] }, { k: "orbit", n: 8, shape: "shard", c: ["#FFD447", "#7DF9FF"], w: [-0.6, -0.6], r: [1.08, 1.08], sz: [2.4, 3.4], even: 1 }] },
+  sigil: { spd: 1.15, glow: 0.62, rings: [{ r: 1.06, c: "#C9A8FF", spin: 0.42, a: 0.5, dash: 1, w: 1.3 }, { r: 1.22, c: "#FFD447", spin: -0.22, a: 0.32, w: 1.1 }], layers: [
+    { k: "orbit", n: 8, shape: "glyph", c: ["#C9A8FF", "#FFD447", "#FFFFFF"], w: [0.45, 0.45], r: [1.12, 1.12], sz: [2.4, 2.4], even: 1 },
+    { k: "orbit", n: 18, shape: "dot", c: ["#C9A8FF", "#FFD447"], w: [0.7, 1.2], r: [0.94, 1.26], sz: [1.6, 3], tw: 1 },
+    { k: "rise", n: 10, shape: "spark", c: ["#E6D4FF", "#FFD447"], sp: [10, 22], life: [1.2, 2.1], sz: [1, 1.8], sway: 8, a: 0.7 },
+  ] },
+  glassfire: { spd: 1.62, glow: 0.78, bolts: { every: [0.45, 1.05], c: ["#FF5A8A", "#7DF9FF", "#FFFFFF"] }, rays: { n: 14, c: "#FF7AA8", spin: 0.38, len: 1.52, a: 0.2 }, rings: [{ r: 1.08, c: "#7DF9FF", spin: 0.5, a: 0.38, w: 1.2, dash: 1 }, { r: 1.26, c: "#FF5A8A", spin: -0.22, a: 0.28, w: 1.1 }], layers: [
+    { k: "orbit", n: 14, shape: "gem", c: ["#FF5A8A", "#7DF9FF", "#FFD447", "#FFFFFF"], w: [0.75, 1.55], r: [0.96, 1.26], sz: [2.2, 4], spin: 1 },
+    { k: "orbit", n: 10, shape: "shard", c: ["#7DF9FF", "#FF5A8A"], w: [-0.5, -0.9], r: [1.12, 1.3], sz: [2.4, 3.8], spin: 1 },
+    { k: "rise", n: 26, shape: "spark", c: ["#FF5A8A", "#FFB3C8", "#7DF9FF", "#FFFFFF"], sp: [26, 56], life: [0.5, 1.1], sz: [1.1, 2.1], sway: 16 },
+    { k: "fall", n: 12, shape: "shard", c: ["#7DF9FF", "#FF5A8A"], sp: [16, 32], sz: [2, 3.8], drift: 12, spin: 1 },
+  ] },
+  crownfall: { spd: 1.42, glow: 0.86, rays: { n: 20, c: "#FFD447", spin: 0.2, len: 1.64, a: 0.26 }, bolts: { every: [0.7, 1.5], c: ["#FFD447", "#FFFFFF", "#FFF6C9"] }, rings: [{ r: 0.92, c: "#FFFFFF", spin: 0.4, a: 0.35, w: 1.2 }, { r: 1.08, c: "#FFD447", spin: 0.28, a: 0.5, w: 1.8 }, { r: 1.28, c: "#FFF6C9", spin: -0.18, a: 0.3, w: 1.1, dash: 1 }], layers: [
+    { k: "orbit", n: 12, shape: "star", c: ["#FFD447", "#FFFFFF"], w: [0.48, 0.48], r: [1.2, 1.2], sz: [1.35, 1.35], even: 1, tw: 1 },
+    { k: "orbit", n: 8, shape: "gem", c: ["#FFD447", "#FFF1B8"], w: [-0.32, -0.32], r: [0.78, 0.78], sz: [2.4, 2.4], even: 1, spin: 1 },
+    { k: "fall", n: 24, shape: "gem", c: ["#FFD447", "#FFF1B8", "#FF9340", "#FFFFFF"], sp: [18, 38], sz: [2, 3.8], drift: 9, spin: 1 },
+    { k: "rise", n: 20, shape: "spark", c: ["#FFFFFF", "#FFD447", "#FFF6C9"], sp: [18, 40], life: [0.75, 1.45], sz: [1, 1.9], sway: 12 },
+    { k: "orbit", n: 16, shape: "petal", c: ["#FFD447", "#FFF6C9", "#FF9340"], w: [-0.35, -0.75], r: [0.86, 1.1], sz: [2.2, 3.6] },
+  ] },
+  eclipseheart: { spd: 1.22, glow: 0.74, dark: 1, corona: { inner: "#FFD447", outer: "#FF2D6F" }, rays: { n: 22, c: "#FFD447", spin: -0.14, len: 1.68, a: 0.24 }, bolts: { every: [0.32, 0.82], c: ["#FF2D6F", "#FFD447", "#FFFFFF"], flash: 1 }, rings: [{ r: 0.58, c: "#FFFFFF", spin: 0.85, a: 0.4, w: 1.4 }, { r: 0.78, c: "#FFD447", spin: 0.55, a: 0.58, w: 2.2 }, { r: 1.14, c: "#FF2D6F", spin: -0.3, a: 0.42, w: 1.5 }, { r: 1.36, c: "#FFFFFF", spin: 0.16, a: 0.24, w: 0.95, dash: 1 }], layers: [
+    { k: "inward", n: 30, shape: "dot", c: ["#1A0008", "#3A0010", "#FF2D6F"], sp: [0.42, 0.92], life: [1.05, 2], sz: [2.4, 6.2], blend: "source-over", a: 0.92 },
+    { k: "orbit", n: 18, shape: "petal", c: ["#FF2D6F", "#FFD447", "#FFFFFF"], w: [0.32, 0.32], r: [1.2, 1.2], sz: [2.7, 2.7], even: 1 },
+    { k: "orbit", n: 10, shape: "glyph", c: ["#FFD447", "#FFFFFF"], w: [-0.48, -0.48], r: [0.9, 0.9], sz: [2.3, 2.3], even: 1 },
+    { k: "orbit", n: 24, shape: "star", c: ["#FFFFFF", "#FFD447", "#FF8AA8"], w: [0.38, 1.15], r: [1.02, 1.4], sz: [0.9, 1.8], tw: 1 },
+    { k: "rise", n: 22, shape: "spark", c: ["#FFD447", "#FF2D6F", "#FFFFFF"], sp: [22, 50], life: [0.6, 1.25], sz: [1, 2], sway: 14 },
+    { k: "orbit", n: 8, shape: "gem", c: ["#FFD447", "#FF2D6F"], w: [0.7, 1.1], r: [1.08, 1.28], sz: [2, 3.2], spin: 1 },
+  ] },
 };
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -6405,6 +6445,24 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
         g.fillStyle = "#ffffff"; g.beginPath(); g.arc(-s * 0.28, -s * 0.22, s * 0.16, 0, Math.PI * 2); g.fill();
         g.restore(); break;
       }
+      case "glyph": {
+        g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.6);
+        g.strokeStyle = p.c; g.lineWidth = Math.max(0.7, s * 0.28); g.lineJoin = "round";
+        g.strokeRect(-s, -s, s * 2, s * 2);
+        g.beginPath(); g.moveTo(0, -s * 1.35); g.lineTo(0, s * 1.35); g.moveTo(-s * 1.35, 0); g.lineTo(s * 1.35, 0); g.stroke();
+        g.restore(); break;
+      }
+      case "gem": {
+        g.save(); g.translate(x, y); g.rotate(p.rot);
+        g.fillStyle = p.c; g.beginPath(); g.moveTo(0, -s * 1.65); g.lineTo(s, -s * 0.15); g.lineTo(s * 0.55, s * 1.2); g.lineTo(-s * 0.55, s * 1.2); g.lineTo(-s, -s * 0.15); g.closePath(); g.fill();
+        g.fillStyle = "#ffffff"; g.globalAlpha *= 0.5; g.beginPath(); g.moveTo(0, -s * 1.65); g.lineTo(s * 0.38, -s * 0.2); g.lineTo(0, 0); g.closePath(); g.fill();
+        g.restore(); break;
+      }
+      case "petal": {
+        g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.4);
+        g.fillStyle = p.c; g.beginPath(); g.ellipse(0, 0, s * 0.42, s * 1.55, 0, 0, Math.PI * 2); g.fill();
+        g.restore(); break;
+      }
       default: { // bubble ring
         g.strokeStyle = p.c; g.lineWidth = Math.max(0.7, s * 0.3); g.beginPath(); g.arc(x, y, s, 0, Math.PI * 2); g.stroke();
         g.fillStyle = "#ffffff"; g.globalAlpha *= 0.7; g.beginPath(); g.arc(x - s * 0.35, y - s * 0.35, s * 0.25, 0, Math.PI * 2); g.fill();
@@ -6435,6 +6493,24 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       const grd = g.createRadialGradient(0, 0, rx * 0.55, 0, 0, rx * gR);
       grd.addColorStop(0, rgba(c1, 0)); grd.addColorStop(0.35, rgba(c1, fx.glow * breathe * 0.72)); grd.addColorStop(0.7, rgba(c2, fx.glow * 0.32)); grd.addColorStop(1, rgba(c2, 0));
       g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
+    }
+    if (fx.corona) {
+      const pulse = 0.55 + 0.45 * Math.sin(time * 2.3);
+      const grd = g.createRadialGradient(cx, cy, rx * 0.12, cx, cy, rx * 1.38);
+      grd.addColorStop(0, "rgba(4,1,8,.95)"); grd.addColorStop(0.2, "rgba(8,2,12,.8)");
+      grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
+    }
+    if (fx.rings) {
+      g.save(); g.translate(cx, cy); g.scale(1, ry / rx);
+      fx.rings.forEach((R) => {
+        g.strokeStyle = rgba(R.c || c1, (R.a || 0.35) * breathe);
+        g.lineWidth = (R.w || 1.3) * unit;
+        if (R.dash) g.setLineDash([5 * unit, 7 * unit]);
+        g.beginPath(); g.ellipse(0, 0, rx * (R.r || 1.08), rx * (R.r || 1.08), time * (R.spin || 0.3), 0, Math.PI * 2); g.stroke();
+        g.setLineDash([]);
+      });
+      g.restore();
     }
     g.globalCompositeOperation = "lighter";
     if (fx.rays) {
@@ -6533,6 +6609,178 @@ function AuraRing({ aura, size, style }) {
   const k = aura === "ascended" ? 1.18 : 1.28;
   const w = Math.round(size * k);
   return <AuraCanvas aura={aura} w={w} h={w} ringR={size / 2.7} style={style} />;
+}
+
+/* ---------- Reliquary crate (swap ACTIVE_CRATE / CRATES to rotate seasons) ---------- */
+const CRATE_RARITY = {
+  common: { name: "Common", color: "#9AA7BD", chance: "55%", refund: 80 },
+  uncommon: { name: "Uncommon", color: "#3DF08A", chance: "28%", refund: 100 },
+  rare: { name: "Rare", color: "#38C6FF", chance: "12%", refund: 140 },
+  epic: { name: "Epic", color: "#B14BFF", chance: "3.5%", refund: 180 },
+  legendary: { name: "Legendary", color: "#FFD447", chance: "1%", refund: 250 },
+  mythic: { name: "Mythic", color: "#FF2D6F", chance: "0.5%", refund: 250 },
+};
+const CRATES = [
+  {
+    id: "reliquary-1",
+    name: "Reliquary Vault",
+    tag: "Season 1 crate",
+    blurb: "Gilded glass and a locked eclipse. Spend points earned from workouts and lift ranks. Leaderboard score does not drop.",
+    cost: 250,
+    theme: { gold: "#FFD447", void: "#6A00FF", rose: "#FF2D6F" },
+    prizes: [
+      { rarity: "common", w: 550, kind: "title", id: "chud", name: "Chud" },
+      { rarity: "uncommon", w: 280, kind: "border", id: "relic", name: "Relic border" },
+      { rarity: "rare", w: 120, kind: "aura", id: "sigil", name: "Sigil" },
+      { rarity: "epic", w: 35, kind: "aura", id: "glassfire", name: "Glassfire" },
+      { rarity: "legendary", w: 10, kind: "aura", id: "crownfall", name: "Crownfall" },
+      { rarity: "mythic", w: 5, kind: "aura", id: "eclipseheart", name: "Eclipseheart" },
+    ],
+  },
+];
+const ACTIVE_CRATE = CRATES[0];
+function crateOwned(s, prize) {
+  if (prize.kind === "title") return !!s.crateUnlocks?.[prize.id] || TITLES.find((t) => t.id === prize.id)?.req(s);
+  const item = prize.kind === "aura" ? AURAS.find((a) => a.id === prize.id) : BORDERS.find((b) => b.id === prize.id);
+  return item ? unlocked(item, s) : !!s.crateUnlocks?.[prize.id];
+}
+function rollCratePrize(s, crate = ACTIVE_CRATE) {
+  const pity = s.cratePity || { rare: 0, legendary: 0 };
+  let pool = crate.prizes;
+  if ((pity.legendary || 0) >= 80) pool = crate.prizes.filter((p) => p.rarity === "legendary");
+  else if ((pity.rare || 0) >= 14) pool = crate.prizes.filter((p) => !["common", "uncommon"].includes(p.rarity));
+  const total = pool.reduce((a, p) => a + p.w, 0);
+  let n = (crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32) * total;
+  let hit = pool[pool.length - 1];
+  for (const p of pool) { n -= p.w; if (n <= 0) { hit = p; break; } }
+  return hit;
+}
+function applyCratePrize(p, prize, crate, rollId) {
+  if (crateBank(p) < crate.cost) return p;
+  if (rollId && (p.crateLog || [])[0]?.rollId === rollId) return p;
+  const dupe = crateOwned(p, prize);
+  const meta = CRATE_RARITY[prize.rarity];
+  const refund = dupe ? meta.refund : 0;
+  const spent = crate.cost - refund;
+  const crateUnlocks = { ...(p.crateUnlocks || {}), [prize.id]: today() };
+  const look = { ...(p.profile.look || {}) };
+  const profile = { ...p.profile, look };
+  if (!dupe) {
+    if (prize.kind === "aura") { look.auraPrev = look.aura; look.aura = prize.id; }
+    if (prize.kind === "border") look.border = prize.id;
+    if (prize.kind === "title") profile.title = prize.id;
+  }
+  const pity = { ...(p.cratePity || { rare: 0, legendary: 0 }) };
+  if (["rare", "epic", "legendary", "mythic"].includes(prize.rarity)) pity.rare = 0; else pity.rare = (pity.rare || 0) + 1;
+  if (prize.rarity === "legendary" || prize.rarity === "mythic") pity.legendary = 0; else pity.legendary = (pity.legendary || 0) + 1;
+  const log = [{ t: Date.now(), rollId, crate: crate.id, rarity: prize.rarity, kind: prize.kind, id: prize.id, name: prize.name, dupe, refund }, ...(p.crateLog || [])].slice(0, 40);
+  return { ...p, crateSpent: crateSpentOf(p) + spent, crateUnlocks, cratePity: pity, crateLog: log, profile };
+}
+function CrateTeaser({ s, onOpen }) {
+  const crate = ACTIVE_CRATE;
+  const bank = crateBank(s);
+  return (
+    <button type="button" onClick={onOpen} className="mt-3 w-full flex items-center gap-3 px-3 py-2.5 text-left" style={{ borderRadius: 12, background: "linear-gradient(90deg, rgba(106,0,255,.18), rgba(255,212,71,.1))", border: `1px solid ${C.gold}55`, animation: "cratepulse 2.8s ease-in-out infinite" }}>
+      <Crown size={18} style={{ color: C.gold }} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-bold">{crate.name}</span>
+        <span className="block body text-xs" style={{ color: C.dim }}>{bank.toLocaleString()} pts ready · {crate.cost} per open</span>
+      </span>
+      <ChevronRight size={16} style={{ color: C.gold }} />
+    </button>
+  );
+}
+function CrateVault({ s, setS }) {
+  const crate = ACTIVE_CRATE;
+  const bank = crateBank(s);
+  const [busy, setBusy] = useState(false);
+  const [show, setShow] = useState(null);
+  const roll = () => {
+    if (busy || bank < crate.cost) return;
+    setBusy(true);
+    const prize = rollCratePrize(s, crate);
+    const rollId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setTimeout(() => {
+      let packed = { ...prize, dupe: crateOwned(s, prize), refund: crateOwned(s, prize) ? CRATE_RARITY[prize.rarity].refund : 0 };
+      setS((p) => {
+        packed = { ...prize, dupe: crateOwned(p, prize), refund: crateOwned(p, prize) ? CRATE_RARITY[prize.rarity].refund : 0 };
+        return applyCratePrize(p, prize, crate, rollId);
+      });
+      setShow(packed);
+      setBusy(false);
+      if (prize.rarity === "mythic" || prize.rarity === "legendary") SFX.levelUp();
+      else if (prize.rarity === "epic") SFX.achievement();
+      else SFX.click();
+    }, 900);
+  };
+  const meta = show && CRATE_RARITY[show.rarity];
+  return (
+    <div className="panel overflow-hidden" style={{ borderColor: `${crate.theme.gold}44` }}>
+      <div className="px-4 pt-4 pb-3 space-y-1" style={{ background: "radial-gradient(80% 90% at 50% 0%, rgba(106,0,255,.28), transparent 70%)" }}>
+        <div className="body text-xs uppercase tracking-wider font-bold" style={{ color: C.gold }}>{crate.tag}</div>
+        <div className="text-xl font-bold">{crate.name}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{crate.blurb}</div>
+      </div>
+      <div className="p-4 space-y-3">
+        <div className="flex justify-between items-baseline">
+          <span className="body text-sm" style={{ color: C.dim }}>Crate points</span>
+          <span className="text-lg font-bold tabular-nums" style={{ color: bank >= crate.cost ? C.gold : C.mute }}>{bank.toLocaleString()}<span className="body text-xs font-normal" style={{ color: C.mute }}> / {pointsOf(s).toLocaleString()}</span></span>
+        </div>
+        <button type="button" disabled={busy || bank < crate.cost} onClick={roll} className="btn w-full py-3 flex items-center justify-center gap-2" style={{ opacity: bank < crate.cost ? 0.5 : 1 }}>
+          {busy ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+          {busy ? "Unsealing…" : `Open · ${crate.cost} pts`}
+        </button>
+        {bank < crate.cost && <div className="body text-xs text-center" style={{ color: C.mute }}>Need {(crate.cost - bank).toLocaleString()} more from workouts and lift ranks.</div>}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="px-2.5 py-2" style={{ borderRadius: 10, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+            <div className="body text-xs" style={{ color: C.mute }}>Rare pity</div>
+            <div className="text-sm font-bold tabular-nums">{Math.min(14, s.cratePity?.rare || 0)} / 14</div>
+          </div>
+          <div className="px-2.5 py-2" style={{ borderRadius: 10, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+            <div className="body text-xs" style={{ color: C.mute }}>Legend pity</div>
+            <div className="text-sm font-bold tabular-nums">{Math.min(80, s.cratePity?.legendary || 0)} / 80</div>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          {crate.prizes.map((p) => {
+            const r = CRATE_RARITY[p.rarity];
+            const have = crateOwned(s, p);
+            return (
+              <div key={p.id} className="flex items-center gap-2 py-1">
+                <span className="w-20 text-xs font-bold" style={{ color: r.color }}>{r.name}</span>
+                <span className="flex-1 text-sm font-semibold truncate" style={{ color: have ? C.text : C.dim }}>{p.name}</span>
+                {have ? <Check size={14} style={{ color: C.green }} /> : <Lock size={12} style={{ color: C.mute }} />}
+                <span className="body text-xs tabular-nums w-12 text-right" style={{ color: C.mute }}>{r.chance}</span>
+              </div>
+            );
+          })}
+        </div>
+        {(s.crateLog || []).length > 0 && (
+          <div className="body text-xs" style={{ color: C.mute }}>Last: {(s.crateLog || []).slice(0, 6).map((x) => x.name).join(" · ")}</div>
+        )}
+      </div>
+      {(busy || show) && (
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center p-6" style={{ background: "rgba(2,4,12,.86)" }} onClick={() => !busy && setShow(null)}>
+          {busy && <div className="w-28 h-28" style={{ borderRadius: 18, background: `conic-gradient(${crate.theme.gold}, ${crate.theme.void}, ${crate.theme.rose}, ${crate.theme.gold})`, animation: "cratespin 0.9s linear infinite", boxShadow: `0 0 40px ${crate.theme.gold}` }} />}
+          {show && meta && (
+            <div className="w-full max-w-sm panel p-5 space-y-3 text-center" style={{ borderColor: meta.color, animation: "cratereveal .55s cubic-bezier(.2,.8,.2,1)" }} onClick={(e) => e.stopPropagation()}>
+              <div className="text-xs font-extrabold tracking-widest uppercase" style={{ color: meta.color }}>{meta.name}</div>
+              {show.kind === "aura" ? (
+                <div className="relative mx-auto" style={{ width: 160, height: 160 }}><AuraCanvas aura={show.id} w={160} h={160} ringR={52} style={{ left: 0, top: 0 }} /></div>
+              ) : show.kind === "border" ? (
+                <div className="mx-auto" style={{ width: 72, height: 72, borderRadius: 999, background: BORDERS.find((b) => b.id === show.id)?.css, animation: "rkspin 6s linear infinite" }} />
+              ) : (
+                <div className="text-3xl font-black tracking-wider uppercase" style={{ color: C.gold }}>{show.name}</div>
+              )}
+              <div className="text-xl font-bold">{show.name}</div>
+              <div className="body text-sm" style={{ color: C.dim }}>{show.dupe ? `Already owned · ${show.refund} pts back` : "Unlocked. Equip it in Customize."}</div>
+              <button type="button" onClick={() => setShow(null)} className="btn w-full py-3">Continue</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ---------- The Juice ---------- */
