@@ -737,7 +737,7 @@ const DEFAULT = {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "5u";
+const APP_VERSION = "5y";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -851,6 +851,10 @@ export default function App() {
         const hasHistory = (st.workouts || []).length || (st.xp || 0) > 0 || Object.keys(st.ach || {}).length;
         if (hasHistory) { const r = recountXp(st); st = r.s; XpSync.replace(r.rows); } else st = { ...st, xpV: XP_VERSION };
       }
+      {
+        const tid = equippedTitle(st).id;
+        if ((st.profile?.title || "rookie") !== tid) st = { ...st, profile: { ...st.profile, title: tid } };
+      }
       let ok = !!window.storage?.set;
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
       setStorageOk(ok);
@@ -893,7 +897,18 @@ export default function App() {
       try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
     }, 1200);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins]);
+  }, [loaded, s.lb, s.profile.name, s.profile.avatar, s.profile.look, s.profile.title, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins, s.lbReigning, s.loot]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const tid = equippedTitle(s).id;
+    if ((s.profile.title || "rookie") === tid) return;
+    setS((p) => {
+      const next = equippedTitle(p).id;
+      if ((p.profile.title || "rookie") === next) return p;
+      return { ...p, profile: { ...p.profile, title: next } };
+    });
+  }, [loaded, s.profile.title, s.ach, s.loot, s.crateUnlocks, s.lbReigning, s.seasonBadges]);
 
   useEffect(() => {
     const go = () => XpSync.flush();
@@ -1056,6 +1071,7 @@ export default function App() {
         @keyframes cratepulse{0%,100%{box-shadow:0 0 18px rgba(255,212,71,.25)}50%{box-shadow:0 0 34px rgba(255,212,71,.55),0 0 60px rgba(106,0,255,.25)}}
         @keyframes cratespin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
         @keyframes cratereveal{0%{transform:scale(.4) rotate(-8deg);opacity:0}60%{transform:scale(1.08) rotate(2deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+        @keyframes gildsweep{0%{transform:translateX(-120%) skewX(-18deg);opacity:0}18%{opacity:.55}50%{opacity:.2}100%{transform:translateX(220%) skewX(-18deg);opacity:0}}
         @keyframes juicetext{0%{transform:translateX(-50%) scale(.4);opacity:0}25%{transform:translateX(-50%) scale(1.25);opacity:1}70%{opacity:1}100%{transform:translateX(-50%) scale(1);opacity:0}}
         @keyframes shake{0%,100%{transform:translate(0,0)}15%{transform:translate(-8px,4px)}30%{transform:translate(7px,-5px)}45%{transform:translate(-6px,-3px)}60%{transform:translate(5px,4px)}75%{transform:translate(-3px,2px)}}
         @keyframes shakesoft{0%,100%{transform:translate(0,0)}30%{transform:translate(-3px,2px)}60%{transform:translate(3px,-2px)}}
@@ -2478,8 +2494,7 @@ function Board({ s, setS, openProfile, gainXp }) {
   const reigningKey = seasonRanked[0] && ((seasonRanked[0].season?.key === sk ? seasonRanked[0].season.xp : 0) || 0) > 0 ? seasonRanked[0].key : null;
   const lookOf = (r) => {
     const L = { ...(r.look || {}) };
-    if (r.key === reigningKey) L.aura = "ascended";
-    else if (L.aura === "ascended") L.aura = L.auraPrev && L.auraPrev !== "ascended" ? L.auraPrev : "none";
+    if (r.key !== reigningKey && L.aura === "ascended") L.aura = L.auraPrev && L.auraPrev !== "ascended" ? L.auraPrev : "none";
     return L;
   };
 
@@ -3711,7 +3726,7 @@ function profileCard(s) {
   const wl = Object.entries(s.weightLog || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-40);
   return {
     id: s.playerId, name: s.profile.name, avatar: s.profile.avatar || null, goal: s.profile.goal, look: s.profile.look || null, song: s.profile.song || null,
-    title: (TITLES.find((t) => t.id === ({ wyrmslayer: "boss_wyrm", icebreaker: "boss_colossus", gravebane: "boss_gravemaw" }[s.profile.title] || s.profile.title) && t.req(s)) || null)?.name || null,
+    title: equippedTitle(s).name,
     weekXp: Object.entries(s.xpLog || {}).filter(([d]) => d >= ws).reduce((a, [, v]) => a + v, 0),
     prevWeek: (() => { const pw = shift(ws, -7); return { key: pw, xp: Object.entries(s.xpLog || {}).filter(([d]) => d >= pw && d < ws).reduce((a, [, v]) => a + v, 0) }; })(),
     atGym: s.atGym && Date.now() - s.atGym < 3 * 3600 * 1000 ? s.atGym : null,
@@ -3868,7 +3883,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
           <div className="panel p-5" style={lookStyle(data.look)}>
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(data.reigning || (me && s.lbReigning)) ? { ...(data.look || {}), aura: "ascended" } : data.look} />
+                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(!data.reigning && !(me && s.lbReigning) && data.look?.aura === "ascended") ? { ...(data.look || {}), aura: (data.look?.auraPrev && data.look.auraPrev !== "ascended") ? data.look.auraPrev : "none" } : data.look} />
                 {me && (
                   <>
                     <button aria-label="Change profile photo" onClick={() => fileRef.current?.click()} className="absolute flex items-center justify-center" style={{ right: -4, bottom: -4, width: 28, height: 28, borderRadius: 999, background: C.cyan, color: "#001018" }}><Camera size={15} /></button>
@@ -4065,14 +4080,17 @@ function StudioHead({ children, note }) {
 function AuraTile({ a, s, sel, onPick }) {
   const ok = unlocked(a, s);
   const prog = a.task ? AURA_TASKS[a.task](s) : null;
+  const gilded = !!a.gilded;
   return (
-    <button onClick={() => ok && onPick(a.id)} aria-pressed={sel} aria-disabled={!ok} aria-label={`${a.name}${ok ? "" : `, locked: ${a.how}`}`} className="relative flex flex-col items-center text-center px-1.5 pt-2 pb-2 overflow-visible" style={{ borderRadius: 14, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}, 0 6px 20px ${C.glow}` : "none", cursor: ok ? "pointer" : "default", transition: "border-color .2s, box-shadow .2s" }}>
+    <button onClick={() => ok && onPick(a.id)} aria-pressed={sel} aria-disabled={!ok} aria-label={`${a.name}${ok ? "" : `, locked: ${a.how}`}`} className="relative flex flex-col items-center text-center px-1.5 pt-2 pb-2 overflow-visible" style={{ borderRadius: 14, background: sel ? `${C.cyan}14` : gilded ? "linear-gradient(180deg, rgba(255,212,71,.16), rgba(201,150,46,.06))" : C.glass, border: `1px solid ${sel ? C.cyan : gilded ? "rgba(255,212,71,.55)" : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}, 0 6px 20px ${C.glow}` : gilded ? "0 0 18px rgba(255,212,71,.22)" : "none", cursor: ok ? "pointer" : "default", transition: "border-color .2s, box-shadow .2s" }}>
+      {gilded && <span aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 14, pointerEvents: "none" }}><span style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "38%", background: "linear-gradient(90deg, transparent, rgba(255,246,201,.28), transparent)", animation: "gildsweep 4.8s ease-in-out infinite" }} /></span>}
       <span className="relative flex items-center justify-center overflow-visible" style={{ width: 88, height: 88 }}>
         {a.id !== "none" && <span style={{ position: "absolute", inset: 0, opacity: ok ? 1 : 0.5, filter: ok ? "none" : "saturate(.6)", overflow: "visible" }}><AuraCanvas aura={a.id} w={88} h={88} ringR={28} style={{ left: 0, top: 0 }} /></span>}
-        <span className="relative flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 999, background: C.sheet, border: `1px solid ${C.glassLine}` }}>
+        <span className="relative flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 999, background: C.sheet, border: `1px solid ${gilded ? "rgba(255,212,71,.45)" : C.glassLine}` }}>
           {!ok ? <Lock size={14} style={{ color: C.mute }} /> : a.id === "none" ? <X size={14} style={{ color: C.mute }} /> : sel ? <Check size={16} style={{ color: C.cyan }} /> : null}
         </span>
       </span>
+      {gilded && <span className="absolute top-1.5 left-1/2 -translate-x-1/2 text-xs font-extrabold tracking-widest uppercase" style={{ color: "#E8C56A", fontSize: 9, letterSpacing: ".14em", zIndex: 1 }}>Gilded</span>}
       <span className="text-xs font-bold leading-tight mt-0.5" style={{ color: ok ? C.text : C.dim }}>{a.name}</span>
       {ok && a.ptsMult ? <span className="body leading-tight" style={{ fontSize: 10.5, color: C.gold }}>+{Math.round(a.ptsMult * 100)}% pts</span> : null}
       {!ok && !prog && <span className="body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{a.how}</span>}
@@ -4091,8 +4109,8 @@ function LookStudio({ s, setS }) {
   const look = s.profile.look || {};
   const setLook = (patch) => setS((p) => ({ ...p, profile: { ...p.profile, look: { ...(p.profile.look || {}), ...patch } } }));
   const oi = overallInfo(s);
-  const curTitle = TITLES.find((t) => t.id === (s.profile.title || "rookie"));
-  const titleName = curTitle && curTitle.req(s) ? curTitle.name : null;
+  const curTitle = equippedTitle(s);
+  const titleName = curTitle?.name || null;
   const aurasOk = AURAS.filter((a) => a.id !== "none" && unlocked(a, s)).length;
   const titlesOk = TITLES.filter((t) => t.req(s)).length;
   const selAura = look.aura || "none";
@@ -4123,7 +4141,7 @@ function LookStudio({ s, setS }) {
             <div key={g} className="space-y-2">
               <StudioHead note={`${have} of ${list.filter((a) => a.id !== "none").length}`}>{label}</StudioHead>
               {note && <div className="body text-xs -mt-1.5" style={{ color: C.dim }}>{note}</div>}
-              <div className="grid grid-cols-3 gap-2">{list.map((a) => <AuraTile key={a.id} a={a} s={s} sel={selAura === a.id} onPick={(id) => setLook({ aura: id })} />)}</div>
+              <div className="grid grid-cols-3 gap-2">{list.map((a) => <AuraTile key={a.id} a={a} s={s} sel={selAura === a.id} onPick={(id) => setLook({ aura: id, ...(id !== (look.aura || "none") && look.aura && look.aura !== "none" && look.aura !== "ascended" ? { auraPrev: look.aura } : {}) })} />)}</div>
             </div>
           );
         })}
@@ -4135,7 +4153,7 @@ function LookStudio({ s, setS }) {
               <StudioHead note={`${list.filter((t) => t.req(s)).length} of ${list.length}`}>{label}</StudioHead>
               <div className="grid grid-cols-2 gap-2">
                 {list.map((t) => {
-                  const ok = t.req(s), sel = (s.profile.title || "rookie") === t.id;
+                  const ok = t.req(s), sel = curTitle.id === t.id;
                   return (
                     <button key={t.id} onClick={() => ok && setS((p) => ({ ...p, profile: { ...p.profile, title: t.id } }))} aria-pressed={sel} aria-disabled={!ok} className="text-left px-3 py-2.5 flex items-start gap-2" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}` : "none", cursor: ok ? "pointer" : "default" }}>
                       <span className="flex-1 min-w-0">
@@ -5101,6 +5119,15 @@ const TITLES = [
   { id: "soon_seraph", name: "Seraph", req: () => false, how: "Coming soon", soon: true },
   { id: "soon_first", name: "World First", req: () => false, how: "Coming soon", soon: true },
 ];
+const TITLE_LEGACY = { wyrmslayer: "boss_wyrm", icebreaker: "boss_colossus", gravebane: "boss_gravemaw" };
+function titleIdOf(s) {
+  return TITLE_LEGACY[s.profile?.title] || s.profile?.title || "rookie";
+}
+function equippedTitle(s) {
+  const want = TITLES.find((t) => t.id === titleIdOf(s));
+  if (want && !want.soon && want.req(s)) return want;
+  return TITLES.find((t) => t.id === "rookie");
+}
 
 /* ---------- Progression + coaching helpers ---------- */
 function suggestNext(s, name, excludeId) {
@@ -6183,10 +6210,10 @@ const AURAS = [
   { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },
   { id: "soon_seraphim", name: "Seraphim", how: "Coming soon", soon: true, group: "soon", colors: ["#FFFFFF", "#FFD447"] },
   { id: "soon_wheel", name: "Living Wheel", how: "Coming soon", soon: true, group: "soon", colors: ["#38C6FF", "#FFD447"] },
-  { id: "sigil", name: "Sigil", how: "Reliquary Vault · rare · +3% pts", crate: true, group: "crate", ptsMult: 0.03, colors: ["#C9A8FF", "#FFD447"] },
+  { id: "sigil", name: "Sigil", how: "Reliquary Vault · rare · +3% pts", crate: true, group: "crate", ptsMult: 0.03, colors: ["#C9A8FF", "#E8C56A"] },
   { id: "glassfire", name: "Glassfire", how: "Reliquary Vault · epic · +5% pts", crate: true, group: "crate", ptsMult: 0.05, colors: ["#FF5A8A", "#7DF9FF"] },
   { id: "crownfall", name: "Crownfall", how: "Reliquary Vault · legendary · +8% pts", crate: true, group: "crate", ptsMult: 0.08, colors: ["#FFD447", "#FFF6C9"] },
-  { id: "eclipseheart", name: "Eclipseheart", how: "Reliquary Vault · mythic · +12% pts", crate: true, group: "crate", ptsMult: 0.12, colors: ["#FF2D6F", "#FFD447"] },
+  { id: "eclipseheart", name: "Eclipseheart", how: "Reliquary Vault · gilded · +12% pts", crate: true, group: "crate", gilded: true, ptsMult: 0.12, colors: ["#E8C56A", "#FFF6C9"] },
 ];
 const BORDERS = [
   { id: "none", name: "Default", how: "" },
@@ -6271,31 +6298,24 @@ const AURA_FX = {
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
   soon_wheel: { spd: 1.3, glow: 0.5, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#38C6FF", "#FFD447"], w: [1.2, 2], r: [0.95, 1.22], sz: [1.2, 2.1] }, { k: "orbit", n: 8, shape: "shard", c: ["#FFD447", "#7DF9FF"], w: [-0.6, -0.6], r: [1.08, 1.08], sz: [2.4, 3.4], even: 1 }] },
-  sigil: { spd: 1.15, glow: 0.62, rings: [{ r: 1.06, c: "#C9A8FF", spin: 0.42, a: 0.5, dash: 1, w: 1.3 }, { r: 1.22, c: "#FFD447", spin: -0.22, a: 0.32, w: 1.1 }], layers: [
-    { k: "orbit", n: 8, shape: "glyph", c: ["#C9A8FF", "#FFD447", "#FFFFFF"], w: [0.45, 0.45], r: [1.12, 1.12], sz: [2.4, 2.4], even: 1 },
-    { k: "orbit", n: 18, shape: "dot", c: ["#C9A8FF", "#FFD447"], w: [0.7, 1.2], r: [0.94, 1.26], sz: [1.6, 3], tw: 1 },
-    { k: "rise", n: 10, shape: "spark", c: ["#E6D4FF", "#FFD447"], sp: [10, 22], life: [1.2, 2.1], sz: [1, 1.8], sway: 8, a: 0.7 },
+  sigil: { spd: 0.72, glow: 0.78, rays: { n: 6, c: "#C9A8FF", spin: 0.06, len: 1.22, a: 0.22 }, rings: [{ r: 1.04, c: "#E8C56A", spin: 0.08, a: 0.92, w: 1.7, filigree: 8, ink: 1 }, { r: 1.22, c: "#9B6DFF", spin: -0.05, a: 0.78, w: 1.25, dash: 1, ink: 1 }], layers: [
+    { k: "orbit", n: 4, shape: "glyph", c: ["#C9A8FF", "#E8C56A"], w: [0.28, 0.28], r: [1.12, 1.12], sz: [2.2, 2.2], even: 1, blend: "source-over", a: 0.9 },
+    { k: "orbit", n: 8, shape: "dot", c: ["#E8C56A", "#C9A8FF", "#FFF6C9"], w: [0.22, 0.38], r: [1.02, 1.2], sz: [1.6, 2.6], tw: 1, blend: "source-over", a: 0.95 },
+    { k: "rise", n: 4, shape: "smoke", c: ["#C9A8FF", "#8A70B8"], sp: [5, 10], life: [2.2, 3.2], sz: [4, 7], sway: 10, a: 0.28, blend: "source-over" },
   ] },
-  glassfire: { spd: 1.62, glow: 0.78, bolts: { every: [0.45, 1.05], c: ["#FF5A8A", "#7DF9FF", "#FFFFFF"] }, rays: { n: 14, c: "#FF7AA8", spin: 0.38, len: 1.52, a: 0.2 }, rings: [{ r: 1.08, c: "#7DF9FF", spin: 0.5, a: 0.38, w: 1.2, dash: 1 }, { r: 1.26, c: "#FF5A8A", spin: -0.22, a: 0.28, w: 1.1 }], layers: [
-    { k: "orbit", n: 14, shape: "gem", c: ["#FF5A8A", "#7DF9FF", "#FFD447", "#FFFFFF"], w: [0.75, 1.55], r: [0.96, 1.26], sz: [2.2, 4], spin: 1 },
-    { k: "orbit", n: 10, shape: "shard", c: ["#7DF9FF", "#FF5A8A"], w: [-0.5, -0.9], r: [1.12, 1.3], sz: [2.4, 3.8], spin: 1 },
-    { k: "rise", n: 26, shape: "spark", c: ["#FF5A8A", "#FFB3C8", "#7DF9FF", "#FFFFFF"], sp: [26, 56], life: [0.5, 1.1], sz: [1.1, 2.1], sway: 16 },
-    { k: "fall", n: 12, shape: "shard", c: ["#7DF9FF", "#FF5A8A"], sp: [16, 32], sz: [2, 3.8], drift: 12, spin: 1 },
+  glassfire: { spd: 0.78, glow: 0.82, rays: { n: 8, c: "#FF7AA8", spin: 0.09, len: 1.3, a: 0.26 }, rings: [{ r: 1.1, c: "#2BB8D9", spin: 0.12, a: 0.88, w: 1.7, ink: 1 }], layers: [
+    { k: "orbit", n: 6, shape: "shard", c: ["#FF5A8A", "#7DF9FF", "#FFD447"], w: [0.16, 0.28], r: [1.0, 1.18], sz: [2.8, 4], even: 1, spin: 1, blend: "source-over", a: 0.95 },
+    { k: "orbit", n: 8, shape: "dot", c: ["#FF5A8A", "#38C6FF", "#FFF6C9"], w: [0.2, 0.4], r: [0.92, 1.24], sz: [1.5, 2.4], tw: 1, blend: "source-over", a: 0.9 },
   ] },
-  crownfall: { spd: 1.42, glow: 0.86, rays: { n: 20, c: "#FFD447", spin: 0.2, len: 1.64, a: 0.26 }, bolts: { every: [0.7, 1.5], c: ["#FFD447", "#FFFFFF", "#FFF6C9"] }, rings: [{ r: 0.92, c: "#FFFFFF", spin: 0.4, a: 0.35, w: 1.2 }, { r: 1.08, c: "#FFD447", spin: 0.28, a: 0.5, w: 1.8 }, { r: 1.28, c: "#FFF6C9", spin: -0.18, a: 0.3, w: 1.1, dash: 1 }], layers: [
-    { k: "orbit", n: 12, shape: "star", c: ["#FFD447", "#FFFFFF"], w: [0.48, 0.48], r: [1.2, 1.2], sz: [1.35, 1.35], even: 1, tw: 1 },
-    { k: "orbit", n: 8, shape: "gem", c: ["#FFD447", "#FFF1B8"], w: [-0.32, -0.32], r: [0.78, 0.78], sz: [2.4, 2.4], even: 1, spin: 1 },
-    { k: "fall", n: 24, shape: "gem", c: ["#FFD447", "#FFF1B8", "#FF9340", "#FFFFFF"], sp: [18, 38], sz: [2, 3.8], drift: 9, spin: 1 },
-    { k: "rise", n: 20, shape: "spark", c: ["#FFFFFF", "#FFD447", "#FFF6C9"], sp: [18, 40], life: [0.75, 1.45], sz: [1, 1.9], sway: 12 },
-    { k: "orbit", n: 16, shape: "petal", c: ["#FFD447", "#FFF6C9", "#FF9340"], w: [-0.35, -0.75], r: [0.86, 1.1], sz: [2.2, 3.6] },
+  crownfall: { spd: 0.7, glow: 0.86, rays: { n: 12, c: "#FFE08A", spin: 0.07, len: 1.42, a: 0.24 }, rings: [{ r: 0.92, c: "#FFF6C9", spin: 0.1, a: 0.88, w: 1.5, ink: 1 }, { r: 1.18, c: "#FFD447", spin: -0.06, a: 0.9, w: 1.8, ink: 1 }], layers: [
+    { k: "orbit", n: 8, shape: "shard", c: ["#FFD447", "#FFF6C9"], w: [0.2, 0.2], r: [1.22, 1.22], sz: [2.6, 2.6], even: 1, blend: "source-over", a: 0.95 },
+    { k: "rise", n: 10, shape: "ember", c: ["#FFD447", "#FFF6C9", "#FFB86B"], sp: [8, 16], life: [1.6, 2.6], sz: [1.6, 2.6], sway: 8, a: 0.85, tw: 1, blend: "source-over" },
+    { k: "orbit", n: 6, shape: "dot", c: ["#FFFFFF", "#FFD447"], w: [0.18, 0.32], r: [1.04, 1.18], sz: [1.8, 2.8], tw: 1, blend: "source-over", a: 0.9 },
   ] },
-  eclipseheart: { spd: 1.22, glow: 0.74, dark: 1, corona: { inner: "#FFD447", outer: "#FF2D6F" }, rays: { n: 22, c: "#FFD447", spin: -0.14, len: 1.68, a: 0.24 }, bolts: { every: [0.32, 0.82], c: ["#FF2D6F", "#FFD447", "#FFFFFF"], flash: 1 }, rings: [{ r: 0.58, c: "#FFFFFF", spin: 0.85, a: 0.4, w: 1.4 }, { r: 0.78, c: "#FFD447", spin: 0.55, a: 0.58, w: 2.2 }, { r: 1.14, c: "#FF2D6F", spin: -0.3, a: 0.42, w: 1.5 }, { r: 1.36, c: "#FFFFFF", spin: 0.16, a: 0.24, w: 0.95, dash: 1 }], layers: [
-    { k: "inward", n: 30, shape: "dot", c: ["#1A0008", "#3A0010", "#FF2D6F"], sp: [0.42, 0.92], life: [1.05, 2], sz: [2.4, 6.2], blend: "source-over", a: 0.92 },
-    { k: "orbit", n: 18, shape: "petal", c: ["#FF2D6F", "#FFD447", "#FFFFFF"], w: [0.32, 0.32], r: [1.2, 1.2], sz: [2.7, 2.7], even: 1 },
-    { k: "orbit", n: 10, shape: "glyph", c: ["#FFD447", "#FFFFFF"], w: [-0.48, -0.48], r: [0.9, 0.9], sz: [2.3, 2.3], even: 1 },
-    { k: "orbit", n: 24, shape: "star", c: ["#FFFFFF", "#FFD447", "#FF8AA8"], w: [0.38, 1.15], r: [1.02, 1.4], sz: [0.9, 1.8], tw: 1 },
-    { k: "rise", n: 22, shape: "spark", c: ["#FFD447", "#FF2D6F", "#FFFFFF"], sp: [22, 50], life: [0.6, 1.25], sz: [1, 2], sway: 14 },
-    { k: "orbit", n: 8, shape: "gem", c: ["#FFD447", "#FF2D6F"], w: [0.7, 1.1], r: [1.08, 1.28], sz: [2, 3.2], spin: 1 },
+  eclipseheart: { spd: 0.58, glow: 0.96, sweep: { c: "#FFF6C9", a: 1, spd: 0.85, r: 1.14, w: 4.4, span: 1.15 }, rays: { n: 10, c: "#FFD447", spin: 0.05, len: 1.48, a: 0.36 }, rings: [{ r: 1.32, c: "#FFF1B8", spin: -0.04, a: 0.9, w: 1.4, ink: 1 }, { r: 1.14, c: "#FFD447", spin: 0.05, a: 1, w: 4.2, filigree: 18, ink: 1 }], layers: [
+    { k: "orbit", n: 10, shape: "ember", c: ["#FFD447", "#FFF6C9", "#C9962E"], w: [0.14, 0.26], r: [0.9, 1.2], sz: [1.7, 2.8], tw: 1, blend: "source-over", a: 0.95 },
+    { k: "rise", n: 5, shape: "smoke", c: ["#E8C56A", "#C9A56A"], sp: [4, 9], life: [2.4, 3.4], sz: [4.5, 7.5], sway: 9, a: 0.22, blend: "source-over" },
+    { k: "rise", n: 8, shape: "dot", c: ["#FFF6C9", "#FFD447"], sp: [6, 12], life: [1.8, 2.8], sz: [1.4, 2.2], sway: 6, a: 0.85, tw: 1, blend: "source-over" },
   ] },
 };
 
@@ -6432,7 +6452,8 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
     const s = p.sz;
     switch (L.shape) {
       case "dot": { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2, y - s * 2, s * 4, s * 4); break; }
-      case "smoke": { const sp = softSprite(p.c); const k = 1 + p.age * 0.5; g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k); break; }
+      case "ember": { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2.6, y - s * 2.6, s * 5.2, s * 5.2); break; }
+      case "smoke": { const sp = softSprite(p.c); const k = Math.min(1.28, 1 + Math.min(p.age, 2.4) * 0.1); g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k); break; }
       case "spark": case "drop": {
         const orb = p.vy === undefined; const vx = orb ? -Math.sin(p.ang) * p.w * 20 : (p.vx || 0), vy = orb ? Math.cos(p.ang) * p.w * 20 : p.vy;
         const len = Math.hypot(vx, vy) || 1, l = L.shape === "drop" ? s * 9 : s * 5;
@@ -6447,8 +6468,10 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
         g.restore(); break;
       }
       case "shard": {
-        g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
-        g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.55, 0); g.lineTo(0, s * 1.1); g.lineTo(-s * 0.55, 0); g.closePath(); g.fill();
+        g.save(); g.translate(x, y); g.rotate(p.rot);
+        g.fillStyle = p.c;
+        g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.55, 0); g.lineTo(0, s * 1.1); g.lineTo(-s * 0.55, 0); g.closePath();
+        g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = Math.max(1.1, s * 0.28); g.stroke(); g.fill();
         g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.2, -s * 0.2); g.lineTo(0, 0); g.closePath(); g.fill();
         g.restore(); break;
       }
@@ -6476,7 +6499,11 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       }
       case "glyph": {
         g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.6);
-        g.strokeStyle = p.c; g.lineWidth = Math.max(0.7, s * 0.28); g.lineJoin = "round";
+        g.lineJoin = "round";
+        g.strokeStyle = "rgba(18,10,4,0.55)"; g.lineWidth = Math.max(1.6, s * 0.42);
+        g.strokeRect(-s, -s, s * 2, s * 2);
+        g.beginPath(); g.moveTo(0, -s * 1.35); g.lineTo(0, s * 1.35); g.moveTo(-s * 1.35, 0); g.lineTo(s * 1.35, 0); g.stroke();
+        g.strokeStyle = p.c; g.lineWidth = Math.max(0.85, s * 0.3);
         g.strokeRect(-s, -s, s * 2, s * 2);
         g.beginPath(); g.moveTo(0, -s * 1.35); g.lineTo(0, s * 1.35); g.moveTo(-s * 1.35, 0); g.lineTo(s * 1.35, 0); g.stroke();
         g.restore(); break;
@@ -6519,8 +6546,8 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy); g.beginPath(); g.arc(cx, cy, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
     } else {
       g.save(); g.translate(cx, cy); g.scale(1, ry / rx);
-      const grd = g.createRadialGradient(0, 0, rx * 0.55, 0, 0, rx * gR);
-      grd.addColorStop(0, rgba(c1, 0)); grd.addColorStop(0.35, rgba(c1, fx.glow * breathe * 0.72)); grd.addColorStop(0.7, rgba(c2, fx.glow * 0.32)); grd.addColorStop(1, rgba(c2, 0));
+      const grd = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * gR);
+      grd.addColorStop(0, rgba(c1, 0)); grd.addColorStop(0.32, rgba(c1, fx.glow * breathe * 0.55)); grd.addColorStop(0.62, rgba(c2, fx.glow * 0.42)); grd.addColorStop(1, rgba(c2, 0));
       g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
     }
     if (fx.corona) {
@@ -6531,17 +6558,64 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
     if (fx.rings) {
-      g.save(); g.translate(cx, cy); g.scale(1, ry / rx);
+      g.save(); g.globalCompositeOperation = "source-over";
+      g.translate(cx, cy); g.scale(1, ry / rx);
       fx.rings.forEach((R) => {
-        g.strokeStyle = rgba(R.c || c1, (R.a || 0.35) * breathe);
-        g.lineWidth = (R.w || 1.3) * unit;
+        const rr = rx * (R.r || 1.08);
+        const rot = time * (R.spin || 0.3);
+        const lw = Math.max(w < 80 ? (R.w >= 3 ? 3.6 : 1.85) : 1.2, (R.w || 1.3) * unit);
+        const a = Math.min(1, (R.a || 0.35) * breathe);
         if (R.dash) g.setLineDash([5 * unit, 7 * unit]);
-        g.beginPath(); g.ellipse(0, 0, rx * (R.r || 1.08), rx * (R.r || 1.08), time * (R.spin || 0.3), 0, Math.PI * 2); g.stroke();
+        if (R.ink) {
+          g.strokeStyle = "rgba(18,10,4,0.62)";
+          g.lineWidth = lw + Math.max(1.4, unit * 1.15);
+          g.beginPath(); g.ellipse(0, 0, rr, rr, rot, 0, Math.PI * 2); g.stroke();
+        }
+        g.strokeStyle = rgba(R.c || c1, a);
+        g.lineWidth = lw;
+        g.beginPath(); g.ellipse(0, 0, rr, rr, rot, 0, Math.PI * 2); g.stroke();
         g.setLineDash([]);
+        if (R.filigree) {
+          const ticks = R.filigree;
+          for (let i = 0; i < ticks; i++) {
+            const ang = (i / ticks) * Math.PI * 2 + time * (R.spin || 0);
+            const inner = rr - unit * (i % 4 === 0 ? 3.8 : 2.3), outer = rr + unit * (i % 4 === 0 ? 2.8 : 1.4);
+            const x0 = Math.cos(ang) * inner, y0 = Math.sin(ang) * inner, x1 = Math.cos(ang) * outer, y1 = Math.sin(ang) * outer;
+            if (R.ink) {
+              g.strokeStyle = "rgba(18,10,4,0.55)"; g.lineWidth = Math.max(1.3, unit * 1.05);
+              g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+            }
+            g.strokeStyle = rgba(R.c || c1, a);
+            g.lineWidth = Math.max(0.85, unit * 0.85);
+            g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+          }
+        }
       });
       g.restore();
     }
-    g.globalCompositeOperation = "lighter";
+    if (fx.sweep) {
+      const S = fx.sweep;
+      const rr = rx * (S.r || 1);
+      const ang = time * (S.spd || 0.55);
+      const span = S.span || 0.9;
+      const sw = Math.max(w < 80 ? 3.4 : 1.8, (S.w || 3) * unit);
+      g.save(); g.globalCompositeOperation = "source-over";
+      g.translate(cx, cy); g.scale(1, ry / rx);
+      g.lineCap = "round";
+      g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = sw + 1.6;
+      g.beginPath(); g.arc(0, 0, rr, ang - span, ang); g.stroke();
+      g.strokeStyle = rgba(S.c || "#FFF6C9", S.a ?? 1); g.lineWidth = sw;
+      g.beginPath(); g.arc(0, 0, rr, ang - span, ang); g.stroke();
+      g.globalCompositeOperation = "lighter";
+      g.strokeStyle = rgba("#FFFFFF", 0.7); g.lineWidth = Math.max(1, sw * 0.35);
+      g.beginPath(); g.arc(0, 0, rr, ang - span * 0.28, ang); g.stroke();
+      const hx = Math.cos(ang) * rr, hy = Math.sin(ang) * rr;
+      const sp = glowSprite(S.c || "#FFF6C9");
+      const hs = Math.max(6, sw * 1.8);
+      g.globalAlpha = 0.85; g.drawImage(sp, hx - hs, hy - hs, hs * 2, hs * 2);
+      g.restore();
+    }
+    g.globalCompositeOperation = "source-over";
     if (fx.rays) {
       const R = fx.rays; g.save(); g.translate(cx, cy);
       for (let i = 0; i < R.n; i++) {
@@ -6549,7 +6623,7 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
         if (R.fan && Math.sin(a0) > 0.15) continue;
         const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
         const grd = g.createLinearGradient(0, 0, Math.cos(a0) * len, Math.sin(a0) * len);
-        const pulse = R.a * (0.7 + 0.3 * Math.sin(time * 2 + i * 1.7));
+        const pulse = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7));
         grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, pulse)); grd.addColorStop(1, rgba(R.c, 0));
         g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0);
         const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
@@ -6557,6 +6631,7 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       }
       g.restore();
     }
+    g.globalCompositeOperation = "lighter";
     layers.forEach(({ L, ps, spawn }) => {
       g.globalCompositeOperation = L.blend || (L.shape === "emoji" ? "source-over" : "lighter");
       ps.forEach((p) => {
@@ -6595,7 +6670,11 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
         if (k >= 1) bolt = null;
         else {
           g.globalCompositeOperation = "lighter"; g.globalAlpha = (1 - k) * (0.6 + 0.4 * Math.sin(bolt.t * 90));
-          if (fx.bolts.flash && k < 0.3) { g.fillStyle = `rgba(200,220,255,${0.12 * (1 - k / 0.3)})`; g.fillRect(0, 0, w, h); }
+          if (fx.bolts.flash && k < 0.3) {
+            const flash = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry) * 1.25);
+            flash.addColorStop(0, `rgba(200,220,255,${0.14 * (1 - k / 0.3)})`); flash.addColorStop(1, "rgba(0,0,0,0)");
+            g.fillStyle = flash; g.beginPath(); g.arc(cx, cy, Math.max(rx, ry) * 1.25, 0, Math.PI * 2); g.fill();
+          }
           [[4 * unit, `${bolt.c}55`], [1.6 * unit, bolt.c], [0.7, "#ffffff"]].forEach(([lw, col]) => {
             g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = "round"; g.beginPath();
             bolt.pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
@@ -6647,7 +6726,7 @@ const CRATE_RARITY = {
   rare: { name: "Rare", color: "#38C6FF", chance: "12%", refund: 140, ptsMult: 0.03 },
   epic: { name: "Epic", color: "#B14BFF", chance: "3.5%", refund: 180, ptsMult: 0.05 },
   legendary: { name: "Legendary", color: "#FFD447", chance: "1%", refund: 250, ptsMult: 0.08 },
-  mythic: { name: "Mythic", color: "#FF2D6F", chance: "0.5%", refund: 250, ptsMult: 0.12 },
+  mythic: { name: "Gilded", color: "#E8C56A", chance: "0.5%", refund: 250, ptsMult: 0.12 },
 };
 const CRATES = [
   {
@@ -6775,9 +6854,11 @@ function CrateVault({ s, setS }) {
           {crate.prizes.map((p) => {
             const r = CRATE_RARITY[p.rarity];
             const have = crateOwned(s, p);
+            const gilded = p.rarity === "mythic";
             return (
-              <div key={p.id} className="flex items-center gap-2 py-1">
-                <span className="w-20 text-xs font-bold" style={{ color: r.color }}>{r.name}</span>
+              <div key={p.id} className="relative flex items-center gap-2 py-1.5 px-1.5 overflow-hidden" style={{ borderRadius: 10, background: gilded ? "linear-gradient(90deg, rgba(255,212,71,.14), transparent 70%)" : "transparent", border: gilded ? "1px solid rgba(255,212,71,.35)" : "1px solid transparent" }}>
+                {gilded && <span aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}><span style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "32%", background: "linear-gradient(90deg, transparent, rgba(255,246,201,.3), transparent)", animation: "gildsweep 4.8s ease-in-out infinite" }} /></span>}
+                <span className="w-20 text-xs font-bold tracking-wider uppercase" style={{ color: r.color }}>{r.name}</span>
                 <span className="flex-1 text-sm font-semibold truncate" style={{ color: have ? C.text : C.dim }}>{p.name}{p.ptsMult ? ` · +${Math.round(p.ptsMult * 100)}%` : ""}</span>
                 {have ? <Check size={14} style={{ color: C.green }} /> : <Lock size={12} style={{ color: C.mute }} />}
                 <span className="body text-xs tabular-nums w-12 text-right" style={{ color: C.mute }}>{r.chance}</span>
