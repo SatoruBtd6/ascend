@@ -749,7 +749,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6k";
+const APP_VERSION = "6l";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -1516,9 +1516,9 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
       </div>
 
       <BossRecapBanner s={s} setS={setS} />
-      <GymSpotBanner s={s} setS={setS} />
       <StreakRisk s={s} setS={setS} goTrain={goTrain} />
       <NextGoal s={s} openExercise={openExercise} goQuests={goQuests} />
+      <GymSpotBanner s={s} setS={setS} />
       <Dashboard s={s} setS={setS} goTrain={goTrain} goRun={goRun} saveOk={saveOk} saveAt={saveAt} storageOk={storageOk} />
       <StepsPanel s={s} setS={setS} gainXp={gainXp} openRun={goRun} openAssistant={openAssistant} />
       <RoastCard s={s} setS={setS} />
@@ -6164,6 +6164,27 @@ async function readPres(code) {
 async function writePres(code, rec) {
   try { await window.storage.set(`crewpres:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
 }
+async function casPres(code, mut) {
+  for (let i = 0; i < 8; i++) {
+    const rec = (await readPres(code)) || { at: {}, ping: null, onWay: {}, rev: 0 };
+    const next = mut({ ...rec, at: { ...(rec.at || {}) }, onWay: { ...(rec.onWay || {}) } });
+    const latest = await readPres(code);
+    if ((latest?.rev || 0) !== (rec.rev || 0)) {
+      const merged = mut({
+        ...latest,
+        at: { ...(latest.at || {}), ...(next.at || {}) },
+        onWay: { ...(latest.onWay || {}), ...(next.onWay || {}) },
+        ping: next.ping !== undefined ? next.ping : latest.ping,
+      });
+      merged.rev = (latest.rev || 0) + 1;
+      if (await writePres(code, merged)) return merged;
+      continue;
+    }
+    next.rev = (rec.rev || 0) + 1;
+    if (await writePres(code, next)) return next;
+  }
+  return null;
+}
 async function readRaid(code) {
   try { const r = await window.storage.get(`crewraid:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
 }
@@ -6223,12 +6244,13 @@ async function stampPresence(s, setS, t, drop = false) {
   }
   setS((p) => ({ ...p, atGym: drop ? null : now }));
   if (!s.crew?.code) return;
-  const rec = (await readPres(s.crew.code)) || { at: {}, ping: null, onWay: {}, rev: 0 };
-  const at = { ...(rec.at || {}) };
-  if (drop) delete at[s.playerId];
-  else at[s.playerId] = now;
-  await writePres(s.crew.code, { ...rec, at, rev: (rec.rev || 0) + 1 });
-  if (drop && s.crew?.code) await casRaid(s.crew.code, "drop", { playerId: s.playerId, now, presence: prunePresence(at, now), memberCount: RAID_NEED });
+  const wrote = await casPres(s.crew.code, (rec) => {
+    const at = { ...(rec.at || {}) };
+    if (drop) delete at[s.playerId];
+    else at[s.playerId] = now;
+    return { ...rec, at };
+  });
+  if (drop) await casRaid(s.crew.code, "drop", { playerId: s.playerId, now, presence: prunePresence(wrote?.at, now), memberCount: RAID_NEED });
 }
 function GymCheckBtn({ s, setS }) {
   const [busy, setBusy] = useState(false);
@@ -6238,18 +6260,19 @@ function GymCheckBtn({ s, setS }) {
   const gym = s.test ? ghostBundle(s).gym : null;
   const [crewGym, setCrewGym] = useState(gym);
   useEffect(() => {
-    if (s.test) { setCrewGym(ghostBundle(s).gym); return; }
+    if (s.test) { setCrewGym(ghostBundle(s).gym || null); return; }
     if (!s.crew?.code) { setCrewGym(null); return; }
     let stop = false;
     readCrew(s.crew.code).then((rec) => { if (!stop) setCrewGym(rec?.gym || null); }).catch(() => {});
     return () => { stop = true; };
-  }, [s.test, s.crew?.code, s.ghost?.gym?.t]);
+  }, [s.test, s.crew?.code, s.ghost?.gym]);
   useEffect(() => {
     if (!here) return;
     const pin = s.test ? ghostBundle(s).gym : crewGym;
     let stop = false;
     const watch = async () => {
       if (stop) return;
+      if (!pin) { await stampPresence(s, setS, Date.now(), true); setMsg("Crew gym isn't set yet."); return; }
       try {
         const pos = await getGps({ test: s.test, gym: pin });
         const chk = checkGymPin(pos, pin);
@@ -6277,63 +6300,66 @@ function GymCheckBtn({ s, setS }) {
   const ping = async () => {
     if (!here) return;
     const nowT = Date.now();
+    const payload = { by: s.playerId, name: s.profile.name || "You", t: nowT };
+    setMsg("");
     if (s.test) {
-      patchGhost(setS, (g) => ({ ...g, ping: { by: s.playerId, name: s.profile.name || "You", t: nowT }, onWay: {} }));
+      patchGhost(setS, (g) => ({ ...g, ping: payload, onWay: {} }));
+      setMsg("Pinged · crew sees this on Status for 90 minutes.");
       return;
     }
-    if (!s.crew?.code) return;
-    const rec = (await readPres(s.crew.code)) || { at: {}, ping: null, onWay: {}, rev: 0 };
-    await writePres(s.crew.code, { ...rec, ping: { by: s.playerId, name: s.profile.name || "Teammate", t: nowT }, onWay: {}, rev: (rec.rev || 0) + 1 });
+    if (!s.crew?.code) { setMsg("Join a crew to ping for a spot."); return; }
+    const wrote = await casPres(s.crew.code, (rec) => ({ ...rec, ping: payload, onWay: {} }));
+    setMsg(wrote ? "Pinged · crew sees this on Status for 90 minutes." : "Couldn't send the ping. Check your connection.");
   };
   return (
-    <div className="flex flex-col gap-1">
+    <>
       <button type="button" disabled={busy} onClick={tap} className="ghost py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: here ? C.green : C.cyan, borderColor: here ? C.green : C.border }}><MapPin size={16} />{busy ? "Checking…" : here ? "At the gym ✓" : "At the gym"}</button>
-      {here && <button type="button" onClick={ping} className="body text-[11px] font-bold" style={{ color: C.orange }}>Who wants a spot?</button>}
-      {msg && <div className="body text-[11px] leading-snug" style={{ color: C.orange }}>{msg}</div>}
-    </div>
+      {here && <button type="button" onClick={ping} className="col-span-2 ghost py-2 text-sm font-bold relative z-50" style={{ color: C.orange, borderColor: C.orange }}>Who wants a spot?</button>}
+      {msg && <div className="col-span-2 body text-[11px] leading-snug" style={{ color: C.orange }}>{msg}</div>}
+    </>
   );
 }
 function GymSpotBanner({ s, setS }) {
-  const [ping, setPing] = useState(s.test ? ghostBundle(s).ping : null);
-  const [onWay, setOnWay] = useState(s.test ? ghostBundle(s).onWay || {} : {});
+  const [remote, setRemote] = useState({ ping: null, onWay: {} });
   const [, tick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => tick((n) => n + 1), 15000);
     return () => clearInterval(id);
   }, []);
   useEffect(() => {
-    if (s.test) { const g = ghostBundle(s); setPing(g.ping); setOnWay(g.onWay || {}); return; }
-    if (!s.crew?.code) { setPing(null); return; }
+    if (s.test || !s.crew?.code) return;
     let stop = false;
     const pull = async () => {
       const rec = await readPres(s.crew.code);
       if (stop) return;
-      setPing(rec?.ping || null);
-      setOnWay(rec?.onWay || {});
+      setRemote({ ping: rec?.ping || null, onWay: rec?.onWay || {} });
     };
     pull();
-    const id = setInterval(pull, 8000);
+    const id = setInterval(pull, 4000);
     return () => { stop = true; clearInterval(id); };
-  }, [s.test, s.crew?.code, s.ghost?.ping?.t, s.ghost?.onWay]);
+  }, [s.test, s.crew?.code]);
+  const ping = s.test ? (s.ghost?.ping || null) : remote.ping;
+  const onWay = s.test ? (s.ghost?.onWay || {}) : remote.onWay;
   const now = Date.now();
-  if (!pingActive(ping, now) || ping.by === s.playerId) return null;
+  if (!pingActive(ping, now)) return null;
+  const mine = ping.by === s.playerId;
   const going = onWay?.[s.playerId];
   const sayComing = async () => {
     const t = Date.now();
     if (s.test) { patchGhost(setS, (g) => ({ ...g, onWay: { ...(g.onWay || {}), [s.playerId]: t } })); return; }
-    const rec = (await readPres(s.crew.code)) || { at: {}, ping: ping, onWay: {}, rev: 0 };
-    await writePres(s.crew.code, { ...rec, ping: rec.ping || ping, onWay: { ...(rec.onWay || {}), [s.playerId]: t }, rev: (rec.rev || 0) + 1 });
-    setOnWay((p) => ({ ...p, [s.playerId]: t }));
+    const wrote = await casPres(s.crew.code, (rec) => ({ ...rec, ping: rec.ping || ping, onWay: { ...(rec.onWay || {}), [s.playerId]: t } }));
+    if (wrote) setRemote({ ping: wrote.ping || ping, onWay: wrote.onWay || {} });
   };
-  const who = Object.entries(onWay || {}).filter(([, t]) => presenceActive(t, now)).map(([id]) => (id === s.playerId ? "you" : "a teammate"));
+  const who = Object.entries(onWay || {}).filter(([id, t]) => id !== ping.by && presenceActive(t, now)).map(([id]) => (id === s.playerId ? "you" : "a teammate"));
+  const leftM = Math.max(1, Math.ceil((PRESENCE_MS - (now - ping.t)) / 60000));
   return (
     <div className="panel p-3 flex items-center gap-2" style={{ borderColor: `${C.orange}66` }}>
-      <MapPin size={16} style={{ color: C.orange }} />
+      <MapPin size={16} className="shrink-0" style={{ color: C.orange }} />
       <div className="flex-1 min-w-0">
-        <div className="font-bold text-sm">{ping.name || "A teammate"} wants a spot</div>
-        <div className="body text-xs" style={{ color: C.dim }}>{fmtAgo(ping.t, now)} ago · lasts {Math.max(1, Math.ceil((PRESENCE_MS - (now - ping.t)) / 60000))}m{who.length ? ` · on the way: ${who.join(", ")}` : ""}</div>
+        <div className="font-bold text-sm">{mine ? "You asked for a spot" : `${ping.name || "A teammate"} wants a spot`}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{fmtAgo(ping.t, now)} ago · {leftM}m left{who.length ? ` · on the way: ${who.join(", ")}` : mine ? " · waiting on your crew" : ""}</div>
       </div>
-      <button type="button" disabled={!!going} onClick={sayComing} className="ghost px-3 py-2 text-xs font-bold whitespace-nowrap" style={{ color: going ? C.green : C.cyan }}>{going ? "On my way ✓" : "On my way"}</button>
+      {!mine && <button type="button" disabled={!!going} onClick={sayComing} className="ghost px-3 py-2 text-xs font-bold whitespace-nowrap" style={{ color: going ? C.green : C.cyan }}>{going ? "On my way ✓" : "On my way"}</button>}
     </div>
   );
 }
@@ -9527,12 +9553,28 @@ function CrewGymBlock({ s, setS, crew, setCrew, presence, people, ghost }) {
     } catch (e) { setMsg(locErrorText(e)); }
     setBusy(false);
   };
+  const unpinGym = () => ask("Unpin this gym? Check-ins and raid ready-ups stop until you pin a new one.", async () => {
+    setBusy(true); setMsg("");
+    try {
+      if (ghost) patchGhost(setS, (g) => ({ ...g, gym: null, presence: {}, ping: null }));
+      else {
+        const rec = { ...crew, gym: null };
+        await window.storage.set(`crew:${crew.code}`, JSON.stringify(rec), true);
+        setCrew(rec);
+        if (crew?.code) await casPres(crew.code, (p) => ({ ...p, at: {}, ping: null, onWay: {} }));
+      }
+      setS((p) => ({ ...p, atGym: null }));
+      setMsg("Gym unpinned.");
+    } catch (e) { setMsg("Couldn't unpin. Check your connection."); }
+    setBusy(false);
+  }, "Unpin");
   const at = people.filter((p) => presenceActive(presence?.[p.id], now));
   return (
     <div className="panel p-3 space-y-2">
       <div className="font-bold text-sm">Crew gym</div>
-      <div className="body text-xs" style={{ color: C.dim }}>{crew?.gym ? "Pinned. Only the crew creator can move it. We never save your phone's coordinates — only this gym pin." : "The crew creator pins the gym while standing in it. Raids and check-ins use that pin."}</div>
+      <div className="body text-xs" style={{ color: C.dim }}>{crew?.gym ? "Pinned. Only the crew creator can move or unpin it. We never save your phone's coordinates — only this gym pin." : "The crew creator pins the gym while standing in it. Raids and check-ins use that pin."}</div>
       {owner && <button type="button" disabled={busy} onClick={pinGym} className="ghost w-full py-2 text-sm font-bold" style={{ color: C.cyan }}>{crew?.gym ? "Move gym to where I am" : "Set gym to where I am"}</button>}
+      {owner && crew?.gym && <button type="button" disabled={busy} onClick={unpinGym} className="ghost w-full py-2 text-sm font-bold" style={{ color: C.red }}>Unpin gym</button>}
       {!owner && !crew?.gym && <div className="body text-xs" style={{ color: C.orange }}>Ask the crew creator to pin a gym.</div>}
       {msg && <div className="body text-xs" style={{ color: C.sub }}>{msg}</div>}
       <div className="body text-xs font-bold" style={{ color: C.dim }}>At the gym now</div>

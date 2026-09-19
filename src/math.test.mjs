@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -195,6 +195,14 @@ test("presence lasts 90 minutes and refreshes", () => {
   const pruned = prunePresence({ a: 0, b: 1 }, PRESENCE_MS);
   assert.equal(pruned.a, undefined);
   assert.equal(pruned.b, 1);
+});
+
+test("spot ping stays live for 90 minutes including for the sender", () => {
+  const ping = { by: "me", name: "Chud", t: 0 };
+  assert.equal(pingActive(ping, 0), true);
+  assert.equal(pingActive(ping, PRESENCE_MS - 1), true);
+  assert.equal(pingActive(ping, PRESENCE_MS), false);
+  assert.equal(pingActive(null, 0), false);
 });
 
 test("ready-up rules: count, crew size, must be at gym", () => {
