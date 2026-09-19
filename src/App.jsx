@@ -719,7 +719,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6n";
+const APP_VERSION = "6p";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -6580,7 +6580,10 @@ function QuestAdd({ unit, onAdd }) {
 /* ---------- Physique avatars ---------- */
 const TIER_IDS = ["E", "D", "C", "B", "A", "S", "SS"];
 const MUSCLE_SLUG = { Chest: "chest", Back: "back", Legs: "legs", Shoulders: "shoulders", Arms: "arms", Core: "core" };
-const physiqueSrc = (sex, tier) => `/avatars/${bodySex({ sex }) === "f" ? "female/" : ""}${TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))]}.webp`;
+const physiqueSrc = (sex, tier) => {
+  const id = TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))];
+  return `/avatars/${id}${bodySex({ sex }) === "f" ? "-f" : ""}.webp`;
+};
 const muscleSrc = (sex, group, tier) => `/muscles/${bodySex({ sex }) === "f" ? "female/" : ""}${MUSCLE_SLUG[group] || "chest"}_${TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))]}.webp`;
 function PhysiquePlaceholder({ female, height, color }) {
   const w = Math.round(height * 0.42);
@@ -6596,13 +6599,15 @@ function Physique({ tier = 0, height = 220, aura, caption, sex }) {
   const id = TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))];
   const rank = RANKS[Math.max(0, Math.min(6, Math.floor(tier)))];
   const female = bodySex({ sex }) === "f";
+  const src = physiqueSrc(sex, tier);
   const [fail, setFail] = useState(false);
-  useEffect(() => { setFail(false); }, [id, female]);
+  useEffect(() => { setFail(false); }, [src]);
   return (
     <div className="relative flex flex-col items-center" style={{ height: height + (caption ? 24 : 0) }}>
       <div className="absolute" style={{ top: height * 0.08, width: height * 0.62, height: height * 0.8, borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(10px)" }} />
       {aura && aura !== "none" && <AuraCanvas aura={aura} mode="body" w={Math.round(height * (aura === "ascended" ? 0.48 : 0.8))} h={Math.round(height * (aura === "ascended" ? 0.66 : 1.02))} style={{ left: "50%", top: -height * 0.02, transform: "translateX(-50%)" }} />}
-      {fail ? <PhysiquePlaceholder female={female} height={height} color={rank.color} /> : <img src={physiqueSrc(sex, tier)} alt={`${id}-rank physique`} loading="lazy" onError={() => setFail(true)} style={{ height, width: "auto", position: "relative", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />}
+      {fail && <PhysiquePlaceholder female={female} height={height} color={rank.color} />}
+      <img src={src} alt={`${id}-rank physique`} onError={() => setFail(true)} onLoad={() => setFail(false)} style={{ height, width: "auto", position: fail ? "absolute" : "relative", opacity: fail ? 0 : 1, pointerEvents: "none", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />
       {caption && <div className="body text-xs mt-1" style={{ color: C.dim }}>{caption}</div>}
     </div>
   );
