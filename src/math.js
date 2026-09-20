@@ -422,3 +422,50 @@ export function applyBodyType(s, sex) {
   const next = sex === "f" ? "f" : "m";
   return { ...s, profile: { ...(s.profile || {}), sex: next } };
 }
+
+// Anime Crate rarity math stays pure so its published odds and pity rule can be
+// simulated without React or browser APIs. Secret is checked first from the
+// same draw and deliberately leaves pity untouched.
+export const ANIME_CRATE_WEIGHTS = Object.freeze({
+  common: 0.4,
+  uncommon: 0.26,
+  rare: 0.19,
+  epic: 0.1,
+  legendary: 0.035,
+  mythic: 0.013,
+  gilded: 0.001,
+  secret: 0.001,
+});
+export const ANIME_RARITY_ORDER = Object.freeze(["common", "uncommon", "rare", "epic", "legendary", "mythic", "gilded", "secret"]);
+export const ANIME_PITY_AT = 40;
+const ANIME_MAIN_ORDER = ANIME_RARITY_ORDER.filter((r) => r !== "secret");
+const ANIME_HIGH_ORDER = ["legendary", "mythic", "gilded"];
+
+function cumulativePick(order, draw, total = order.reduce((a, r) => a + ANIME_CRATE_WEIGHTS[r], 0)) {
+  let n = Math.max(0, Math.min(0.999999999999, draw)) * total;
+  for (const rarity of order) {
+    n -= ANIME_CRATE_WEIGHTS[rarity];
+    if (n < 0) return rarity;
+  }
+  return order[order.length - 1];
+}
+
+export function rollAnimeRarity(pity = 0, rng = Math.random, options = {}) {
+  const draw = Math.max(0, Math.min(0.999999999999, +rng() || 0));
+  if (draw < ANIME_CRATE_WEIGHTS.secret) return { rarity: "secret", pity: Math.max(0, +pity || 0), draw };
+  const mainDraw = (draw - ANIME_CRATE_WEIGHTS.secret) / (1 - ANIME_CRATE_WEIGHTS.secret);
+  const forced = options.pity !== false && (+pity || 0) >= ANIME_PITY_AT - 1;
+  const rarity = cumulativePick(forced ? ANIME_HIGH_ORDER : ANIME_MAIN_ORDER, mainDraw);
+  const nextPity = ANIME_HIGH_ORDER.includes(rarity) ? 0 : Math.max(0, +pity || 0) + 1;
+  return { rarity, pity: nextPity, draw, forced };
+}
+
+// Old saves stored two pity counters and crate log entries used `kind`.
+// Ownership/equipped cosmetic ids are intentionally not rewritten.
+export function migrateAnimeCrateState(s) {
+  if (!s || typeof s !== "object") return s;
+  const old = s.cratePity;
+  const pity = typeof old === "number" ? old : Math.max(0, +(old?.legendary ?? old?.rare) || 0);
+  const crateLog = (s.crateLog || []).map((x) => (x && !x.type && x.kind ? { ...x, type: x.kind } : x));
+  return { ...s, crateV: 2, cratePity: Math.min(ANIME_PITY_AT - 1, pity), crateLog };
+}

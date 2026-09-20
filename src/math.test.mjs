@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -371,5 +371,60 @@ test("switching body type does not remove achievements, XP, titles, or cosmetics
   assert.deepEqual(f.crateUnlocks, s.crateUnlocks);
   assert.deepEqual(f.seasonBadges, s.seasonBadges);
   assert.deepEqual(f.auraUnlocks, s.auraUnlocks);
+});
+
+test("Anime Crate rarity weights sum to exactly 1.0", () => {
+  assert.equal(ANIME_RARITY_ORDER.reduce((sum, rarity) => sum + ANIME_CRATE_WEIGHTS[rarity], 0), 1);
+});
+
+test("Anime Crate 200k base pulls stay within published tolerances", () => {
+  let seed = 0x51a7c0de;
+  const rng = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  const n = 200000;
+  const counts = Object.fromEntries(ANIME_RARITY_ORDER.map((r) => [r, 0]));
+  for (let i = 0; i < n; i++) counts[rollAnimeRarity(0, rng, { pity: false }).rarity]++;
+  ANIME_RARITY_ORDER.forEach((rarity) => {
+    const actual = counts[rarity] / n, expected = ANIME_CRATE_WEIGHTS[rarity];
+    const tolerance = rarity === "secret" || rarity === "gilded" ? 0.0003 : Math.max(0.001, expected * 0.025);
+    assert.ok(Math.abs(actual - expected) <= tolerance, `${rarity}: ${actual} vs ${expected}`);
+  });
+});
+
+test("Anime Crate pity guarantees Legendary-or-better on pull 40", () => {
+  let pity = 0;
+  for (let i = 1; i <= ANIME_PITY_AT; i++) {
+    const got = rollAnimeRarity(pity, () => 0.5);
+    if (i < ANIME_PITY_AT) assert.equal(["legendary", "mythic", "gilded"].includes(got.rarity), false);
+    else {
+      assert.equal(got.forced, true);
+      assert.equal(["legendary", "mythic", "gilded"].includes(got.rarity), true);
+      assert.equal(got.pity, 0);
+    }
+    pity = got.pity;
+  }
+});
+
+test("Secret is one in 1000 and does not touch pity", () => {
+  assert.deepEqual(rollAnimeRarity(17, () => 0.0005), { rarity: "secret", pity: 17, draw: 0.0005 });
+  let secret = 0;
+  for (let i = 0; i < 100000; i++) if (rollAnimeRarity(0, () => (i + 0.5) / 100000, { pity: false }).rarity === "secret") secret++;
+  assert.equal(secret, 100);
+});
+
+test("Anime Crate migration preserves legacy ownership and equipped cosmetics", () => {
+  const s = {
+    cratePity: { rare: 12, legendary: 27 },
+    crateUnlocks: { chud: "2026-01-01", relic: "2026-01-02", sigil: "2026-01-03", glassfire: "2026-01-04", crownfall: "2026-01-05", eclipseheart: "2026-01-06" },
+    crateLog: [{ id: "sigil", kind: "aura" }],
+    profile: { title: "chud", look: { border: "relic", aura: "crownfall" } },
+  };
+  const got = migrateAnimeCrateState(s);
+  assert.equal(got.cratePity, 27);
+  assert.equal(got.crateLog[0].type, "aura");
+  assert.deepEqual(got.crateUnlocks, s.crateUnlocks);
+  assert.deepEqual(got.profile, s.profile);
 });
 
