@@ -719,7 +719,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6q";
+const APP_VERSION = "6r";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -846,7 +846,7 @@ export default function App() {
       }
       {
         const tid = equippedTitle(st).id;
-        if ((st.profile?.title || "rookie") !== tid) st = { ...st, profile: { ...st.profile, title: tid } };
+        if ((st.profile?.title || "none") !== tid) st = { ...st, profile: { ...st.profile, title: tid } };
       }
       let ok = !!window.storage?.set;
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
@@ -957,10 +957,10 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     const tid = equippedTitle(s).id;
-    if ((s.profile.title || "rookie") === tid) return;
+    if ((s.profile.title || "none") === tid) return;
     setS((p) => {
       const next = equippedTitle(p).id;
-      if ((p.profile.title || "rookie") === next) return p;
+      if ((p.profile.title || "none") === next) return p;
       return { ...p, profile: { ...p.profile, title: next } };
     });
   }, [loaded, s.profile.title, s.ach, s.loot, s.crateUnlocks, s.lbReigning, s.seasonBadges]);
@@ -5267,8 +5267,8 @@ function Ceremony({ c, onClose }) {
 }
 
 /* ---------- Titles ---------- */
+const TITLE_NONE = { id: "none", name: "" };
 const TITLES = [
-  { id: "rookie", name: "Rookie", req: () => true, how: "Everyone starts here" },
   { id: "showup", name: "Regular", req: (s) => !!s.ach?.["workouts-0"], how: "Show Up I" },
   { id: "roadrunner", name: "Road Runner", req: (s) => !!s.ach?.["miles-1"], how: "Road Runner II" },
   { id: "cardio", name: "Cardio Menace", req: (s) => !!s.ach?.["miles-2"], how: "Road Runner III" },
@@ -5316,14 +5316,14 @@ function backToBackSeasonFirsts(s) {
   const b = s.seasonBadges || {};
   return Object.entries(b).some(([k, v]) => v?.place === 1 && b[prevSeasonKey(k)]?.place === 1);
 }
-const TITLE_LEGACY = { wyrmslayer: "boss_wyrm", icebreaker: "boss_colossus", gravebane: "boss_gravemaw" };
+const TITLE_LEGACY = { wyrmslayer: "boss_wyrm", icebreaker: "boss_colossus", gravebane: "boss_gravemaw", rookie: "none" };
 function titleIdOf(s) {
-  return TITLE_LEGACY[s.profile?.title] || s.profile?.title || "rookie";
+  return TITLE_LEGACY[s.profile?.title] || s.profile?.title || "none";
 }
 function equippedTitle(s) {
   const want = TITLES.find((t) => t.id === titleIdOf(s));
   if (want && !want.soon && want.req(s)) return want;
-  return TITLES.find((t) => t.id === "rookie");
+  return TITLE_NONE;
 }
 
 /* ---------- Progression + coaching helpers ---------- */
@@ -9900,7 +9900,7 @@ function revertBossExploit(s) {
   const look = { ...(s.profile.look || {}) };
   if (!stillEarned && look.aura === "abyss") look.aura = "none";
   if (!bosses.length && look.border === "bone") look.border = "none";
-  const title = !stillEarned && ["boss_gravemaw", "gravebane"].includes(s.profile.title) ? "rookie" : s.profile.title;
+  const title = !stillEarned && ["boss_gravemaw", "gravebane"].includes(s.profile.title) ? "none" : s.profile.title;
   next.profile = { ...s.profile, look, title };
   next.xpDone = Object.fromEntries(Object.entries(s.xpDone || {}).filter(([k]) => !bad.some((b) => k.startsWith(`boss_${b.slice(0, 7)}_gravemaw`))));
   return { s: next, reverted: true };
