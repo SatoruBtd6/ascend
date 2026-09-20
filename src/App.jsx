@@ -719,7 +719,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6r";
+const APP_VERSION = "6s";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -2871,8 +2871,9 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
   const [copied, setCopied] = useState(false);
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState(null);
-  const [impMsg, setImpMsg] = useState(null);
-  const impRef = useRef(null);
+  const [testerKey, setTesterKey] = useState("");
+  const [testerOk, setTesterOk] = useState(false);
+  const [testerErr, setTesterErr] = useState(false);
 
   const makeSave = async () => {
     const c = await encodeSave(s);
@@ -3003,13 +3004,29 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
         </div>
       )}
 
-      <div className="panel p-4 flex items-center gap-3">
-        <Shield size={22} style={{ color: C.cyan }} />
-        <div className="flex-1">
-          <div className="font-bold">Ghost / test account</div>
-          <div className="body text-xs" style={{ color: C.dim }}>Hides this profile from other players' boards. Boss HP, season standings, and duel matching ignore it even if it joins.</div>
+      <div className="panel p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <Shield size={22} style={{ color: C.cyan }} />
+          <div className="flex-1 min-w-0">
+            <div className="font-bold">Tester tools</div>
+            <div className="body text-xs" style={{ color: C.dim }}>Password required. Ghost mode hides this profile from other players and unlocks every aura, title, and border for preview. Turning it off puts real unlocks back.</div>
+          </div>
         </div>
-        <Toggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => ({ ...p, test: !p.test }))} />
+        {!testerOk ? (
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (testerKey === "Tester") { setTesterOk(true); setTesterErr(false); setTesterKey(""); } else setTesterErr(true); }}>
+            <input type="password" className="inp flex-1" placeholder="Tester password" value={testerKey} onChange={(e) => { setTesterKey(e.target.value); setTesterErr(false); }} autoComplete="off" aria-label="Tester password" />
+            <button type="submit" className="btn px-4 py-2 text-sm">Unlock</button>
+          </form>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="font-bold">Ghost / test account</div>
+              <div className="body text-xs" style={{ color: C.dim }}>{s.test ? "Hidden from boards, bosses, seasons, and duels. All cosmetics are unlocked." : "Off. Your real unlocks apply."}</div>
+            </div>
+            <Toggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => ({ ...p, test: !p.test }))} />
+          </div>
+        )}
+        {testerErr && <div className="body text-xs" style={{ color: C.red }}>Wrong password.</div>}
       </div>
 
       <div className="body text-xs text-center" style={{ color: C.mute }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</div>
@@ -4287,7 +4304,7 @@ function LookStudio({ s, setS }) {
   const curTitle = equippedTitle(s);
   const titleName = curTitle?.name || null;
   const aurasOk = AURAS.filter((a) => a.id !== "none" && unlocked(a, s)).length;
-  const titlesOk = TITLES.filter((t) => t.req(s)).length;
+  const titlesOk = TITLES.filter((t) => titleEarned(t, s)).length;
   const selAura = look.aura || "none";
   const auraName = AURAS.find((a) => a.id === selAura)?.name;
   return (
@@ -4325,10 +4342,10 @@ function LookStudio({ s, setS }) {
           const list = TITLES.filter((t) => titleGroup(t) === g);
           return (
             <div key={g} className="space-y-2">
-              <StudioHead note={`${list.filter((t) => t.req(s)).length} of ${list.length}`}>{label}</StudioHead>
+              <StudioHead note={`${list.filter((t) => titleEarned(t, s)).length} of ${list.length}`}>{label}</StudioHead>
               <div className="grid grid-cols-2 gap-2">
                 {list.map((t) => {
-                  const ok = t.req(s), sel = curTitle.id === t.id;
+                  const ok = titleEarned(t, s), sel = curTitle.id === t.id;
                   return (
                     <button key={t.id} onClick={() => ok && setS((p) => ({ ...p, profile: { ...p.profile, title: t.id } }))} aria-pressed={sel} aria-disabled={!ok} className="text-left px-3 py-2.5 flex items-start gap-2" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}` : "none", cursor: ok ? "pointer" : "default" }}>
                       <span className="flex-1 min-w-0">
@@ -5322,8 +5339,11 @@ function titleIdOf(s) {
 }
 function equippedTitle(s) {
   const want = TITLES.find((t) => t.id === titleIdOf(s));
-  if (want && !want.soon && want.req(s)) return want;
+  if (want && !want.soon && titleEarned(want, s)) return want;
   return TITLE_NONE;
+}
+function titleEarned(t, s) {
+  return !!t && (s.test || t.req(s));
 }
 
 /* ---------- Progression + coaching helpers ---------- */
@@ -6717,6 +6737,7 @@ const AURA_TASKS = {
 };
 function unlocked(item, s) {
   if (item.id === "none") return true;
+  if (s.test) return true;
   if (item.crate && s.crateUnlocks?.[item.id]) return true;
   if (item.soon) return false;
   if (item.reigning) return !!s.lbReigning;
@@ -7391,8 +7412,8 @@ function CrateVault({ s, setS }) {
     }, secret ? 800 : 900);
   };
   const meta = show && CRATE_RARITY[show.rarity];
-  const visible = crate.prizes.filter((p) => p.type === typeTab && (p.rarity !== "secret" || crateOwned(s, p) || show?.id === p.id)).sort((a, b) => CRATE_RARITY_DESC.indexOf(a.rarity) - CRATE_RARITY_DESC.indexOf(b.rarity));
-  const secretLocked = typeTab === "aura" && !s.crateUnlocks?.blacksun && show?.id !== "blacksun";
+  const visible = crate.prizes.filter((p) => p.type === typeTab && (p.rarity !== "secret" || s.test || crateOwned(s, p) || show?.id === p.id)).sort((a, b) => CRATE_RARITY_DESC.indexOf(a.rarity) - CRATE_RARITY_DESC.indexOf(b.rarity));
+  const secretLocked = typeTab === "aura" && !s.test && !s.crateUnlocks?.blacksun && show?.id !== "blacksun";
   return (
     <div className="panel overflow-hidden" style={{ borderColor: `${crate.theme.gold}44` }}>
       <div className="px-4 pt-4 pb-3 space-y-1" style={{ background: "radial-gradient(80% 90% at 50% 0%, rgba(106,0,255,.28), transparent 70%)" }}>
