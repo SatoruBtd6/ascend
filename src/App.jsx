@@ -719,7 +719,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6s";
+const APP_VERSION = "6t";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -4074,7 +4074,7 @@ function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
           <div className="panel p-5" style={lookStyle(data.look)}>
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(!data.reigning && !(me && s.lbReigning) && data.look?.aura === "ascended") ? { ...(data.look || {}), aura: (data.look?.auraPrev && data.look.auraPrev !== "ascended") ? data.look.auraPrev : "none" } : data.look} />
+                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(!data.reigning && !(me && (s.lbReigning || s.test)) && data.look?.aura === "ascended") ? { ...(data.look || {}), aura: (data.look?.auraPrev && data.look.auraPrev !== "ascended") ? data.look.auraPrev : "none" } : data.look} />
                 {me && (
                   <>
                     <button aria-label="Change profile photo" onClick={() => fileRef.current?.click()} className="absolute flex items-center justify-center" style={{ right: -4, bottom: -4, width: 28, height: 28, borderRadius: 999, background: C.cyan, color: "#001018" }}><Camera size={15} /></button>
@@ -7825,7 +7825,7 @@ function applyReigning(s, setS, rows) {
   setS((p) => {
     const look = { ...(p.profile.look || {}) };
     let changed = !!p.lbReigning !== on;
-    if (!on && look.aura === "ascended") {
+    if (!on && look.aura === "ascended" && !p.test) {
       look.aura = look.auraPrev && look.auraPrev !== "ascended" ? look.auraPrev : "none";
       changed = true;
     }
