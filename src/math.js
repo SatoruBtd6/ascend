@@ -429,11 +429,11 @@ export function applyBodyType(s, sex) {
 export const ANIME_CRATE_WEIGHTS = Object.freeze({
   common: 0.4,
   uncommon: 0.26,
-  rare: 0.19,
+  rare: 0.186,
   epic: 0.1,
   legendary: 0.035,
   mythic: 0.013,
-  gilded: 0.001,
+  gilded: 0.005,
   secret: 0.001,
 });
 export const ANIME_RARITY_ORDER = Object.freeze(["common", "uncommon", "rare", "epic", "legendary", "mythic", "gilded", "secret"]);

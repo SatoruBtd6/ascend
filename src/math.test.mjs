@@ -388,7 +388,7 @@ test("Anime Crate 200k base pulls stay within published tolerances", () => {
   for (let i = 0; i < n; i++) counts[rollAnimeRarity(0, rng, { pity: false }).rarity]++;
   ANIME_RARITY_ORDER.forEach((rarity) => {
     const actual = counts[rarity] / n, expected = ANIME_CRATE_WEIGHTS[rarity];
-    const tolerance = rarity === "secret" || rarity === "gilded" ? 0.0003 : Math.max(0.001, expected * 0.025);
+    const tolerance = rarity === "secret" ? 0.0003 : Math.max(0.001, expected * 0.025);
     assert.ok(Math.abs(actual - expected) <= tolerance, `${rarity}: ${actual} vs ${expected}`);
   });
 });

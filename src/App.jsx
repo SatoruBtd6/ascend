@@ -719,7 +719,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6t";
+const APP_VERSION = "6u";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -2874,6 +2874,8 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
   const [testerKey, setTesterKey] = useState("");
   const [testerOk, setTesterOk] = useState(false);
   const [testerErr, setTesterErr] = useState(false);
+  const [impMsg, setImpMsg] = useState(null);
+  const impRef = useRef(null);
 
   const makeSave = async () => {
     const c = await encodeSave(s);
@@ -6783,14 +6785,24 @@ const AURA_FX = {
   rust: { spd: 1.35, glow: 0.45, layers: [{ k: "fall", n: 28, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [18, 34], sz: [1.7, 3.2], drift: 12, spin: 1 }, { k: "rise", n: 12, shape: "spark", c: ["#FFB86B", "#FF7A2D"], sp: [32, 64], life: [0.4, 0.9], sz: [1, 1.7], sway: 18 }] },
   thunder: { spd: 1.75, glow: 0.6, bolts: { every: [0.35, 0.9], c: ["#FFF27A", "#7DD3FC", "#FFFFFF"] }, layers: [{ k: "orbit", n: 26, shape: "spark", c: ["#7DD3FC", "#FFF27A", "#FFFFFF"], w: [2.2, 3.4], r: [0.94, 1.2], sz: [1.3, 2.3] }] },
   hollow: { spd: 1.2, glow: 0.52, layers: [{ k: "orbit", n: 16, shape: "shard", c: ["#9AA7BD", "#DDE6F2", "#FFFFFF"], w: [0.35, 0.7], r: [1, 1.26], sz: [3.2, 5.2] }, { k: "rise", n: 10, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [6, 12], life: [1.8, 3], sz: [7, 13], sway: 6, a: 0.25, blend: "source-over" }] },
-  deep: { spd: 1.4, glow: 0.58, layers: [{ k: "bubble", n: 18, c: ["#9BE7FF", "#00D9FF", "#6FA0FF"], sp: [14, 28], life: [1.3, 2.5], sz: [1.8, 5] }, { k: "inward", n: 14, shape: "dot", c: ["#2F6BFF", "#00D9FF"], sp: [0.35, 0.65], life: [1.5, 2.4], sz: [1.3, 2.6] }] },
+  deep: { spd: 1.4, glow: 0.58, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.18, 1.18], w: [0, 0], sz: [1, 1], even: 1, at: 0.38, rot: 0.1, wobble: 0.09, a: 0.85, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.1, 1.1], w: [0, 0], sz: [0.8, 0.8], even: 1, at: 0.62, rot: -0.16, flip: 1, wobble: 0.07, a: 0.62, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.22, 1.22], w: [0, 0], sz: [0.65, 0.65], even: 1, at: 0.08, rot: 0.28, wobble: 0.08, a: 0.5, behind: 1, blend: "source-over" },
+    { k: "bubble", n: 18, c: ["#9BE7FF", "#00D9FF", "#6FA0FF"], sp: [14, 28], life: [1.3, 2.5], sz: [1.8, 5] },
+    { k: "inward", n: 8, shape: "dot", c: ["#2F6BFF", "#00D9FF"], sp: [0.35, 0.65], life: [1.5, 2.4], sz: [1.3, 2.6] },
+  ] },
   magma: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [18, 38], life: [0.7, 1.4], sz: [3.2, 7], sway: 4, a: 0.88 }, { k: "rise", n: 12, shape: "spark", c: ["#FFE08A", "#FF5A1F"], sp: [28, 55], life: [0.5, 1], sz: [1, 1.8], sway: 12 }] },
   plague: { spd: 1.25, glow: 0.48, layers: [{ k: "rise", n: 12, shape: "smoke", c: ["#8BC34A", "#5E8C2A"], sp: [7, 14], life: [1.8, 3], sz: [7, 13], sway: 8, a: 0.3 }, { k: "bubble", n: 14, c: ["#C6F07A", "#8BC34A"], sp: [12, 22], life: [1.1, 2.2], sz: [1.8, 3.8] }] },
   sand: { spd: 1.65, glow: 0.46, layers: [{ k: "orbit", n: 40, shape: "dot", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.6, 2.8], r: [0.9, 1.38], sz: [1, 2], wave: 0.2, a: 0.92 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [22, 40], sz: [1.2, 2.2], drift: 16, spin: 1 }] },
   void: { spd: 1.5, glow: 0.66, dark: 1, layers: [{ k: "inward", n: 28, shape: "dot", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.5, 0.9], life: [1.2, 2.1], sz: [3.2, 7], blend: "source-over", a: 0.9 }, { k: "orbit", n: 22, shape: "star", c: ["#FFFFFF", "#C9A8FF", "#7DF9FF"], w: [0.35, 0.8], r: [1.05, 1.34], sz: [1, 1.8], tw: 1 }] },
   yogurt: { spd: 0.95, glow: 0.42, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.5, 0.5], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.8, 3.6] }] },
   vendetta: { spd: 1.7, glow: 0.62, bolts: { every: [0.7, 1.5], c: ["#FF4D6D", "#FFB3C1"] }, layers: [{ k: "inward", n: 20, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.55, 1], life: [1, 1.8], sz: [2.6, 6], blend: "source-over", a: 0.85 }, { k: "rise", n: 22, shape: "spark", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [20, 42], life: [0.7, 1.4], sz: [1.2, 2.2], sway: 8 }, { k: "orbit", n: 12, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [1.1, 1.8], r: [1, 1.2], sz: [2.6, 4.2] }] },
-  champion: { spd: 1.45, glow: 0.68, rays: { n: 12, c: "#FFD447", spin: 0.28, len: 1.45, a: 0.18 }, layers: [{ k: "rise", n: 22, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [16, 34], life: [1, 1.8], sz: [1.8, 3.2], sway: 14, spin: 1 }, { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.8, 1.4], r: [1.04, 1.2], sz: [1.1, 1.9], tw: 1 }] },
+  champion: { spd: 1.45, glow: 0.68, rays: { n: 12, c: "#FFD447", spin: 0.28, len: 1.45, a: 0.18 }, sweep: { c: "#FFD447", a: 0.85, spd: 0.28, r: 1, w: 3.2, span: 0.55 }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/crown.webp", r: [1.02, 1.02], w: [0, 0], sz: [0.7, 0.7], even: 1, at: -0.25, bob: 1, wobble: 0.05, a: 0.98, blend: "source-over" },
+    { k: "rise", n: 22, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [16, 34], life: [1, 1.8], sz: [1.8, 3.2], sway: 14, spin: 1 },
+    { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.8, 1.4], r: [1.04, 1.2], sz: [1.1, 1.9], tw: 1 },
+  ] },
   ascended: { spd: 1.25, glow: 0.28, art: "ophanim", rays: { n: 14, c: "#FFD447", spin: 0.48, len: 1.42, a: 0.2 }, bolts: { every: [0.5, 1.2], c: ["#7DF9FF", "#FFD447", "#FFFFFF"] }, layers: [
     { k: "orbit", n: 12, shape: "eye", c: ["#7DF9FF"], w: [0.7, 0.7], r: [1.12, 1.12], sz: [2.1, 2.1], even: 1 },
     { k: "orbit", n: 8, shape: "eye", c: ["#FFD447"], w: [-1.05, -1.05], r: [0.94, 0.94], sz: [2.4, 2.4], even: 1 },
@@ -6829,6 +6841,8 @@ const AURA_FX = {
     { k: "orbit", n: 14, shape: "spark", c: ["#FFD447", "#FFF6C9"], w: [1.2, 2], r: [1.14, 1.35], sz: [1.1, 2.1] },
   ] },
   eclipseheart: { spd: 0.58, glow: 0.96, sweep: { c: "#FFF6C9", a: 1, spd: 0.85, r: 1.14, w: 4.4, span: 1.15 }, rays: { n: 10, c: "#FFD447", spin: 0.05, len: 1.48, a: 0.36 }, rings: [{ r: 1.32, c: "#FFF1B8", spin: -0.04, a: 0.9, w: 1.4, ink: 1 }, { r: 1.14, c: "#FFD447", spin: 0.05, a: 1, w: 4.2, filigree: 18, ink: 1 }], layers: [
+    { k: "orbit", n: 8, shape: "img", src: ["/aura/gem-amber.png", "/aura/gem-amber.png", "/aura/gem-amber.png", "/aura/gem-amber.png", "/aura/gem-amber.png", "/aura/gem-clear.png", "/aura/gem-clear.png", "/aura/gem-ruby.png"], w: [0.04, 0.04], r: [1.32, 1.32], sz: [0.24, 0.34], even: 1, jit: 0.08, spin: 0.035, a: 0.96, glint: 1, blend: "source-over" },
+    { k: "orbit", n: 8, shape: "img", src: ["/aura/gem-amber.png", "/aura/gem-amber.png", "/aura/gem-amber.png", "/aura/gem-clear.png", "/aura/gem-clear.png", "/aura/gem-sapphire.png", "/aura/gem-amethyst.png", "/aura/gem-aqua.png"], w: [-0.032, -0.032], r: [1.14, 1.14], sz: [0.2, 0.28], even: 1, jit: 0.07, spin: -0.028, a: 0.96, glint: 1, blend: "source-over" },
     { k: "orbit", n: 10, shape: "ember", c: ["#FFD447", "#FFF6C9", "#C9962E"], w: [0.14, 0.26], r: [0.9, 1.2], sz: [1.7, 2.8], tw: 1, blend: "source-over", a: 0.95 },
     { k: "rise", n: 5, shape: "smoke", c: ["#E8C56A", "#C9A56A"], sp: [4, 9], life: [2.4, 3.4], sz: [4.5, 7.5], sway: 9, a: 0.22, blend: "source-over" },
     { k: "rise", n: 8, shape: "dot", c: ["#FFF6C9", "#FFD447"], sp: [6, 12], life: [1.8, 2.8], sz: [1.4, 2.2], sway: 6, a: 0.85, tw: 1, blend: "source-over" },
@@ -6837,13 +6851,19 @@ const AURA_FX = {
   iaidraw: { spd: 0.55, glow: 0.32, sweep: { c: "#FFFFFF", a: 1, spd: 6.5, r: 1.16, w: 3.4, span: 0.35 }, layers: [{ k: "orbit", n: 5, shape: "spark", c: ["#FFFFFF", "#38C6FF"], w: [0.12, 0.22], r: [1.1, 1.22], sz: [1, 1.6], tw: 1 }] },
   stormstep: { spd: 1.2, glow: 0.62, bolts: { every: [0.35, 0.45], c: ["#FFFFFF", "#7DD3FC"], flash: 1 }, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#FFFFFF", "#7DD3FC"], w: [1.4, 2.4], r: [1.08, 1.3], sz: [1, 1.8] }] },
   zeropoint: { spd: 0.55, glow: 0.55, rings: [{ r: 1.1, c: "#DDF6FF", spin: 0.05, a: 0.65, w: 3, dash: 1 }], layers: [{ k: "orbit", n: 6, shape: "shard", c: ["#DDF6FF", "#7DF9FF"], w: [0.22, 0.22], r: [1.2, 1.2], sz: [3, 4.5], even: 1 }] },
-  ninetail: { spd: 0.9, glow: 0.72, rays: { n: 9, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.24 }, layers: [{ k: "orbit", n: 9, shape: "ember", c: ["#FFD447", "#FF9340", "#FF4D00"], w: [0.3, 0.55], r: [1.12, 1.35], sz: [3.2, 6], even: 1, tw: 1 }] },
-  ledger: { spd: 0.65, glow: 0.34, dark: 1, rings: [{ r: 1.16, c: "#C2001F", spin: -0.03, a: 0.6, w: 1.4 }], layers: [{ k: "fall", n: 42, shape: "leaf", c: ["#080808", "#343434", "#777"], sp: [12, 28], sz: [2, 5], drift: 12, spin: 1, blend: "source-over" }, { k: "orbit", n: 2, shape: "dot", c: ["#C2001F"], w: [0.08, 0.08], r: [1.15, 1.15], sz: [2.4, 2.4], even: 1 }] },
+  ninetail: { spd: 0.9, glow: 0.72, art: "ninetail", rays: { n: 9, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.24 }, layers: [{ k: "orbit", n: 9, shape: "ember", c: ["#FFD447", "#FF9340", "#FF4D00"], w: [0.3, 0.55], r: [1.08, 1.22], sz: [2.2, 3.6], even: 1, tw: 1 }] },
+  ledger: { spd: 0.65, glow: 0.34, dark: 1, art: "ledger", rings: [{ r: 1.16, c: "#C2001F", spin: -0.03, a: 0.6, w: 1.4 }], layers: [{ k: "fall", n: 42, shape: "leaf", c: ["#080808", "#343434", "#777"], sp: [12, 28], sz: [2, 5], drift: 12, spin: 1, blend: "source-over" }, { k: "orbit", n: 2, shape: "dot", c: ["#C2001F"], w: [0.08, 0.08], r: [1.15, 1.15], sz: [2.4, 2.4], even: 1 }] },
   bonewright: { spd: 0.7, glow: 0.7, bolts: { every: [5.6, 6.4], c: ["#FFFFFF", "#FFDFA3"], flash: 1 }, rings: [{ r: 1.12, c: "#F4EAD2", spin: 0.06, a: 0.9, w: 5, dash: 1 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#F4EAD2", "#AAB5C4"], sp: [12, 24], life: [1.4, 2.6], sz: [5, 10], sway: 9, blend: "source-over", a: 0.35 }, { k: "orbit", n: 12, shape: "shard", c: ["#FFFFFF", "#DDE6F2"], w: [0.12, 0.28], r: [1.08, 1.2], sz: [2.2, 4.2] }] },
   nullpoint: { spd: 0.62, glow: 0.66, dark: 1, rings: [{ r: 1.15, c: "#38C6FF", spin: -0.03, a: 0.82, w: 2.8 }], layers: [{ k: "inward", n: 64, shape: "dot", c: ["#38C6FF", "#C2001F", "#a855f7"], sp: [0.35, 0.7], life: [2, 4], sz: [1.2, 2.6] }] },
-  carve: { spd: 0.85, glow: 0.58, dark: 1, rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }], sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 }, layers: [{ k: "orbit", n: 36, shape: "spark", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.8, 1.8], r: [1.08, 1.35], sz: [0.8, 1.5], tw: 1 }] },
-  brandmark: { spd: 0.58, glow: 0.5, dark: 1, sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 }, { k: "orbit", n: 1, shape: "dot", c: ["#C2001F"], w: [0.1, 0.1], r: [1.18, 1.18], sz: [5, 5], even: 1 }] },
-  blacksun: { spd: 0.32, glow: 0.96, dark: 1, rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4 }], layers: [{ k: "fall", n: 82, shape: "leaf", c: ["#FFFFFF", "#E4E8F2"], sp: [5, 13], sz: [1.8, 4.6], drift: 3, spin: 1, blend: "source-over" }, { k: "orbit", n: 5, shape: "dot", c: ["#C2001F"], w: [0.16, 0.16], r: [1.16, 1.16], sz: [2.6, 2.6], even: 1 }] },
+  carve: { spd: 0.85, glow: 0.58, dark: 1, art: "carve", rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }], sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 }, layers: [{ k: "orbit", n: 36, shape: "spark", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.8, 1.8], r: [1.08, 1.35], sz: [0.8, 1.5], tw: 1 }] },
+  brandmark: { spd: 0.58, glow: 0.5, dark: 1, art: "brandmark", sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 }, { k: "orbit", n: 1, shape: "dot", c: ["#C2001F"], w: [0.1, 0.1], r: [1.18, 1.18], sz: [5, 5], even: 1 }] },
+  blacksun: { spd: 0.32, glow: 0.96, dark: 1, art: "blacksun", rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4 }], layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.38, rot: 0.04, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.12, rot: -0.04, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.42, 0.42], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over" },
+    { k: "fall", n: 82, shape: "leaf", c: ["#FFFFFF", "#E4E8F2"], sp: [5, 13], sz: [1.8, 4.6], drift: 3, spin: 1, blend: "source-over" },
+    { k: "orbit", n: 5, shape: "dot", c: ["#C2001F"], w: [0.16, 0.16], r: [1.16, 1.16], sz: [2.6, 2.6], even: 1 },
+  ] },
 };
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -6914,6 +6934,82 @@ function softSprite(color) {
   return c;
 }
 
+const _auraImageCache = new Map();
+function auraImage(src) {
+  if (_auraImageCache.has(src)) return _auraImageCache.get(src);
+  const rec = { img: new Image(), ready: false, failed: false };
+  _auraImageCache.set(src, rec);
+  const markReady = () => { if (!rec.failed) rec.ready = true; };
+  rec.img.onload = () => {
+    if (typeof rec.img.decode === "function") rec.img.decode().then(markReady).catch(markReady);
+    else markReady();
+  };
+  rec.img.onerror = () => { rec.failed = true; };
+  rec.img.src = src;
+  if (typeof rec.img.decode === "function") rec.img.decode().then(markReady).catch(() => {});
+  return rec;
+}
+
+// Behaviour-neutral homes for the legacy one-off art passes. Specs opt in via
+// `art`; makeAura invokes the selected pass at the same point as before.
+const AURA_ART = {
+  blacksun: ({ g, time, cx, cy, rx, ry, unit }) => {
+    const ang = time * (Math.PI * 2 / 21) + 0.32 * Math.sin(time * 0.53) + 0.18 * Math.sin(time * 0.97);
+    const rad = 1.15 + 0.20 * Math.sin(time * 0.37) + 0.10 * Math.sin(time * 0.83);
+    const sx = cx + Math.cos(ang) * rx * rad, sy = cy + Math.sin(ang) * ry * rad;
+    g.save();
+    g.globalAlpha = Math.sin(ang) < 0 ? 0.7 : 1;
+    g.shadowColor = "#ffffff"; g.shadowBlur = 16 * unit; g.fillStyle = "#020202";
+    g.beginPath(); g.arc(sx, sy, rx * 0.52, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0; g.strokeStyle = "#ffffff"; g.lineWidth = Math.max(2, 4 * unit); g.stroke();
+    g.restore();
+    return { freeze: rad <= 0.94 };
+  },
+  ledger: ({ g, time, cx, cy, rx, ry }) => {
+    const write = (time % 8) > 5;
+    g.save(); g.translate(cx + rx * 0.72, cy - ry * 0.82); g.fillStyle = "#080808"; g.strokeStyle = "#777"; g.lineWidth = 1.2;
+    g.beginPath(); g.roundRect?.(-rx * 0.24, -ry * 0.16, rx * 0.48, ry * 0.32, 3); if (!g.roundRect) g.rect(-rx * 0.24, -ry * 0.16, rx * 0.48, ry * 0.32); g.fill(); g.stroke();
+    if (write) { g.strokeStyle = "#C2001F"; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(-rx * 0.16, -ry * 0.1 + i * ry * 0.06); g.lineTo(rx * (0.04 + ((time * 0.2 + i * 0.17) % 0.15)), -ry * 0.1 + i * ry * 0.06); g.stroke(); } }
+    g.restore();
+  },
+  carve: ({ g, time, cx, cy, rx, ry, unit }) => {
+    const k = (time % 3.2) / 3.2;
+    g.save(); g.strokeStyle = `rgba(236,72,153,${Math.sin(k * Math.PI)})`; g.lineWidth = Math.max(0.8, unit);
+    for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * rx * 1.35, cy + Math.sin(a) * ry * 1.35); g.lineTo(cx + rx * 0.18, cy - ry * 0.12); g.stroke(); }
+    g.restore();
+  },
+  ninetail: ({ g, time, cx, cy, rx, ry }) => {
+    const palette = ["#FF9340", "#FFD447", "#FF4D00"];
+    const R = Math.min(rx, ry);
+    for (let i = 0; i < 9; i++) {
+      const a = Math.PI * 0.42 + (i / 8) * Math.PI * 1.66;
+      const x = cx + Math.cos(a) * rx * 1.02, y = cy + Math.sin(a) * ry * 1.02;
+      const len = (0.55 + (i % 3) * 0.08) * R, wide = 0.2 * R, ph = i * 0.73;
+      const sway = Math.sin(time * 1.35 + ph) * 0.16 * R;
+      const col = palette[i % 3], rgb = hexRgb(col) || [255, 147, 64];
+      g.save(); g.translate(x, y); g.rotate(a);
+      const grad = g.createLinearGradient(0, 0, len, sway);
+      grad.addColorStop(0, col); grad.addColorStop(0.72, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.82)`); grad.addColorStop(1, "#FFF6C9");
+      [1.18, 1, 0.78].forEach((band, bi) => {
+        const bw = wide * band, off = (bi - 1) * wide * 0.12;
+        g.globalAlpha = bi === 1 ? 0.92 : 0.42;
+        g.fillStyle = grad; g.beginPath(); g.moveTo(0, off - bw / 2);
+        g.bezierCurveTo(len * 0.34, off - bw * 0.54, len * 0.72, sway - bw * 0.22, len, sway);
+        g.bezierCurveTo(len * 0.72, sway + bw * 0.22, len * 0.34, off + bw * 0.54, 0, off + bw / 2);
+        g.closePath(); g.fill();
+      });
+      g.globalAlpha = 1; g.fillStyle = "#FFF6C9";
+      g.beginPath(); g.arc(len, sway, Math.max(1.5, wide * 0.22 * 1.25), 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+  },
+  brandmark: ({ g, time, cx, cy, rx, ry, unit }) => {
+    const beat = 0.75 + Math.sin(time * 4.5) * 0.25;
+    g.save(); g.fillStyle = `rgba(194,0,31,${beat})`; g.shadowColor = "#C2001F"; g.shadowBlur = 12 * unit; g.beginPath(); g.arc(cx + rx * 1.08, cy - ry * 0.22, 3.2 * unit, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = `rgba(194,0,31,${beat * 0.8})`; g.lineWidth = unit; g.beginPath(); g.moveTo(cx + rx * 1.08, cy - ry * 0.18); g.lineTo(cx + rx * 1.05, cy + ry * 0.9); g.stroke(); g.restore();
+  },
+};
+
 // One shared animation loop for every aura on screen. Offscreen or hidden auras don't tick.
 const AuraLoop = {
   set: new Set(), raf: 0, last: 0,
@@ -6950,11 +7046,22 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
   const layers = fx.layers.map((L) => {
     const n = Math.min(particleBudget, Math.max(L.even ? L.n : 3, Math.round(L.n * (L.even ? 1 : scale))));
     particleBudget -= n;
+    const srcList = L.shape === "img" ? [].concat(L.src || []).filter(Boolean) : [];
+    srcList.forEach(auraImage);
+    // `behind` is a no-op: AuraCanvas already paints entirely under the photo
+    // in Avatar and Physique. Eclipseheart's sweep still draws on this canvas
+    // around the photo edge. A second pass would only be needed if the canvas
+    // ever moved in front of the photo.
+    const range = (v, fallback) => Array.isArray(v) ? v : [v ?? fallback, v ?? fallback];
     const spawn = (p, fresh) => {
       p.c = L.c ? pick(L.c) : "#ffffff";
-      const raw = rnd(...(L.sz || [2, 3])) * (L.shape === "emoji" ? 1 : unit * (mode === "body" ? 1.15 : 1));
-      p.sz = L.shape === "emoji" ? raw : Math.max(w < 110 ? 1.35 : 0.9, raw);
-      p.age = 0; p.rot = rnd(0, Math.PI * 2); p.vr = L.spin ? rnd(-3, 3) : rnd(-1, 1); p.ph = rnd(0, Math.PI * 2);
+      const raw = rnd(...range(L.sz, L.shape === "img" ? 0.8 : 2.5));
+      p.sz = L.shape === "emoji" ? raw : L.shape === "img" ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
+      p.age = 0;
+      p.rot = L.shape === "img" ? (L.rot || 0) * Math.PI * 2 : rnd(0, Math.PI * 2);
+      p.vr = L.shape === "img" ? (L.spin || 0) * Math.PI * 2 : L.spin ? rnd(-3, 3) : rnd(-1, 1);
+      p.ph = rnd(0, Math.PI * 2);
+      if (L.shape === "img" && srcList.length) { p.src = srcList[p.i % srcList.length]; p.image = auraImage(p.src); }
       if (L.k === "rise" || L.k === "bubble") {
         const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
         [p.x, p.y] = onRing(ang, rnd(1.05, 1.18)); p.vy = -rnd(...L.sp) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
@@ -6966,8 +7073,9 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
         p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...L.life); p.spd = rnd(...L.sp);
         if (fresh) p.age = rnd(0, p.life);
       } else { // orbit
-        p.ang = L.even ? (p.i / n) * Math.PI * 2 : rnd(0, Math.PI * 2); p.r = Math.max(1.05, rnd(...L.r)); p.w = rnd(...L.w) * (Math.random() < 0.5 && !L.even ? -1 : 1); p.life = 99;
-        if (L.top) p.ang = rnd(Math.PI * 1.1, Math.PI * 1.9);
+        p.ang = L.at != null ? L.at * Math.PI * 2 : L.even ? (p.i / n) * Math.PI * 2 + (L.jit ? rnd(-L.jit, L.jit) : 0) : rnd(0, Math.PI * 2);
+        p.r = Math.max(0.5, rnd(...L.r)); p.w = rnd(...L.w) * (Math.random() < 0.5 && !L.even && L.at == null ? -1 : 1); p.life = 99;
+        if (L.top && L.at == null) p.ang = rnd(Math.PI * 1.1, Math.PI * 1.9);
       }
       p.e = L.e ? L.e[p.i % L.e.length] : null;
     };
@@ -6980,6 +7088,33 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
     g.globalAlpha = Math.min(1, alpha * (L.a ?? 1));
     const s = p.sz;
     switch (L.shape) {
+      case "img": {
+        const rec = p.image;
+        if (!rec?.ready || rec.failed) break;
+        const img = rec.img, aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+        const breathe = L.breathe ? 1 + 0.03 * Math.sin(time * (Math.PI * 2 / 4) + p.ph) : 1;
+        const iw0 = aspect >= 1 ? s : s * aspect, ih0 = aspect >= 1 ? s / aspect : s;
+        const iw = iw0 * breathe, ih = ih0 * breathe;
+        const wob = L.wobble ? Math.sin(time * (Math.PI * 2 / (6.8 + (p.ph % 2.2))) + p.ph) * L.wobble : 0;
+        const bob = L.bob ? Math.sin(time * (Math.PI * 2 / 2.5) + p.ph) * s * 0.1 : 0;
+        g.save(); g.translate(x, y + bob); g.rotate(p.rot + wob); if (L.flip) g.scale(-1, 1);
+        g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+        if (L.glint) {
+          const period = 3.4 + (p.ph % 2.4);
+          const cycle = (time + p.ph * 1.7) % period;
+          if (cycle < 0.28) {
+            const k = cycle / 0.28;
+            g.beginPath(); g.rect(-iw / 2, -ih / 2, iw, ih); g.clip();
+            g.globalCompositeOperation = "lighter";
+            g.globalAlpha = Math.min(1, alpha * (L.a ?? 1)) * Math.sin(k * Math.PI);
+            g.strokeStyle = "#ffffff"; g.lineWidth = Math.max(1.1, s * 0.07);
+            g.beginPath(); g.moveTo(-iw / 2, -ih / 2 + ih * k); g.lineTo(iw / 2, -ih / 2 + ih * k + ih * 0.18); g.stroke();
+            const hs = Math.max(4, s * 0.28);
+            g.drawImage(glowSprite("#ffffff"), -hs, -ih / 2 + ih * k - hs, hs * 2, hs * 2);
+          }
+        }
+        g.restore(); break;
+      }
       case "dot": { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2, y - s * 2, s * 4, s * 4); break; }
       case "ember": { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2.6, y - s * 2.6, s * 5.2, s * 5.2); break; }
       case "smoke": { const sp = softSprite(p.c); const k = Math.min(1.28, 1 + Math.min(p.age, 2.4) * 0.1); g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k); break; }
@@ -7086,34 +7221,7 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
-    // Bespoke silhouettes stay in the shared renderer; particles still use the
-    // common capped/respawning pipeline below.
-    if (aura === "blacksun") {
-      const phase = time % 14, rise = Math.min(1, phase / 10);
-      const sy = cy + ry * 1.45 * (1 - rise);
-      g.save(); g.shadowColor = "#ffffff"; g.shadowBlur = 14 * unit; g.fillStyle = "#020202";
-      g.beginPath(); g.arc(cx, sy, rx * 0.7, 0, Math.PI * 2); g.fill();
-      g.shadowBlur = 0; g.strokeStyle = "#ffffff"; g.lineWidth = Math.max(2, 4 * unit); g.stroke(); g.restore();
-    } else if (aura === "ledger") {
-      const write = (time % 8) > 5;
-      g.save(); g.translate(cx + rx * 0.72, cy - ry * 0.82); g.fillStyle = "#080808"; g.strokeStyle = "#777"; g.lineWidth = 1.2;
-      g.beginPath(); g.roundRect?.(-rx * 0.24, -ry * 0.16, rx * 0.48, ry * 0.32, 3); if (!g.roundRect) g.rect(-rx * 0.24, -ry * 0.16, rx * 0.48, ry * 0.32); g.fill(); g.stroke();
-      if (write) { g.strokeStyle = "#C2001F"; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(-rx * 0.16, -ry * 0.1 + i * ry * 0.06); g.lineTo(rx * (0.04 + ((time * 0.2 + i * 0.17) % 0.15)), -ry * 0.1 + i * ry * 0.06); g.stroke(); } }
-      g.restore();
-    } else if (aura === "carve") {
-      const k = (time % 3.2) / 3.2;
-      g.save(); g.strokeStyle = `rgba(236,72,153,${Math.sin(k * Math.PI)})`; g.lineWidth = Math.max(0.8, unit);
-      for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * rx * 1.35, cy + Math.sin(a) * ry * 1.35); g.lineTo(cx + rx * 0.18, cy - ry * 0.12); g.stroke(); }
-      g.restore();
-    } else if (aura === "ninetail") {
-      g.save(); g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,147,64,.6)"; g.lineWidth = Math.max(1.5, unit * 2);
-      for (let i = 0; i < 9; i++) { const a = -1.25 + i * 0.31 + Math.sin(time * 1.4 + i) * 0.06; g.beginPath(); g.moveTo(cx, cy + ry * 0.25); g.bezierCurveTo(cx + Math.cos(a) * rx * 0.55, cy + ry * 0.6, cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, cx + Math.cos(a) * rx * 1.42, cy + Math.sin(a) * ry * 1.42); g.stroke(); }
-      g.restore();
-    } else if (aura === "brandmark") {
-      const beat = 0.75 + Math.sin(time * 4.5) * 0.25;
-      g.save(); g.fillStyle = `rgba(194,0,31,${beat})`; g.shadowColor = "#C2001F"; g.shadowBlur = 12 * unit; g.beginPath(); g.arc(cx + rx * 1.08, cy - ry * 0.22, 3.2 * unit, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = `rgba(194,0,31,${beat * 0.8})`; g.lineWidth = unit; g.beginPath(); g.moveTo(cx + rx * 1.08, cy - ry * 0.18); g.lineTo(cx + rx * 1.05, cy + ry * 0.9); g.stroke(); g.restore();
-    }
+    const artState = AURA_ART[fx.art]?.({ g, time, cx, cy, rx, ry, unit }) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";
       g.translate(cx, cy); g.scale(1, ry / rx);
@@ -7189,32 +7297,32 @@ function makeAura(canvas, { aura, w, h, mode, ringR }) {
       g.restore();
     }
     g.globalCompositeOperation = "lighter";
-    const motionDt = aura === "blacksun" && (time % 14) >= 10 && (time % 14) < 11 ? 0 : dt;
     layers.forEach(({ L, ps, spawn }) => {
-      g.globalCompositeOperation = L.blend || (L.shape === "emoji" ? "source-over" : "lighter");
+      const layerDt = artState?.freeze && L.shape !== "img" ? 0 : dt;
+      g.globalCompositeOperation = L.blend || (L.shape === "emoji" || L.shape === "img" ? "source-over" : "lighter");
       ps.forEach((p) => {
-        p.age += motionDt; p.rot += p.vr * motionDt;
+        if (L.shape === "img" && p.image?.failed) return;
+        p.age += layerDt; p.rot += p.vr * layerDt;
         let x, y, alpha = 1;
         if (L.k === "rise" || L.k === "bubble") {
-          p.y += p.vy * motionDt; x = p.x + Math.sin(time * 2 + p.ph) * (L.sway || 5) * unit * (L.k === "bubble" ? 0.6 : 1); y = p.y;
+          p.y += p.vy * layerDt; x = p.x + Math.sin(time * 2 + p.ph) * (L.sway || 5) * unit * (L.k === "bubble" ? 0.6 : 1); y = p.y;
           const k = p.age / p.life; alpha = Math.min(1, k * 5) * (1 - k);
           if (L.flick) alpha *= 0.6 + 0.4 * Math.sin(time * 18 + p.ph);
           if (p.age >= p.life) spawn(p);
         } else if (L.k === "fall") {
-          p.y += p.vy * motionDt; p.x += p.vx * motionDt + Math.sin(time + p.ph) * 0.2; x = p.x; y = p.y;
+          p.y += p.vy * layerDt; p.x += p.vx * layerDt + Math.sin(time + p.ph) * 0.2; x = p.x; y = p.y;
           const edge = Math.min(1, (p.y - (cy - ry * 1.6)) / 20, (cy + ry * 1.5 - p.y) / 20);
           alpha = Math.max(0, edge);
           if (p.y > cy + ry * 1.5) spawn(p);
         } else if (L.k === "inward") {
-          const k = p.age / p.life; const r = p.r0 - (p.r0 - 1.05) * k; p.ang += p.spd * motionDt;
+          const k = p.age / p.life; const r = p.r0 - (p.r0 - 1.05) * k; p.ang += p.spd * layerDt;
           [x, y] = onRing(p.ang, r); alpha = Math.min(1, k * 4) * (1 - k * k);
           if (p.age >= p.life) spawn(p);
         } else {
-          p.ang += p.w * motionDt; const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
+          p.ang += p.w * layerDt; const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
           [x, y] = onRing(p.ang, p.r + wob);
-          if (L.shape !== "emoji" && L.shape !== "smoke") alpha = 0.75 + 0.25 * Math.sin(time * 3 + p.ph);
-          // things behind the body fade a little so it reads as a ring around them
-          if (mode === "body" && L.shape !== "emoji") alpha *= Math.sin(p.ang) < 0 ? 0.55 : 1;
+          if (L.shape !== "emoji" && L.shape !== "smoke" && L.shape !== "img") alpha = 0.75 + 0.25 * Math.sin(time * 3 + p.ph);
+          if (mode === "body" && L.shape !== "emoji" && L.shape !== "img") alpha *= Math.sin(p.ang) < 0 ? 0.55 : 1;
         }
         if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
         drawP(L, p, alpha, x, y);
