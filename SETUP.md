@@ -4,33 +4,44 @@ Do this on a computer. About 30 minutes. After it's done, everyone just opens on
 
 You'll create three free accounts (GitHub, Supabase, Vercel) and one paid-per-use key (Anthropic). Keep a notes file open to paste keys into as you go.
 
+The live site is **https://www.ascendfit.site**. Code lives in the public GitHub repo **https://github.com/SatoruBtd6/ascend**, branch `main`. Vercel deploys on every commit to `main`.
+
 ---
 
-## 1. Put the code on GitHub (5 min)
+## 1. Get the code (Git, not web upload)
 
-1. Go to https://github.com and sign up (or sign in).
-2. Click the **+** (top right) → **New repository**. Name it `ascend`. Leave it **Public** or make it Private, either works. Click **Create repository**.
-3. On the empty repo page, click **uploading an existing file**.
-4. Unzip `ascend-site.zip` on your computer. Open the unzipped `ascend-site` folder, select **everything inside it** (the `src` and `api` folders and all the files), and drag them onto the GitHub upload page.
-   - Make sure you drag the *contents*, not the folder itself. You should see `package.json` in the file list.
-5. Click **Commit changes**.
+1. Install [Git for Windows](https://git-scm.com) if you don't have it (include Git Credential Manager).
+2. Clone the repo:
+
+   ```
+   git clone https://github.com/SatoruBtd6/ascend.git
+   ```
+
+3. Copy `.env.example` to `.env.local` and fill in your keys. **Never commit `.env`, `.env.local`, `dist/`, or `node_modules/`.**
+4. Do not drag files onto GitHub's "upload" page. Updates go through `git commit` and `git push origin main`.
+
+---
 
 ## 2. Create the database on Supabase (7 min)
 
 1. Go to https://supabase.com → **Start your project** → sign up.
 2. **New project**. Name: `ascend`. Set a database password (save it somewhere; you won't need it again). Region: closest to you. **Create new project** and wait about a minute.
-3. Left sidebar → **SQL Editor** → **New query**. Open `supabase.sql` from the zip, paste all of it in, click **Run**. You should see "Success".
+3. Left sidebar → **SQL Editor** → **New query**. Open `supabase.sql` from the repo, paste all of it in, click **Run**. You should see "Success".
 4. Left sidebar → **Project Settings** (gear) → **API**. Copy these two into your notes:
    - **Project URL** (looks like `https://abcdxyz.supabase.co`)
    - **anon public** key (long string under "Project API keys")
 5. Left sidebar → **Authentication** → **Providers** → make sure **Email** is enabled (it is by default). Nothing else to change.
+
+---
 
 ## 3. Get an Anthropic API key (3 min)
 
 1. Go to https://console.anthropic.com → sign up → add a payment method under **Billing** (put $5–10 on it; that lasts a long time for a few people).
 2. **API Keys** → **Create Key** → name it `ascend` → copy it into your notes. It starts with `sk-ant-`. You can only see it once.
 
-## 4. Deploy on Vercel (7 min)
+---
+
+## 4. Deploy on Vercel (first time, 7 min)
 
 1. Go to https://vercel.com → sign up **with GitHub** (easiest).
 2. **Add New…** → **Project** → find `ascend` in the list → **Import**.
@@ -44,17 +55,23 @@ You'll create three free accounts (GitHub, Supabase, Vercel) and one paid-per-us
 
 4. Click **Deploy**. Wait about a minute. You'll get a link like `https://ascend-xyz.vercel.app`. Copy it.
 
+After this first import, **do not re-upload files**. Every push to `main` deploys. `dist/` is never committed; Vercel builds it.
+
+---
+
 ## 5. Tell Supabase your site's address (2 min)
 
 Sign-in links need to know where to send people back to.
 
 1. Supabase → **Authentication** → **URL Configuration**.
-2. **Site URL**: paste your Vercel link (e.g. `https://ascend-xyz.vercel.app`).
+2. **Site URL**: paste your live link (e.g. `https://www.ascendfit.site` or the Vercel URL).
 3. **Redirect URLs** → **Add URL** → paste the same link again. Save.
+
+---
 
 ## 6. Try it
 
-Open your Vercel link on your phone, type your email, tap the link in the email. You're in. Send the same link to your cousins.
+Open the live link on your phone, type your email, tap the link in the email. You're in. Send the same link to your cousins.
 
 - **Add to home screen** (Share → Add to Home Screen on iPhone) so it feels like a real app.
 - To bring over progress from the Claude version: make a save code there (Settings), then paste it into the website's Settings → Load save.
@@ -62,16 +79,18 @@ Open your Vercel link on your phone, type your email, tap the link in the email.
 
 ---
 
-## Updating the app later
+## Updating the app (Git rules)
 
-All the app code is one file: `src/App.jsx`. To update:
+Follow these in every phase. The owner pushes; Cursor / the coding agent does not.
 
-1. Get the new `App.jsx` (from Claude).
-2. On GitHub, open your repo → `src` folder → `App.jsx` → click the **pencil / edit** icon → select all, paste the new code → **Commit changes**.
-   (Or drag the new file onto the `src` folder using **Add file → Upload files**.)
-3. Vercel notices the change and redeploys automatically in about a minute. Everyone gets the update at the same link, and nobody loses any progress.
+- **Before starting a phase:** `git status` must be clean. If it isn't, stop and report. Then tag the starting point `pre-<phase>` (e.g. `pre-7d`).
+- **During a phase:** commit at each part/checkpoint with a clear message. Never commit `.env*`, `dist/` or `node_modules/`.
+- **Handover:** instead of a zip, report the commit hashes, `git diff --stat pre-<phase>..HEAD`, and the usual verification results. Tag the release `v<version>` once the owner approves.
+- **Never, without the owner's explicit OK:** `git push` (the owner pushes), `push --force`, `reset --hard`, `clean`, rewriting history, or deleting tags/branches.
+- **Undo** (owner-approved): discard uncommitted edits with `git restore .`; return to a tag with `git reset --hard <tag>`.
+- **Deploy** (owner): `git push origin main` and `git push origin v<version>`. Vercel builds from `main`. `dist/` is never committed.
 
-If you use **Claude Code** on your computer, it can edit the file and push it for you in one step.
+---
 
 ## Costs
 
@@ -81,6 +100,6 @@ If you use **Claude Code** on your computer, it can edit the file and push it fo
 ## If something breaks
 
 - **"Almost there" screen on the site**: the two `VITE_SUPABASE_*` variables are missing in Vercel. Add them, then Vercel → Deployments → ⋯ → Redeploy.
-- **Sign-in link goes to a broken page**: step 5 wasn't done, or the Site URL doesn't exactly match your Vercel link.
+- **Sign-in link goes to a broken page**: step 5 wasn't done, or the Site URL doesn't exactly match your live link.
 - **Sterling / AI features say they can't connect**: `ANTHROPIC_API_KEY` is missing in Vercel, or your Anthropic account has no credit.
 - **Leaderboard empty or "couldn't reach"**: the SQL in step 2 didn't run. Run it again.
