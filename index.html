@@ -21,6 +21,22 @@
         <img src="/logo.webp" alt="Ascend" width="90" height="86" style="width:90px;height:auto;opacity:0.85;filter:drop-shadow(0 6px 24px rgba(245,210,122,.35))" />
       </div>
     </div>
+    <script>
+      (function () {
+        window.__ascendBooted = false;
+        setTimeout(function () {
+          if (window.__ascendBooted) return;
+          var root = document.getElementById("root");
+          if (!root) return;
+          root.innerHTML = '<div id="ascend-boot" role="status" style="min-height:100dvh;min-height:100vh;width:100%;box-sizing:border-box;background:#000;color:#A3B6CF;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));text-align:center;font-family:system-ui,-apple-system,sans-serif;gap:14px">'
+            + '<img src="/logo.webp" alt="Ascend" width="90" height="86" style="width:90px;height:auto;opacity:0.85;filter:drop-shadow(0 6px 24px rgba(245,210,122,.35))" />'
+            + '<div style="color:#F2F8FF;font-weight:700;font-size:16px">Couldn\'t start offline</div>'
+            + '<p style="margin:0;max-width:320px;line-height:1.45;font-size:14px">Couldn\'t start offline — open Ascend once with signal, then try again</p>'
+            + '<button type="button" style="margin-top:4px;padding:12px 28px;min-height:44px;border-radius:12px;border:none;background:linear-gradient(180deg,#F5D27A,#C9962E);color:#1A1204;font-weight:700;font-size:16px" onclick="location.reload()">Retry</button>'
+            + '</div>';
+        }, 5000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
