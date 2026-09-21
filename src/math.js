@@ -33,6 +33,67 @@ export function mergeState(local, server, snapshot) {
   return out;
 }
 
+// After a successful write, the snapshot must be exactly the payload the server
+// acknowledged — never the live local state, which may have moved on during the
+// round trip. Otherwise the next three-way merge treats a newer local edit as
+// "unchanged" and takes the older remote value.
+export function persistAck(acknowledged, localNow) {
+  // Snap is the exact acknowledged payload (same object). Never clone live local.
+  const snap = acknowledged;
+  if (!localNow || !acknowledged) return { snap, written: acknowledged, dirty: !!(localNow && localNow !== acknowledged) };
+  if (localNow === acknowledged) return { snap, written: acknowledged, dirty: false };
+  let dirty = false;
+  for (const k of Object.keys(localNow)) {
+    if (k === "rev") continue;
+    if (localNow[k] !== acknowledged[k]) { dirty = true; break; }
+  }
+  if (!dirty) {
+    for (const k of Object.keys(acknowledged)) {
+      if (k === "rev") continue;
+      if (!(k in localNow)) { dirty = true; break; }
+    }
+  }
+  return { snap, written: acknowledged, dirty };
+}
+
+export function persistMerge(local, remote, snap, readKind) {
+  const remoteRev = +remote?.rev || 0, baseRev = +(snap?.rev) || 0;
+  // Only merge when the server is strictly newer than the last ack. Same-rev
+  // !eq(remote, snap) used to stringify the whole blob and could loop persist.
+  const useRemote = readKind === "ok" && !!remote && remoteRev > baseRev;
+  const merged = useRemote ? mergeState(local, remote, snap) : local;
+  const toWrite = { ...merged, rev: Math.max(+local?.rev || 0, remoteRev, +merged?.rev || 0) + 1 };
+  return { merged, toWrite, useRemote };
+}
+
+export function parseNumInput(s) {
+  if (s == null) return "";
+  const t = String(s).trim();
+  if (t === "" || t === "." || t === "-" || t === "-." || t === "+" || t === "+.") return "";
+  const n = Number(t.replace(",", "."));
+  return Number.isFinite(n) ? n : "";
+}
+
+export function shouldDeferPersist(s, snap) {
+  if (!s || !snap || s === snap) return false;
+  const keys = new Set([...Object.keys(s), ...Object.keys(snap)]);
+  let communityOnly = false;
+  for (const k of keys) {
+    if (k === "rev") continue;
+    if (s[k] !== snap[k]) {
+      if (k !== "community") return false;
+      communityOnly = true;
+    }
+  }
+  return communityOnly;
+}
+
+export function shouldWritePending(prev, s) {
+  return activeIsUrgent(prev?.active, s?.active);
+}
+
+export const WORKOUT_SAVE_DELAY_MS = 3000;
+
 function mergeMap(local, server, snap) {
   const keys = new Set([...Object.keys(local || {}), ...Object.keys(server || {}), ...Object.keys(snap || {})]);
   const out = {};
@@ -682,8 +743,7 @@ export function saveIsUrgent(prev, s, urgentKeys) {
 }
 
 export function saveDelayMs(urgent, prev, s) {
-  if (urgent) return 0;
-  if (!prev || !s) return 400;
+  if (!prev || !s) return urgent ? 0 : 400;
   let other = false;
   for (const k of Object.keys(s)) {
     if (k === "active") continue;
@@ -695,8 +755,10 @@ export function saveDelayMs(urgent, prev, s) {
       if (!(k in s)) { other = true; break; }
     }
   }
-  if (!other && s.active !== prev.active) return 1000;
-  return 400;
+  // In-workout: idle debounce to the server. Structural changes still write
+  // the local pending copy synchronously in the persist effect.
+  if (!other && s.active !== prev.active) return WORKOUT_SAVE_DELAY_MS;
+  return urgent ? 0 : 400;
 }
 
 /* ---------- Phase 2 foundations: names, assisted legacy, gyms ---------- */

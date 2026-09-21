@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff, MoreHorizontal } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
@@ -470,7 +470,10 @@ function streakOf(s) {
 }
 function weekStart() { const x = new Date(); x.setDate(x.getDate() - x.getDay()); return dkey(x); }
 
-const mealTotals = (meals = []) => meals.reduce((a, m) => ({ cal: a.cal + m.cal * m.qty, p: a.p + m.p * m.qty, c: a.c + m.c * m.qty, f: a.f + m.f * m.qty }), { cal: 0, p: 0, c: 0, f: 0 });
+const mealTotals = (meals = []) => meals.reduce((a, m) => {
+  const q = +m.qty || 0;
+  return { cal: a.cal + m.cal * q, p: a.p + m.p * q, c: a.c + m.c * q, f: a.f + m.f * q };
+}, { cal: 0, p: 0, c: 0, f: 0 });
 
 function makeQuest(exclude = [], tier = 1) {
   const pool = QUEST_POOL.filter((q) => !exclude.includes(q.qid));
@@ -788,7 +791,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "7a.1";
+const APP_VERSION = "7b";
 if (typeof window !== "undefined") window.__ASCEND_VERSION = APP_VERSION;
 
 function DiagProbe({ kind, id }) {
@@ -800,6 +803,153 @@ function DiagProbe({ kind, id }) {
   }, [kind, id]);
   return null;
 }
+
+const NUM_DEBOUNCE_MS = 180;
+function NumField({ value, onCommit, inputMode = "decimal", className, style, ...rest }) {
+  const shown = value === "" || value == null ? "" : String(value);
+  const [text, setText] = useState(shown);
+  const focused = useRef(false);
+  const tRef = useRef(null);
+  const commitRef = useRef(onCommit);
+  commitRef.current = onCommit;
+  const textRef = useRef(text);
+  textRef.current = text;
+  useEffect(() => {
+    if (focused.current) return;
+    setText(shown);
+  }, [shown]);
+  const commit = useCallback((raw) => {
+    const s = raw == null ? textRef.current : raw;
+    commitRef.current(parseNumInput(s));
+  }, []);
+  useEffect(() => {
+    const onHide = () => { if (focused.current) commit(); };
+    const onVis = () => { if (document.visibilityState === "hidden") onHide(); };
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVis);
+      if (tRef.current) clearTimeout(tRef.current);
+    };
+  }, [commit]);
+  const schedule = (s) => {
+    setText(s);
+    if (tRef.current) clearTimeout(tRef.current);
+    tRef.current = setTimeout(() => commit(s), NUM_DEBOUNCE_MS);
+  };
+  return (
+    <input
+      {...rest}
+      type="text"
+      inputMode={inputMode}
+      className={className}
+      style={style}
+      value={text}
+      onChange={(e) => schedule(e.target.value)}
+      onFocus={(e) => { focused.current = true; rest.onFocus?.(e); }}
+      onBlur={(e) => {
+        focused.current = false;
+        if (tRef.current) clearTimeout(tRef.current);
+        commit();
+        rest.onBlur?.(e);
+      }}
+    />
+  );
+}
+
+function FoodPickRow({ f, onAdd, onDelete }) {
+  return (
+    <div className="ghost flex items-center">
+      <button onClick={() => onAdd(f)} className="flex-1 text-left p-3 min-w-0">
+        <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
+      </button>
+      {onDelete && <button aria-label={`Remove ${f.name} from saved`} onClick={onDelete} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
+    </div>
+  );
+}
+
+function RankGuideRow({ e, p, bests }) {
+  const steps = thresholds(e, p);
+  const cur = bests[e.name] ? rankFor(e, bests[e.name], p) : null;
+  return (
+    <div className="grid items-center gap-1 py-2 text-sm" style={{ gridTemplateColumns: "1.6fr repeat(5, 1fr)", borderTop: `1px solid rgba(0,217,255,.10)` }}>
+      <div className="min-w-0">
+        <div className="font-semibold truncate">{e.name}{e.perHand ? <span className="body text-xs font-normal" style={{ color: C.mute }}> /hand</span> : null}</div>
+        <div className="body text-xs" style={{ color: cur ? cur.rank.color : C.mute }}>{cur ? `You: ${cur.label}` : "Not logged"}</div>
+      </div>
+      {steps.map((v, i) => {
+        const reached = cur && cur.score >= i + 1;
+        return <div key={i} className="text-center font-semibold tabular-nums" style={{ color: reached ? RANKS[i + 1].color : C.sub, textShadow: reached ? `0 0 8px ${RANKS[i + 1].glow}` : "none" }}>{v}</div>;
+      })}
+    </div>
+  );
+}
+
+function SettingsToggle({ on, onClick, label }) {
+  return (
+    <button role="switch" aria-checked={on} aria-label={label} onClick={onClick} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: on ? C.cyan : C.track, border: `1px solid ${C.border}`, boxShadow: on ? `0 0 12px ${C.glow}` : "none", transition: "background .2s" }}>
+      <span className="absolute top-0.5" style={{ left: on ? 24 : 2, width: 22, height: 22, borderRadius: 999, background: "#fff", transition: "left .2s" }} />
+    </button>
+  );
+}
+
+function IntervalStepper({ label, value, set, step, min, max, fmt, disabled }) {
+  return (
+    <div className="panel p-3">
+      <div className="body text-xs" style={{ color: C.dim }}>{label}</div>
+      <div className="flex items-center justify-between mt-1">
+        <button aria-label={`Less ${label}`} disabled={disabled} onClick={() => set(Math.max(min, value - step))} className="ghost w-9 h-9 flex items-center justify-center"><Minus size={16} /></button>
+        <span className="text-xl font-bold tabular-nums">{fmt(value)}</span>
+        <button aria-label={`More ${label}`} disabled={disabled} onClick={() => set(Math.min(max, value + step))} className="ghost w-9 h-9 flex items-center justify-center"><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+function MogFace({ e, label, win }) {
+  return (
+    <div className="flex-1 text-center">
+      <img src={e.img} alt={`${label}'s mog`} style={{ width: "100%", maxWidth: 140, aspectRatio: "1", objectFit: "cover", borderRadius: 8, margin: "0 auto", border: `2px solid ${win ? C.gold : C.border}`, boxShadow: win ? `0 0 16px ${C.gold}` : "none" }} />
+      <div className="font-bold text-sm mt-1 truncate">{label}</div>
+      <div className="text-2xl font-extrabold glowtext" style={{ color: win ? C.gold : C.text }}>{e.total}</div>
+      <div className="body text-xs" style={{ color: C.dim }}>lips {e.pucker} · brows {e.brows} · stare {e.stare} · jaw {e.jaw} · commit {e.commitment}</div>
+      <div className="body text-xs italic mt-1" style={{ color: C.sub }}>"{e.quip}"</div>
+    </div>
+  );
+}
+
+function VersusSide({ c, r }) {
+  return (
+    <div className="flex-1 flex flex-col items-center text-center min-w-0">
+      <Avatar src={c.avatar} name={c.name} size={64} ring={c.look?.accent || r.color} look={c.look} />
+      <div className="font-bold mt-2 truncate w-full"><FancyName name={c.name} look={c.look} /></div>
+      {c.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: c.look?.accent || C.cyan }}>{c.title}</div>}
+      <div className="mt-1"><RankBadge rank={r} size={34} /></div>
+      <div className="ranklabel text-sm font-bold" style={{ color: r.color }}>{c.rank}{c.div ? ` ${c.div}` : ""}</div>
+    </div>
+  );
+}
+
+function fireRest(end) {
+  try { window.dispatchEvent(new CustomEvent("ascend-rest", { detail: end ? { end } : null })); } catch { /* */ }
+}
+
+const RestDock = React.memo(function RestDock() {
+  const [rest, setRest] = useState(null);
+  useEffect(() => {
+    const on = (e) => setRest(e.detail && e.detail.end ? { end: e.detail.end } : null);
+    window.addEventListener("ascend-rest", on);
+    return () => window.removeEventListener("ascend-rest", on);
+  }, []);
+  return (
+    <>
+      <div aria-hidden="true" style={{ height: 48, pointerEvents: "none" }} />
+      {rest && <RestBubble end={rest.end} onDone={() => setRest(null)} onClose={() => setRest(null)} onChangeEnd={(end) => setRest({ end })} />}
+    </>
+  );
+});
 const BACKUP_KEY = "ascend-state-backup-6z";
 // Pre-built iPhone Shortcut URL only. Ingest rules live in api/steps.js. Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
@@ -1126,10 +1276,11 @@ export default function App() {
       } else {
         snapRef.current = JSON.parse(JSON.stringify(crateDirty ? st : (st === beforeNorm ? st : beforeNorm)));
       }
-      D.withSource("hydrate", () => { setS(st); setLoaded(true); });
+      if (!recoveredPending) writtenRef.current = st;
+      D.withSource("hydrate", () => { setS(() => st); setLoaded(true); });
       D.boot(st.playerId);
-      if (offlineBoot && recoveredPending) dirtyRef.current = true;
-      try { setSaveDiag({ kb: Math.round(JSON.stringify(st).length / 1024), ms: null }); } catch (e) { /* huge or circular */ }
+      if (recoveredPending && !noPersistRef.current) dirtyRef.current = true;
+      setSaveDiag({ kb: 0, ms: null });
       loadCommunity().then((c) => { if (c && !noPersistRef.current) D.withSource("community", () => setS((p) => ({ ...p, community: c }))); }).catch(() => { /* offline */ });
       if (!noPersistRef.current) setTimeout(pullSteps, 800);
       if (!noPersistRef.current) setTimeout(() => XpSync.flush(), 1500);
@@ -1159,9 +1310,13 @@ export default function App() {
   }, [bootTick]);
 
   // Save state; if it fails (no signal), keep retrying until it lands
-  const persistNow = async ({ urgent = false } = {}) => {
+  const persistNow = async ({ urgent = false, fromHide = false } = {}) => {
     if (!loaded || !window.storage?.set) return;
     if (noPersistRef.current) return;
+    if (!fromHide && shouldDeferPersist(sRef.current, writtenRef.current || snapRef.current)) {
+      dirtyRef.current = true;
+      return;
+    }
     if (persistLock.current) { persistAgain.current = true; if (urgent) persistUrgent.current = true; return; }
     persistLock.current = true;
     setSaveStatus("saving");
@@ -1193,17 +1348,15 @@ export default function App() {
       D.withSource("persist", () => {
         setS((p) => {
           const base = snapRef.current || {};
-          const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
-          const useRemote = readKind === "ok" && remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
           const tMerge = performance.now();
-          const merged = normalizeState(useRemote ? mergeState(p, remote, base) : p);
+          const r = persistMerge(p, remote, base, readKind);
           mergeMs = performance.now() - tMerge;
-          toWrite = { ...merged, rev: Math.max(+p.rev || 0, remoteRev, +merged.rev || 0) + 1 };
-          sRef.current = toWrite;
-          nextState = JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
+          toWrite = r.toWrite;
+          nextState = r.useRemote ? r.merged : p;
           return nextState;
         });
       });
+      await new Promise((r) => setTimeout(r, 0));
       const refuseWipe = () => {
         try { console.warn("[ascend] refused persist: wipe-tripwire"); } catch { /* ignore */ }
         writePending(sRef.current, snapRef.current);
@@ -1227,7 +1380,6 @@ export default function App() {
         }
         return;
       }
-      writePending(sRef.current, snapRef.current);
       const wr = await guardedAccountWrite({
         set: (k, v) => window.storage.set(k, v, false, { noQueue: true }),
         next: toWrite || sRef.current,
@@ -1245,18 +1397,19 @@ export default function App() {
         }
         return;
       }
-      dirtyRef.current = false;
       allowWipeRef.current = false;
-      snapRef.current = JSON.parse(JSON.stringify(sRef.current));
-      writtenRef.current = nextState;
-      writeVerifiedCopy(toWrite || sRef.current);
+      const ack = persistAck(toWrite, sRef.current);
+      snapRef.current = ack.snap;
+      writtenRef.current = ack.written;
+      dirtyRef.current = ack.dirty;
+      setTimeout(() => writeVerifiedCopy(toWrite || sRef.current), 0);
       clearPending();
       setOffline(false);
       setLastSaveAt(Date.now());
       setSaveStatus("saved");
       D.life("ack");
       const ms = Math.round(performance.now() - t0);
-      try { setSaveDiag({ kb: Math.round(JSON.stringify(toWrite || sRef.current).length / 1024), ms }); } catch (e) { setSaveDiag((d) => ({ ...d, ms })); }
+      setSaveDiag((d) => ({ kb: d.kb, ms }));
       if (import.meta.env.DEV) window.__phase1LastPersist = { ms, mergeMs };
       if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
       if (urgent || persistUrgent.current) {
@@ -1312,6 +1465,7 @@ export default function App() {
     const urgent = saveIsUrgent(prev, s, URGENT_SAVE);
     if (noPersistRef.current) return;
     dirtyRef.current = true;
+    if (shouldWritePending(prev, s)) writePending(s, snapRef.current);
     const delay = saveDelayMs(urgent, prev, s);
     const t = setTimeout(() => persistRef.current({ urgent }), delay);
     return () => clearTimeout(t);
@@ -1325,7 +1479,7 @@ export default function App() {
     const hide = () => {
       if (noPersistRef.current || !loaded) return;
       writePending(sRef.current, snapRef.current);
-      if (dirtyRef.current) persistRef.current({ urgent: true });
+      if (dirtyRef.current) persistRef.current({ urgent: true, fromHide: true });
       window.storage?.flush?.();
     };
     const vis = () => { if (document.visibilityState === "hidden") hide(); };
@@ -2004,9 +2158,9 @@ function Profile({ s, setS, allowWipe }) {
       </button>
       {open && (
         <div className="px-4 pb-4 grid grid-cols-2 gap-3 body text-sm">
-          <label>Weight (lb)<input type="number" className="inp mt-1" value={p.weight} onChange={(e) => { const w = +e.target.value; set("weight", w); if (w > 50) setS((x) => ({ ...x, weightLog: { ...(x.weightLog || {}), [today()]: w } })); }} /></label>
-          <label>Height (in)<input type="number" className="inp mt-1" value={p.height} onChange={(e) => set("height", +e.target.value)} /></label>
-          <label>Age<input type="number" className="inp mt-1" value={p.age} onChange={(e) => set("age", +e.target.value)} /></label>
+          <label>Weight (lb)<NumField inputMode="decimal" className="inp mt-1" value={p.weight} onCommit={(v) => { if (v === "") return; set("weight", v); if (v > 50) setS((x) => ({ ...x, weightLog: { ...(x.weightLog || {}), [today()]: v } })); }} /></label>
+          <label>Height (in)<NumField inputMode="decimal" className="inp mt-1" value={p.height} onCommit={(v) => { if (v === "") return; set("height", v); }} /></label>
+          <label>Age<NumField inputMode="numeric" className="inp mt-1" value={p.age} onCommit={(v) => { if (v === "") return; set("age", v); }} /></label>
           <label>Body type<select className="inp mt-1" value={bodySex(p)} onChange={(e) => {
             const v = e.target.value === "f" ? "f" : "m";
             if (v === bodySex(p)) return;
@@ -2016,7 +2170,7 @@ function Profile({ s, setS, allowWipe }) {
             }, "Switch");
           }}><option value="m">Male</option><option value="f">Female</option></select></label>
           <label className="col-span-2">Activity<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
-          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => { allowWipe?.(); D.withSource("reset", () => setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings, test: !!s.test })); }, "Reset")}>Reset all progress</button>
+          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => { allowWipe?.(); D.withSource("reset", () => setS((p) => ({ ...DEFAULT, playerId: p.playerId, settings: p.settings, test: !!p.test }))); }, "Reset")}>Reset all progress</button>
         </div>
       )}
     </div>
@@ -2099,7 +2253,6 @@ function Train({ s, setS, gainXp, openRun }) {
     return () => D.push({ k: "unmount", kind: "Train", n });
   }, []);
   const [picker, setPicker] = useState(false);
-  const [rest, setRest] = useState(null);
   const [plates, setPlates] = useState(null);
   const [titling, setTitling] = useState(false);
   const [filter, setFilter] = useState("All");
@@ -2130,6 +2283,10 @@ function Train({ s, setS, gainXp, openRun }) {
   const bests = useMemo(
     () => computeBests(a?.editId ? { ...s, workouts: (s.workouts || []).filter((w) => w.id !== a.editId) } : s),
     [s.workouts, s.profile, s.custom, s.community, s.currentGym, s.gymSpecific, a?.editId]
+  );
+  const stalled = useMemo(
+    () => stalledLifts(s),
+    [s.workouts, s.profile, s.custom, s.community, s.currentGym, s.gymSpecific]
   );
   const setActive = (fn) => D.withSource("setActive", () => setS((p) => {
     const next = fn(p.active);
@@ -2177,7 +2334,7 @@ function Train({ s, setS, gainXp, openRun }) {
     juice(prs ? "pr" : "finish");
     if (prs) { postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
     gainXp(xp, prs ? `Workout · ${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete", `wo_${workout.id}`);
-    setRest(null);
+    fireRest(null);
   };
 
   const addExercise = (name) => {
@@ -2341,7 +2498,7 @@ function Train({ s, setS, gainXp, openRun }) {
         const delSet = (si) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.filter((_, j) => j !== si) }) }));
         const cols = showW ? "40px 1fr 1fr 1fr 40px 40px" : "40px 1fr 1fr 40px 40px";
         const mode = ex.wMode || (def.perHand ? "hand" : "total");
-        const sg = suggestNext(s, ex.name, a.editId);
+        const sg = suggestNext(s, ex.name, a.editId, stalled);
         const lastAssisted = [...ex.sets].reverse().find((st) => def.type === "assisted" && (+st.w > 0 || +st.r > 0));
         const cycleType = (si, st) => {
           dismissSetHint();
@@ -2429,8 +2586,8 @@ function Train({ s, setS, gainXp, openRun }) {
                   {D.on() && <DiagProbe kind="setrow" id={ei * 100 + si} />}
                   <button type="button" aria-label={typeLabel(st, si)} onClick={() => cycleType(si, st)} className="font-semibold flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, borderRadius: 6, border: `1px solid ${st.warm ? C.cyan : st.drop ? C.orange : C.line}`, color: st.warm ? C.mute : st.drop ? C.orange : C.text, background: "transparent" }}>{st.warm ? "W" : st.drop ? "D" : si + 1}</button>
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
-                  {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} {...D.fuelBind("set-w")} />}
-                  <input type="number" inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} {...D.fuelBind("set-r")} />
+                  {showW && <NumField inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onCommit={(v) => upd(si, { w: v })} {...D.fuelBind("set-w")} />}
+                  <NumField inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onCommit={(v) => upd(si, { r: v })} {...D.fuelBind("set-r")} />
                   <button type="button" aria-label="Mark set done"
                     data-diag-check={`${ei}:${si}`}
                     onPointerDown={(e) => D.check("pd", ei, si, !!st.done, e.pointerType)}
@@ -2447,7 +2604,7 @@ function Train({ s, setS, gainXp, openRun }) {
                     if (turningOn) {
                       SFX.click();
                       const secs = s.settings?.rest ?? 90;
-                      if (secs > 0 && !a.editId) { Beeper.unlock(); setRest({ end: Date.now() + secs * 1000 }); }
+                      if (secs > 0 && !a.editId) { Beeper.unlock(); fireRest(Date.now() + secs * 1000); }
                     }
                   }}
                     className="flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
@@ -2472,7 +2629,7 @@ function Train({ s, setS, gainXp, openRun }) {
 
       <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4, scrollMarginBottom: "calc(env(safe-area-inset-bottom) + 168px)" }}><Plus size={18} />Add exercise</button>
 
-      {rest && <RestBubble end={rest.end} onDone={() => setRest(null)} onClose={() => setRest(null)} onChangeEnd={(end) => setRest({ end })} />}
+      <RestDock />
       {plates && <PlateSheet weight={plates.w} onClose={() => setPlates(null)} />}
       {formSheet && (
         <Sheet title={`Form check · ${formSheet.name}`} onClose={() => setFormSheet(null)}>
@@ -2828,11 +2985,11 @@ function Fuel({ s, setS, gainXp }) {
         <div key={m.id} className="panel p-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{m.meal ? "🥤 " : ""}{m.name}</div>
-            <div className="body text-xs" style={{ color: C.dim }}>{Math.round(m.cal * m.qty)} cal · P {Math.round(m.p * m.qty)} · C {Math.round(m.c * m.qty)} · F {Math.round(m.f * m.qty)}</div>
+            <div className="body text-xs" style={{ color: C.dim }}>{Math.round(m.cal * (+m.qty || 0))} cal · P {Math.round(m.p * (+m.qty || 0))} · C {Math.round(m.c * (+m.qty || 0))} · F {Math.round(m.f * (+m.qty || 0))}</div>
             {m.meal && m.ingredients?.length > 0 && <details className="body text-xs mt-1" style={{ color: C.mute }}><summary style={{ cursor: "pointer" }}>{m.ingredients.length} ingredients</summary>{m.ingredients.map((it, i) => <div key={i} className="pl-2">{it.qty !== 1 ? `${it.qty}× ` : ""}{it.name} · {Math.round(it.cal * it.qty)} cal</div>)}</details>}
           </div>
-          <input type="number" step="0.5" min="0.5" aria-label="Servings" data-diag="fuel-servings" className="inp text-center" style={{ width: 58 }} value={m.qty}
-            onChange={(e) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].map((y) => y.id === m.id ? { ...y, qty: +e.target.value || 0 } : y) } }))} {...D.fuelBind("fuel-qty")} />
+          <NumField inputMode="decimal" aria-label="Servings" data-diag="fuel-servings" className="inp text-center" style={{ width: 58 }} value={m.qty}
+            onCommit={(v) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].map((y) => y.id === m.id ? { ...y, qty: v } : y) } }))} {...D.fuelBind("fuel-qty")} />
           {D.on() && <DiagProbe kind="fuel-qty" id={String(m.id || "").length} />}
           <button aria-label="Remove food" onClick={() => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].filter((y) => y.id !== m.id) } }))} style={{ color: C.mute }}><Trash2 size={16} /></button>
         </div>
@@ -2981,16 +3138,6 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
 
   if (building) return <MealBuilder s={s} setS={setS} pool={[...saved, ...community, ...RESTAURANT_FOODS, ...FOODS]} onBack={() => setBuilding(false)} onDone={(meal) => { setBuilding(false); onAdd(meal); }} />;
 
-  const Row = ({ f, onDelete }) => (
-    <div className="ghost flex items-center">
-      <button onClick={() => onAdd(f)} className="flex-1 text-left p-3 min-w-0">
-        <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
-        <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
-      </button>
-      {onDelete && <button aria-label={`Remove ${f.name} from saved`} onClick={onDelete} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
-    </div>
-  );
-
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -3033,7 +3180,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
           <div className="grid grid-cols-4 gap-2 text-center">
             {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => (
               <label key={k} className="body text-xs" style={{ color: C.dim }}>{l}
-                <input type="number" className="inp text-center mt-1 font-bold" value={found[k]} onChange={(e) => setFound({ ...found, [k]: +e.target.value || 0 })} {...D.fuelBind("fuel-found")} />
+                <NumField inputMode="decimal" className="inp text-center mt-1 font-bold" value={found[k]} onCommit={(v) => setFound({ ...found, [k]: v })} {...D.fuelBind("fuel-found")} />
               </label>
             ))}
           </div>
@@ -3060,7 +3207,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
       {!needle && src === "All" && recent.length > 0 && (
         <>
           <div className="body text-xs font-semibold pt-1" style={{ color: C.dim }}>Recent</div>
-          <div className="space-y-2">{recent.map((f) => <Row key={`r-${f.name}`} f={f} />)}</div>
+          <div className="space-y-2">{recent.map((f) => <FoodPickRow key={`r-${f.name}`} f={f} onAdd={onAdd} />)}</div>
           <div className="body text-xs font-semibold pt-2" style={{ color: C.dim }}>Everything</div>
         </>
       )}
@@ -3204,7 +3351,7 @@ function WeightTracker({ s, setS }) {
       <h2 className="text-lg font-bold flex items-center gap-2">Weight<SaveMark /></h2>
       <div className="panel p-4 space-y-3">
         <div className="flex gap-2 items-center">
-          <input type="number" inputMode="decimal" className="inp" aria-label="Today's weight" placeholder={`Today's weight (now ${s.profile.weight} lb)`} value={wIn} onChange={(e) => setWIn(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logWeight()} />
+          <input type="text" inputMode="decimal" className="inp" aria-label="Today's weight" placeholder={`Today's weight (now ${s.profile.weight} lb)`} value={wIn} onChange={(e) => setWIn(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logWeight()} />
           <button onClick={logWeight} disabled={!+wIn} className="btn px-4 py-2 text-sm whitespace-nowrap" style={!+wIn ? { opacity: 0.5 } : null}>Log</button>
         </div>
         <WeightChart log={s.weightLog} target={s.profile.goal} />
@@ -3412,23 +3559,6 @@ function Ranks({ s, openMuscle }) {
   const ft = Math.floor(p.height / 12), inch = Math.round(p.height % 12);
   const totalW = Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0);
 
-  const Row = ({ e }) => {
-    const steps = thresholds(e, p);
-    const cur = bests[e.name] ? rankFor(e, bests[e.name], p) : null;
-    return (
-      <div className="grid items-center gap-1 py-2 text-sm" style={{ gridTemplateColumns: "1.6fr repeat(5, 1fr)", borderTop: `1px solid rgba(0,217,255,.10)` }}>
-        <div className="min-w-0">
-          <div className="font-semibold truncate">{e.name}{e.perHand ? <span className="body text-xs font-normal" style={{ color: C.mute }}> /hand</span> : null}</div>
-          <div className="body text-xs" style={{ color: cur ? cur.rank.color : C.mute }}>{cur ? `You: ${cur.label}` : "Not logged"}</div>
-        </div>
-        {steps.map((v, i) => {
-          const reached = cur && cur.score >= i + 1;
-          return <div key={i} className="text-center font-semibold tabular-nums" style={{ color: reached ? RANKS[i + 1].color : C.sub, textShadow: reached ? `0 0 8px ${RANKS[i + 1].glow}` : "none" }}>{v}</div>;
-        })}
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold tracking-wide glowtext">Ranks</h1>
@@ -3461,7 +3591,7 @@ function Ranks({ s, openMuscle }) {
           <span style={{ color: C.dim }}>Lift</span>
           {RANKS.slice(1, 6).map((r) => <span key={r.id} className="text-center" style={{ color: r.color, textShadow: `0 0 8px ${r.glow}` }}>{r.id}</span>)}
         </div>
-        {key.map((n) => { const e = all.find((x) => x.name === n); return e ? <Row key={n} e={e} /> : null; })}
+        {key.map((n) => { const e = all.find((x) => x.name === n); return e ? <RankGuideRow key={n} e={e} p={p} bests={bests} /> : null; })}
         <div className="body text-xs pt-2" style={{ color: C.mute }}>Weighted lifts show estimated one-rep max in lb, so 225 × 5 counts as about a 263 lb max. Lifts marked /hand use the weight in one hand. Pull-ups show strict reps in one set, and added weight counts extra. Shoulders and arms are held to a stricter standard.</div>
       </div>
 
@@ -3473,7 +3603,7 @@ function Ranks({ s, openMuscle }) {
             ))}
           </select>
         </label>
-        {all.find((e) => e.name === pick) && <Row e={all.find((e) => e.name === pick)} />}
+        {all.find((e) => e.name === pick) && <RankGuideRow e={all.find((e) => e.name === pick)} p={p} bests={bests} />}
       </div>
 
       <h2 className="text-lg font-bold glowtext pt-2">How overall rank works</h2>
@@ -3666,19 +3796,13 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
       const { data, saved } = await decodeSave(paste);
       const when = new Date(saved).toLocaleString();
       ask(`Load save from ${when}? This replaces everything currently in the app.`, () => {
-        D.withSource("restore", () => setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId })));
+        D.withSource("restore", () => setS((p) => normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || p.playerId })));
         setPaste(""); setMsg({ ok: true, text: `Save loaded: level ${levelFromXp(data.xp || 0).lvl}, ${data.workouts.length} workouts.` });
       }, "Load");
     } catch (e) {
       setMsg({ ok: false, text: "That code didn't work. Make sure you copied the whole thing, starting with ASC2-, ASC1-, or ASCEND-." });
     }
   };
-
-  const Toggle = ({ on, onClick, label }) => (
-    <button role="switch" aria-checked={on} aria-label={label} onClick={onClick} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: on ? C.cyan : C.track, border: `1px solid ${C.border}`, boxShadow: on ? `0 0 12px ${C.glow}` : "none", transition: "background .2s" }}>
-      <span className="absolute top-0.5" style={{ left: on ? 24 : 2, width: 22, height: 22, borderRadius: 999, background: "#fff", transition: "left .2s" }} />
-    </button>
-  );
 
   return (
     <div className="space-y-4">
@@ -3702,7 +3826,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             <div className="font-bold">Zesty mode</div>
             <div className="body text-xs" style={{ color: C.dim }}>Rainbow everything, plus disco music and a disco ball. Tap the disco ball button to start or stop the party.</div>
           </div>
-          <Toggle label="Zesty mode" on={!!st.zesty} onClick={() => { const on = !st.zesty; setSet("zesty", on); setParty(on); }} />
+          <SettingsToggle label="Zesty mode" on={!!st.zesty} onClick={() => { const on = !st.zesty; setSet("zesty", on); setParty(on); }} />
         </div>
         <div className="flex items-center gap-3">
           <Type size={22} style={{ color: C.cyan }} />
@@ -3710,7 +3834,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             <div className="font-bold">Easy-read font</div>
             <div className="body text-xs" style={{ color: C.dim }}>Switches everything to Lexend, a rounder font with wider spacing that's easier to read for dyslexia.</div>
           </div>
-          <Toggle label="Easy-read font" on={!!st.dysFont} onClick={() => setSet("dysFont", !st.dysFont)} />
+          <SettingsToggle label="Easy-read font" on={!!st.dysFont} onClick={() => setSet("dysFont", !st.dysFont)} />
         </div>
         <div className="flex items-center gap-3">
           <Palette size={22} style={{ color: C.cyan }} />
@@ -3718,7 +3842,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             <div className="font-bold">Custom colors</div>
             <div className="body text-xs" style={{ color: C.dim }}>Pick your own accent, secondary, and background. Zesty mode overrides this while it's on.</div>
           </div>
-          <Toggle label="Custom colors" on={!!st.custom?.on} onClick={() => setSet("custom", { ...(st.custom || DEFAULT.settings.custom), on: !st.custom?.on })} />
+          <SettingsToggle label="Custom colors" on={!!st.custom?.on} onClick={() => setSet("custom", { ...(st.custom || DEFAULT.settings.custom), on: !st.custom?.on })} />
         </div>
         {st.custom?.on && (
           <div className="grid grid-cols-3 gap-2 body text-sm">
@@ -3738,12 +3862,12 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             <div className="font-bold">Assistant voice</div>
             <div className="body text-xs" style={{ color: C.dim }}>Sterling reads replies out loud.</div>
           </div>
-          <Toggle label="Assistant voice" on={!!st.voice} onClick={() => setSet("voice", !st.voice)} />
+          <SettingsToggle label="Assistant voice" on={!!st.voice} onClick={() => setSet("voice", !st.voice)} />
         </div>
         <div className="flex items-center gap-3">
           <Volume2 size={22} style={{ color: C.cyan }} />
           <div className="flex-1"><div className="font-bold">Sound effects</div><div className="body text-xs" style={{ color: C.dim }}>Set clicks, PR chime, level-up and rank-up fanfares.</div></div>
-          <Toggle label="Sound effects" on={st.sounds !== false} onClick={() => setSet("sounds", st.sounds === false)} />
+          <SettingsToggle label="Sound effects" on={st.sounds !== false} onClick={() => setSet("sounds", st.sounds === false)} />
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <TimerIcon size={22} style={{ color: C.cyan }} />
@@ -3805,7 +3929,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
               <div className="font-bold">Ghost / test account</div>
               <div className="body text-xs" style={{ color: C.dim }}>{s.test ? "Hidden from boards, bosses, seasons, and duels. All cosmetics are unlocked." : "Off. Your real unlocks apply."}</div>
             </div>
-            <Toggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => (p.test ? stripGhostCosmetics(p) : { ...p, test: true }))} />
+            <SettingsToggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => (p.test ? stripGhostCosmetics(p) : { ...p, test: true }))} />
           </div>
         )}
         {testerErr && <div className="body text-xs" style={{ color: C.red }}>Wrong password.</div>}
@@ -3824,7 +3948,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
       <div className="body text-xs text-center" style={{ color: C.mute }}>State {saveDiag?.kb ?? 0} KB{saveDiag?.ms != null ? ` · last save ${saveDiag.ms} ms` : ""}</div>
       {diagOn && (
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7a.1" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
+          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7b" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
           <button type="button" onClick={() => { D.clear(); setDiagCopied(false); }} className="ghost py-3 text-sm font-bold">Clear</button>
         </div>
       )}
@@ -3835,7 +3959,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
       <h2 className="text-lg font-bold">Achievements</h2>
       <div className="panel p-4 space-y-2">
         <div className="body text-sm" style={{ color: C.dim }}>Achievements from the old, easier rank scale were already removed. If anything else looks wrong, recheck: any badge you no longer qualify for is removed and its XP taken back.</div>
-        <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); D.withSource("achievements", () => setS(next)); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
+        <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); D.withSource("achievements", () => setS(() => next)); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
       </div>
 
       <h2 className="text-lg font-bold">Export / import</h2>
@@ -3855,7 +3979,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             if (/^\s*</.test(text) || /\.xml$/i.test(f.name)) { setImpMsg({ ok: false, text: "That's an XML export. Use Strong or Hevy CSV instead." }); return; }
             const res = importWorkoutsFromCsv(s, text);
             if (!res.ok) { setImpMsg({ ok: false, text: res.err }); return; }
-            D.withSource("import", () => setS(res.s));
+            D.withSource("import", () => setS(() => res.s));
             setImpMsg({ ok: true, text: `Imported ${res.n} session${res.n === 1 ? "" : "s"}${res.skipped ? ` · skipped ${res.skipped} duplicate${res.skipped === 1 ? "" : "s"}` : ""}${res.xp ? ` · ${res.xp > 0 ? "+" : ""}${Math.round(res.xp)} XP` : ""}.` });
           } catch (err) { setImpMsg({ ok: false, text: "Couldn't read that file." }); }
         }} />
@@ -3890,7 +4014,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             if (!b?.value) { setMsg({ ok: false, text: "No backup found on this account." }); return; }
             const blob = typeof b.value === "string" ? JSON.parse(b.value) : b.value;
             const data = blob.state && typeof blob.state === "object" ? blob.state : blob;
-            D.withSource("restore", () => setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId })));
+            D.withSource("restore", () => setS((p) => normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || p.playerId })));
             setMsg({ ok: true, text: "Pre-update backup restored." });
           } catch (e) { setMsg({ ok: false, text: "Couldn't restore that backup." }); }
         }, "Restore")} className="ghost w-full py-3 font-bold" style={{ color: C.orange }}>Restore pre-update backup</button>
@@ -4320,17 +4444,6 @@ function IntervalTimer({ visible, onBack, onOpen }) {
   const R = 110, CIRC = 2 * Math.PI * R;
   const totalTime = rounds > 0 ? rounds * work + (rounds - 1) * rest : null;
 
-  const Stepper = ({ label, value, set, step, min, max, fmt }) => (
-    <div className="panel p-3">
-      <div className="body text-xs" style={{ color: C.dim }}>{label}</div>
-      <div className="flex items-center justify-between mt-1">
-        <button aria-label={`Less ${label}`} disabled={!!run} onClick={() => set(Math.max(min, value - step))} className="ghost w-9 h-9 flex items-center justify-center"><Minus size={16} /></button>
-        <span className="text-xl font-bold tabular-nums">{fmt(value)}</span>
-        <button aria-label={`More ${label}`} disabled={!!run} onClick={() => set(Math.min(max, value + step))} className="ghost w-9 h-9 flex items-center justify-center"><Plus size={16} /></button>
-      </div>
-    </div>
-  );
-
   // Floating mini timer on other pages while it's running
   if (!visible) {
     if (!run || run.phase === "done") return null;
@@ -4376,9 +4489,9 @@ function IntervalTimer({ visible, onBack, onOpen }) {
         ))}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Stepper label="Work" value={work} set={setWork} step={5} min={5} max={600} fmt={fmtClock} />
-        <Stepper label="Rest" value={rest} set={setRest} step={5} min={0} max={300} fmt={(v) => (v ? fmtClock(v) : "None")} />
-        <Stepper label="Rounds" value={rounds} set={setRounds} step={1} min={0} max={99} fmt={(v) => (v ? v : "∞")} />
+        <IntervalStepper label="Work" value={work} set={setWork} step={5} min={5} max={600} fmt={fmtClock} disabled={!!run} />
+        <IntervalStepper label="Rest" value={rest} set={setRest} step={5} min={0} max={300} fmt={(v) => (v ? fmtClock(v) : "None")} disabled={!!run} />
+        <IntervalStepper label="Rounds" value={rounds} set={setRounds} step={1} min={0} max={99} fmt={(v) => (v ? v : "∞")} disabled={!!run} />
       </div>
       <div className="body text-xs" style={{ color: C.mute }}>It beeps when each work or rest period starts, with a countdown tick for the last 3 seconds. Set rest to None to beep every interval nonstop. The timer keeps running if you switch tabs. Turn off silent mode to hear the beeps.</div>
     </div>
@@ -4531,7 +4644,7 @@ function CardDeck({ visible, s, setS, gainXp, onBack }) {
         {cfg.jokers && (
           <div className="grid grid-cols-2 gap-2 body text-sm">
             <label>Joker exercise<select className="inp mt-1" value={cfg.jokerEx} onChange={(e) => setCfg({ ...cfg, jokerEx: e.target.value })}>{all.map((e) => <option key={e.name}>{e.name}</option>)}</select></label>
-            <label>Joker reps<input type="number" className="inp mt-1" value={cfg.jokerReps} onChange={(e) => setCfg({ ...cfg, jokerReps: Math.max(1, +e.target.value || 1) })} /></label>
+            <label>Joker reps<NumField inputMode="numeric" className="inp mt-1" value={cfg.jokerReps} onCommit={(v) => { if (v === "") return; setCfg({ ...cfg, jokerReps: Math.max(1, v) }); }} /></label>
           </div>
         )}
         <div className="body text-xs" style={{ color: C.mute }}>A full deck with these settings is about {(() => { let t = 0; FACES.forEach((f, i) => { const r = i + 1; t += 4 * (r === 1 ? cfg.aces : r > 10 ? (cfg.faces === "ten" ? 10 : r) : r); }); return t + (cfg.jokers ? 2 * cfg.jokerReps : 0); })()} total reps.</div>
@@ -5266,7 +5379,10 @@ function MealBuilder({ s, setS, pool, onDone, onBack }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const matches = q.trim().length > 1 ? pool.filter((f) => !f.meal && f.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8) : [];
-  const tot = items.reduce((a, it) => ({ cal: a.cal + it.cal * it.qty, p: a.p + it.p * it.qty, c: a.c + it.c * it.qty, f: a.f + it.f * it.qty }), { cal: 0, p: 0, c: 0, f: 0 });
+  const tot = items.reduce((a, it) => {
+    const q = +it.qty || 0;
+    return { cal: a.cal + it.cal * q, p: a.p + it.p * q, c: a.c + it.c * q, f: a.f + it.f * q };
+  }, { cal: 0, p: 0, c: 0, f: 0 });
   const add = (f, qty = 1) => { setItems((x) => [...x, { name: f.name, cal: +f.cal || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0, qty }]); setQ(""); };
   const build = async () => {
     setBusy(true); setErr("");
@@ -5318,8 +5434,8 @@ function MealBuilder({ s, setS, pool, onDone, onBack }) {
         <div className="panel p-3 space-y-2">
           {items.map((it, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
-              <div className="flex-1 min-w-0"><div className="truncate font-semibold">{it.name}</div><div className="body text-xs" style={{ color: C.dim }}>{Math.round(it.cal * it.qty)} cal · P {Math.round(it.p * it.qty)} · C {Math.round(it.c * it.qty)} · F {Math.round(it.f * it.qty)}</div></div>
-              <input type="number" step="0.5" min="0.5" className="inp text-center" style={{ width: 56 }} value={it.qty} aria-label="Quantity" onChange={(e) => setItems((x) => x.map((y, j) => j === i ? { ...y, qty: +e.target.value || 0 } : y))} {...D.fuelBind("fuel-ing-qty")} />
+              <div className="flex-1 min-w-0"><div className="truncate font-semibold">{it.name}</div><div className="body text-xs" style={{ color: C.dim }}>{Math.round(it.cal * (+it.qty || 0))} cal · P {Math.round(it.p * (+it.qty || 0))} · C {Math.round(it.c * (+it.qty || 0))} · F {Math.round(it.f * (+it.qty || 0))}</div></div>
+              <NumField inputMode="decimal" className="inp text-center" style={{ width: 56 }} value={it.qty} aria-label="Quantity" onCommit={(v) => setItems((x) => x.map((y, j) => j === i ? { ...y, qty: v } : y))} {...D.fuelBind("fuel-ing-qty")} />
               <button aria-label="Remove ingredient" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
             </div>
           ))}
@@ -5398,15 +5514,6 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embe
     gainXp(MOG_XP, "Mog-off win", `mog_${m.id}`);
   };
   const remove = async (m) => { try { await window.storage.delete(m.key, true); setList((l) => l.filter((x) => x.key !== m.key)); } catch { /* ignore */ } };
-  const Face = ({ e, label, win }) => (
-    <div className="flex-1 text-center">
-      <img src={e.img} alt={`${label}'s mog`} style={{ width: "100%", maxWidth: 140, aspectRatio: "1", objectFit: "cover", borderRadius: 8, margin: "0 auto", border: `2px solid ${win ? C.gold : C.border}`, boxShadow: win ? `0 0 16px ${C.gold}` : "none" }} />
-      <div className="font-bold text-sm mt-1 truncate">{label}</div>
-      <div className="text-2xl font-extrabold glowtext" style={{ color: win ? C.gold : C.text }}>{e.total}</div>
-      <div className="body text-xs" style={{ color: C.dim }}>lips {e.pucker} · brows {e.brows} · stare {e.stare} · jaw {e.jaw} · commit {e.commitment}</div>
-      <div className="body text-xs italic mt-1" style={{ color: C.sub }}>"{e.quip}"</div>
-    </div>
-  );
   const rows = me ? list : list.filter((m) => (m.from === targetId || m.to === targetId));
   return (
     <div className="space-y-2">
@@ -5437,7 +5544,7 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embe
                 <div className="flex justify-end"><ReceiptButton label="Share result" make={() => buildReceipt({ s, kind: "Mog-off", headline: m.winner === "tie" ? "Dead heat" : `${m.winner === m.from ? m.fromName : m.toName} mogged`, sub: `${m.fromName} ${m.a.total} vs ${m.toName} ${m.b?.total ?? "–"}`, rows: [["Lips", `${m.a.pucker} vs ${m.b?.pucker ?? "–"}`], ["Brows", `${m.a.brows} vs ${m.b?.brows ?? "–"}`], ["Stare", `${m.a.stare} vs ${m.b?.stare ?? "–"}`], ["Commitment", `${m.a.commitment} vs ${m.b?.commitment ?? "–"}`]] })} /></div>
                 <div className="text-center font-extrabold" style={{ color: C.gold }}>{m.winner === "tie" ? "It's a tie. Both mogged equally hard." : `${m.winner === m.from ? m.fromName : m.toName} wins the mog-off`}</div>
                 <button onClick={() => setOpen(isOpen ? null : m.key)} className="body text-xs underline w-full" style={{ color: C.cyan }}>{isOpen ? "Hide faces" : "Show the faces and scores"}</button>
-                {isOpen && <div className="flex gap-3"><Face e={m.a} label={m.fromName} win={m.winner === m.from} /><Face e={m.b} label={m.toName} win={m.winner === m.to} /></div>}
+                {isOpen && <div className="flex gap-3"><MogFace e={m.a} label={m.fromName} win={m.winner === m.from} /><MogFace e={m.b} label={m.toName} win={m.winner === m.to} /></div>}
                 {m.winner === s.playerId && !(s.mogClaimed || {})[m.id] && <button onClick={() => claim(m)} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{MOG_XP} XP</button>}
               </>
             )}
@@ -5907,8 +6014,8 @@ function PhotoScan({ onAddAll, onCancel, sState, onShare }) {
     } catch (e2) { setErr("Couldn't read a meal from that photo. Try a clearer shot from above with good light."); }
     setBusy(false);
   };
-  const tot = (items || []).reduce((a, it) => ({ cal: a.cal + it.cal, p: a.p + it.p, c: a.c + it.c, f: a.f + it.f }), { cal: 0, p: 0, c: 0, f: 0 });
-  const upd = (i, k, v) => setItems((x) => x.map((it, j) => (j === i ? { ...it, [k]: k === "name" ? v : +v || 0 } : it)));
+  const tot = (items || []).reduce((a, it) => ({ cal: a.cal + (+it.cal || 0), p: a.p + (+it.p || 0), c: a.c + (+it.c || 0), f: a.f + (+it.f || 0) }), { cal: 0, p: 0, c: 0, f: 0 });
+  const upd = (i, k, v) => setItems((x) => x.map((it, j) => (j === i ? { ...it, [k]: v } : it)));
   return (
     <div className="panel p-4 space-y-3" style={{ borderColor: C.cyan }}>
       <div className="flex justify-between items-center"><div className="font-bold flex items-center gap-2"><Camera size={18} style={{ color: C.cyan }} />Scan a meal</div><button aria-label="Close" onClick={onCancel} style={{ color: C.mute }}><X size={18} /></button></div>
@@ -5933,7 +6040,7 @@ function PhotoScan({ onAddAll, onCancel, sState, onShare }) {
                 <button aria-label="Remove item" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
               </div>
               <div className="grid grid-cols-4 gap-1">
-                {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<input type="number" inputMode="numeric" className="inp text-center mt-0.5" value={it[k]} onChange={(e) => upd(i, k, e.target.value)} {...D.fuelBind("fuel-scan-n")} /></label>)}
+                {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<NumField inputMode="decimal" className="inp text-center mt-0.5" value={it[k]} onCommit={(v) => upd(i, k, v)} {...D.fuelBind("fuel-scan-n")} /></label>)}
               </div>
             </div>
           ))}
@@ -6159,18 +6266,19 @@ function titleEarned(t, s) {
 }
 
 /* ---------- Progression + coaching helpers ---------- */
-function suggestNext(s, name, excludeId) {
+function suggestNext(s, name, excludeId, stalled = null) {
   const def = findEx(s, name);
   if (def.type === "timed") return null;
   const last = lastWorkingSets(s, name, excludeId);
   if (!last) return null;
   const sets = last.sets.filter((st) => +st.r > 0);
   if (!sets.length) return null;
-  const stalled = stalledLifts(s).some((x) => namesMatch(x.name, name));
+  const stalledList = stalled || stalledLifts(s);
+  const isStalled = stalledList.some((x) => namesMatch(x.name, name));
   if (def.type === "bodyweight") {
     const minR = Math.min(...sets.map((st) => +st.r));
     const w = Math.max(...sets.map((st) => +st.w || 0));
-    if (stalled) return { w, r: Math.max(1, Math.round(minR * 0.8)), why: "stalled — drop reps, rebuild" };
+    if (isStalled) return { w, r: Math.max(1, Math.round(minR * 0.8)), why: "stalled — drop reps, rebuild" };
     if (minR >= 10) return { w, r: minR + 1, why: "add a rep" };
     return { w, r: minR, why: "repeat, get every set" };
   }
@@ -6179,7 +6287,7 @@ function suggestNext(s, name, excludeId) {
   const minR = Math.min(...reps);
   const big = (def.group === "Legs" || def.group === "Back") && def.factor >= 1;
   const step = def.perHand ? 5 : big ? 10 : 5;
-  if (stalled && def.type === "weighted") {
+  if (isStalled && def.type === "weighted") {
     const dw = Math.max(step, Math.round((w * 0.9) / 5) * 5);
     return { w: dw, r: 5, why: "stalled 3 sessions — deload ~10%" };
   }
@@ -6354,7 +6462,7 @@ function PlateSheet({ weight, onClose }) {
   return (
     <Sheet title="Plate calculator" onClose={onClose}>
       <div className="flex gap-2 items-center">
-        <input type="number" inputMode="decimal" className="inp text-center text-xl font-bold" value={w} onChange={(e) => setW(e.target.value)} aria-label="Total weight" />
+        <input type="text" inputMode="decimal" className="inp text-center text-xl font-bold" value={w} onChange={(e) => setW(e.target.value)} aria-label="Total weight" />
         <span className="body text-sm" style={{ color: C.dim }}>lb total</span>
       </div>
       <div className="flex gap-2">{[45, 35, 15].map((b) => <button key={b} onClick={() => setBar(b)} className="flex-1 py-2 text-sm font-semibold" style={{ borderRadius: 4, background: bar === b ? C.blue : C.soft, color: bar === b ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{b} lb bar</button>)}</div>
@@ -6782,7 +6890,7 @@ function Measurements({ s, setS }) {
       <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><Ruler size={16} style={{ color: C.cyan }} />Measurements{dates.length ? ` · ${MEASURES.filter(([k]) => last[k]).map(([k, l]) => `${l} ${last[k]}"`).join(", ")}` : ""}</span><ChevronDown size={16} className="shrink-0" style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
       {open && (
         <div className="px-3 pb-3 space-y-2">
-          <div className="grid grid-cols-4 gap-2">{MEASURES.map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<input type="number" inputMode="decimal" step="0.25" className="inp text-center mt-0.5" placeholder={last[k] || "in"} value={vals[k] || ""} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} /></label>)}</div>
+          <div className="grid grid-cols-4 gap-2">{MEASURES.map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<input type="text" inputMode="decimal" className="inp text-center mt-0.5" placeholder={last[k] || "in"} value={vals[k] || ""} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} /></label>)}</div>
           <button onClick={save} className="btn w-full py-2 text-sm">Log today</button>
           {dates.length > 0 && (
             <>
@@ -7423,15 +7531,6 @@ function VersusPanel({ s, data, me, id, setS, gainXp }) {
   const mine = profileCard(s);
   const them = data;
   const mr = RANKS.find((r) => r.id === mine.rank) || RANKS[0], tr = RANKS.find((r) => r.id === them.rank) || RANKS[0];
-  const Side = ({ c, r, right }) => (
-    <div className={`flex-1 flex flex-col items-center text-center min-w-0 ${right ? "" : ""}`}>
-      <Avatar src={c.avatar} name={c.name} size={64} ring={c.look?.accent || r.color} look={c.look} />
-      <div className="font-bold mt-2 truncate w-full"><FancyName name={c.name} look={c.look} /></div>
-      {c.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: c.look?.accent || C.cyan }}>{c.title}</div>}
-      <div className="mt-1"><RankBadge rank={r} size={34} /></div>
-      <div className="ranklabel text-sm font-bold" style={{ color: r.color }}>{c.rank}{c.div ? ` ${c.div}` : ""}</div>
-    </div>
-  );
   const row = (label, a, b, fmt = (v) => v) => {
     const av = a ?? 0, bv = b ?? 0;
     return <div key={label} className="grid items-center text-sm" style={{ gridTemplateColumns: "1fr auto 1fr" }}><span className="text-right font-bold" style={{ color: av > bv ? C.green : av < bv ? C.dim : C.text }}>{fmt(av)}</span><span className="body text-xs px-3" style={{ color: C.mute }}>{label}</span><span className="font-bold" style={{ color: bv > av ? C.green : bv < av ? C.dim : C.text }}>{fmt(bv)}</span></div>;
@@ -7440,9 +7539,9 @@ function VersusPanel({ s, data, me, id, setS, gainXp }) {
     <div className="panel p-4 space-y-3" style={{ borderColor: "#FF2D6F" }}>
       <div className="flex items-center justify-between"><div className="font-bold flex items-center gap-2"><Swords size={18} style={{ color: "#FF2D6F" }} />Versus</div><span className="body text-xs" style={{ color: C.dim }}>duels & mog-offs</span></div>
       <div className="flex items-center gap-2">
-        <Side c={mine} r={mr} />
+        <VersusSide c={mine} r={mr} />
         <div className="text-3xl font-extrabold shrink-0" style={{ color: "#FF2D6F", textShadow: "0 0 14px rgba(255,45,111,.7)", fontFamily: "'Cinzel', serif" }}>VS</div>
-        <Side c={them} r={tr} right />
+        <VersusSide c={them} r={tr} />
       </div>
       <div className="space-y-1 py-2" style={{ borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}` }}>
         {row("level", mine.lvl, them.lvl)}
@@ -7464,7 +7563,7 @@ function QuestAdd({ unit, onAdd }) {
   const go = () => { const n = +v; if (n > 0) { onAdd(n); setV(""); } };
   return (
     <div className="flex items-center gap-1">
-      <input type="number" inputMode="decimal" className="inp text-sm" style={{ width: 62, padding: "5px 6px" }} placeholder={unit} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} aria-label={`Add ${unit}`} />
+      <input type="text" inputMode="decimal" className="inp text-sm" style={{ width: 62, padding: "5px 6px" }} placeholder={unit} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} aria-label={`Add ${unit}`} />
       <button onClick={go} disabled={!(+v > 0)} className="btn px-2.5 py-1.5 text-sm">Add</button>
     </div>
   );
@@ -10252,7 +10351,7 @@ function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
         {week.map((w) => <div key={w.k} className="flex-1 flex flex-col items-center gap-1"><div style={{ width: "100%", height: `${Math.max(3, (w.n / maxN) * 56)}px`, borderRadius: 6, background: w.n >= goal ? C.green : w.k === d ? C.cyan : C.glassLine }} /><span className="body" style={{ fontSize: 10, color: C.dim }}>{new Date(w.k + "T12:00").toLocaleDateString(undefined, { weekday: "narrow" })}</span></div>)}
       </div>
       <div className="flex gap-2">
-        <input type="number" inputMode="numeric" className="inp text-sm" placeholder="Enter today's steps" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveManual()} aria-label="Today's steps" />
+        <input type="text" inputMode="numeric" className="inp text-sm" placeholder="Enter today's steps" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveManual()} aria-label="Today's steps" />
         <button onClick={saveManual} disabled={!(+manual >= 0) || manual === ""} className="btn px-4 text-sm">Save</button>
       </div>
       <button onClick={() => setSetup(!setup)} aria-expanded={setup} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up" : "Sync steps automatically"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
@@ -10502,9 +10601,9 @@ function Onboarding({ s, setS, step, onNext }) {
       <div className="panel p-5 space-y-4">
         <div><div className="text-xl font-bold">Your body stats</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Every rank target and calorie goal is built from these. You can change them any time.</div></div>
         <div className="grid grid-cols-2 gap-3 body text-sm">
-          <label>Weight (lb)<input type="number" inputMode="decimal" className="inp mt-1" value={p.weight} onChange={(e) => set("weight", +e.target.value)} /></label>
-          <label>Age<input type="number" inputMode="numeric" className="inp mt-1" value={p.age} onChange={(e) => set("age", +e.target.value)} /></label>
-          <label className="col-span-2">Height<div className="flex gap-1 mt-1"><input type="number" inputMode="numeric" className="inp text-center" value={ft} onChange={(e) => setHeight(+e.target.value || 0, inch)} aria-label="Feet" /><span className="self-center body text-xs" style={{ color: C.dim }}>ft</span><input type="number" inputMode="numeric" className="inp text-center" value={inch} onChange={(e) => setHeight(ft, +e.target.value || 0)} aria-label="Inches" /><span className="self-center body text-xs" style={{ color: C.dim }}>in</span></div></label>
+          <label>Weight (lb)<NumField inputMode="decimal" className="inp mt-1" value={p.weight} onCommit={(v) => { if (v === "") return; set("weight", v); }} /></label>
+          <label>Age<NumField inputMode="numeric" className="inp mt-1" value={p.age} onCommit={(v) => { if (v === "") return; set("age", v); }} /></label>
+          <label className="col-span-2">Height<div className="flex gap-1 mt-1"><NumField inputMode="numeric" className="inp text-center" value={ft} onCommit={(v) => { if (v === "") return; setHeight(v, inch); }} aria-label="Feet" /><span className="self-center body text-xs" style={{ color: C.dim }}>ft</span><NumField inputMode="numeric" className="inp text-center" value={inch} onCommit={(v) => { if (v === "") return; setHeight(ft, v); }} aria-label="Inches" /><span className="self-center body text-xs" style={{ color: C.dim }}>in</span></div></label>
           <label className="col-span-2">Training now<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
           <label className="col-span-2">Goal<select className="inp mt-1" value={p.goal} onChange={(e) => set("goal", e.target.value)}>{GOALS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>
         </div>

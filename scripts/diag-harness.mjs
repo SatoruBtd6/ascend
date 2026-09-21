@@ -36,6 +36,9 @@ const EMAIL = env.TEST_EMAIL;
 const PASS = env.TEST_PASSWORD;
 const BASE = process.env.ASCEND_BASE || "http://127.0.0.1:5173";
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "tmp-diag");
+const NO_DIAG = process.argv.includes("--no-diag");
+const TAPS_ONLY = process.argv.includes("--taps-only");
+const CHUD_ONLY = process.argv.includes("--chud-only");
 mkdirSync(OUT, { recursive: true });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -86,6 +89,42 @@ async function enableDiag(page) {
   await page.evaluate(() => {
     const id = window.ascendUserId || window.__ascendStorageUser || "anon";
     window.__ascendDiag?.enable(id);
+  });
+}
+
+async function startPerf(page) {
+  await page.evaluate(() => {
+    window.__ascendRpsCount = { App: 0, Train: 0, Fuel: 0 };
+    window.__ascendGaps = [];
+    let prev = performance.now();
+    const loop = (t) => {
+      window.__ascendGaps.push(t - prev);
+      prev = t;
+      if (!window.__ascendPerfStop) requestAnimationFrame(loop);
+    };
+    window.__ascendPerfStop = false;
+    requestAnimationFrame(loop);
+  });
+}
+
+async function readPerf(page) {
+  return page.evaluate(() => {
+    window.__ascendPerfStop = true;
+    const gaps = window.__ascendGaps || [];
+    const stalls = gaps.filter((g) => g > 50);
+    const rps = window.__ascendRpsCount || { App: 0, Train: 0, Fuel: 0 };
+    const sec = Math.max(0.001, (gaps.length ? gaps.reduce((a, b) => a + b, 0) : 1) / 1000);
+    return {
+      frames: gaps.length,
+      stallN: stalls.length,
+      stallMax: Math.round(stalls.reduce((m, g) => Math.max(m, g), 0)),
+      rps: {
+        App: Math.round(rps.App / sec),
+        Train: Math.round(rps.Train / sec),
+        Fuel: Math.round(rps.Fuel / sec),
+      },
+      counts: rps,
+    };
   });
 }
 
@@ -178,8 +217,20 @@ async function runTaps(page, label) {
     const gap = 50 + ((i * 37) % 351);
     await sleep(gap);
     try {
-      await checks.nth(idx).tap({ force: true, timeout: 4000 });
-      const bg = await checks.nth(idx).evaluate((el) => getComputedStyle(el).backgroundColor);
+      const want = expected[idx];
+      const bg = await page.evaluate(async ({ i, wantGreen }) => {
+        const el = document.querySelectorAll("[data-diag-check]")[i];
+        if (!el) return "";
+        el.click();
+        const isGreen = (c) => /79,\s*209,\s*139|57,\s*230,\s*143|18,\s*168,\s*96|#39e68f|#12a860/i.test(c || "");
+        const tEnd = performance.now() + 1200;
+        while (performance.now() < tEnd) {
+          const c = getComputedStyle(el).backgroundColor;
+          if (isGreen(c) === wantGreen) return c;
+          await new Promise((r) => requestAnimationFrame(r));
+        }
+        return getComputedStyle(el).backgroundColor;
+      }, { i: idx, wantGreen: want });
       const done = isDoneColor(bg);
       frozen = 0;
       if (done === expected[idx]) ok += 1;
@@ -321,25 +372,30 @@ async function runAccount(browser, url, label, rate) {
   await login(page);
   await sleep(rate >= 6 ? 4000 : 1200);
   await dismiss(page);
-  await enableDiag(page);
+  if (!NO_DIAG) await enableDiag(page);
   await throttle(page, rate);
 
   await setupFourByFour(page);
+  await startPerf(page);
   const taps = await runTaps(page, `${label} cpu${rate} taps`);
-  const fuel = await runFuel(page, `${label} cpu${rate}`);
-  const dump = await dumpDiag(page);
-  writeFileSync(join(OUT, `${label}-cpu${rate}.json`), dump);
-  const header = (() => { try { return JSON.parse(dump).header; } catch { return null; } })();
+  const perf = await readPerf(page);
+  log("perf", label, "cpu" + rate, perf);
+  let fuel = null;
+  if (!TAPS_ONLY) fuel = await runFuel(page, `${label} cpu${rate}`);
+  const dump = NO_DIAG ? "" : await dumpDiag(page);
+  if (dump) writeFileSync(join(OUT, `${label}-cpu${rate}.json`), dump);
+  const header = (() => { try { return dump ? JSON.parse(dump).header : { diag: false }; } catch { return null; } })();
   log("diag header", header);
   await context.close();
-  return { taps, fuel, header };
+  return { taps, fuel, header, perf };
 }
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
-  const out = { at: new Date().toISOString(), base: BASE, version: "7a.1", runs: [] };
+  const out = { at: new Date().toISOString(), base: BASE, version: "7b", noDiag: NO_DIAG, tapsOnly: TAPS_ONLY, chudOnly: CHUD_ONLY, runs: [] };
+  const accounts = (TAPS_ONLY || CHUD_ONLY) ? [["chud", BASE]] : [["chud", BASE], ["fixture", `${BASE}/?fixture=big`]];
   for (const rate of [6, 4]) {
-    for (const [account, url] of [["chud", BASE], ["fixture", `${BASE}/?fixture=big`]]) {
+    for (const [account, url] of accounts) {
       try {
         const run = runAccount(browser, url, account, rate);
         const timeout = sleep(180000).then(() => { throw new Error("run timeout 180s"); });

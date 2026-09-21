@@ -3,4 +3,4 @@
 @tailwind utilities;
 html, body { background: #000; margin: 0; -webkit-tap-highlight-color: transparent; }
 body { overscroll-behavior-y: none; }
-input, select, textarea, button { font: inherit; }
+input, select, textarea, button, a, [role="button"], [role="switch"], [role="menuitem"] { font: inherit; touch-action: manipulation; }

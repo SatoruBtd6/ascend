@@ -109,9 +109,14 @@ function start() {
   lastRaf = 0;
   lastRpsSec = Math.floor(now() / 1000);
   rps = { App: 0, Train: 0, Fuel: 0 };
+  let stallN = 0;
   const loop = (t) => {
     if (!enabled) return;
-    if (lastRaf && t - lastRaf > 50) push({ k: "stall", gap: Math.round(t - lastRaf) });
+    if (lastRaf && t - lastRaf > 50) {
+      const gap = Math.round(t - lastRaf);
+      stallN += 1;
+      if (gap >= 120 || stallN % 8 === 1) push({ k: "stall", gap });
+    }
     lastRaf = t;
     flushRps();
     if (typeof requestAnimationFrame === "function") rafId = requestAnimationFrame(loop);
@@ -128,20 +133,24 @@ function start() {
     } catch { shiftObs = null; }
   }
   if (!shiftObs && typeof requestAnimationFrame === "function") {
+    let boxSkip = 0;
     const boxes = () => {
       if (!enabled) return;
-      try {
-        const next = measureBoxes();
-        if (lastBoxes && next) {
-          for (const id of Object.keys(next)) {
-            const a = lastBoxes[id], b = next[id];
-            if (!a || !b) continue;
-            const d = Math.abs(a.t - b.t) + Math.abs(a.l - b.l) + Math.abs(a.w - b.w) + Math.abs(a.h - b.h);
-            if (d > 2) push({ k: "box", kind: id, gap: Math.round(d) });
+      boxSkip += 1;
+      if (boxSkip % 8 === 1) {
+        try {
+          const next = measureBoxes();
+          if (lastBoxes && next) {
+            for (const id of Object.keys(next)) {
+              const a = lastBoxes[id], b = next[id];
+              if (!a || !b) continue;
+              const d = Math.abs(a.t - b.t) + Math.abs(a.l - b.l) + Math.abs(a.w - b.w) + Math.abs(a.h - b.h);
+              if (d > 2) push({ k: "box", kind: id, gap: Math.round(d) });
+            }
           }
-        }
-        lastBoxes = next;
-      } catch { /* */ }
+          lastBoxes = next;
+        } catch { /* */ }
+      }
       boxRaf = requestAnimationFrame(boxes);
     };
     boxRaf = requestAnimationFrame(boxes);
@@ -187,6 +196,8 @@ function flushRps() {
 }
 
 export function noteRender(name) {
+  const c = typeof window !== "undefined" ? window.__ascendRpsCount : null;
+  if (c && (name === "App" || name === "Train" || name === "Fuel")) c[name] = (c[name] || 0) + 1;
   if (!enabled) return;
   if (name === "App" || name === "Train" || name === "Fuel") rps[name] += 1;
 }

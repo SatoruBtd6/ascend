@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -180,6 +180,78 @@ test("mergeState keeps local nulling of active instead of resurrecting a partial
   assert.equal(got.active, null);
 });
 
+const inflight = {
+  rev: 3,
+  active: { start: 1, exercises: [{ name: "A", sets: [{ w: "45", r: "8", done: false }, { w: "45", r: "8", done: false }] }] },
+  meals: { "2026-09-18": [{ id: "m1", name: "oats", cal: 150, qty: 1 }] },
+};
+const setDone = (s, si, done) => ({
+  ...s,
+  active: { ...s.active, exercises: s.active.exercises.map((e, i) => (i ? e : { ...e, sets: e.sets.map((st, j) => (j === si ? { ...st, done } : st)) })) },
+});
+const setQty = (s, qty) => ({
+  ...s,
+  meals: { "2026-09-18": s.meals["2026-09-18"].map((m) => (m.id === "m1" ? { ...m, qty } : m)) },
+});
+
+test("a set toggle during an in-flight persist survives the ack and the next persist", () => {
+  const { toWrite } = persistMerge(inflight, inflight, inflight, "ok");
+  const during = setDone(inflight, 0, true);
+  const ack = persistAck(toWrite, during);
+  assert.equal(ack.dirty, true);
+  assert.equal(ack.snap.active.exercises[0].sets[0].done, false);
+  const { merged } = persistMerge(during, toWrite, ack.snap, "ok");
+  assert.equal(merged.active.exercises[0].sets[0].done, true);
+});
+
+test("a Fuel qty edit during an in-flight persist survives the ack and the next persist", () => {
+  const { toWrite } = persistMerge(inflight, inflight, inflight, "ok");
+  const during = setQty(inflight, 2.5);
+  const ack = persistAck(toWrite, during);
+  assert.equal(ack.dirty, true);
+  assert.equal(ack.snap.meals["2026-09-18"][0].qty, 1);
+  const { merged } = persistMerge(during, toWrite, ack.snap, "ok");
+  assert.equal(merged.meals["2026-09-18"][0].qty, 2.5);
+});
+
+test("acking the live local state as the snapshot would drop a concurrent toggle", () => {
+  const { toWrite } = persistMerge(inflight, inflight, inflight, "ok");
+  const during = setDone(inflight, 0, true);
+  const bad = persistAck(during, during);
+  const { merged } = persistMerge(during, toWrite, bad.snap, "ok");
+  assert.equal(merged.active.exercises[0].sets[0].done, false);
+});
+
+test("same-rev remote is not merged even when the bodies differ", () => {
+  const local = setDone(inflight, 0, true);
+  const stale = { ...inflight, rev: inflight.rev };
+  stale.active = setDone(inflight, 0, false).active;
+  const r = persistMerge(local, stale, inflight, "ok");
+  assert.equal(r.useRemote, false);
+  assert.equal(r.merged.active.exercises[0].sets[0].done, true);
+});
+
+test("parseNumInput keeps empty empty and does not coerce to 0", () => {
+  assert.equal(parseNumInput(""), "");
+  assert.equal(parseNumInput("   "), "");
+  assert.equal(parseNumInput("."), "");
+  assert.equal(parseNumInput("0"), 0);
+  assert.equal(parseNumInput("2.5"), 2.5);
+  assert.equal(parseNumInput("12,5"), 12.5);
+});
+
+test("only community-only updates defer persist; in-workout checks do not", () => {
+  const snap = { active: null, meals: { a: 1 }, community: { foods: [] }, rev: 1 };
+  const tog = { ...snap, active: { start: 1, exercises: [] } };
+  assert.equal(shouldDeferPersist(tog, snap), false);
+  const qty = { ...snap, meals: { a: 2 } };
+  assert.equal(shouldDeferPersist(qty, snap), false);
+  const comm = { ...snap, community: { foods: [1] } };
+  assert.equal(shouldDeferPersist(comm, snap), true);
+  const both = { ...snap, active: { start: 1, exercises: [] }, community: { foods: [1] } };
+  assert.equal(shouldDeferPersist(both, snap), false);
+});
+
 test("normalizeState fills missing active.exercises without dropping extra keys", () => {
   const s = { active: { start: 1, title: "Push", extra: true }, mystery: 9, workouts: [{ id: "w1", title: "Push" }] };
   const n = normalizeState(s);
@@ -220,10 +292,43 @@ test("active typing is not urgent; structural active changes are", () => {
   const prev = { active: sess, meals: { a: 1 } };
   const typed = { ...prev, active: { ...sess, title: "P" } };
   assert.equal(saveIsUrgent(prev, typed, ["meals", "workouts"]), false);
-  assert.equal(saveDelayMs(false, prev, typed), 1000);
+  assert.equal(saveDelayMs(false, prev, typed), WORKOUT_SAVE_DELAY_MS);
   const checked = { ...prev, active: { ...sess, exercises: [{ name: "Bench", sets: [{ w: "135", r: "5", done: true }] }] } };
   assert.equal(saveIsUrgent(prev, checked, ["meals", "workouts"]), true);
-  assert.equal(saveDelayMs(true, prev, checked), 0);
+  assert.equal(saveDelayMs(true, prev, checked), WORKOUT_SAVE_DELAY_MS);
+  assert.equal(shouldWritePending(prev, typed), false);
+  assert.equal(shouldWritePending(prev, checked), true);
+});
+
+test("three set checks survive an abrupt kill from pending and then persist", () => {
+  const start = {
+    rev: 4,
+    active: {
+      start: 1,
+      title: "Push",
+      exercises: [{ name: "Bench", sets: [
+        { w: "135", r: "5", done: false },
+        { w: "135", r: "5", done: false },
+        { w: "135", r: "5", done: false },
+      ] }],
+    },
+  };
+  const one = setDone(start, 0, true);
+  const two = setDone(one, 1, true);
+  const three = setDone(two, 2, true);
+  assert.equal(shouldWritePending(start, one), true);
+  assert.equal(shouldWritePending(one, two), true);
+  assert.equal(shouldWritePending(two, three), true);
+  assert.equal(saveDelayMs(true, start, one), WORKOUT_SAVE_DELAY_MS);
+  const pending = { state: three, snap: start, t: 1 };
+  const recovered = mergeState(pending.state, start, pending.snap);
+  assert.deepEqual(recovered.active.exercises[0].sets.map((x) => x.done), [true, true, true]);
+  const { toWrite, useRemote, merged } = persistMerge(recovered, start, pending.snap, "ok");
+  assert.equal(useRemote, false);
+  assert.deepEqual((merged || recovered).active.exercises[0].sets.map((x) => x.done), [true, true, true]);
+  assert.deepEqual(toWrite.active.exercises[0].sets.map((x) => x.done), [true, true, true]);
+  const ack = persistAck(toWrite, recovered);
+  assert.deepEqual(ack.snap.active.exercises[0].sets.map((x) => x.done), [true, true, true]);
 });
 
 test("pending recovery keeps a local meal and a concurrent server-side meal", () => {
