@@ -1,5 +1,5 @@
 // Ascend service worker: keeps the app opening with no signal.
-const VERSION = "ascend-v6y";
+const VERSION = "ascend-v6z";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/apple-touch-icon.png", "/icon-192.png", "/logo.webp", "/logo-sm.webp",
   "/avatars/E.webp", "/avatars/D.webp", "/avatars/C.webp", "/avatars/B.webp", "/avatars/A.webp", "/avatars/S.webp", "/avatars/SS.webp",
   "/avatars/E-f.webp", "/avatars/D-f.webp", "/avatars/C-f.webp", "/avatars/B-f.webp", "/avatars/A-f.webp", "/avatars/S-f.webp", "/avatars/SS-f.webp"];
@@ -9,6 +9,9 @@ self.addEventListener("install", (e) => {
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener("message", (e) => {
+  if (e.data === "skipWaiting") self.skipWaiting();
 });
 self.addEventListener("fetch", (e) => {
   const req = e.request;
