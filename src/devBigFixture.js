@@ -3,7 +3,8 @@
 const LIFTS = 6;
 const SETS = 4;
 const WORKOUTS = 400;
-const MEAL_DAYS = 365;
+const MEAL_DAYS = 730;
+const SAVED_FOODS = 240;
 const CHATS = 300;
 const XP_DAYS = 365;
 
@@ -58,8 +59,16 @@ export function buildBigFixture(base, catalog) {
   ];
   for (let i = 0; i < MEAL_DAYS; i++) {
     const d = dayKey(i);
-    meals[d] = foods.map((f, fi) => ({ ...f, id: `fixm${i}_${fi}`, qty: 1 }));
+    meals[d] = foods.map((f, fi) => ({ ...f, id: `fixm${i}_${fi}`, qty: 1 + (i % 3) * 0.5 }));
   }
+  const savedFoods = Array.from({ length: SAVED_FOODS }, (_, i) => ({
+    name: `Custom food ${i + 1}`,
+    cal: 80 + (i % 40) * 10,
+    p: 4 + (i % 30),
+    c: 8 + (i % 25),
+    f: 2 + (i % 12),
+    r: "Saved",
+  }));
 
   const chat = [];
   for (let i = 0; i < CHATS; i++) {
@@ -84,6 +93,7 @@ export function buildBigFixture(base, catalog) {
     gyms,
     currentGym: "g1",
     meals,
+    savedFoods,
     chat,
     xpLog: { ...(base.xpLog || {}), ...xpLog },
     xpDetail: { ...(base.xpDetail || {}), ...xpDetail },

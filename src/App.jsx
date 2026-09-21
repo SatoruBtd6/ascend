@@ -2,6 +2,7 @@
 import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff, MoreHorizontal } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
+import * as D from "./diag.js";
 
 /* ---------- Theme ---------- */
 const THEMES = {
@@ -787,7 +788,18 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "7a";
+const APP_VERSION = "7a.1";
+if (typeof window !== "undefined") window.__ASCEND_VERSION = APP_VERSION;
+
+function DiagProbe({ kind, id }) {
+  useEffect(() => {
+    if (!D.on()) return;
+    const n = D.nextSeq();
+    D.push({ k: "mount", kind, n, id: typeof id === "number" ? id : 0 });
+    return () => D.push({ k: "unmount", kind, n });
+  }, [kind, id]);
+  return null;
+}
 const BACKUP_KEY = "ascend-state-backup-6z";
 // Pre-built iPhone Shortcut URL only. Ingest rules live in api/steps.js. Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
@@ -827,8 +839,20 @@ class TabErrorBoundary extends React.Component {
 }
 
 export default function App() {
-  const [s, setS] = useState(DEFAULT);
+  D.noteRender("App");
+  const [s, setSRaw] = useState(DEFAULT);
+  const setS = useCallback((u) => D.applySetS(setSRaw, u), []);
   const sRef = useRef(s); sRef.current = s;
+  useEffect(() => {
+    D.boot(s.playerId);
+    if (typeof window !== "undefined") window.__ASCEND_VERSION = APP_VERSION;
+  }, [s.playerId]);
+  useEffect(() => {
+    if (!D.on()) return;
+    const n = D.nextSeq();
+    D.push({ k: "mount", kind: "App", n });
+    return () => D.push({ k: "unmount", kind: "App", n });
+  }, []);
   const [loaded, setLoaded] = useState(false);
   const [bootError, setBootError] = useState(null);
   const [bootTick, setBootTick] = useState(0);
@@ -883,7 +907,7 @@ export default function App() {
   const [liveRun, setLiveRun] = useState(() => loadLive());
   const startRun = (mode, guide) => { const r = newRun(mode, guide); saveLive(r); setLiveRun(r); };
   const pullSteps = async () => {
-    try { const r = await window.storage.get("steps-inbox", false); const inbox = r?.value ? JSON.parse(r.value) : null; if (inbox) setS((p) => mergeSteps(p, inbox) || p); } catch (e) { /* none yet */ }
+    try { const r = await window.storage.get("steps-inbox", false); const inbox = r?.value ? JSON.parse(r.value) : null; if (inbox) D.withSource("steps", () => setS((p) => mergeSteps(p, inbox) || p)); } catch (e) { /* none yet */ }
   };
   useEffect(() => { const v = () => { if (document.visibilityState === "visible") pullSteps(); }; document.addEventListener("visibilitychange", v); return () => document.removeEventListener("visibilitychange", v); }, []);
   useEffect(() => {
@@ -1102,10 +1126,11 @@ export default function App() {
       } else {
         snapRef.current = JSON.parse(JSON.stringify(crateDirty ? st : (st === beforeNorm ? st : beforeNorm)));
       }
-      setS(st); setLoaded(true);
+      D.withSource("hydrate", () => { setS(st); setLoaded(true); });
+      D.boot(st.playerId);
       if (offlineBoot && recoveredPending) dirtyRef.current = true;
       try { setSaveDiag({ kb: Math.round(JSON.stringify(st).length / 1024), ms: null }); } catch (e) { /* huge or circular */ }
-      loadCommunity().then((c) => { if (c && !noPersistRef.current) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
+      loadCommunity().then((c) => { if (c && !noPersistRef.current) D.withSource("community", () => setS((p) => ({ ...p, community: c }))); }).catch(() => { /* offline */ });
       if (!noPersistRef.current) setTimeout(pullSteps, 800);
       if (!noPersistRef.current) setTimeout(() => XpSync.flush(), 1500);
       if (import.meta.env.DEV) {
@@ -1140,6 +1165,7 @@ export default function App() {
     if (persistLock.current) { persistAgain.current = true; if (urgent) persistUrgent.current = true; return; }
     persistLock.current = true;
     setSaveStatus("saving");
+    D.life("start");
     const t0 = performance.now();
     let failed = false;
     try {
@@ -1164,17 +1190,19 @@ export default function App() {
       let toWrite = null;
       let mergeMs = 0;
       let nextState = null;
-      setS((p) => {
-        const base = snapRef.current || {};
-        const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
-        const useRemote = readKind === "ok" && remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
-        const tMerge = performance.now();
-        const merged = normalizeState(useRemote ? mergeState(p, remote, base) : p);
-        mergeMs = performance.now() - tMerge;
-        toWrite = { ...merged, rev: Math.max(+p.rev || 0, remoteRev, +merged.rev || 0) + 1 };
-        sRef.current = toWrite;
-        nextState = JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
-        return nextState;
+      D.withSource("persist", () => {
+        setS((p) => {
+          const base = snapRef.current || {};
+          const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
+          const useRemote = readKind === "ok" && remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
+          const tMerge = performance.now();
+          const merged = normalizeState(useRemote ? mergeState(p, remote, base) : p);
+          mergeMs = performance.now() - tMerge;
+          toWrite = { ...merged, rev: Math.max(+p.rev || 0, remoteRev, +merged.rev || 0) + 1 };
+          sRef.current = toWrite;
+          nextState = JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
+          return nextState;
+        });
       });
       const refuseWipe = () => {
         try { console.warn("[ascend] refused persist: wipe-tripwire"); } catch { /* ignore */ }
@@ -1182,6 +1210,7 @@ export default function App() {
         dirtyRef.current = false;
         allowWipeRef.current = false;
         setSaveStatus("error");
+        D.life("fail");
         if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
         setSaveNote(WIPE_SAVE_NOTE);
       };
@@ -1193,6 +1222,7 @@ export default function App() {
           writePending(sRef.current, snapRef.current);
           dirtyRef.current = true;
           setSaveStatus("error");
+          D.life("fail");
           setSaveNote("Couldn't save. Retrying…");
         }
         return;
@@ -1210,6 +1240,7 @@ export default function App() {
         else {
           dirtyRef.current = true;
           setSaveStatus("error");
+          D.life("fail");
           setSaveNote("Couldn't save. Retrying…");
         }
         return;
@@ -1223,6 +1254,7 @@ export default function App() {
       setOffline(false);
       setLastSaveAt(Date.now());
       setSaveStatus("saved");
+      D.life("ack");
       const ms = Math.round(performance.now() - t0);
       try { setSaveDiag({ kb: Math.round(JSON.stringify(toWrite || sRef.current).length / 1024), ms }); } catch (e) { setSaveDiag((d) => ({ ...d, ms })); }
       if (import.meta.env.DEV) window.__phase1LastPersist = { ms, mergeMs };
@@ -1239,6 +1271,7 @@ export default function App() {
       writePending(sRef.current, snapRef.current);
       setOffline(true);
       setSaveStatus("error");
+      D.life("fail");
       if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
       setSaveNote("Couldn't save. Retrying…");
     } finally {
@@ -1360,11 +1393,11 @@ export default function App() {
     if (!loaded) return;
     const tid = equippedTitle(s).id;
     if ((s.profile.title || "none") === tid) return;
-    setS((p) => {
+    D.withSource("title", () => setS((p) => {
       const next = equippedTitle(p).id;
       if ((p.profile.title || "none") === next) return p;
       return { ...p, profile: { ...p.profile, title: next } };
-    });
+    }));
   }, [loaded, s.profile.title, s.ach, s.loot, s.crateUnlocks, s.lbReigning, s.seasonBadges, s.test]);
 
   useEffect(() => {
@@ -1386,9 +1419,9 @@ export default function App() {
     const d = today();
     const eid = once || `x_${slug(msg).slice(0, 40)}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     XpSync.add({ e: eid, a: amt, m: msg, d, t: Date.now() });
-    setS((p) => ({ ...p, xp: Math.max(0, p.xp + amt), xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt },
+    D.withSource("xp", () => setS((p) => ({ ...p, xp: Math.max(0, p.xp + amt), xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + amt },
       xpDone: { ...(p.xpDone || {}), [eid]: 1 },
-      xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), { m: msg, a: amt, t: Date.now() }].slice(-120) } }));
+      xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), { m: msg, a: amt, t: Date.now() }].slice(-120) } })));
     if (after > before) SFX.levelUp();
     setToast(after > before ? { big: true, text: `Level up · Level ${after}` } : { text: `${amt >= 0 ? "+" : ""}${amt} XP · ${msg}` });
     setTimeout(() => setToast(null), 2600);
@@ -1403,14 +1436,14 @@ export default function App() {
     if (fresh.every((a) => xpSeen.current.has(`ach_${a.id}`))) return;
     fresh.forEach((a) => xpSeen.current.add(`ach_${a.id}`));
     fresh.filter((a) => !(s.ach || {})[a.id]).forEach((a) => XpSync.add({ e: `ach_${a.id}`, a: a.xp, m: `Achievement: ${a.title}`, d, t: Date.now() }));
-    setS((p) => {
+    D.withSource("ach", () => setS((p) => {
       const already = Object.keys(p.ach || {});
       const add = fresh.filter((a) => !already.includes(a.id));
       if (!add.length) return p;
       const sum = add.reduce((x, a) => x + a.xp, 0);
       return { ...p, xp: p.xp + sum, ach: { ...(p.ach || {}), ...Object.fromEntries(add.map((a) => [a.id, d])) },
         xpLog: { ...p.xpLog, [d]: (p.xpLog?.[d] || 0) + sum }, xpDetail: { ...(p.xpDetail || {}), [d]: [...((p.xpDetail || {})[d] || []), ...add.map((a) => ({ m: `Achievement: ${a.title}`, a: a.xp, t: Date.now() }))].slice(-120) } };
-    });
+    }));
     setToast({ big: true, text: fresh.length === 1 ? `${fresh[0].title} unlocked · +${amt} XP` : `${fresh.length} achievements · +${amt} XP` });
     SFX.achievement();
     if (fresh.length <= 3) fresh.forEach((a) => postFeed(s, "ach", `unlocked ${a.title} (${TIER_STYLE[a.tier].name})`, {}, `ach_${a.id}`));
@@ -1421,7 +1454,7 @@ export default function App() {
   useEffect(() => {
     if (!loaded || !s.lb) return;
     const say = (text) => { setToast({ big: true, text }); setTimeout(() => setToast(null), 3600); };
-    const go = () => resolveDuels(sRef.current, setS, say).catch(() => {});
+    const go = () => D.withSource("duel", () => resolveDuels(sRef.current, setS, say).catch(() => {}));
     const t = setTimeout(go, 2500);
     const v = () => document.visibilityState === "visible" && go();
     document.addEventListener("visibilitychange", v);
@@ -1438,7 +1471,7 @@ export default function App() {
         const cards = await Promise.all((res?.keys || []).map(async (k) => {
           try { const r = await window.storage.get(k, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
         }));
-        if (!stop) applyReigning(sRef.current, setS, liveBoard(cards.filter(Boolean)));
+        if (!stop) D.withSource("board", () => applyReigning(sRef.current, setS, liveBoard(cards.filter(Boolean))));
       } catch (e) { /* offline */ }
     };
     const t = setTimeout(go, 1800);
@@ -1454,7 +1487,7 @@ export default function App() {
     const fresh = AURAS.filter((a) => a.task && !s.auraUnlocks?.[a.id] && AURA_TASKS[a.task](s).done);
     if (!fresh.length) return;
     const d = today();
-    setS((p) => ({ ...p, auraUnlocks: { ...(p.auraUnlocks || {}), ...Object.fromEntries(fresh.map((a) => [a.id, d])) } }));
+    D.withSource("aura", () => setS((p) => ({ ...p, auraUnlocks: { ...(p.auraUnlocks || {}), ...Object.fromEntries(fresh.map((a) => [a.id, d])) } })));
     setToast({ big: true, text: fresh.length === 1 ? `New aura: ${fresh[0].name}` : `${fresh.length} new auras unlocked` });
     fresh.forEach((a) => postFeed(s, "ach", `unlocked the ${a.name} aura`, {}, `aura_${a.id}`));
     const t = setTimeout(() => setToast(null), 3200);
@@ -1465,7 +1498,7 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     const snap = rankSnapshot(s);
-    if (!s.rankSnap) { setS((p) => ({ ...p, rankSnap: snap })); return; }
+    if (!s.rankSnap) { D.withSource("rank", () => setS((p) => ({ ...p, rankSnap: snap }))); return; }
     const prev = s.rankSnap;
     const up = rankUpCeremony(prev, snap);
     let cer = null;
@@ -1473,7 +1506,7 @@ export default function App() {
     if (up?.kind === "overall") { cer = { kind: "overall", rank: oi.rank, label: `${oi.label} · ${RANK_INFO[oi.rank.id][0]}`, feedLabel: oi.label }; }
     else if (up?.kind === "lift") { const full = rankedLifts(s).find((x) => x.e.name === up.name); const r = RANKS[Math.min(6, up.tier)]; cer = { kind: "lift", name: up.name, rank: r, label: full ? full.label : `${r.id}-Rank`, tier: up.tier }; }
     const changed = snap.overall !== prev.overall || snap.od !== prev.od || JSON.stringify(snap.lifts) !== JSON.stringify(prev.lifts);
-    if (changed) setS((p) => ({ ...p, rankSnap: snap }));
+    if (changed) D.withSource("rank", () => setS((p) => ({ ...p, rankSnap: snap })));
     if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.feedLabel} overall` : `${cer.name} hit ${cer.label}`, { tier: cer.kind === "overall" ? Math.floor(snap.overall) : cer.tier }, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.kind === "overall" ? cer.feedLabel.replace(" ", "") : cer.rank.id}`); }
     if (cer?.kind !== "overall" && prev.od != null && snap.od > prev.od && snap.overall === prev.overall && snap.overall >= 1) { postFeed(s, "rank", `climbed to ${oi.label} overall`, { tier: snap.overall }, `rank_overall_${oi.label.replace(" ", "")}`); }
   }, [loaded, s.workouts, s.profile.weight, s.profile.sex, s.custom]);
@@ -1484,7 +1517,7 @@ export default function App() {
     const ws = weekStart();
     if (s.rankHist?.[ws]) return;
     const o = overallInfo(s); const lifts = {}; rankedLifts(s).forEach((r) => { lifts[r.e.name] = r.score; });
-    setS((p) => ({ ...p, rankHist: { ...(p.rankHist || {}), [ws]: { overall: o.score, groups: o.groups, lifts, xp: p.xp } } }));
+    D.withSource("rank", () => setS((p) => ({ ...p, rankHist: { ...(p.rankHist || {}), [ws]: { overall: o.score, groups: o.groups, lifts, xp: p.xp } } })));
   }, [loaded, s.workouts]);
 
   applyTheme(s.settings);
@@ -1983,7 +2016,7 @@ function Profile({ s, setS, allowWipe }) {
             }, "Switch");
           }}><option value="m">Male</option><option value="f">Female</option></select></label>
           <label className="col-span-2">Activity<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
-          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => { allowWipe?.(); setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings, test: !!s.test }); }, "Reset")}>Reset all progress</button>
+          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => { allowWipe?.(); D.withSource("reset", () => setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings, test: !!s.test })); }, "Reset")}>Reset all progress</button>
         </div>
       )}
     </div>
@@ -2058,6 +2091,13 @@ const setLabel = (def, st) => {
 };
 
 function Train({ s, setS, gainXp, openRun }) {
+  D.noteRender("Train");
+  useEffect(() => {
+    if (!D.on()) return;
+    const n = D.nextSeq();
+    D.push({ k: "mount", kind: "Train", n });
+    return () => D.push({ k: "unmount", kind: "Train", n });
+  }, []);
   const [picker, setPicker] = useState(false);
   const [rest, setRest] = useState(null);
   const [plates, setPlates] = useState(null);
@@ -2091,12 +2131,12 @@ function Train({ s, setS, gainXp, openRun }) {
     () => computeBests(a?.editId ? { ...s, workouts: (s.workouts || []).filter((w) => w.id !== a.editId) } : s),
     [s.workouts, s.profile, s.custom, s.community, s.currentGym, s.gymSpecific, a?.editId]
   );
-  const setActive = (fn) => setS((p) => {
+  const setActive = (fn) => D.withSource("setActive", () => setS((p) => {
     const next = fn(p.active);
     if (next == null) return { ...p, active: null };
     if (!Array.isArray(next.exercises)) return { ...p, active: { ...next, exercises: [] } };
     return { ...p, active: next };
-  });
+  }));
   const lastSets = (name) => lastWorkingSets(s, name, a?.editId)?.sets || [];
   const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
   const sessionGym = () => (a.gym !== undefined ? a.gym : s.currentGym) ?? null;
@@ -2246,7 +2286,7 @@ function Train({ s, setS, gainXp, openRun }) {
   const hasWork = a.exercises.some((e) => e.sets.some((st) => st.done));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-diag="settable">
       <div className="flex justify-between items-center">
         <div>
           {a.editId ? <div className="text-xl font-bold glowtext flex items-center gap-2 flex-wrap">Editing {fmtDay(a.date)}<SaveMark /></div> : (
@@ -2329,6 +2369,7 @@ function Train({ s, setS, gainXp, openRun }) {
         const typeLabel = (st, si) => (st.warm ? "Warm-up set, tap to change type" : st.drop ? "Drop set, tap to mark working" : `Set ${si + 1}, tap to mark warm-up`);
         return (
           <div key={ei} className="panel p-3 relative" style={ex.ss ? { borderColor: C.green, marginBottom: 0 } : a.exercises[ei - 1]?.ss ? { borderColor: C.green, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 } : null}>
+            {D.on() && <DiagProbe kind="excard" id={ei} />}
             {a.exercises[ei - 1]?.ss && <div className="body text-xs font-bold -mt-1 mb-1" style={{ color: C.green }}>⇅ superset with {a.exercises[ei - 1].name}</div>}
             <div className="flex justify-between items-center mb-1 gap-2">
               <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
@@ -2385,16 +2426,24 @@ function Train({ s, setS, gainXp, openRun }) {
               const cmp = st.done && pv && +st.r > 0 ? ((+st.w || 0) * (+st.r || 0) || +st.r) - ((+pv.w || 0) * (+pv.r || 0) || +pv.r) : null;
               return (
                 <div key={si} className="setgrid grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3, opacity: st.warm ? 0.55 : 1 }}>
+                  {D.on() && <DiagProbe kind="setrow" id={ei * 100 + si} />}
                   <button type="button" aria-label={typeLabel(st, si)} onClick={() => cycleType(si, st)} className="font-semibold flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, borderRadius: 6, border: `1px solid ${st.warm ? C.cyan : st.drop ? C.orange : C.line}`, color: st.warm ? C.mute : st.drop ? C.orange : C.text, background: "transparent" }}>{st.warm ? "W" : st.drop ? "D" : si + 1}</button>
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
-                  {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
-                  <input type="number" inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
-                  <button aria-label="Mark set done" onClick={() => {
+                  {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} {...D.fuelBind("set-w")} />}
+                  <input type="number" inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} {...D.fuelBind("set-r")} />
+                  <button type="button" aria-label="Mark set done"
+                    data-diag-check={`${ei}:${si}`}
+                    onPointerDown={(e) => D.check("pd", ei, si, !!st.done, e.pointerType)}
+                    onPointerUp={(e) => D.check("pu", ei, si, !!st.done, e.pointerType)}
+                    onTouchEnd={() => D.check("te", ei, si, !!st.done)}
+                    onClick={() => {
+                    D.check("click", ei, si, !!st.done);
                     const key = `${ei}:${si}`;
                     const latest = doneTapRef.current[key] ?? !!st.done;
                     const turningOn = !latest;
                     doneTapRef.current[key] = turningOn;
                     upd(si, turningOn && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: turningOn });
+                    D.checkAfter(ei, si, turningOn, true);
                     if (turningOn) {
                       SFX.click();
                       const secs = s.settings?.rest ?? 90;
@@ -2693,6 +2742,13 @@ function Quests({ s, setS, gainXp }) {
 
 /* ---------- Fuel ---------- */
 function Fuel({ s, setS, gainXp }) {
+  D.noteRender("Fuel");
+  useEffect(() => {
+    if (!D.on()) return;
+    const n = D.nextSeq();
+    D.push({ k: "mount", kind: "Fuel", n });
+    return () => D.push({ k: "unmount", kind: "Fuel", n });
+  }, []);
   const [d, setD] = useState(today());
   const p = s.profile;
   const meals = s.meals[d] || [];
@@ -2775,8 +2831,9 @@ function Fuel({ s, setS, gainXp }) {
             <div className="body text-xs" style={{ color: C.dim }}>{Math.round(m.cal * m.qty)} cal · P {Math.round(m.p * m.qty)} · C {Math.round(m.c * m.qty)} · F {Math.round(m.f * m.qty)}</div>
             {m.meal && m.ingredients?.length > 0 && <details className="body text-xs mt-1" style={{ color: C.mute }}><summary style={{ cursor: "pointer" }}>{m.ingredients.length} ingredients</summary>{m.ingredients.map((it, i) => <div key={i} className="pl-2">{it.qty !== 1 ? `${it.qty}× ` : ""}{it.name} · {Math.round(it.cal * it.qty)} cal</div>)}</details>}
           </div>
-          <input type="number" step="0.5" min="0.5" aria-label="Servings" className="inp text-center" style={{ width: 58 }} value={m.qty}
-            onChange={(e) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].map((y) => y.id === m.id ? { ...y, qty: +e.target.value || 0 } : y) } }))} />
+          <input type="number" step="0.5" min="0.5" aria-label="Servings" data-diag="fuel-servings" className="inp text-center" style={{ width: 58 }} value={m.qty}
+            onChange={(e) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].map((y) => y.id === m.id ? { ...y, qty: +e.target.value || 0 } : y) } }))} {...D.fuelBind("fuel-qty")} />
+          {D.on() && <DiagProbe kind="fuel-qty" id={String(m.id || "").length} />}
           <button aria-label="Remove food" onClick={() => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].filter((y) => y.id !== m.id) } }))} style={{ color: C.mute }}><Trash2 size={16} /></button>
         </div>
       ))}
@@ -2944,7 +3001,8 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
         </div>
       </div>
 
-      <input autoFocus className="inp" placeholder="Search, e.g. P. Terry's double" value={q} onChange={(e) => { setQ(e.target.value); setFound(null); setErr(""); }} />
+      <input autoFocus className="inp" placeholder="Search, e.g. P. Terry's double" value={q} onChange={(e) => { setQ(e.target.value); setFound(null); setErr(""); }} {...D.fuelBind("fuel-search")} data-diag="fuel-search" />
+      {D.on() && <DiagProbe kind="fuel-search" />}
 
       <div className="grid grid-cols-3 gap-2">
         <button onClick={() => setScanning(true)} className="btn py-3 text-xs flex items-center justify-center gap-1"><Camera size={16} />Meal photo</button>
@@ -2975,7 +3033,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
           <div className="grid grid-cols-4 gap-2 text-center">
             {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => (
               <label key={k} className="body text-xs" style={{ color: C.dim }}>{l}
-                <input type="number" className="inp text-center mt-1 font-bold" value={found[k]} onChange={(e) => setFound({ ...found, [k]: +e.target.value || 0 })} />
+                <input type="number" className="inp text-center mt-1 font-bold" value={found[k]} onChange={(e) => setFound({ ...found, [k]: +e.target.value || 0 })} {...D.fuelBind("fuel-found")} />
               </label>
             ))}
           </div>
@@ -3589,6 +3647,9 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
   const [testerErr, setTesterErr] = useState(false);
   const [impMsg, setImpMsg] = useState(null);
   const impRef = useRef(null);
+  const [diagOn, setDiagOn] = useState(() => D.on());
+  const [diagCopied, setDiagCopied] = useState(false);
+  const verTaps = useRef([]);
 
   const makeSave = async () => {
     const c = await encodeSave(s);
@@ -3605,7 +3666,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
       const { data, saved } = await decodeSave(paste);
       const when = new Date(saved).toLocaleString();
       ask(`Load save from ${when}? This replaces everything currently in the app.`, () => {
-        setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId }));
+        D.withSource("restore", () => setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId })));
         setPaste(""); setMsg({ ok: true, text: `Save loaded: level ${levelFromXp(data.xp || 0).lvl}, ${data.workouts.length} workouts.` });
       }, "Load");
     } catch (e) {
@@ -3750,8 +3811,23 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
         {testerErr && <div className="body text-xs" style={{ color: C.red }}>Wrong password.</div>}
       </div>
 
-      <div className="body text-xs text-center" style={{ color: C.mute }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</div>
+      <button type="button" onClick={() => {
+        const t = Date.now();
+        verTaps.current = verTaps.current.filter((x) => t - x < 2500);
+        verTaps.current.push(t);
+        if (verTaps.current.length >= 5) {
+          verTaps.current = [];
+          setDiagOn(D.toggle(s.playerId));
+          setDiagCopied(false);
+        }
+      }} className="body text-xs text-center w-full" style={{ color: C.mute, background: "transparent", border: "none", padding: 0 }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</button>
       <div className="body text-xs text-center" style={{ color: C.mute }}>State {saveDiag?.kb ?? 0} KB{saveDiag?.ms != null ? ` · last save ${saveDiag.ms} ms` : ""}</div>
+      {diagOn && (
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7a.1" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
+          <button type="button" onClick={() => { D.clear(); setDiagCopied(false); }} className="ghost py-3 text-sm font-bold">Clear</button>
+        </div>
+      )}
 
       <h2 className="text-lg font-bold">Contact support</h2>
       <SupportForm s={s} />
@@ -3759,7 +3835,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
       <h2 className="text-lg font-bold">Achievements</h2>
       <div className="panel p-4 space-y-2">
         <div className="body text-sm" style={{ color: C.dim }}>Achievements from the old, easier rank scale were already removed. If anything else looks wrong, recheck: any badge you no longer qualify for is removed and its XP taken back.</div>
-        <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); setS(next); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
+        <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); D.withSource("achievements", () => setS(next)); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
       </div>
 
       <h2 className="text-lg font-bold">Export / import</h2>
@@ -3779,7 +3855,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             if (/^\s*</.test(text) || /\.xml$/i.test(f.name)) { setImpMsg({ ok: false, text: "That's an XML export. Use Strong or Hevy CSV instead." }); return; }
             const res = importWorkoutsFromCsv(s, text);
             if (!res.ok) { setImpMsg({ ok: false, text: res.err }); return; }
-            setS(res.s);
+            D.withSource("import", () => setS(res.s));
             setImpMsg({ ok: true, text: `Imported ${res.n} session${res.n === 1 ? "" : "s"}${res.skipped ? ` · skipped ${res.skipped} duplicate${res.skipped === 1 ? "" : "s"}` : ""}${res.xp ? ` · ${res.xp > 0 ? "+" : ""}${Math.round(res.xp)} XP` : ""}.` });
           } catch (err) { setImpMsg({ ok: false, text: "Couldn't read that file." }); }
         }} />
@@ -3814,7 +3890,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
             if (!b?.value) { setMsg({ ok: false, text: "No backup found on this account." }); return; }
             const blob = typeof b.value === "string" ? JSON.parse(b.value) : b.value;
             const data = blob.state && typeof blob.state === "object" ? blob.state : blob;
-            setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId }));
+            D.withSource("restore", () => setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId })));
             setMsg({ ok: true, text: "Pre-update backup restored." });
           } catch (e) { setMsg({ ok: false, text: "Couldn't restore that backup." }); }
         }, "Restore")} className="ghost w-full py-3 font-bold" style={{ color: C.orange }}>Restore pre-update backup</button>
@@ -5221,12 +5297,12 @@ function MealBuilder({ s, setS, pool, onDone, onBack }) {
         <h1 className="text-2xl font-bold glowtext">Create a meal</h1>
       </div>
       <div className="body text-sm" style={{ color: C.dim }}>Build a shake or a full meal once, and it saves with all its ingredients. It's shared with everyone, so your cousins can log it in one tap too.</div>
-      <input className="inp font-bold" placeholder="Meal name, e.g. Post-workout shake" value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="inp font-bold" placeholder="Meal name, e.g. Post-workout shake" value={name} onChange={(e) => setName(e.target.value)} {...D.fuelBind("fuel-meal-name")} data-diag="fuel-meal-name" />
 
       <div className="panel p-3 space-y-2">
         <div className="font-bold text-sm">Describe it and let AI fill the ingredients</div>
         <div className="flex gap-2">
-          <input className="inp" placeholder="e.g. 2 scoops whey, banana, oats, milk" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={(e) => e.key === "Enter" && desc.trim() && build()} />
+          <input className="inp" placeholder="e.g. 2 scoops whey, banana, oats, milk" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={(e) => e.key === "Enter" && desc.trim() && build()} {...D.fuelBind("fuel-desc")} data-diag="fuel-desc" />
           <button onClick={build} disabled={busy || desc.trim().length < 3} className="btn px-3 text-sm flex items-center gap-1">{busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}Build</button>
         </div>
         {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
@@ -5234,7 +5310,7 @@ function MealBuilder({ s, setS, pool, onDone, onBack }) {
 
       <div className="panel p-3 space-y-2">
         <div className="font-bold text-sm">Or add ingredients from the food list</div>
-        <input className="inp" placeholder="Search ingredients" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="inp" placeholder="Search ingredients" value={q} onChange={(e) => setQ(e.target.value)} {...D.fuelBind("fuel-ing")} data-diag="fuel-ing" />
         {matches.map((f) => <button key={f.name} onClick={() => add(f)} className="ghost w-full text-left p-2 text-sm flex justify-between"><span>{f.name}</span><span style={{ color: C.dim }}>{f.cal} cal</span></button>)}
       </div>
 
@@ -5243,7 +5319,7 @@ function MealBuilder({ s, setS, pool, onDone, onBack }) {
           {items.map((it, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
               <div className="flex-1 min-w-0"><div className="truncate font-semibold">{it.name}</div><div className="body text-xs" style={{ color: C.dim }}>{Math.round(it.cal * it.qty)} cal · P {Math.round(it.p * it.qty)} · C {Math.round(it.c * it.qty)} · F {Math.round(it.f * it.qty)}</div></div>
-              <input type="number" step="0.5" min="0.5" className="inp text-center" style={{ width: 56 }} value={it.qty} aria-label="Quantity" onChange={(e) => setItems((x) => x.map((y, j) => j === i ? { ...y, qty: +e.target.value || 0 } : y))} />
+              <input type="number" step="0.5" min="0.5" className="inp text-center" style={{ width: 56 }} value={it.qty} aria-label="Quantity" onChange={(e) => setItems((x) => x.map((y, j) => j === i ? { ...y, qty: +e.target.value || 0 } : y))} {...D.fuelBind("fuel-ing-qty")} />
               <button aria-label="Remove ingredient" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
             </div>
           ))}
@@ -5853,11 +5929,11 @@ function PhotoScan({ onAddAll, onCancel, sState, onShare }) {
           {items.map((it, i) => (
             <div key={i} className="ghost p-2 space-y-1">
               <div className="flex gap-2 items-center">
-                <input className="inp text-sm font-semibold" value={it.name} onChange={(e) => upd(i, "name", e.target.value)} aria-label="Food name" />
+                <input className="inp text-sm font-semibold" value={it.name} onChange={(e) => upd(i, "name", e.target.value)} aria-label="Food name" {...D.fuelBind("fuel-scan-name")} />
                 <button aria-label="Remove item" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
               </div>
               <div className="grid grid-cols-4 gap-1">
-                {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<input type="number" inputMode="numeric" className="inp text-center mt-0.5" value={it[k]} onChange={(e) => upd(i, k, e.target.value)} /></label>)}
+                {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<input type="number" inputMode="numeric" className="inp text-center mt-0.5" value={it[k]} onChange={(e) => upd(i, k, e.target.value)} {...D.fuelBind("fuel-scan-n")} /></label>)}
               </div>
             </div>
           ))}
@@ -6564,7 +6640,7 @@ function DayTemplates({ s, setS, d, meals }) {
           ))}
           {tpls.length === 0 && <div className="body text-xs" style={{ color: C.dim }}>Save a whole day of eating once, then log it in one tap.</div>}
           {meals.length > 0 && (naming ? (
-            <div className="flex gap-2"><input autoFocus className="inp text-sm" placeholder="Template name, e.g. Work day" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} /><button onClick={save} className="btn px-3 text-sm">Save</button></div>
+            <div className="flex gap-2"><input autoFocus className="inp text-sm" placeholder="Template name, e.g. Work day" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} {...D.fuelBind("fuel-tpl")} data-diag="fuel-tpl" /><button onClick={save} className="btn px-3 text-sm">Save</button></div>
           ) : <button onClick={() => setNaming(true)} className="ghost w-full py-2 text-sm font-semibold" style={{ color: C.cyan }}>Save this day as a template</button>)}
         </div>
       )}
