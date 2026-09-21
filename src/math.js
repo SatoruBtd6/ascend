@@ -146,9 +146,9 @@ export function normalizeState(s) {
     out[key] = val;
   };
 
-  const topArr = ["workouts", "savedRoutes", "dayTemplates", "custom", "chat", "presets", "savedFoods", "crateLog"];
+  const topArr = ["workouts", "savedRoutes", "dayTemplates", "custom", "chat", "presets", "savedFoods", "crateLog", "gyms"];
   topArr.forEach((k) => { if (!Array.isArray(out[k])) set(k, asArr(out[k], k)); });
-  const topObj = ["xpLog", "days", "meals", "weekly", "monthly", "rankHist", "steps", "stepXp", "loot", "seasonBadges", "nemesisSeen", "roasts", "checkins", "water", "measure", "groupClaimed", "duelClaimed", "bossRecaps", "worldFirsts", "wfClaim", "crewBanners", "fuelClaimed", "ach", "mogClaimed", "xpDetail", "xpDone", "weightLog", "crateUnlocks", "auraUnlocks", "duelResults"];
+  const topObj = ["xpLog", "days", "meals", "weekly", "monthly", "rankHist", "steps", "stepXp", "loot", "seasonBadges", "nemesisSeen", "roasts", "checkins", "water", "measure", "groupClaimed", "duelClaimed", "bossRecaps", "worldFirsts", "wfClaim", "crewBanners", "fuelClaimed", "ach", "mogClaimed", "xpDetail", "xpDone", "weightLog", "crateUnlocks", "auraUnlocks", "duelResults", "gymSpecific"];
   topObj.forEach((k) => { if (!isObj(out[k])) set(k, asObj(out[k], k)); });
 
   set("xp", asNum(out.xp, "xp"));
@@ -162,6 +162,7 @@ export function normalizeState(s) {
     if (typeof pity !== "number" || !Number.isFinite(pity)) set("cratePity", asNum(typeof pity === "object" ? +(pity?.legendary || pity?.rare || 0) : pity, "cratePity"));
   }
   if (out.rev != null) set("rev", asNum(out.rev, "rev"));
+  if (out.rankSnapV != null || "rankSnapV" in out) set("rankSnapV", asNum(out.rankSnapV, "rankSnapV"));
 
   const profile = asObj(out.profile, "profile");
   if (profile !== out.profile) set("profile", profile);
@@ -208,6 +209,16 @@ export function normalizeState(s) {
     const members = c.members == null || Array.isArray(c.members) ? c.members : (note("crew.members"), []);
     return members === c.members ? c : { ...c, members };
   }));
+  if (out.currentGym !== undefined && out.currentGym !== null && typeof out.currentGym !== "string") {
+    note("currentGym");
+    set("currentGym", null);
+  }
+  if (out.testCrate != null) {
+    const tc = asObj(out.testCrate, "testCrate");
+    const pity = asNum(tc.pity, "testCrate.pity");
+    const log = asArr(tc.log, "testCrate.log");
+    if (tc !== out.testCrate || pity !== tc.pity || log !== tc.log) set("testCrate", { ...tc, pity, log });
+  }
   set("nemesis", nullable(out.nemesis, "nemesis", (n) => n));
   set("rankSnap", nullable(out.rankSnap, "rankSnap", (n) => n));
   set("ghost", nullable(out.ghost, "ghost", (n) => n));
@@ -676,4 +687,277 @@ export function saveDelayMs(urgent, prev, s) {
   }
   if (!other && s.active !== prev.active) return 1000;
   return 400;
+}
+
+/* ---------- Phase 2 foundations: names, assisted legacy, gyms ---------- */
+export const LEGACY_ASSISTED_CUTOFF = "2026-09-20";
+
+// Lowercase, letters+digits only, drop a single trailing s.
+export function exKey(name) {
+  const raw = String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return /s$/.test(raw) && raw.length > 1 ? raw.slice(0, -1) : raw;
+}
+
+export function isLegacyAssisted(workout, def) {
+  if (!def || def.type !== "assisted") return false;
+  const d = workout?.date;
+  return typeof d === "string" && d < LEGACY_ASSISTED_CUTOFF;
+}
+
+export function isGymSpecific(s, def) {
+  const name = typeof def === "string" ? def : (def?.name || "");
+  const over = s?.gymSpecific && Object.prototype.hasOwnProperty.call(s.gymSpecific, name) ? s.gymSpecific[name] : undefined;
+  if (over === true) return true;
+  if (over === false) return false;
+  return /machine|cable/i.test(name);
+}
+
+export function workoutGym(w) {
+  return w && w.gym != null && w.gym !== "" ? w.gym : null;
+}
+
+export function inGymBucket(s, w, def) {
+  if (!isGymSpecific(s, def)) return true;
+  return workoutGym(w) === (s?.currentGym ?? null);
+}
+
+export function tagWorkouts(s, { gymId, before = null, untaggedOnly = false } = {}) {
+  const id = gymId ?? null;
+  const workouts = (s.workouts || []).map((w) => {
+    if (w.source === "import" || w.source === "run") return w;
+    if (untaggedOnly && workoutGym(w) != null) return w;
+    if (before && !(w.date < before)) return w;
+    if (workoutGym(w) === id) return w;
+    return { ...w, gym: id };
+  });
+  return workouts === s.workouts ? s : { ...s, workouts };
+}
+
+export const EXERCISE_NAME_FIELDS = Object.freeze([
+  "workouts[].exercises[].name",
+  "workouts[].lines[].name",
+  "active.exercises[].name",
+  "presets[].exercises[].name",
+  "custom[].name",
+  "lastSummary.prNames[]",
+  "lastSummary.suggestions[].name",
+  "lastSummary.recap.lifts[].name",
+  "gymSpecific",
+  "rankSnap.lifts",
+  "rankHist[*].lifts",
+]);
+
+export function remapLiftScores(lifts, mapping) {
+  if (!lifts || typeof lifts !== "object" || Array.isArray(lifts)) return lifts;
+  const map = mapping instanceof Map ? mapping : new Map(Object.entries(mapping || {}));
+  if (!map.size) return lifts;
+  let changed = false;
+  const out = { ...lifts };
+  map.forEach((neu, old) => {
+    if (!neu || old === neu || !Object.prototype.hasOwnProperty.call(out, old)) return;
+    const v = +out[old] || 0;
+    const cur = Object.prototype.hasOwnProperty.call(out, neu) ? +out[neu] || 0 : 0;
+    out[neu] = Math.max(cur, v);
+    delete out[old];
+    changed = true;
+  });
+  return changed ? out : lifts;
+}
+
+export function rankUpCeremony(prev, snap) {
+  if (!prev || !snap) return null;
+  if ((snap.overall || 0) > (prev.overall || 0) && (snap.overall || 0) >= 1) return { kind: "overall" };
+  const up = Object.entries(snap.lifts || {}).find(([n, t]) => t > ((prev.lifts || {})[n] ?? 0) && t >= 1);
+  if (up) return { kind: "lift", name: up[0], tier: up[1] };
+  return null;
+}
+
+export function withSilentRankSnap(s, snap) {
+  return { ...s, rankSnap: snap };
+}
+
+function bumpName(map, name) {
+  const n = String(name || "").trim();
+  if (!n) return;
+  map.set(n, (map.get(n) || 0) + 1);
+}
+
+export function exerciseHistoryCounts(s) {
+  const counts = new Map();
+  (s.workouts || []).forEach((w) => {
+    const seen = new Set();
+    (w.exercises || []).forEach((ex) => {
+      const n = ex?.name;
+      if (!n || seen.has(n)) return;
+      seen.add(n);
+      bumpName(counts, n);
+    });
+  });
+  return counts;
+}
+
+export function accountExerciseNames(s) {
+  const names = new Set();
+  const add = (n) => { const t = String(n || "").trim(); if (t) names.add(t); };
+  (s.workouts || []).forEach((w) => {
+    (w.exercises || []).forEach((ex) => add(ex?.name));
+    (w.lines || []).forEach((l) => add(l?.name));
+  });
+  (s.active?.exercises || []).forEach((ex) => add(ex?.name));
+  (s.presets || []).forEach((pr) => (pr.exercises || []).forEach((ex) => add(ex?.name)));
+  (s.custom || []).forEach((ex) => add(ex?.name));
+  (s.lastSummary?.prNames || []).forEach(add);
+  (s.lastSummary?.suggestions || []).forEach((x) => add(x?.name));
+  (s.lastSummary?.recap?.lifts || []).forEach((x) => add(x?.name));
+  Object.keys(s.gymSpecific || {}).forEach(add);
+  Object.keys(s.rankSnap?.lifts || {}).forEach(add);
+  Object.values(s.rankHist || {}).forEach((row) => Object.keys(row?.lifts || {}).forEach(add));
+  return names;
+}
+
+export function pickPreferredExercise(group, historyCounts) {
+  const list = Array.isArray(group) ? group.filter((g) => g && g.ex && g.ex.name) : [];
+  if (!list.length) return null;
+  const hist = historyCounts instanceof Map ? historyCounts : new Map(Object.entries(historyCounts || {}));
+  const bySource = (src) => list.find((g) => g.source === src);
+  const histNames = list.map((g) => g.ex.name).filter((n) => hist.has(n));
+  let name;
+  if (histNames.length) {
+    name = [...histNames].sort((a, b) => (hist.get(b) || 0) - (hist.get(a) || 0) || a.localeCompare(b))[0];
+  } else if (bySource("catalog")) name = bySource("catalog").ex.name;
+  else if (bySource("custom")) name = bySource("custom").ex.name;
+  else name = list[0].ex.name;
+  const catalog = bySource("catalog");
+  const custom = bySource("custom");
+  const named = list.find((g) => g.ex.name === name);
+  const base = catalog?.ex || custom?.ex || named?.ex || list[0].ex;
+  const community = !catalog && !custom;
+  return { ...base, name, ...(community ? { community: true } : { community: false }) };
+}
+
+export function duplicateExerciseGroups(s, catalogNames = []) {
+  const cat = new Set((catalogNames || []).map((n) => String(n)));
+  const counts = exerciseHistoryCounts(s);
+  const names = [...accountExerciseNames(s)];
+  const buckets = new Map();
+  names.forEach((n) => {
+    const k = exKey(n);
+    if (!k) return;
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(n);
+  });
+  const groups = [];
+  buckets.forEach((list, key) => {
+    const uniq = [...new Set(list)];
+    if (uniq.length < 2) return;
+    const options = uniq.map((name) => ({ name, sessions: counts.get(name) || 0, catalog: cat.has(name) }));
+    options.sort((a, b) => b.sessions - a.sessions || (b.catalog ? 1 : 0) - (a.catalog ? 1 : 0) || a.name.localeCompare(b.name));
+    groups.push({ key, names: uniq, options, canonical: options[0].name });
+  });
+  groups.sort((a, b) => a.canonical.localeCompare(b.canonical));
+  return groups;
+}
+
+function renameInList(arr, map, field) {
+  if (!Array.isArray(arr)) return arr;
+  let changed = false;
+  const next = arr.map((row) => {
+    if (!row || typeof row !== "object") return row;
+    const old = row[field];
+    const neu = map.get(old);
+    if (!neu || neu === old) return row;
+    changed = true;
+    return { ...row, [field]: neu };
+  });
+  return changed ? next : arr;
+}
+
+export function rewriteExerciseNames(s, mapping) {
+  const map = mapping instanceof Map ? mapping : new Map(Object.entries(mapping || {}));
+  if (!map.size) return s;
+  let out = s;
+  const set = (k, v) => { if (v !== out[k]) { if (out === s) out = { ...s }; out[k] = v; } };
+
+  const workouts = (s.workouts || []).map((w) => {
+    const exercises = renameInList(w.exercises, map, "name");
+    const lines = renameInList(w.lines, map, "name");
+    if (exercises === w.exercises && lines === w.lines) return w;
+    return { ...w, exercises, ...(w.lines ? { lines } : {}) };
+  });
+  if (workouts.some((w, i) => w !== s.workouts[i])) set("workouts", workouts);
+
+  if (s.active?.exercises) {
+    const exercises = renameInList(s.active.exercises, map, "name");
+    if (exercises !== s.active.exercises) set("active", { ...s.active, exercises });
+  }
+
+  const presets = (s.presets || []).map((pr) => {
+    const exercises = renameInList(pr.exercises, map, "name");
+    return exercises === pr.exercises ? pr : { ...pr, exercises };
+  });
+  if (presets.some((pr, i) => pr !== (s.presets || [])[i])) set("presets", presets);
+
+  const absorbed = new Set([...map.keys()].filter((k) => map.get(k) !== k));
+  const custom = (s.custom || []).filter((ex) => !absorbed.has(ex?.name)).map((ex) => {
+    const neu = map.get(ex.name);
+    return neu && neu !== ex.name ? { ...ex, name: neu } : ex;
+  });
+  if (custom.length !== (s.custom || []).length || custom.some((ex, i) => ex !== (s.custom || [])[i])) set("custom", custom);
+
+  if (s.lastSummary) {
+    let sum = s.lastSummary;
+    const prNames = Array.isArray(sum.prNames) ? sum.prNames.map((n) => map.get(n) || n) : sum.prNames;
+    const suggestions = renameInList(sum.suggestions, map, "name");
+    let recap = sum.recap;
+    if (recap?.lifts) {
+      const lifts = renameInList(recap.lifts, map, "name");
+      if (lifts !== recap.lifts) recap = { ...recap, lifts };
+    }
+    if (prNames !== sum.prNames || suggestions !== sum.suggestions || recap !== sum.recap) {
+      set("lastSummary", { ...sum, prNames, suggestions, recap });
+    }
+  }
+
+  if (s.gymSpecific && typeof s.gymSpecific === "object") {
+    let gs = s.gymSpecific;
+    let changed = false;
+    const next = { ...gs };
+    map.forEach((neu, old) => {
+      if (old === neu || !Object.prototype.hasOwnProperty.call(next, old)) return;
+      if (!Object.prototype.hasOwnProperty.call(next, neu)) next[neu] = next[old];
+      delete next[old];
+      changed = true;
+    });
+    if (changed) set("gymSpecific", next);
+  }
+
+  if (s.rankSnap && typeof s.rankSnap === "object") {
+    const lifts = remapLiftScores(s.rankSnap.lifts, map);
+    if (lifts !== s.rankSnap.lifts) set("rankSnap", { ...s.rankSnap, lifts });
+  }
+
+  if (s.rankHist && typeof s.rankHist === "object") {
+    let histChanged = false;
+    const nextHist = {};
+    Object.entries(s.rankHist).forEach(([k, row]) => {
+      if (!row || typeof row !== "object") { nextHist[k] = row; return; }
+      const lifts = remapLiftScores(row.lifts, map);
+      if (lifts !== row.lifts) { histChanged = true; nextHist[k] = { ...row, lifts }; }
+      else nextHist[k] = row;
+    });
+    if (histChanged) set("rankHist", nextHist);
+  }
+
+  return out;
+}
+
+export function applyExerciseMerge(s, groups, catalogNames = []) {
+  const mapping = new Map();
+  (groups || []).forEach((g) => {
+    if (!g || g.skip) return;
+    const canonical = g.canonical;
+    (g.names || []).forEach((n) => { if (n && n !== canonical) mapping.set(n, canonical); });
+  });
+  void catalogNames;
+  return rewriteExerciseNames(s, mapping);
 }

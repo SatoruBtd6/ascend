@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -168,23 +168,42 @@ const EXERCISES = [
   { name: "Battle Ropes", group: "Cardio", type: "timed", xp: 8 },
   { name: "Burpee", group: "Cardio", type: "bodyweight", reps: 2, xp: 9 },
 ];
-let exMemo = { custom: null, cex: null, list: null, byName: null };
+let exMemo = { token: null, list: null, byName: null, byKey: null };
 const allExercises = (s) => {
   const custom = s.custom || [];
   const cex = s.community?.ex || [];
-  if (exMemo.custom === custom && exMemo.cex === cex && exMemo.list) return exMemo.list;
-  const seen = new Set();
-  const local = [...EXERCISES, ...custom].filter((e) => { const k = e.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-  const names = new Set(local.map((e) => e.name.toLowerCase()));
-  const list = [...local, ...cex.filter((e) => e.name && !names.has(e.name.toLowerCase())).map((e) => ({ ...e, community: true }))].map((e) =>
-    e.type === "weighted" ? { ...e, factor: Math.max(e.factor || 0.5, (FACTOR_FLOOR[e.group] || 0.2) * (e.perHand ? 0.4 : 1)) } : e);
-  const byName = new Map(list.map((e) => [e.name, e]));
-  exMemo = { custom, cex, list, byName };
+  const hist = exerciseHistoryCounts(s);
+  const token = `${custom.length}\n${cex.length}\n${[...hist.entries()].map(([n, c]) => `${n}:${c}`).join("\n")}`;
+  if (exMemo.token === token && exMemo.list) return exMemo.list;
+  const buckets = new Map();
+  const add = (ex, source) => {
+    if (!ex?.name) return;
+    const k = exKey(ex.name);
+    if (!k) return;
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push({ ex, source });
+  };
+  EXERCISES.forEach((e) => add(e, "catalog"));
+  custom.forEach((e) => add(e, "custom"));
+  cex.forEach((e) => add(e, "community"));
+  const list = [];
+  const byName = new Map();
+  const byKey = new Map();
+  buckets.forEach((group, k) => {
+    const preferred = pickPreferredExercise(group, hist);
+    if (!preferred) return;
+    const row = preferred.type === "weighted" ? { ...preferred, factor: Math.max(preferred.factor || 0.5, (FACTOR_FLOOR[preferred.group] || 0.2) * (preferred.perHand ? 0.4 : 1)) } : preferred;
+    list.push(row);
+    byKey.set(k, row);
+    group.forEach((g) => byName.set(g.ex.name, row));
+    byName.set(row.name, row);
+  });
+  exMemo = { token, list, byName, byKey };
   return list;
 };
 const findEx = (s, name) => {
   allExercises(s);
-  return exMemo.byName.get(name) || { name, group: "Core", type: "weighted", factor: 1.2, xp: 8 };
+  return exMemo.byName.get(name) || exMemo.byKey.get(exKey(name)) || { name, group: "Core", type: "weighted", factor: 1.2, xp: 8 };
 };
 
 const QUEST_POOL = [
@@ -393,6 +412,8 @@ function computeBests(s) {
   s.workouts.forEach((w) => w.exercises.forEach((ex) => {
     const def = findEx(s, ex.name);
     if (def.type === "timed") return;
+    if (!inGymBucket(s, w, def)) return;
+    if (isLegacyAssisted(w, def)) return;
     workSets(ex.sets).forEach((st) => {
       const v = bestValue(def, st, s.profile, ex);
       const k = def.type === "assisted" ? def.rankAs : ex.name;
@@ -712,7 +733,7 @@ function customTheme(cu) {
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
-  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, ghost: null, bossRecaps: {}, streakNagDay: null, worldFirsts: {}, wfClaim: {}, crewBanners: {}, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [],
+  xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, ghost: null, bossRecaps: {}, streakNagDay: null, worldFirsts: {}, wfClaim: {}, crewBanners: {}, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 3, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [], gyms: [], currentGym: null, gymSpecific: {}, testCrate: { pity: 0, log: [] },
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
@@ -745,7 +766,8 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6w";
+const APP_VERSION = "6x";
+const BACKUP_KEY = "ascend-state-backup-6x";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -937,6 +959,14 @@ export default function App() {
           }
         } catch (e) { console.warn("[ascend] fixture skipped", e); }
       }
+      if (!noPersistRef.current && window.storage?.get) {
+        try {
+          let exists = false;
+          try { const b = await window.storage.get(BACKUP_KEY, false); exists = !!b?.value; } catch { exists = false; }
+          if (!exists) await window.storage.set(BACKUP_KEY, JSON.stringify({ at: Date.now(), version: APP_VERSION, state: st }), false);
+        } catch (e) { console.warn("[ascend] backup-6x skipped", e); }
+      }
+      if ((st.rankSnapV || 0) < 1) st = { ...st, rankSnap: rankSnapshot(st), rankSnapV: 1 };
       if (crateDirty && !noPersistRef.current && !recoveredPending) await window.storage.set("ascend-state", JSON.stringify(st), false);
       if (recoveredPending && !noPersistRef.current) {
         try { snapRef.current = JSON.parse(JSON.stringify(pending.snap && typeof pending.snap === "object" ? pending.snap : {})); }
@@ -1106,7 +1136,7 @@ export default function App() {
       if ((p.profile.title || "none") === next) return p;
       return { ...p, profile: { ...p.profile, title: next } };
     });
-  }, [loaded, s.profile.title, s.ach, s.loot, s.crateUnlocks, s.lbReigning, s.seasonBadges]);
+  }, [loaded, s.profile.title, s.ach, s.loot, s.crateUnlocks, s.lbReigning, s.seasonBadges, s.test]);
 
   useEffect(() => {
     const go = () => XpSync.flush();
@@ -1208,10 +1238,11 @@ export default function App() {
     const snap = rankSnapshot(s);
     if (!s.rankSnap) { setS((p) => ({ ...p, rankSnap: snap })); return; }
     const prev = s.rankSnap;
+    const up = rankUpCeremony(prev, snap);
     let cer = null;
     const oi = overallInfo(s);
-    if (snap.overall > (prev.overall || 0) && snap.overall >= 1) { cer = { kind: "overall", rank: oi.rank, label: `${oi.label} · ${RANK_INFO[oi.rank.id][0]}`, feedLabel: oi.label }; }
-    else { const up = Object.entries(snap.lifts).find(([n, t]) => t > (prev.lifts?.[n] ?? 0) && t >= 1); if (up) { const full = rankedLifts(s).find((x) => x.e.name === up[0]); const r = RANKS[Math.min(6, up[1])]; cer = { kind: "lift", name: up[0], rank: r, label: full ? full.label : `${r.id}-Rank`, tier: up[1] }; } }
+    if (up?.kind === "overall") { cer = { kind: "overall", rank: oi.rank, label: `${oi.label} · ${RANK_INFO[oi.rank.id][0]}`, feedLabel: oi.label }; }
+    else if (up?.kind === "lift") { const full = rankedLifts(s).find((x) => x.e.name === up.name); const r = RANKS[Math.min(6, up.tier)]; cer = { kind: "lift", name: up.name, rank: r, label: full ? full.label : `${r.id}-Rank`, tier: up.tier }; }
     const changed = snap.overall !== prev.overall || snap.od !== prev.od || JSON.stringify(snap.lifts) !== JSON.stringify(prev.lifts);
     if (changed) setS((p) => ({ ...p, rankSnap: snap }));
     if (cer) { setCeremony(cer); postFeed(s, "rank", cer.kind === "overall" ? `ranked up to ${cer.feedLabel} overall` : `${cer.name} hit ${cer.label}`, { tier: cer.kind === "overall" ? Math.floor(snap.overall) : cer.tier }, `rank_${cer.kind === "overall" ? "overall" : slug(cer.name)}_${cer.kind === "overall" ? cer.feedLabel.replace(" ", "") : cer.rank.id}`); }
@@ -1387,7 +1418,7 @@ export default function App() {
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <TabErrorBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></TabErrorBoundary>}
         {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} /></TabErrorBoundary>}
-        {onboard === null && tab === "exercise" && <TabErrorBoundary><ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} /></TabErrorBoundary>}
+        {onboard === null && tab === "exercise" && <TabErrorBoundary><ExercisePage s={s} setS={setS} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} /></TabErrorBoundary>}
         {onboard === null && tab === "run" && <TabErrorBoundary><RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} /></TabErrorBoundary>}
         {onboard === null && tab === "muscle" && <TabErrorBoundary><MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} /></TabErrorBoundary>}
         {onboard === null && tab === "profile" && <TabErrorBoundary><ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => setXpOpen(true)} /></TabErrorBoundary>}
@@ -1723,17 +1754,24 @@ function Profile({ s, setS }) {
 }
 
 /* ---------- Train ---------- */
-const namesMatch = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+const namesMatch = (a, b) => { const k = exKey(a); return !!k && k === exKey(b); };
+function gymLabel(s, id) {
+  if (id == null || id === "") return "";
+  return (s.gyms || []).find((g) => g.id === id)?.name || "";
+}
 function pastSessions(s, name, excludeId, n = 3) {
+  const def = findEx(s, name);
   const out = [];
   for (let i = (s.workouts || []).length - 1; i >= 0 && out.length < n; i--) {
     const w = s.workouts[i];
     if (w.id === excludeId || !isWorkout(w)) continue;
+    if (!inGymBucket(s, w, def)) continue;
+    if (isLegacyAssisted(w, def)) continue;
     const ex = (w.exercises || []).find((e) => namesMatch(e.name, name));
     if (!ex) continue;
     const sets = workSets(ex.sets).filter((st) => +st.r > 0 || +st.w > 0);
     if (!sets.length) continue;
-    out.push({ date: w.date, sets, id: w.id, title: w.title || "" });
+    out.push({ date: w.date, sets, id: w.id, title: w.title || "", gym: workoutGym(w) });
   }
   return out;
 }
@@ -1795,7 +1833,7 @@ function Train({ s, setS, gainXp, openRun }) {
   const a = s.active;
   const bests = useMemo(
     () => computeBests(a?.editId ? { ...s, workouts: (s.workouts || []).filter((w) => w.id !== a.editId) } : s),
-    [s.workouts, s.profile, s.custom, s.community, a?.editId]
+    [s.workouts, s.profile, s.custom, s.community, s.currentGym, s.gymSpecific, a?.editId]
   );
   const setActive = (fn) => setS((p) => {
     const next = fn(p.active);
@@ -1813,13 +1851,13 @@ function Train({ s, setS, gainXp, openRun }) {
       const old = s.workouts.find((w) => w.id === a.editId);
       const res = workoutXp(s, exercises, { ...bests });
       const delta = res.xp - (old?.xp || 0);
-      setS((p) => ({ ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus } : w) }));
+      setS((p) => ({ ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, gym: a.gym !== undefined ? a.gym : w.gym } : w) }));
       gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
       return;
     }
     const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, { ...bests });
     const d = today();
-    const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start };
+    const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
@@ -1837,7 +1875,7 @@ function Train({ s, setS, gainXp, openRun }) {
     window.scrollTo?.(0, 0);
   };
   const startPreset = (pr) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, exercises: (pr.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
+    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, gym: p.currentGym ?? null, exercises: (pr.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
     setShowPresets(false); window.scrollTo?.(0, 0);
   };
   const savePreset = () => {
@@ -1847,12 +1885,12 @@ function Train({ s, setS, gainXp, openRun }) {
     setNaming(false); setPresetName("");
   };
   const editWorkout = (w) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: (w.exercises || []).map((e) => ({ name: e.name, sets: (e.sets || []).map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) })) })) } }));
+    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", gym: w.gym ?? null, exercises: (w.exercises || []).map((e) => ({ name: e.name, sets: (e.sets || []).map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) })) })) } }));
     window.scrollTo?.(0, 0);
   };
 
   if (a && picker) return <ExercisePicker s={s} setS={setS} onPick={addExercise} onBack={() => setPicker(false)} />;
-  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { start: Date.now(), title, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
+  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { start: Date.now(), title, gym: p.currentGym ?? null, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
 
   if (!a) {
     const presets = s.presets || [];
@@ -1896,7 +1934,7 @@ function Train({ s, setS, gainXp, openRun }) {
           return (
             <div key={w.id} className="panel p-4">
               <div className="flex justify-between items-center">
-                <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{w.source && w.source !== "import" && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}{w.source === "import" && <span className="body text-xs ml-2" style={{ color: C.mute }}>imported</span>}</span>
+                <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{gymLabel(s, workoutGym(w)) ? <span className="body text-xs ml-2" style={{ color: C.mute }}>{gymLabel(s, workoutGym(w))}</span> : null}{w.source && w.source !== "import" && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}{w.source === "import" && <span className="body text-xs ml-2" style={{ color: C.mute }}>imported</span>}</span>
                 <div className="flex items-center gap-3">
                   {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
                   {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
@@ -1909,7 +1947,7 @@ function Train({ s, setS, gainXp, openRun }) {
               <div className="body text-sm mt-1 space-y-0.5" style={{ color: C.sub }}>
                 {w.exercises.map((ex, i) => {
                   const def = findEx(s, ex.name);
-                  return <div key={i}>{ex.name}: {ex.sets.map((st) => setLabel(def, st)).join(", ")}</div>;
+                  return <div key={i}>{ex.name}: {ex.sets.map((st) => setLabel(def, st)).join(", ")}{isLegacyAssisted(w, def) ? <span className="body text-xs ml-1" style={{ color: C.mute }}>legacy</span> : null}</div>;
                 })}
               </div>
               {isOpen && (
@@ -1941,6 +1979,12 @@ function Train({ s, setS, gainXp, openRun }) {
         <div>
           {a.editId ? <div className="text-xl font-bold glowtext flex items-center gap-2">Editing {fmtDay(a.date)}<SaveMark /></div> : <div className="flex items-center gap-2"><Timer start={a.start} /><SaveMark /></div>}
           <input className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} placeholder="Workout title" value={a.title || ""} onChange={(e) => setActive((w) => ({ ...w, title: e.target.value }))} aria-label="Workout title" />
+          {(s.gyms || []).length > 0 && (
+            <select className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} aria-label="Workout gym" value={a.gym || s.currentGym || ""} onChange={(e) => setActive((w) => ({ ...w, gym: e.target.value || null }))}>
+              <option value="">No gym</option>
+              {(s.gyms || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          )}
           <div className="text-sm font-bold" style={{ color: C.gold }}>≈ {live.xp} XP{live.prs ? ` · ${live.prs} PR${live.prs > 1 ? "s" : ""}` : ""}</div>
         </div>
         <button onClick={finish} className="px-5 py-2.5 text-sm font-bold" style={{ background: C.green, color: "#02040B", borderRadius: 4, boxShadow: "0 0 16px rgba(79,209,139,.5)" }}>{a.editId ? "Save changes" : "Finish"}</button>
@@ -2092,11 +2136,12 @@ function ExercisePicker({ s, setS, onPick, onBack }) {
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState(null);
 
-  const catalog = useMemo(() => allExercises(s).map((e) => ({ e, n: e.name.toLowerCase() })), [s.custom, s.community]);
+  const catalog = useMemo(() => allExercises(s).map((e) => ({ e, n: e.name.toLowerCase() })), [s.custom, s.community, s.workouts]);
   const needle = deferredQ.trim().toLowerCase();
+  const needleKey = exKey(q.trim());
   const list = useMemo(() => catalog.filter(({ e, n }) =>
-    (group === "All" || (group === "Custom" ? e.custom : group === "Community" ? e.community : e.group === group)) && (!needle || n.includes(needle))).map((x) => x.e), [catalog, group, needle]);
-  const exact = !!needle && catalog.some(({ n }) => n === needle);
+    (group === "All" || (group === "Custom" ? e.custom : group === "Community" ? e.community : e.group === group)) && (!needle || n.includes(needle) || (needleKey && exKey(e.name).includes(needleKey)))).map((x) => x.e), [catalog, group, needle, needleKey]);
+  const exact = !!needle && catalog.some(({ e, n }) => n === needle || (needleKey && exKey(e.name) === needleKey));
   const onDeleteCustom = useCallback((name) => ask(`Delete custom exercise "${name}"? Past workouts keep it.`, () => setS((p) => ({ ...p, custom: p.custom.filter((c) => c.name !== name) })), "Delete"), [setS]);
 
   const estimate = async () => {
@@ -2136,7 +2181,14 @@ Respond ONLY with JSON, no markdown:
   };
 
   const saveDraft = () => {
-    const name = allExercises(s).some((e) => e.name.toLowerCase() === draft.name.toLowerCase()) ? `${draft.name} (custom)` : draft.name;
+    const wanted = draft.name.trim();
+    const hit = allExercises(s).find((e) => exKey(e.name) === exKey(wanted));
+    if (hit) {
+      setErr(`That's the same as "${hit.name}". Added that instead of a duplicate.`);
+      onPick(hit.name);
+      return;
+    }
+    const name = wanted;
     const ex = { ...draft, name };
     delete ex.why;
     setS((p) => ({ ...p, custom: [...(p.custom || []), ex] }));
@@ -3071,6 +3123,114 @@ async function decodeSave(code) {
   return parsed;
 }
 
+function GymsSettings({ s, setS }) {
+  const gyms = s.gyms || [];
+  const [name, setName] = useState("");
+  const [tagDate, setTagDate] = useState("");
+  const [tagGym, setTagGym] = useState(s.currentGym || "");
+  const add = () => {
+    const n = name.trim();
+    if (!n) return;
+    const id = uid();
+    const first = gyms.length === 0;
+    setS((p) => withSilentRankSnap({ ...p, gyms: [...(p.gyms || []), { id, name: n }], currentGym: p.currentGym || id }));
+    setName("");
+    setTagGym(id);
+    if (first) ask(`Tag all untagged workouts as ${n}? Runs and imports stay untagged.`, () => setS((p) => withSilentRankSnap(tagWorkouts(p, { gymId: id, untaggedOnly: true }))), "Tag them");
+  };
+  return (
+    <div className="panel p-4 space-y-3">
+      <div className="body text-xs" style={{ color: C.dim }}>Personal gyms only — not the crew GPS pin. Machine and cable lifts compare within the current gym so a different stack doesn't look like a regression.</div>
+      {gyms.map((g) => (
+        <div key={g.id} className="flex items-center gap-2">
+          <button type="button" onClick={() => setS((p) => withSilentRankSnap({ ...p, currentGym: p.currentGym === g.id ? null : g.id }))} className="px-2 py-1 text-xs font-bold" style={{ borderRadius: 999, background: s.currentGym === g.id ? C.blue : C.soft, color: s.currentGym === g.id ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{s.currentGym === g.id ? "Current" : "Use"}</button>
+          <input className="inp flex-1 text-sm" value={g.name} aria-label={`Rename ${g.name}`} onChange={(e) => { const v = e.target.value; setS((p) => ({ ...p, gyms: (p.gyms || []).map((x) => x.id === g.id ? { ...x, name: v } : x) })); }} />
+          <button aria-label={`Delete ${g.name}`} onClick={() => ask(`Delete gym "${g.name}"? Past workouts keep their tag.`, () => setS((p) => withSilentRankSnap({ ...p, gyms: (p.gyms || []).filter((x) => x.id !== g.id), currentGym: p.currentGym === g.id ? null : p.currentGym })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <input className="inp flex-1 text-sm" placeholder="Gym name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} aria-label="New gym name" />
+        <button type="button" onClick={add} disabled={!name.trim()} className="btn px-3 text-sm">Add</button>
+      </div>
+      {gyms.length > 0 && (
+        <div className="space-y-2 pt-1" style={{ borderTop: `1px solid ${C.line}` }}>
+          <div className="font-bold text-sm">Tag past workouts</div>
+          <div className="flex gap-2 flex-wrap items-center">
+            <select className="inp text-sm" value={tagGym} onChange={(e) => setTagGym(e.target.value)} aria-label="Tag as gym">
+              <option value="">Choose gym</option>
+              {gyms.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+            <input type="date" className="inp text-sm" value={tagDate} onChange={(e) => setTagDate(e.target.value)} aria-label="Tag workouts before this date" />
+          </div>
+          <button type="button" disabled={!tagGym || !tagDate} onClick={() => setS((p) => withSilentRankSnap(tagWorkouts(p, { gymId: tagGym, before: tagDate })))} className="ghost w-full py-2 text-sm font-bold">Tag all workouts before that date</button>
+          <button type="button" disabled={!tagGym} onClick={() => setS((p) => withSilentRankSnap(tagWorkouts(p, { gymId: tagGym, untaggedOnly: true })))} className="ghost w-full py-2 text-sm font-bold">Tag all untagged workouts</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DedupeSettings({ s, setS }) {
+  const catalogNames = useMemo(() => EXERCISES.map((e) => e.name), []);
+  const [open, setOpen] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [manA, setManA] = useState("");
+  const [manB, setManB] = useState("");
+  const names = useMemo(() => [...accountExerciseNames(s)].sort((a, b) => a.localeCompare(b)), [s.workouts, s.custom, s.presets, s.active, s.lastSummary, s.gymSpecific]);
+  const load = () => {
+    setGroups(duplicateExerciseGroups(s, catalogNames).map((g) => ({ ...g, skip: false })));
+    setOpen(true);
+  };
+  const apply = () => {
+    const chosen = groups.filter((g) => !g.skip && g.canonical);
+    if (!chosen.length) { setOpen(false); return; }
+    ask("Rewrite every stored name in the ticked groups to the canonical name? Custom definitions that get absorbed are removed.", () => {
+      setS((p) => withSilentRankSnap(applyExerciseMerge(p, chosen, catalogNames)));
+      setOpen(false);
+    }, "Apply");
+  };
+  const addManual = () => {
+    if (!manA || !manB || manA === manB) return;
+    setGroups((gs) => [...gs, { key: `manual-${manA}-${manB}`, names: [manA, manB], canonical: manB, options: [{ name: manA, sessions: 0 }, { name: manB, sessions: 0 }], skip: false }]);
+    setManA(""); setManB("");
+  };
+  return (
+    <div className="panel p-4 space-y-3">
+      <div className="body text-xs" style={{ color: C.dim }}>Search already hides near-duplicates. This rewrite merges names that already appear in your history, presets, and custom list.</div>
+      {!open ? <button type="button" onClick={load} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Clean up duplicate exercises</button> : (
+        <>
+          {groups.length === 0 && <div className="body text-sm" style={{ color: C.dim }}>No automatic duplicates. You can still merge two names by hand.</div>}
+          {groups.map((g, i) => (
+            <div key={g.key} className="space-y-1 py-2" style={{ borderTop: i ? `1px solid ${C.line}` : "none" }}>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input type="checkbox" checked={!g.skip} onChange={() => setGroups((gs) => gs.map((x, j) => j === i ? { ...x, skip: !x.skip } : x))} />
+                Merge group
+              </label>
+              {(g.options || g.names.map((n) => ({ name: n, sessions: 0 }))).map((o) => (
+                <label key={o.name} className="flex items-center gap-2 body text-sm pl-1">
+                  <input type="radio" name={`canon-${g.key}`} checked={g.canonical === o.name} onChange={() => setGroups((gs) => gs.map((x, j) => j === i ? { ...x, canonical: o.name } : x))} />
+                  <span className="flex-1 min-w-0 truncate">{o.name}</span>
+                  <span style={{ color: C.mute }}>{o.sessions || 0} sessions{o.catalog ? " · catalog" : ""}</span>
+                </label>
+              ))}
+            </div>
+          ))}
+          <div className="body text-xs font-bold" style={{ color: C.dim }}>Merge two differently-named exercises</div>
+          <div className="grid grid-cols-2 gap-2">
+            <select className="inp text-sm" value={manA} onChange={(e) => setManA(e.target.value)} aria-label="Merge from"><option value="">From</option>{names.map((n) => <option key={`a-${n}`} value={n}>{n}</option>)}</select>
+            <select className="inp text-sm" value={manB} onChange={(e) => setManB(e.target.value)} aria-label="Merge into"><option value="">Into</option>{names.map((n) => <option key={`b-${n}`} value={n}>{n}</option>)}</select>
+          </div>
+          <button type="button" disabled={!manA || !manB || manA === manB} onClick={addManual} className="ghost w-full py-2 text-sm font-bold">Add manual pair</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="ghost py-2 text-sm font-bold">Cancel</button>
+            <button type="button" onClick={apply} className="btn py-2 text-sm">Apply</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) {
   const st = s.settings || {};
   const setSet = (k, v) => setS((p) => ({ ...p, settings: { ...p.settings, [k]: v, savedAt: Date.now() } }));
@@ -3206,6 +3366,12 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
         </button>
       </div>
 
+      <h2 className="text-lg font-bold">Gyms</h2>
+      <GymsSettings s={s} setS={setS} />
+
+      <h2 className="text-lg font-bold">Exercises</h2>
+      <DedupeSettings s={s} setS={setS} />
+
       {window.ascendAuth && (
         <div className="panel p-4 flex items-center justify-between gap-3">
           <div className="min-w-0"><div className="font-bold">Account</div><div className="body text-xs truncate" style={{ color: C.dim }}>{window.ascendAuth.email}</div></div>
@@ -3232,7 +3398,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
               <div className="font-bold">Ghost / test account</div>
               <div className="body text-xs" style={{ color: C.dim }}>{s.test ? "Hidden from boards, bosses, seasons, and duels. All cosmetics are unlocked." : "Off. Your real unlocks apply."}</div>
             </div>
-            <Toggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => ({ ...p, test: !p.test }))} />
+            <Toggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => (p.test ? stripGhostCosmetics(p) : { ...p, test: true }))} />
           </div>
         )}
         {testerErr && <div className="body text-xs" style={{ color: C.red }}>Wrong password.</div>}
@@ -3296,6 +3462,16 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
         <textarea value={paste} onChange={(e) => { setPaste(e.target.value); setMsg(null); }} className="inp body text-xs" rows={3} placeholder="Paste a save code here" aria-label="Paste save code" />
         <button onClick={load} disabled={!paste.trim()} className="ghost w-full py-3 font-bold flex items-center justify-center gap-2" style={{ color: paste.trim() ? C.cyan : C.mute }}><Upload size={18} />Load save</button>
         {msg && <div className="body text-sm" style={{ color: msg.ok ? C.green : C.red }}>{msg.text}</div>}
+        <button type="button" onClick={() => ask("Restore the pre-update backup? This replaces everything currently in the app with the snapshot saved before this update.", async () => {
+          try {
+            const b = await window.storage.get(BACKUP_KEY, false);
+            if (!b?.value) { setMsg({ ok: false, text: "No backup found on this account." }); return; }
+            const blob = typeof b.value === "string" ? JSON.parse(b.value) : b.value;
+            const data = blob.state && typeof blob.state === "object" ? blob.state : blob;
+            setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId }));
+            setMsg({ ok: true, text: "Pre-update backup restored." });
+          } catch (e) { setMsg({ ok: false, text: "Couldn't restore that backup." }); }
+        }, "Restore")} className="ghost w-full py-3 font-bold" style={{ color: C.orange }}>Restore pre-update backup</button>
       </div>
     </div>
   );
@@ -5475,6 +5651,9 @@ function rankSnapshot(s) {
   rankedLifts(s).forEach((r) => { lifts[r.e.name] = Math.floor(r.score); });
   return { overall: Math.floor(o.score), od: Math.min(20, Math.floor(o.score * 3)), lifts };
 }
+function withSilentRankSnap(s) {
+  return { ...s, rankSnap: rankSnapshot(s) };
+}
 function Ceremony({ c, onClose }) {
   const rank = c.rank;
   useEffect(() => { SFX.rankUp(); const t = setTimeout(onClose, 9000); return () => clearTimeout(t); }, []);
@@ -5841,18 +6020,30 @@ function FormCheck({ exercise, compact }) {
     </div>
   );
 }
-function ExercisePage({ s, name, onBack, openMuscle }) {
+function ExercisePage({ s, setS, name, onBack, openMuscle }) {
   const def = findEx(s, name);
   const p = s.profile;
   const bw = Math.max(80, +p.weight || 170);
+  const gymSpecific = isGymSpecific(s, def);
+  const [allGyms, setAllGyms] = useState(false);
   const sessions = [];
-  s.workouts.forEach((w) => { const ex = w.exercises.find((e) => e.name === name); if (!ex) return; const sets = ex.sets.filter((st) => +st.r > 0); if (!sets.length) return; const best = def.type === "timed" ? Math.max(...sets.map((st) => +st.r)) : Math.max(...sets.map((st) => bestValue(def, st, p, ex))); const vol = sets.reduce((a, st) => a + (+st.w || 0) * (+st.r || 0), 0); sessions.push({ d: w.date, best, vol, sets, id: w.id, title: w.title }); });
+  s.workouts.forEach((w) => {
+    const ex = (w.exercises || []).find((e) => namesMatch(e.name, name));
+    if (!ex) return;
+    const sets = (ex.sets || []).filter((st) => +st.r > 0);
+    if (!sets.length) return;
+    const best = def.type === "timed" ? Math.max(...sets.map((st) => +st.r)) : Math.max(...sets.map((st) => bestValue(def, st, p, ex)));
+    const vol = sets.reduce((a, st) => a + (+st.w || 0) * (+st.r || 0), 0);
+    sessions.push({ d: w.date, best, vol, sets, id: w.id, title: w.title, gym: workoutGym(w), legacy: isLegacyAssisted(w, def) });
+  });
+  const chartSessions = sessions.filter((x) => !x.legacy && (!gymSpecific || allGyms || x.gym === (s.currentGym ?? null)));
   const byDay = {};
-  sessions.forEach((x) => { const cur = byDay[x.d]; byDay[x.d] = cur ? { ...cur, best: Math.max(cur.best, x.best), vol: cur.vol + x.vol } : x; });
+  chartSessions.forEach((x) => { const cur = byDay[x.d]; byDay[x.d] = cur ? { ...cur, best: Math.max(cur.best, x.best), vol: cur.vol + x.vol } : x; });
   const pts = Object.values(byDay).sort((a, b) => (a.d < b.d ? -1 : 1));
-  const r = rankedLifts(s).find((x) => x.e.name === name);
+  const r = rankedLifts(s).find((x) => namesMatch(x.e.name, name));
   const sug = suggestNext(s, name);
   const unit = def.type === "bodyweight" ? "reps" : def.type === "timed" ? "min" : "lb";
+  const curGymName = gymLabel(s, s.currentGym) || "untagged";
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -5860,20 +6051,35 @@ function ExercisePage({ s, name, onBack, openMuscle }) {
         <div className="flex-1 min-w-0"><h1 className="text-2xl font-bold glowtext truncate">{name}</h1><button onClick={() => openMuscle(def.group)} className="body text-xs underline" style={{ color: C.dim }}>{def.group}{def.perHand ? " · per hand" : ""} · muscle page</button></div>
         {r && <RankBadge rank={r.rank} size={44} />}
       </div>
+      <div className="panel p-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm">Gym-specific history</div>
+          <div className="body text-xs" style={{ color: C.dim }}>{gymSpecific ? "Bests, Previous, ranks, and charts use the current gym. Free weights stay shared unless you override." : "Shared across gyms. Turn on if this machine or cable stack differs by gym."}</div>
+        </div>
+        <button role="switch" aria-checked={gymSpecific} aria-label="Gym-specific history" onClick={() => setS((p) => withSilentRankSnap({ ...p, gymSpecific: { ...(p.gymSpecific || {}), [name]: !isGymSpecific(p, def) } }))} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: gymSpecific ? C.cyan : C.track, border: `1px solid ${C.border}` }}>
+          <span className="absolute top-0.5" style={{ left: gymSpecific ? 24 : 2, width: 22, height: 22, borderRadius: 999, background: "#fff" }} />
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-2">
-        {[["Rank", r ? r.label : "–"], [def.type === "bodyweight" ? "Best reps" : def.type === "timed" ? "Longest" : "Est. max", r ? `${Math.round(r.best)} ${unit}` : pts.length ? `${Math.round(pts[pts.length - 1].best)} ${unit}` : "–"], ["× bodyweight", r && def.type === "weighted" ? `${(r.best / bw).toFixed(2)}×` : "–"], ["Sessions", pts.length], ["Next rank", r?.next ? `${r.next} ${unit}` : r ? "maxed" : "–"], ["Next time", sug ? `${sug.w}×${sug.r}` : "–"]].map(([l, v]) => (
+        {[["Rank", r ? r.label : "–"], [def.type === "bodyweight" ? "Best reps" : def.type === "timed" ? "Longest" : "Est. max", r ? `${Math.round(r.best)} ${unit}` : pts.length ? `${Math.round(pts[pts.length - 1].best)} ${unit}` : "–"], ["× bodyweight", r && def.type === "weighted" ? `${(r.best / bw).toFixed(2)}×` : "–"], ["Sessions", gymSpecific && !allGyms ? chartSessions.length : sessions.length], ["Next rank", r?.next ? `${r.next} ${unit}` : r ? "maxed" : "–"], ["Next time", sug ? `${sug.w}×${sug.r}` : "–"]].map(([l, v]) => (
           <div key={l} className="panel py-3 px-2 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold glowtext">{v}</div></div>
         ))}
       </div>
       {sug && <div className="body text-xs" style={{ color: C.dim }}>Suggested next session: {sug.w}×{sug.r} ({sug.why}).</div>}
+      {gymSpecific && (
+        <div className="flex items-center justify-between body text-xs" style={{ color: C.dim }}>
+          <span>Chart: {allGyms ? "all gyms" : curGymName}</span>
+          <button type="button" onClick={() => setAllGyms((v) => !v)} className="underline" style={{ color: C.cyan }}>{allGyms ? "Show current gym" : "Show all gyms"}</button>
+        </div>
+      )}
       <div className="panel p-3"><div className="font-bold text-sm mb-1">{def.type === "timed" ? "Minutes per session" : def.type === "bodyweight" ? "Best set (reps)" : "Estimated max"}</div><LineChart pts={pts.map((x) => ({ d: x.d, v: x.best }))} color={C.cyan} unit={unit} /></div>
       {def.type === "weighted" && <div className="panel p-3"><div className="font-bold text-sm mb-1">Volume per session</div><LineChart pts={pts.map((x) => ({ d: x.d, v: x.vol }))} color={C.green} unit="lb" fmt={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : Math.round(v))} /></div>}
       <FormCheck exercise={name} />
       <a href={ytUrl(name)} target="_blank" rel="noreferrer" className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Youtube size={16} />How-to videos</a>
       <h2 className="text-lg font-bold">History</h2>
-      {[...pts].reverse().slice(0, 15).map((x) => (
-        <div key={x.d} className="panel p-3 flex items-center gap-3">
-          <div className="flex-1 min-w-0"><div className="font-semibold">{fmtDay(x.d)}{x.title ? <span className="body text-xs ml-2" style={{ color: C.dim }}>{x.title}</span> : null}</div><div className="body text-xs truncate" style={{ color: C.sub }}>{sessions.filter((sx) => sx.d === x.d).flatMap((sx) => sx.sets).map((st) => setLabel(def, st)).join(", ")}</div></div>
+      {[...sessions].reverse().slice(0, 15).map((x) => (
+        <div key={x.id} className="panel p-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0"><div className="font-semibold">{fmtDay(x.d)}{x.title ? <span className="body text-xs ml-2" style={{ color: C.dim }}>{x.title}</span> : null}{gymLabel(s, x.gym) ? <span className="body text-xs ml-2" style={{ color: C.mute }}>{gymLabel(s, x.gym)}</span> : null}{x.legacy ? <span className="body text-xs ml-2" style={{ color: C.mute }}>legacy</span> : null}</div><div className="body text-xs truncate" style={{ color: C.sub }}>{x.sets.map((st) => setLabel(def, st)).join(", ")}</div></div>
           <div className="text-right"><div className="font-bold">{Math.round(x.best)}</div><div className="body text-xs" style={{ color: C.mute }}>{unit}</div></div>
         </div>
       ))}
@@ -6962,6 +7168,33 @@ function unlocked(item, s) {
   if (item.season) return item.id === "champion" ? Object.values(s.seasonBadges || {}).some((b) => b.place === 1) : Object.keys(s.seasonBadges || {}).length > 0;
   return false;
 }
+function stripGhostCosmetics(s) {
+  const real = { ...s, test: false };
+  const look = { ...(s.profile?.look || {}) };
+  let changed = false;
+  const auraOk = (id) => {
+    const a = AURAS.find((x) => x.id === id);
+    return !id || id === "none" || (a && unlocked(a, real));
+  };
+  if (!auraOk(look.aura)) {
+    look.aura = auraOk(look.auraPrev) ? look.auraPrev : "none";
+    changed = true;
+  }
+  const borderOk = (id) => {
+    const b = BORDERS.find((x) => x.id === id);
+    return !id || id === "none" || (b && unlocked(b, real));
+  };
+  if (!borderOk(look.border)) {
+    look.border = "none";
+    changed = true;
+  }
+  const title = equippedTitle(real);
+  const tid = title?.id || "none";
+  const profile = { ...s.profile, look, title: tid };
+  if ((s.profile?.title || "none") !== tid) changed = true;
+  if (!changed && look === s.profile?.look) return { ...s, test: false };
+  return { ...s, test: false, profile };
+}
 async function fetchRunWeather(lat, lng) {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
   try {
@@ -7654,29 +7887,56 @@ function crateOwned(s, prize) {
 function secureRandom() {
   return crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 }
-function rollCratePrize(s, crate = ACTIVE_CRATE, rng = secureRandom) {
-  const pity = typeof s.cratePity === "number" ? s.cratePity : Math.max(0, +(s.cratePity?.legendary || 0));
-  const rolled = rollAnimeRarity(pity, rng);
-  const pool = crate.prizes.filter((p) => p.rarity === rolled.rarity);
-  return { ...pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))], nextPity: rolled.pity, forced: rolled.forced };
+function crateReallyOwned(s, prize) {
+  return crateOwned({ ...s, test: false }, prize);
 }
-function applyCratePrize(p, prize, crate, rollId) {
+function cratePityOf(s, sandbox) {
+  if (sandbox) return Math.max(0, +(s.testCrate?.pity) || 0);
+  return typeof s.cratePity === "number" ? s.cratePity : Math.max(0, +(s.cratePity?.legendary || 0));
+}
+function rollCratePrize(s, crate = ACTIVE_CRATE, rng = secureRandom, opts = {}) {
+  const pity = opts.pity != null ? opts.pity : cratePityOf(s, opts.sandbox);
+  if (opts.forcePrize) {
+    const prize = opts.forcePrize;
+    const rolled = rollAnimeRarity(pity, rng);
+    const nextPity = prize.rarity === "secret" ? pity : (["legendary", "mythic", "gilded"].includes(prize.rarity) ? 0 : pity + 1);
+    return { ...prize, nextPity, forced: true, rolled };
+  }
+  const rolled = opts.forceRarity
+    ? { rarity: opts.forceRarity, pity: opts.forceRarity === "secret" ? pity : (["legendary", "mythic", "gilded"].includes(opts.forceRarity) ? 0 : pity + 1), forced: true }
+    : rollAnimeRarity(pity, rng);
+  const pool = crate.prizes.filter((p) => p.rarity === rolled.rarity);
+  const pick = pool[Math.min(Math.max(pool.length - 1, 0), Math.floor(rng() * Math.max(pool.length, 1)))] || crate.prizes[0];
+  return { ...pick, nextPity: rolled.pity, forced: rolled.forced };
+}
+function packCratePrize(s, prize) {
+  const dupe = crateReallyOwned(s, prize);
+  const refund = dupe ? (CRATE_RARITY[prize.rarity]?.refund || 0) : 0;
+  return { ...prize, dupe, refund };
+}
+function commitCratePrize(p, prize, crate, rollId, { sandbox = false, equip = true } = {}) {
+  const packed = packCratePrize(p, prize);
+  const entry = { t: Date.now(), rollId, crate: crate.id, rarity: prize.rarity, type: prize.type, id: prize.id, name: prize.name, dupe: packed.dupe, refund: packed.refund };
+  if (sandbox) {
+    const log = [entry, ...(p.testCrate?.log || [])].slice(0, 40);
+    return { ...p, testCrate: { pity: prize.nextPity, log } };
+  }
   if (crateBank(p) < crate.cost) return p;
   if (rollId && (p.crateLog || [])[0]?.rollId === rollId) return p;
-  const dupe = crateOwned(p, prize);
-  const meta = CRATE_RARITY[prize.rarity];
-  const refund = dupe ? meta.refund : 0;
-  const spent = crate.cost - refund;
+  const spent = crate.cost - packed.refund;
   const crateUnlocks = { ...(p.crateUnlocks || {}), [prize.id]: today() };
   const look = { ...(p.profile.look || {}) };
   const profile = { ...p.profile, look };
-  if (!dupe) {
+  if (equip && !packed.dupe) {
     if (prize.type === "aura") { look.auraPrev = look.aura; look.aura = prize.id; }
     if (prize.type === "border") look.border = prize.id;
     if (prize.type === "title") profile.title = prize.id;
   }
-  const log = [{ t: Date.now(), rollId, crate: crate.id, rarity: prize.rarity, type: prize.type, id: prize.id, name: prize.name, dupe, refund }, ...(p.crateLog || [])].slice(0, 40);
+  const log = [entry, ...(p.crateLog || [])].slice(0, 40);
   return { ...p, crateV: 2, crateSpent: Math.max(0, crateSpentOf(p) + spent), crateUnlocks, cratePity: prize.nextPity, crateLog: log, profile };
+}
+function applyCratePrize(p, prize, crate, rollId) {
+  return commitCratePrize(p, prize, crate, rollId, { sandbox: false, equip: true });
 }
 function CrateTeaser({ s, onOpen }) {
   const crate = ACTIVE_CRATE;
@@ -7686,7 +7946,7 @@ function CrateTeaser({ s, onOpen }) {
       <Crown size={18} style={{ color: C.gold }} />
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-bold">{crate.name}</span>
-        <span className="block body text-xs" style={{ color: C.dim }}>{bank.toLocaleString()} pts ready · {crate.cost} per open</span>
+        <span className="block body text-xs" style={{ color: C.dim }}>{s.test ? "Ghost sandbox · unlimited opens" : `${bank.toLocaleString()} pts ready · ${crate.cost} per open`}</span>
       </span>
       <ChevronRight size={16} style={{ color: C.gold }} />
     </button>
@@ -7694,64 +7954,105 @@ function CrateTeaser({ s, onOpen }) {
 }
 function CrateVault({ s, setS }) {
   const crate = ACTIVE_CRATE;
+  const sandbox = !!s.test;
   const bank = crateBank(s);
+  const pity = cratePityOf(s, sandbox);
+  const log = sandbox ? (s.testCrate?.log || []) : (s.crateLog || []);
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(null);
   const [typeTab, setTypeTab] = useState("aura");
   const [secretToast, setSecretToast] = useState(false);
-  const roll = () => {
-    if (busy || bank < crate.cost) return;
+  const [forceRarity, setForceRarity] = useState("");
+  const [forcePrizeId, setForcePrizeId] = useState("");
+  const [previewLook, setPreviewLook] = useState(null);
+  const openOnce = (n = 1) => {
+    if (busy) return;
+    if (!sandbox && bank < crate.cost) return;
     setBusy(true);
-    const prize = rollCratePrize(s, crate);
-    const rollId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const secret = prize.rarity === "secret";
+    const forcePrize = forcePrizeId ? crate.prizes.find((x) => x.id === forcePrizeId) : null;
+    const forceR = forceRarity || undefined;
+    setForceRarity("");
+    setForcePrizeId("");
+    let cursor = s;
+    const rolls = [];
+    for (let i = 0; i < n; i++) {
+      const prize = rollCratePrize(cursor, crate, secureRandom, { sandbox, pity: cratePityOf(cursor, sandbox), forceRarity: i === 0 ? forceR : undefined, forcePrize: i === 0 ? forcePrize : null });
+      const rollId = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`;
+      rolls.push({ prize, rollId });
+      cursor = sandbox ? commitCratePrize(cursor, prize, crate, rollId, { sandbox: true, equip: false }) : applyCratePrize(cursor, prize, crate, rollId);
+    }
+    const last = rolls[rolls.length - 1];
+    const packed = { ...last.prize, ...packCratePrize(s, last.prize), sandbox };
+    const secret = last.prize.rarity === "secret";
     if (secret) {
       document.documentElement.classList.add("black-sun-pull");
       Groove.stop(); Jingle.stop();
     }
     setTimeout(() => {
-      let packed = { ...prize, dupe: crateOwned(s, prize), refund: crateOwned(s, prize) ? CRATE_RARITY[prize.rarity].refund : 0 };
       setS((p) => {
-        packed = { ...prize, dupe: crateOwned(p, prize), refund: crateOwned(p, prize) ? CRATE_RARITY[prize.rarity].refund : 0 };
-        return applyCratePrize(p, prize, crate, rollId);
+        let next = p;
+        rolls.forEach(({ prize, rollId }) => { next = sandbox ? commitCratePrize(next, prize, crate, rollId, { sandbox: true, equip: false }) : applyCratePrize(next, prize, crate, rollId); });
+        return next;
       });
       setShow(packed);
       setBusy(false);
       document.documentElement.classList.remove("black-sun-pull");
       if (secret) {
         setSecretToast(true); setTimeout(() => setSecretToast(false), 4200);
-        if (!s.test) XpSync.add({ e: `crate_secret_${rollId}`, a: 0, m: "Anime Crate: Black Sun", d: today(), t: Date.now() });
+        if (!sandbox) XpSync.add({ e: `crate_secret_${last.rollId}`, a: 0, m: "Anime Crate: Black Sun", d: today(), t: Date.now() });
       }
-      if (["secret", "gilded", "mythic", "legendary"].includes(prize.rarity)) SFX.levelUp();
-      else if (prize.rarity === "epic") SFX.achievement();
+      if (["secret", "gilded", "mythic", "legendary"].includes(last.prize.rarity)) SFX.levelUp();
+      else if (last.prize.rarity === "epic") SFX.achievement();
       else SFX.click();
     }, secret ? 800 : 900);
   };
+  const roll = () => openOnce(1);
   const meta = show && CRATE_RARITY[show.rarity];
   const visible = crate.prizes.filter((p) => p.type === typeTab && (p.rarity !== "secret" || s.test || crateOwned(s, p) || show?.id === p.id)).sort((a, b) => CRATE_RARITY_DESC.indexOf(a.rarity) - CRATE_RARITY_DESC.indexOf(b.rarity));
   const secretLocked = typeTab === "aura" && !s.test && !s.crateUnlocks?.blacksun && show?.id !== "blacksun";
+  const canOpen = sandbox || bank >= crate.cost;
   return (
     <>
     <div className="panel overflow-hidden" style={{ borderColor: `${crate.theme.gold}44` }}>
       <div className="px-4 pt-4 pb-3 space-y-1" style={{ background: "radial-gradient(80% 90% at 50% 0%, rgba(106,0,255,.28), transparent 70%)" }}>
-        <div className="body text-xs uppercase tracking-wider font-bold" style={{ color: C.gold }}>{crate.tag}</div>
+        <div className="body text-xs uppercase tracking-wider font-bold" style={{ color: C.gold }}>{crate.tag}{sandbox ? " · sandbox" : ""}</div>
         <div className="text-xl font-bold">{crate.name}</div>
-        <div className="body text-xs" style={{ color: C.dim }}>{crate.blurb}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{sandbox ? "Ghost sandbox. Opens are free and do not save unlocks, points, or pity on your real account." : crate.blurb}</div>
       </div>
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-baseline">
           <span className="body text-sm" style={{ color: C.dim }}>Board points</span>
-          <span className="text-lg font-bold tabular-nums" style={{ color: bank >= crate.cost ? C.gold : C.mute }}>{bank.toLocaleString()}</span>
+          <span className="text-lg font-bold tabular-nums" style={{ color: sandbox || bank >= crate.cost ? C.gold : C.mute }}>{sandbox ? "Unlimited" : bank.toLocaleString()}</span>
         </div>
-        {crateAuraBest(s) && <div className="body text-xs" style={{ color: C.gold }}>{crateAuraBest(s).name} · +{Math.round(crateAuraBest(s).ptsMult * 100)}% on all points</div>}
-        <button type="button" disabled={busy || bank < crate.cost} onClick={roll} className="btn w-full py-3 flex items-center justify-center gap-2" style={{ opacity: bank < crate.cost ? 0.5 : 1 }}>
+        {!sandbox && crateAuraBest(s) && <div className="body text-xs" style={{ color: C.gold }}>{crateAuraBest(s).name} · +{Math.round(crateAuraBest(s).ptsMult * 100)}% on all points</div>}
+        <button type="button" disabled={busy || !canOpen} onClick={roll} className="btn w-full py-3 flex items-center justify-center gap-2" style={{ opacity: canOpen ? 1 : 0.5 }}>
           {busy ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-          {busy ? "Opening…" : `Open · ${crate.cost} pts`}
+          {busy ? "Opening…" : sandbox ? "Open · free" : `Open · ${crate.cost} pts`}
         </button>
-        {bank < crate.cost && <div className="body text-xs text-center" style={{ color: C.mute }}>Need {(crate.cost - bank).toLocaleString()} more points.</div>}
+        {!sandbox && bank < crate.cost && <div className="body text-xs text-center" style={{ color: C.mute }}>Need {(crate.cost - bank).toLocaleString()} more points.</div>}
+        {sandbox && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" disabled={busy} onClick={() => openOnce(10)} className="ghost py-2 text-sm font-bold">Open ×10</button>
+              <button type="button" disabled={busy} onClick={() => setS((p) => ({ ...p, testCrate: { pity: 0, log: [] } }))} className="ghost py-2 text-sm font-bold">Reset sandbox</button>
+            </div>
+            <label className="body text-xs block" style={{ color: C.dim }}>Force rarity
+              <select className="inp mt-1" value={forceRarity} onChange={(e) => { setForceRarity(e.target.value); if (e.target.value) setForcePrizeId(""); }} aria-label="Force rarity">
+                <option value="">RNG</option>
+                {ANIME_RARITY_ORDER.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </label>
+            <label className="body text-xs block" style={{ color: C.dim }}>Force prize
+              <select className="inp mt-1" value={forcePrizeId} onChange={(e) => { setForcePrizeId(e.target.value); if (e.target.value) setForceRarity(""); }} aria-label="Force prize">
+                <option value="">RNG</option>
+                {crate.prizes.map((p) => <option key={p.id} value={p.id}>{p.rarity} · {p.name}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
         <div className="px-2.5 py-2" style={{ borderRadius: 10, background: C.glass, border: `1px solid ${C.glassLine}` }}>
-          <div className="body text-xs flex justify-between" style={{ color: C.mute }}><span>Legendary+ pity</span><span>Secret stays 1/1000</span></div>
-          <div className="text-sm font-bold tabular-nums">{Math.min(ANIME_PITY_AT - 1, typeof s.cratePity === "number" ? s.cratePity : +(s.cratePity?.legendary || 0))} / {ANIME_PITY_AT - 1} misses</div>
+          <div className="body text-xs flex justify-between" style={{ color: C.mute }}><span>Legendary+ pity{sandbox ? " (sandbox)" : ""}</span><span>Secret stays 1/1000</span></div>
+          <div className="text-sm font-bold tabular-nums">{Math.min(ANIME_PITY_AT - 1, pity)} / {ANIME_PITY_AT - 1} misses</div>
         </div>
         <div className="grid grid-cols-3 gap-1">{[["aura", "Auras"], ["title", "Titles"], ["border", "Borders"]].map(([id, label]) => <button key={id} onClick={() => setTypeTab(id)} className="py-2 text-xs font-bold" style={{ borderRadius: 9, background: typeTab === id ? C.cyan : C.soft, color: typeTab === id ? "#001018" : C.text }}>{label}</button>)}</div>
         <div className="space-y-1.5">
@@ -7772,8 +8073,8 @@ function CrateVault({ s, setS }) {
             );
           })}
         </div>
-        {(s.crateLog || []).length > 0 && (
-          <div className="body text-xs" style={{ color: C.mute }}>Last: {(s.crateLog || []).slice(0, 6).map((x) => x.name).join(" · ")}</div>
+        {log.length > 0 && (
+          <div className="body text-xs" style={{ color: C.mute }}>Last: {log.slice(0, 6).map((x) => x.name).join(" · ")}</div>
         )}
       </div>
     </div>
@@ -7785,15 +8086,28 @@ function CrateVault({ s, setS }) {
               <div className="p-5 space-y-3 text-center" style={{ background: C.sheet, border: `1px solid ${meta.color}`, borderRadius: 16, boxShadow: "0 8px 30px rgba(0,0,0,.18)" }}>
               <div className="text-xs font-extrabold tracking-widest uppercase" style={{ color: meta.color }}>{meta.name}</div>
               {show.type === "aura" ? (
-                <div className="relative mx-auto overflow-hidden" style={{ width: 160, height: 160 }}><AuraCanvas aura={show.id} w={160} h={160} ringR={52} style={{ left: 0, top: 0 }} /></div>
+                <div className="relative mx-auto overflow-hidden" style={{ width: 160, height: 160 }}><AuraCanvas aura={previewLook?.aura || show.id} w={160} h={160} ringR={52} style={{ left: 0, top: 0 }} /></div>
               ) : show.type === "border" ? (
                 <div className="relative mx-auto" style={{ width: 72, height: 72 }}><AnimatedBorder border={BORDERS.find((b) => b.id === show.id)} color={C.cyan} /><div className="absolute" style={{ inset: 7, borderRadius: 999, background: C.sheet }} /></div>
               ) : (
                 <div className="text-3xl font-black tracking-wider uppercase" style={{ color: C.gold }}>{show.name}</div>
               )}
               <div className="text-xl font-bold">{show.name}</div>
-              <div className="body text-sm" style={{ color: C.dim }}>{show.dupe ? `Already owned · ${show.refund} pts back` : "Unlocked. Equip it in Customize."}</div>
-              <button type="button" onClick={() => setShow(null)} className="btn w-full py-3">Continue</button>
+              <div className="body text-sm" style={{ color: C.dim }}>{show.sandbox ? (show.dupe ? "Already owned on the real account. Sandbox didn't change it." : "Sandbox pull — not saved to the real account.") : (show.dupe ? `Already owned · ${show.refund} pts back` : "Unlocked. Equip it in Customize.")}</div>
+              {show.sandbox && (
+                <button type="button" className="ghost w-full py-3 font-bold" onClick={() => {
+                  setS((p) => {
+                    const look = { ...(p.profile.look || {}) };
+                    const profile = { ...p.profile, look };
+                    if (show.type === "aura") { look.auraPrev = look.aura; look.aura = show.id; }
+                    else if (show.type === "border") look.border = show.id;
+                    else if (show.type === "title") profile.title = show.id;
+                    return { ...p, profile };
+                  });
+                  setPreviewLook(show.type === "aura" ? { aura: show.id } : show.type === "border" ? { border: show.id } : null);
+                }}>Equip preview</button>
+              )}
+              <button type="button" onClick={() => { setShow(null); setPreviewLook(null); }} className="btn w-full py-3">Continue</button>
               </div>
             </div>
           )}
@@ -7803,7 +8117,6 @@ function CrateVault({ s, setS }) {
     </>
   );
 }
-
 /* ---------- The Juice ---------- */
 function juice(kind = "pr") {
   try { window.dispatchEvent(new CustomEvent("ascend-juice", { detail: kind })); } catch (e) { /* ignore */ }
@@ -10558,6 +10871,7 @@ function LogWorkoutSheet({ s, setS, w, onClose }) {
   };
   return (
     <Sheet title={`${w.title || "Workout"} · ${fmtDay(w.date)}`} onClose={onClose}>
+      {gymLabel(s, workoutGym(w)) ? <div className="body text-xs" style={{ color: C.mute }}>{gymLabel(s, workoutGym(w))}</div> : null}
       <div className="grid grid-cols-3 gap-2">
         {[["XP", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Time", w.minutes ? `${w.minutes} min` : "–"]].map(([l, v]) => <div key={l} className="panel py-2.5 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold">{v}</div></div>)}
       </div>

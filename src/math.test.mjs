@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -488,5 +488,144 @@ test("Anime Crate migration preserves legacy ownership and equipped cosmetics", 
   assert.equal(got.crateLog[0].type, "aura");
   assert.deepEqual(got.crateUnlocks, s.crateUnlocks);
   assert.deepEqual(got.profile, s.profile);
+});
+
+test("exKey normalises case, punctuation and a trailing s", () => {
+  assert.equal(exKey("Lat Pull-down"), exKey("lat pulldown"));
+  assert.equal(exKey("Lat Pulldowns"), exKey("Lat Pull-down"));
+  assert.equal(exKey("Bench Press"), "benchpres");
+  assert.equal(exKey("Dip"), exKey("Dips"));
+  assert.equal(exKey(""), "");
+});
+
+test("pickPreferredExercise prefers history, then catalog, then custom, then community", () => {
+  const catalog = { name: "Lat Pulldown", group: "Back", type: "weighted" };
+  const custom = { name: "Lat Pull-down", group: "Back", type: "weighted", custom: true };
+  const community = { name: "Lat Pulldowns", group: "Back", type: "weighted", community: true };
+  const group = [
+    { ex: catalog, source: "catalog" },
+    { ex: custom, source: "custom" },
+    { ex: community, source: "community" },
+  ];
+  const hist = pickPreferredExercise(group, new Map([["Lat Pull-down", 3]]));
+  assert.equal(hist.name, "Lat Pull-down");
+  assert.equal(hist.group, "Back");
+  const noHist = pickPreferredExercise(group, new Map());
+  assert.equal(noHist.name, "Lat Pulldown");
+  assert.equal(pickPreferredExercise([{ ex: custom, source: "custom" }, { ex: community, source: "community" }], new Map()).name, "Lat Pull-down");
+  const comm = pickPreferredExercise([{ ex: community, source: "community" }], new Map());
+  assert.equal(comm.name, "Lat Pulldowns");
+  assert.equal(comm.community, true);
+});
+
+test("rewriteExerciseNames covers every stored exercise-name field", () => {
+  assert.deepEqual([...EXERCISE_NAME_FIELDS], [
+    "workouts[].exercises[].name",
+    "workouts[].lines[].name",
+    "active.exercises[].name",
+    "presets[].exercises[].name",
+    "custom[].name",
+    "lastSummary.prNames[]",
+    "lastSummary.suggestions[].name",
+    "lastSummary.recap.lifts[].name",
+    "gymSpecific",
+    "rankSnap.lifts",
+    "rankHist[*].lifts",
+  ]);
+  const s = {
+    workouts: [{ id: 1, exercises: [{ name: "lat pulldown", sets: [] }], lines: [{ name: "lat pulldown", xp: 1 }] }],
+    active: { exercises: [{ name: "lat pulldown", sets: [] }] },
+    presets: [{ id: "p", name: "Pull", exercises: [{ name: "lat pulldown", sets: 3 }] }],
+    custom: [{ name: "lat pulldown", group: "Back" }, { name: "Lat Pulldown", group: "Back" }],
+    lastSummary: { prNames: ["lat pulldown"], suggestions: [{ name: "lat pulldown", next: { w: 1 } }], recap: { lifts: [{ name: "lat pulldown" }] } },
+    gymSpecific: { "lat pulldown": true },
+    rankSnap: { overall: 1, lifts: { "lat pulldown": 2, "Lat Pulldown": 3 } },
+    rankHist: { w1: { lifts: { "lat pulldown": 4, "Lat Pulldown": 1 } } },
+    dayTemplates: [{ id: "d", name: "Meals", items: [{ name: "Chicken" }] }],
+  };
+  const got = rewriteExerciseNames(s, { "lat pulldown": "Lat Pulldown" });
+  assert.equal(got.workouts[0].exercises[0].name, "Lat Pulldown");
+  assert.equal(got.workouts[0].lines[0].name, "Lat Pulldown");
+  assert.equal(got.active.exercises[0].name, "Lat Pulldown");
+  assert.equal(got.presets[0].exercises[0].name, "Lat Pulldown");
+  assert.equal(got.custom.some((c) => c.name === "lat pulldown"), false);
+  assert.equal(got.custom.some((c) => c.name === "Lat Pulldown"), true);
+  assert.deepEqual(got.lastSummary.prNames, ["Lat Pulldown"]);
+  assert.equal(got.lastSummary.suggestions[0].name, "Lat Pulldown");
+  assert.equal(got.lastSummary.recap.lifts[0].name, "Lat Pulldown");
+  assert.equal(got.gymSpecific["Lat Pulldown"], true);
+  assert.equal(got.gymSpecific["lat pulldown"], undefined);
+  assert.equal(got.rankSnap.lifts["Lat Pulldown"], 3);
+  assert.equal(got.rankSnap.lifts["lat pulldown"], undefined);
+  assert.equal(got.rankHist.w1.lifts["Lat Pulldown"], 4);
+  assert.equal(got.rankHist.w1.lifts["lat pulldown"], undefined);
+  assert.equal(got.dayTemplates[0].items[0].name, "Chicken");
+  const groups = duplicateExerciseGroups({
+    workouts: [{ id: 1, exercises: [{ name: "Lat Pull-down" }, { name: "Lat Pulldowns" }] }],
+  }, ["Lat Pulldown"]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].key, exKey("Lat Pulldown"));
+  const merged = applyExerciseMerge(s, [{ names: ["lat pulldown", "Lat Pulldown"], canonical: "Lat Pulldown" }]);
+  assert.equal(merged.workouts[0].exercises[0].name, "Lat Pulldown");
+});
+
+test("isLegacyAssisted uses one cutoff and only assisted exercises", () => {
+  const def = { type: "assisted", name: "Assisted Dip Machine" };
+  assert.equal(isLegacyAssisted({ date: "2026-09-19" }, def), true);
+  assert.equal(isLegacyAssisted({ date: LEGACY_ASSISTED_CUTOFF }, def), false);
+  assert.equal(isLegacyAssisted({ date: "2026-09-21" }, def), false);
+  assert.equal(isLegacyAssisted({ date: "2026-09-19" }, { type: "weighted" }), false);
+});
+
+test("isGymSpecific auto-matches Machine/Cable and honours per-exercise override", () => {
+  assert.equal(isGymSpecific({}, { name: "Chest Press Machine" }), true);
+  assert.equal(isGymSpecific({}, { name: "Cable Crossover" }), true);
+  assert.equal(isGymSpecific({}, { name: "Bench Press" }), false);
+  assert.equal(isGymSpecific({ gymSpecific: { "Bench Press": true } }, { name: "Bench Press" }), true);
+  assert.equal(isGymSpecific({ gymSpecific: { "Chest Press Machine": false } }, { name: "Chest Press Machine" }), false);
+});
+
+test("gym buckets filter gym-specific work and leave a no-gym account unchanged", () => {
+  const s = { currentGym: "g1", gymSpecific: {} };
+  const machine = { name: "Crunch Machine", type: "weighted" };
+  const bench = { name: "Bench Press", type: "weighted" };
+  assert.equal(inGymBucket(s, { gym: "g1" }, machine), true);
+  assert.equal(inGymBucket(s, { gym: "g2" }, machine), false);
+  assert.equal(inGymBucket(s, {}, machine), false);
+  assert.equal(inGymBucket(s, { gym: "g2" }, bench), true);
+  const none = { currentGym: null };
+  assert.equal(inGymBucket(none, {}, machine), true);
+  assert.equal(inGymBucket(none, { gym: "g1" }, machine), false);
+  assert.equal(workoutGym({}), null);
+  const tagged = tagWorkouts({ workouts: [{ id: 1, date: "2026-01-01" }, { id: 2, date: "2026-09-01", source: "import" }] }, { gymId: "home", untaggedOnly: true });
+  assert.equal(tagged.workouts[0].gym, "home");
+  assert.equal(tagged.workouts[1].gym, undefined);
+  const before = tagWorkouts({ workouts: [{ id: 1, date: "2026-01-01" }, { id: 2, date: "2026-06-01" }] }, { gymId: "home", before: "2026-03-01" });
+  assert.equal(before.workouts[0].gym, "home");
+  assert.equal(before.workouts[1].gym, undefined);
+});
+
+test("merge produces no ceremony", () => {
+  const prev = { overall: 1, od: 3, lifts: { "lat pulldown": 2 } };
+  const s = {
+    workouts: [{ id: 1, exercises: [{ name: "lat pulldown" }, { name: "Lat Pulldown" }] }],
+    rankSnap: prev,
+    rankHist: { w1: { lifts: { "lat pulldown": 2 } } },
+  };
+  const merged = applyExerciseMerge(s, [{ names: ["lat pulldown", "Lat Pulldown"], canonical: "Lat Pulldown" }]);
+  assert.deepEqual(merged.rankSnap.lifts, { "Lat Pulldown": 2 });
+  assert.equal(rankUpCeremony(prev, { overall: 1, od: 3, lifts: { "Lat Pulldown": 2 } }).kind, "lift");
+  const raised = { overall: 2, od: 6, lifts: { "Lat Pulldown": 3 } };
+  const silent = withSilentRankSnap(merged, raised);
+  assert.equal(rankUpCeremony(silent.rankSnap, raised), null);
+});
+
+test("switching gyms produces no ceremony", () => {
+  const prev = { overall: 1, od: 3, lifts: { "Crunch Machine": 1, "Bench Press": 2 } };
+  const afterGym = { overall: 2, od: 6, lifts: { "Crunch Machine": 4, "Bench Press": 2 } };
+  assert.equal(rankUpCeremony(prev, afterGym).kind, "overall");
+  const next = withSilentRankSnap({ currentGym: "g2", rankSnap: prev }, afterGym);
+  assert.equal(next.currentGym, "g2");
+  assert.equal(rankUpCeremony(next.rankSnap, afterGym), null);
 });
 
