@@ -27,6 +27,24 @@ export function parseSteps(raw) {
   const n = Number(s);
   return s && Number.isFinite(n) ? Math.round(n) : null;
 }
+export function classifyStepCount(raw) {
+  if (raw == null) return { kind: "blank" };
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw)) return { kind: "invalid", raw };
+    return { kind: "ok", steps: Math.round(raw) };
+  }
+  if (!String(raw).trim()) return { kind: "blank" };
+  const steps = parseSteps(raw);
+  if (steps === null) return { kind: "invalid", raw };
+  return { kind: "ok", steps };
+}
+export function stepIngestPlan(body) {
+  const raw = body?.steps ?? body?.step ?? body?.count;
+  const classified = classifyStepCount(raw);
+  if (classified.kind === "blank") return { ingest: false, ok: true, status: 200, message: "No steps in this request" };
+  if (classified.kind === "invalid") return { ingest: false, ok: false, status: 400, message: `couldn't read the steps "${String(raw ?? "").slice(0, 30)}". Set the steps field to the Statistics result` };
+  return { ingest: true, ok: true, steps: classified.steps };
+}
 export function parseToken(raw) {
   const s = String(raw ?? "");
   const hex = s.match(/[0-9a-f]{48}/i);
@@ -51,11 +69,12 @@ export default async function handler(req, res) {
     const b = readBody(req);
     const token = parseToken(b.token ?? b.code);
     if (token.length < 20) return res.status(400).json({ ok: false, message: "Missing sync code. Add a field named token with your code from Ascend." });
-    const steps = parseSteps(b.steps ?? b.step ?? b.count);
+    const plan = stepIngestPlan(b);
+    if (!plan.ingest) return res.status(plan.status).json({ ok: plan.ok, ingested: false, message: plan.message });
+    const steps = plan.steps;
     let day = parseDate(b.date ?? b.day), note = null;
     if (!day && !(b.date ?? b.day)) { day = todayIn(String(b.tz || "America/Chicago")); note = "no date sent, used today"; }
     if (!day) note = `couldn't read the date "${String(b.date ?? b.day).slice(0, 30)}". Use Format Date → Custom → yyyy-MM-dd`;
-    if (steps === null) note = `couldn't read the steps "${String(b.steps ?? "").slice(0, 30)}". Set the steps field to the Statistics result`;
 
     const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
     const { data, error } = await supabase.rpc("ingest_steps_v2", { p_token: token, p_day: day, p_steps: steps, p_note: day && steps !== null ? null : note });
