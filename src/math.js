@@ -1207,3 +1207,178 @@ export function dryRunPrRecount(s, findEx, { version = 3 } = {}) {
   const floor = nextXpFloor(recomputed, { xpFloor: s.xpFloor, beforeXp: oldTotal, version });
   return { workouts, oldTotal, recomputed, floor: floor.amount, keep: floor.keep, final: recomputed + floor.amount, next };
 }
+
+export const LB_XP_VERSION = 3;
+export const SETTINGS_KEY_LEGACY = "ascend-settings";
+export const PENDING_KEY_LEGACY = "ascend-pending";
+
+export function settingsKey(userId) {
+  return userId ? `ascend-settings:${userId}` : SETTINGS_KEY_LEGACY;
+}
+export function pendingKey(userId) {
+  return userId ? `ascend-pending:${userId}` : PENDING_KEY_LEGACY;
+}
+export function verifiedCopyKey(userId) {
+  return userId ? `ascend-verified:${userId}` : "ascend-verified";
+}
+
+/** Unscoped settings belong only to the account whose server savedAt matches exactly. */
+export function claimUnscopedSettings(unscoped, serverSettings) {
+  if (!unscoped || typeof unscoped !== "object") return false;
+  const at = unscoped.savedAt || 0;
+  return at > 0 && at === (serverSettings?.savedAt || 0);
+}
+
+export function mergeScopedSettings(server, scoped) {
+  const base = server && typeof server === "object" ? server : {};
+  if (!scoped || typeof scoped !== "object") return base;
+  if ((scoped.savedAt || 0) > (base.savedAt || 0)) return { ...base, ...scoped };
+  return base;
+}
+
+/** Pending blob is this account's only when it carries this playerId. */
+export function claimUnscopedPending(pending, playerId) {
+  if (!pending?.state || !playerId) return false;
+  return pending.state.playerId === playerId;
+}
+
+export function overlayOwnBoardRow(rows, live, playerId) {
+  if (!playerId || !live) return rows || [];
+  const key = `lb:${playerId}`;
+  const mine = { ...live, id: playerId, key };
+  const others = (rows || []).filter((r) => r && r.key !== key && r.id !== playerId);
+  return [mine, ...others];
+}
+
+export function cardNeedsXpUpdate(card, minV = LB_XP_VERSION) {
+  if (!card) return false;
+  const v = card.xpV;
+  return v == null || v < minV;
+}
+
+export function nextPublishBackoff(attempt, base = 1200, max = 30000) {
+  const n = Math.max(0, attempt | 0);
+  return Math.min(max, base * (2 ** Math.min(n, 8)));
+}
+
+export function shouldPublishLbCard({ loaded, lb, test, name, noPersist } = {}) {
+  return !!(loaded && lb && name && !test && !noPersist);
+}
+
+export async function tryPublish(write, payload, { attempt = 0, schedule } = {}) {
+  try {
+    await write(payload);
+    return { ok: true, attempt: 0 };
+  } catch (e) {
+    const next = attempt + 1;
+    if (schedule) schedule(nextPublishBackoff(next), next);
+    return { ok: false, attempt: next, err: e };
+  }
+}
+
+/** Aura, border and title only — never name, fonts, colours, theme or other settings. */
+export function stripGhostCosmeticsState(s, { allowAura, allowBorder, titleId } = {}) {
+  const look = { ...(s.profile?.look || {}) };
+  let changed = false;
+  const auraOk = typeof allowAura === "function" ? allowAura : () => true;
+  const borderOk = typeof allowBorder === "function" ? allowBorder : () => true;
+  if (look.aura && look.aura !== "none" && !auraOk(look.aura)) {
+    look.aura = look.auraPrev && look.auraPrev !== "ascended" && auraOk(look.auraPrev) ? look.auraPrev : "none";
+    changed = true;
+  }
+  if (look.border && look.border !== "none" && !borderOk(look.border)) {
+    look.border = "none";
+    changed = true;
+  }
+  const tid = titleId != null ? titleId : (s.profile?.title || "none");
+  if ((s.profile?.title || "none") !== tid) changed = true;
+  const profile = { ...s.profile, look, title: tid };
+  if (!changed && look === s.profile?.look) return { ...s, test: false };
+  return { ...s, test: false, profile };
+}
+
+export const KV_NOT_FOUND = "Key not found";
+
+export function classifyKvError(e) {
+  const msg = String(e?.message || e || "");
+  if (msg === KV_NOT_FOUND || /key not found/i.test(msg)) return "not_found";
+  return "error";
+}
+
+export async function readAccountBlob(get) {
+  try {
+    const r = await get("ascend-state");
+    if (r?.value) return { kind: "ok", value: r.value };
+    return { kind: "not_found" };
+  } catch (e) {
+    if (classifyKvError(e) === "not_found") return { kind: "not_found" };
+    return { kind: "error", err: e };
+  }
+}
+
+export const WIPE_NEAR_XP = 10;
+export const WIPE_MIN_WORKOUTS = 3;
+export const WIPE_MIN_XP = 500;
+
+export function persistWouldWipe(server, next, { nearXp = WIPE_NEAR_XP, minWorkouts = WIPE_MIN_WORKOUTS, minXp = WIPE_MIN_XP } = {}) {
+  if (!server || typeof server !== "object") return false;
+  const sXp = +server.xp || 0;
+  const sWo = Array.isArray(server.workouts) ? server.workouts.length : 0;
+  const nXp = +next?.xp || 0;
+  const nWo = Array.isArray(next?.workouts) ? next.workouts.length : 0;
+  if (sWo < minWorkouts && sXp < minXp) return false;
+  return nWo === 0 || nXp <= nearXp;
+}
+
+export function looksLikeDefaultBlob(state) {
+  if (!state || typeof state !== "object") return true;
+  const xp = +state.xp || 0;
+  const wo = Array.isArray(state.workouts) ? state.workouts.length : 0;
+  const name = String(state.profile?.name || "").trim();
+  return xp <= 0 && wo === 0 && !name;
+}
+
+export function isVerifiedLocalCopy(copy, userId) {
+  if (!copy || typeof copy !== "object") return false;
+  if (!userId || copy.userId !== userId) return false;
+  if (!Number.isFinite(+copy.rev)) return false;
+  if (looksLikeDefaultBlob(copy.state)) return false;
+  return true;
+}
+
+export function canPersistAccount({ readKind, server, next, allowWipe } = {}) {
+  if (allowWipe) return { ok: true };
+  if (readKind !== "ok" && readKind !== "not_found") return { ok: false, reason: "no-server-read" };
+  if (readKind === "ok" && persistWouldWipe(server, next)) return { ok: false, reason: "wipe-tripwire" };
+  return { ok: true };
+}
+
+export function hydrateWritePlan(readKind, { verified, userId } = {}) {
+  if (readKind === "not_found") return { persist: true, firstRun: true, retry: false, useLocal: false };
+  if (readKind === "ok") return { persist: true, firstRun: false, retry: false, useLocal: false };
+  if (readKind === "error" && isVerifiedLocalCopy(verified, userId)) {
+    return { persist: false, retry: false, useLocal: true, ui: "offline" };
+  }
+  return { persist: false, retry: true, ui: "load-error", useLocal: false };
+}
+
+export async function guardedAccountWrite({ get, set, next, allowWipe = false, readKind, server } = {}) {
+  let kind = readKind;
+  let remote = server;
+  if (kind == null && typeof get === "function") {
+    const got = await readAccountBlob(get);
+    kind = got.kind;
+    if (got.kind === "ok") {
+      try { remote = JSON.parse(got.value); }
+      catch { return { wrote: false, reason: "parse" }; }
+    }
+  }
+  const gate = canPersistAccount({ readKind: kind, server: remote, next, allowWipe });
+  if (!gate.ok) {
+    try { console.warn("[ascend] refused persist:", gate.reason); } catch { /* ignore */ }
+    return { wrote: false, reason: gate.reason };
+  }
+  const payload = typeof next === "string" ? next : JSON.stringify(next);
+  await set("ascend-state", payload);
+  return { wrote: true };
+}

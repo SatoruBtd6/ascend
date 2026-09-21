@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -732,22 +732,53 @@ const DEFAULT = {
 };
 
 const SaveCtx = React.createContext({ status: "idle" });
-const PENDING_KEY = "ascend-pending";
 let pendingWarned = false;
+function deviceUserId() {
+  return (typeof window !== "undefined" && (window.ascendUserId || window.__ascendStorageUser)) || "me";
+}
 function readPending() {
   try {
-    const raw = localStorage.getItem(PENDING_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const uid = deviceUserId();
+    const scopedRaw = localStorage.getItem(pendingKey(uid));
+    if (scopedRaw) return JSON.parse(scopedRaw);
+    const raw = localStorage.getItem(PENDING_KEY_LEGACY);
+    if (!raw) return null;
+    let pending = null;
+    try { pending = JSON.parse(raw); } catch { pending = null; }
+    try { localStorage.removeItem(PENDING_KEY_LEGACY); } catch (e) { /* ignore */ }
+    return claimUnscopedPending(pending, uid) ? pending : null;
   } catch (e) { return null; }
 }
 function writePending(state, snap) {
   if (typeof window !== "undefined" && window.__ascendNoPersist) return;
-  try { localStorage.setItem(PENDING_KEY, JSON.stringify({ state, snap, t: Date.now() })); }
+  try { localStorage.setItem(pendingKey(deviceUserId()), JSON.stringify({ state, snap, t: Date.now() })); }
   catch (e) { if (!pendingWarned) { pendingWarned = true; console.warn("[ascend] pending copy failed", e); } }
 }
 function clearPending() {
-  try { localStorage.removeItem(PENDING_KEY); } catch (e) { /* private mode */ }
+  try { localStorage.removeItem(pendingKey(deviceUserId())); } catch (e) { /* private mode */ }
 }
+function readVerifiedCopy(userId = deviceUserId()) {
+  try {
+    const raw = localStorage.getItem(verifiedCopyKey(userId));
+    if (!raw) return null;
+    const copy = JSON.parse(raw);
+    return isVerifiedLocalCopy(copy, userId) ? copy : null;
+  } catch { return null; }
+}
+function writeVerifiedCopy(state) {
+  if (typeof window !== "undefined" && window.__ascendNoPersist) return;
+  if (looksLikeDefaultBlob(state)) return;
+  const uid = deviceUserId();
+  try {
+    localStorage.setItem(verifiedCopyKey(uid), JSON.stringify({
+      userId: uid,
+      rev: +state?.rev || 0,
+      t: Date.now(),
+      state,
+    }));
+  } catch (e) { /* private mode */ }
+}
+const WIPE_SAVE_NOTE = "Couldn't save: this would wipe your progress. Local copy kept.";
 const URGENT_SAVE = ["meals", "workouts", "weightLog", "presets", "savedFoods", "dayTemplates", "fuelClaimed", "water", "measure"];
 function SaveMark() {
   const { status } = useContext(SaveCtx);
@@ -760,8 +791,8 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6y";
-const BACKUP_KEY = "ascend-state-backup-6y";
+const APP_VERSION = "6z";
+const BACKUP_KEY = "ascend-state-backup-6z";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -803,6 +834,7 @@ export default function App() {
   const [s, setS] = useState(DEFAULT);
   const sRef = useRef(s); sRef.current = s;
   const [loaded, setLoaded] = useState(false);
+  const [bootError, setBootError] = useState(null);
   const [tab, setTab] = useState("status");
   const [xpOpen, setXpOpen] = useState(false);
   // New-deploy check: compare the bundle this page runs with the one the server serves now
@@ -826,7 +858,10 @@ export default function App() {
   const applyUpdate = async () => {
     try {
       const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
-      await Promise.all(regs.map((r) => r.update().catch(() => {})));
+      await Promise.all(regs.map(async (r) => {
+        try { await r.update(); } catch { /* ignore */ }
+        try { r.waiting?.postMessage("skipWaiting"); } catch { /* ignore */ }
+      }));
       const keys = (await window.caches?.keys?.()) || [];
       await Promise.all(keys.map((k) => window.caches.delete(k)));
     } catch (e) { /* reload anyway */ }
@@ -870,12 +905,16 @@ export default function App() {
   const [saveNote, setSaveNote] = useState(null);
   const [saveDiag, setSaveDiag] = useState({ kb: 0, ms: null });
   const noPersistRef = useRef(false);
+  const accountReadRef = useRef({ kind: null, server: null });
+  const allowWipeRef = useRef(false);
   const snapRef = useRef(null);
   const writtenRef = useRef(null);
   const persistLock = useRef(false);
   const persistAgain = useRef(false);
   const persistUrgent = useRef(false);
   const saveNoteTimer = useRef(null);
+  const persistRetryTimer = useRef(null);
+  const dirtyRef = useRef(false);
   useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
   const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
   AskRef.current = (message, onYes, yesLabel = "Confirm") => setDialog({ message, onYes, yesLabel });
@@ -894,29 +933,104 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let stop = false;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     (async () => {
       let st = DEFAULT;
       let crateDirty = false;
       let hadServer = false;
-      try {
-        const r = await window.storage.get("ascend-state", false);
-        if (r?.value) {
-          hadServer = true;
-          const raw = JSON.parse(r.value), v = migrateAnimeCrateState(raw);
-          st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } };
-          crateDirty = raw.crateV !== v.crateV || typeof raw.cratePity !== "number";
+      let offlineBoot = false;
+      let raw = null;
+      const tryOfflineBoot = () => {
+        const uid = deviceUserId();
+        const verified = readVerifiedCopy(uid);
+        const plan = hydrateWritePlan("error", { verified, userId: uid });
+        if (!plan.useLocal) return false;
+        raw = verified.state;
+        accountReadRef.current = { kind: "error", server: null, offline: true };
+        offlineBoot = true;
+        hadServer = false;
+        setBootError(null);
+        setOffline(true);
+        return true;
+      };
+      for (;;) {
+        if (stop) return;
+        if (!window.storage?.get) {
+          if (tryOfflineBoot()) break;
+          setBootError("load");
+          await sleep(1500);
+          continue;
         }
-      } catch (e) { /* first run */ }
+        const got = await readAccountBlob((key) => window.storage.get(key, false, { fresh: true }));
+        if (stop) return;
+        if (got.kind === "error") {
+          if (tryOfflineBoot()) break;
+          setBootError("load");
+          await sleep(2000);
+          continue;
+        }
+        raw = null;
+        if (got.kind === "ok") {
+          try { raw = JSON.parse(got.value); }
+          catch {
+            if (tryOfflineBoot()) break;
+            setBootError("load");
+            await sleep(2000);
+            continue;
+          }
+        }
+        accountReadRef.current = { kind: got.kind, server: raw };
+        setBootError(null);
+        hadServer = got.kind === "ok";
+        if (hadServer && raw) writeVerifiedCopy(raw);
+        if (raw) {
+          const v = migrateAnimeCrateState(raw);
+          st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } };
+          crateDirty = !offlineBoot && (raw.crateV !== v.crateV || typeof raw.cratePity !== "number");
+        }
+        break;
+      }
+      if (stop) return;
+      if (offlineBoot && raw) {
+        const v = migrateAnimeCrateState(raw);
+        st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } };
+        crateDirty = false;
+      }
       const pending = readPending();
       let recoveredPending = false;
       if (pending?.state && !(import.meta.env.DEV && new URLSearchParams(window.location.search).get("fixture") === "big")) {
         const local = { ...DEFAULT, ...pending.state, profile: { ...DEFAULT.profile, ...(pending.state.profile || {}), sex: pending.state.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(pending.state.settings || {}) } };
-        st = hadServer ? mergeState(local, st, pending.snap && typeof pending.snap === "object" ? pending.snap : {}) : local;
-        recoveredPending = true;
+        const baseKnown = hadServer || offlineBoot;
+        if (looksLikeDefaultBlob(local) && !looksLikeDefaultBlob(st)) {
+          try { console.warn("[ascend] ignored pending: default-looking"); } catch { /* ignore */ }
+        } else if (!baseKnown) {
+          st = local;
+          recoveredPending = true;
+        } else {
+          const snap = pending.snap && typeof pending.snap === "object" ? pending.snap : {};
+          const merged = mergeState(local, st, snap);
+          if (persistWouldWipe(st, merged)) {
+            try { console.warn("[ascend] ignored pending: wipe-tripwire"); } catch { /* ignore */ }
+          } else {
+            st = merged;
+            recoveredPending = true;
+          }
+        }
       }
       try {
-        const ls = JSON.parse(localStorage.getItem("ascend-settings") || "null");
-        if (ls && (ls.savedAt || 0) > (st.settings?.savedAt || 0)) st = { ...st, settings: { ...st.settings, ...ls } };
+        const uid = window.ascendUserId || st.playerId || deviceUserId();
+        const serverSettings = st.settings;
+        let scoped = null;
+        try { scoped = JSON.parse(localStorage.getItem(settingsKey(uid)) || "null"); } catch { scoped = null; }
+        st = { ...st, settings: mergeScopedSettings(serverSettings, scoped) };
+        const ls = JSON.parse(localStorage.getItem(SETTINGS_KEY_LEGACY) || "null");
+        if (ls) {
+          if (claimUnscopedSettings(ls, serverSettings) && (ls.savedAt || 0) >= (st.settings?.savedAt || 0)) {
+            st = { ...st, settings: { ...st.settings, ...ls } };
+          }
+          try { localStorage.removeItem(SETTINGS_KEY_LEGACY); } catch (e) { /* ignore */ }
+        }
       } catch (e) { /* first run */ }
       if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
       if (!st.onboarded && !st.workouts?.length) setOnboard(st.profile?.name ? 1 : 0);
@@ -932,9 +1046,14 @@ export default function App() {
         if ((st.profile?.title || "none") !== tid) st = { ...st, profile: { ...st.profile, title: tid } };
       }
       let ok = !!window.storage?.set;
-      if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
-      setStorageOk(ok);
-      if (ok) setLastSaveAt(Date.now());
+      if (offlineBoot) {
+        setStorageOk(ok);
+        setOffline(true);
+      } else {
+        if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
+        setStorageOk(ok);
+        if (ok) setLastSaveAt(Date.now());
+      }
       const beforeNorm = st;
       st = normalizeState(st);
       if (import.meta.env.DEV) {
@@ -948,12 +1067,13 @@ export default function App() {
           }
         } catch (e) { console.warn("[ascend] fixture skipped", e); }
       }
-      if (!noPersistRef.current && window.storage?.get) {
+      if (!offlineBoot && !noPersistRef.current && window.storage?.get) {
         try {
           let exists = false;
           try { const b = await window.storage.get(BACKUP_KEY, false); exists = !!b?.value; } catch { exists = false; }
-          if (!exists) await window.storage.set(BACKUP_KEY, JSON.stringify({ at: Date.now(), version: APP_VERSION, state: st }), false);
-        } catch (e) { console.warn("[ascend] backup-6y skipped", e); }
+          const skipBackup = hadServer && persistWouldWipe(accountReadRef.current.server, st);
+          if (!exists && !skipBackup) await window.storage.set(BACKUP_KEY, JSON.stringify({ at: Date.now(), version: APP_VERSION, state: st }), false);
+        } catch (e) { console.warn("[ascend] backup-6z skipped", e); }
       }
       if ((st.xpV || 1) < XP_VERSION) {
         const hasHistory = (st.workouts || []).length || (st.xp || 0) > 0 || Object.keys(st.ach || {}).length;
@@ -964,14 +1084,25 @@ export default function App() {
         } else st = { ...st, xpV: XP_VERSION };
       }
       if ((st.rankSnapV || 0) < 1) st = { ...st, rankSnap: rankSnapshot(st), rankSnapV: 1 };
-      if (crateDirty && !noPersistRef.current && !recoveredPending) await window.storage.set("ascend-state", JSON.stringify(st), false);
+      if (crateDirty && !offlineBoot && !noPersistRef.current && !recoveredPending) {
+        try {
+          await guardedAccountWrite({
+            set: (k, v) => window.storage.set(k, v, false, { noQueue: true }),
+            next: st,
+            allowWipe: false,
+            readKind: accountReadRef.current.kind,
+            server: accountReadRef.current.server,
+          });
+        } catch (e) { console.warn("[ascend] crate persist skipped", e); }
+      }
       if (recoveredPending && !noPersistRef.current) {
-        try { snapRef.current = JSON.parse(JSON.stringify(pending.snap && typeof pending.snap === "object" ? pending.snap : {})); }
+        try { snapRef.current = JSON.parse(JSON.stringify(pending.snap && typeof pending.snap === "object" ? pending.snap : (offlineBoot && raw ? raw : {}))); }
         catch (e) { snapRef.current = {}; }
       } else {
         snapRef.current = JSON.parse(JSON.stringify(crateDirty ? st : (st === beforeNorm ? st : beforeNorm)));
       }
       setS(st); setLoaded(true);
+      if (offlineBoot && recoveredPending) dirtyRef.current = true;
       try { setSaveDiag({ kb: Math.round(JSON.stringify(st).length / 1024), ms: null }); } catch (e) { /* huge or circular */ }
       loadCommunity().then((c) => { if (c && !noPersistRef.current) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
       if (!noPersistRef.current) setTimeout(pullSteps, 800);
@@ -998,10 +1129,10 @@ export default function App() {
         };
       }
     })();
+    return () => { stop = true; };
   }, []);
 
   // Save state; if it fails (no signal), keep retrying until it lands
-  const dirtyRef = useRef(false);
   const persistNow = async ({ urgent = false } = {}) => {
     if (!loaded || !window.storage?.set) return;
     if (noPersistRef.current) return;
@@ -1009,21 +1140,33 @@ export default function App() {
     persistLock.current = true;
     setSaveStatus("saving");
     const t0 = performance.now();
-    writePending(sRef.current, snapRef.current);
+    let failed = false;
     try {
       let remote = null;
-      try {
-        const r = await window.storage.get("ascend-state", false, { fresh: true });
-        if (r?.value) remote = normalizeState(migrateAnimeCrateState(JSON.parse(r.value)));
-      } catch (e) { /* first save or offline read */ }
+      const got = await readAccountBlob((key) => window.storage.get(key, false, { fresh: true }));
+      const readKind = got.kind;
+      if (readKind === "ok") {
+        try { remote = normalizeState(migrateAnimeCrateState(JSON.parse(got.value))); }
+        catch {
+          writePending(sRef.current, snapRef.current);
+          dirtyRef.current = true;
+          throw new Error("no-server-read");
+        }
+        accountReadRef.current = { kind: "ok", server: remote, offline: false };
+      } else if (readKind === "not_found") {
+        accountReadRef.current = { kind: "not_found", server: null, offline: false };
+      } else {
+        writePending(sRef.current, snapRef.current);
+        dirtyRef.current = true;
+        throw new Error("no-server-read");
+      }
       let toWrite = null;
       let mergeMs = 0;
       let nextState = null;
       setS((p) => {
         const base = snapRef.current || {};
         const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
-        // A stale read (older rev than we last ack'd) must not replace newer local data
-        const useRemote = remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
+        const useRemote = readKind === "ok" && remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
         const tMerge = performance.now();
         const merged = normalizeState(useRemote ? mergeState(p, remote, base) : p);
         mergeMs = performance.now() - tMerge;
@@ -1032,11 +1175,49 @@ export default function App() {
         nextState = JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
         return nextState;
       });
-      const res = await window.storage.set("ascend-state", JSON.stringify(toWrite || sRef.current), false, { noQueue: true });
-      if (res?.queued) throw new Error("queued");
+      const refuseWipe = () => {
+        try { console.warn("[ascend] refused persist: wipe-tripwire"); } catch { /* ignore */ }
+        writePending(sRef.current, snapRef.current);
+        dirtyRef.current = false;
+        allowWipeRef.current = false;
+        setSaveStatus("error");
+        if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
+        setSaveNote(WIPE_SAVE_NOTE);
+      };
+      const gate = canPersistAccount({ readKind, server: remote, next: toWrite || sRef.current, allowWipe: !!allowWipeRef.current });
+      if (!gate.ok) {
+        if (gate.reason === "wipe-tripwire") refuseWipe();
+        else {
+          try { console.warn("[ascend] refused persist:", gate.reason); } catch { /* ignore */ }
+          writePending(sRef.current, snapRef.current);
+          dirtyRef.current = true;
+          setSaveStatus("error");
+          setSaveNote("Couldn't save. Retrying…");
+        }
+        return;
+      }
+      writePending(sRef.current, snapRef.current);
+      const wr = await guardedAccountWrite({
+        set: (k, v) => window.storage.set(k, v, false, { noQueue: true }),
+        next: toWrite || sRef.current,
+        allowWipe: !!allowWipeRef.current,
+        readKind,
+        server: remote,
+      });
+      if (!wr.wrote) {
+        if (wr.reason === "wipe-tripwire") refuseWipe();
+        else {
+          dirtyRef.current = true;
+          setSaveStatus("error");
+          setSaveNote("Couldn't save. Retrying…");
+        }
+        return;
+      }
       dirtyRef.current = false;
+      allowWipeRef.current = false;
       snapRef.current = JSON.parse(JSON.stringify(sRef.current));
       writtenRef.current = nextState;
+      writeVerifiedCopy(toWrite || sRef.current);
       clearPending();
       setOffline(false);
       setLastSaveAt(Date.now());
@@ -1049,9 +1230,12 @@ export default function App() {
         setSaveNote("Saved");
         saveNoteTimer.current = setTimeout(() => setSaveNote(null), 1800);
       } else {
-        setSaveNote((n) => (n === "Couldn't save. Retrying…" ? null : n));
+        setSaveNote((n) => (n && n.startsWith("Couldn't") ? null : n));
       }
     } catch (e) {
+      failed = true;
+      dirtyRef.current = true;
+      writePending(sRef.current, snapRef.current);
       setOffline(true);
       setSaveStatus("error");
       if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
@@ -1062,7 +1246,12 @@ export default function App() {
       const u = persistUrgent.current;
       persistAgain.current = false;
       persistUrgent.current = false;
-      if (again) persistNow({ urgent: u || urgent });
+      if (again) {
+        if (failed) {
+          if (persistRetryTimer.current) clearTimeout(persistRetryTimer.current);
+          persistRetryTimer.current = setTimeout(() => persistNow({ urgent: u || urgent }), 2000);
+        } else persistNow({ urgent: u || urgent });
+      }
     }
   };
   const persistRef = useRef(() => {});
@@ -1100,29 +1289,71 @@ export default function App() {
   }, [loaded]);
   useEffect(() => {
     const hide = () => {
-      if (noPersistRef.current) return;
+      if (noPersistRef.current || !loaded) return;
       writePending(sRef.current, snapRef.current);
       if (dirtyRef.current) persistRef.current({ urgent: true });
       window.storage?.flush?.();
     };
     const vis = () => { if (document.visibilityState === "hidden") hide(); };
+    const onOnline = () => {
+      if (!loaded) return;
+      if (dirtyRef.current || accountReadRef.current.offline) persistRef.current({ urgent: true });
+    };
     document.addEventListener("visibilitychange", vis);
     window.addEventListener("pagehide", hide);
-    return () => { document.removeEventListener("visibilitychange", vis); window.removeEventListener("pagehide", hide); };
+    window.addEventListener("online", onOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", vis);
+      window.removeEventListener("pagehide", hide);
+      window.removeEventListener("online", onOnline);
+    };
   }, [loaded]);
   // Settings also live on this device so colors and fonts survive account or connection hiccups
-  useEffect(() => { if (loaded) { try { localStorage.setItem("ascend-settings", JSON.stringify(s.settings)); } catch (e) { /* private mode */ } } }, [s.settings, loaded]);
-
-  // Push leaderboard card whenever progress changes
   useEffect(() => {
-    if (!loaded || !s.lb || !s.profile.name || s.test || noPersistRef.current) return;
-    const t = setTimeout(async () => {
-      const card = profileCard(s);
-      if (s.profile.song?.type === "clip" && !songPushed.current) { try { const r = await window.storage.get("ascend-song", false); if (r?.value) { await window.storage.set(`song:${s.playerId}`, r.value, true); songPushed.current = true; } } catch (e) { /* skip */ } }
-      try { await window.storage.set(`lb:${s.playerId}`, JSON.stringify(card), true); } catch (e) { console.error(e); }
-    }, 1200);
+    if (loaded) {
+      try { localStorage.setItem(settingsKey(deviceUserId()), JSON.stringify(s.settings)); } catch (e) { /* private mode */ }
+    }
+  }, [s.settings, loaded]);
+
+  const lbPublishAttempt = useRef(0);
+  const lbPublishRetry = useRef(null);
+  const publishLbCard = useCallback(async () => {
+    const p = sRef.current;
+    if (!shouldPublishLbCard({ loaded, lb: p.lb, test: p.test, name: p.profile?.name, noPersist: noPersistRef.current })) return;
+    const card = { ...profileCard(p), xpV: p.xpV || LB_XP_VERSION };
+    if (p.profile.song?.type === "clip" && !songPushed.current) {
+      try { const r = await window.storage.get("ascend-song", false); if (r?.value) { await window.storage.set(`song:${p.playerId}`, r.value, true); songPushed.current = true; } } catch (e) { /* skip */ }
+    }
+    const write = async (payload) => { await window.storage.set(`lb:${p.playerId}`, JSON.stringify(payload), true); };
+    const res = await tryPublish(write, card, {
+      attempt: lbPublishAttempt.current,
+      schedule: (ms, next) => {
+        lbPublishAttempt.current = next;
+        if (lbPublishRetry.current) clearTimeout(lbPublishRetry.current);
+        lbPublishRetry.current = setTimeout(() => { lbPublishRetry.current = null; publishLbCard(); }, ms);
+      },
+    });
+    if (res.ok) lbPublishAttempt.current = 0;
+  }, [loaded]);
+
+  // Push leaderboard card on load (including after a recount) and whenever progress changes
+  useEffect(() => {
+    if (!shouldPublishLbCard({ loaded, lb: s.lb, test: s.test, name: s.profile.name, noPersist: noPersistRef.current })) return;
+    const t = setTimeout(() => publishLbCard(), 400);
     return () => clearTimeout(t);
-  }, [loaded, s.lb, s.test, s.profile.name, s.profile.avatar, s.profile.look, s.profile.look?.border, s.profile.title, s.profile.song, s.seasonBadges, s.xp, s.workouts, s.profile.weight, s.profile.sex, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins, s.lbReigning, s.loot]);
+  }, [loaded, s.lb, s.test, s.profile.name, s.profile.avatar, s.profile.look, s.profile.look?.border, s.profile.title, s.profile.song, s.seasonBadges, s.xp, s.xpV, s.workouts, s.profile.weight, s.profile.sex, s.days, s.custom, s.ach, s.weightLog, s.profile.shareWeight, s.steps, s.xpLog, s.nemesis, s.duelResults, s.crateSpent, s.crateUnlocks, s.checkins, s.lbReigning, s.loot, publishLbCard]);
+
+  useEffect(() => {
+    const onOnline = () => publishLbCard();
+    const onVis = () => { if (document.visibilityState === "visible") publishLbCard(); };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVis);
+      if (lbPublishRetry.current) clearTimeout(lbPublishRetry.current);
+    };
+  }, [publishLbCard]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -1260,7 +1491,12 @@ export default function App() {
   try {
     if (new URLSearchParams(window.location.search).get("watch") === "rest") return <RestWatchPage />;
   } catch (e) { /* stay in the app */ }
-  if (!loaded) return <div className="min-h-screen flex items-center justify-center" style={{ background: C.bg, color: C.dim }}><Loader2 className="animate-spin" /></div>;
+  if (!loaded) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ background: C.bg, color: C.dim }}>
+      <Loader2 className="animate-spin" />
+      {bootError ? <div className="body text-sm" role="status">Couldn't load, retrying</div> : null}
+    </div>
+  );
 
   const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
 
@@ -1414,7 +1650,7 @@ export default function App() {
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <TabErrorBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></TabErrorBoundary>}
-        {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} /></TabErrorBoundary>}
+        {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} allowWipe={() => { allowWipeRef.current = true; }} /></TabErrorBoundary>}
         {onboard === null && tab === "exercise" && <TabErrorBoundary><ExercisePage s={s} setS={setS} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} /></TabErrorBoundary>}
         {onboard === null && tab === "run" && <TabErrorBoundary><RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} /></TabErrorBoundary>}
         {onboard === null && tab === "muscle" && <TabErrorBoundary><MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} /></TabErrorBoundary>}
@@ -1580,7 +1816,7 @@ function NextGoal({ s, openExercise, goQuests }) {
   );
 }
 
-function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, goQuests, openXp, openRival, saveOk, saveAt, storageOk }) {
+function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, goQuests, openXp, openRival, saveOk, saveAt, storageOk, allowWipe }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -1715,12 +1951,12 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
           })}
         </div>
       )}
-      <Profile s={s} setS={setS} />
+      <Profile s={s} setS={setS} allowWipe={allowWipe} />
     </div>
   );
 }
 
-function Profile({ s, setS }) {
+function Profile({ s, setS, allowWipe }) {
   const [open, setOpen] = useState(false);
   const p = s.profile;
   const set = (k, v) => setS((x) => ({ ...x, profile: { ...x.profile, [k]: v } }));
@@ -1743,7 +1979,7 @@ function Profile({ s, setS }) {
             }, "Switch");
           }}><option value="m">Male</option><option value="f">Female</option></select></label>
           <label className="col-span-2">Activity<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
-          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings, test: !!s.test }), "Reset")}>Reset all progress</button>
+          <button className="col-span-2 mt-1 text-xs underline" style={{ color: C.red }} onClick={() => ask("Reset all progress? This can't be undone.", () => { allowWipe?.(); setS({ ...DEFAULT, playerId: s.playerId, settings: s.settings, test: !!s.test }); }, "Reset")}>Reset all progress</button>
         </div>
       )}
     </div>
@@ -2868,7 +3104,7 @@ function Board({ s, setS, openProfile, gainXp }) {
       setLoading(false); return;
     }
     const readCard = async (k) => {
-      try { const r = await window.storage.get(k, true); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; }
+      try { const r = await window.storage.get(k, true, { fresh: true }); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; }
     };
     let keys = null;
     for (let attempt = 0; attempt < 2 && keys === null; attempt++) {
@@ -2889,7 +3125,13 @@ function Board({ s, setS, openProfile, gainXp }) {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
-  useEffect(() => { if (view !== "crew") return; const t = setInterval(load, 30000); return () => clearInterval(t); }, [view]);
+  useEffect(() => {
+    if (view !== "board" && view !== "crew") return;
+    const tick = () => { if (document.visibilityState === "visible") load(); };
+    const iv = setInterval(tick, 30000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", tick); };
+  }, [view]);
 
   const leave = async () => {
     setS((p) => ({ ...p, lb: false }));
@@ -2897,6 +3139,8 @@ function Board({ s, setS, openProfile, gainXp }) {
     setRows((r) => r.filter((x) => x.key !== `lb:${s.playerId}`));
   };
 
+  const liveMine = profileCard(s);
+  const displayRows = overlayOwnBoardRow(rows, liveMine, s.playerId);
   const ws = weekStart();
   const mk = monthKey();
   const sk = seasonKey();
@@ -2908,10 +3152,10 @@ function Board({ s, setS, openProfile, gainXp }) {
   };
   const [, unit, val, fmt] = SORTS[sort];
   const show = (r) => (fmt ? fmt(r) : val(r).toLocaleString());
-  const sorted = [...rows].sort((a, b) => val(b) - val(a));
+  const sorted = [...displayRows].sort((a, b) => val(b) - val(a));
   const top = sorted.slice(0, 3), rest = sorted.slice(3);
   const isMe = (r) => r.key === `lb:${s.playerId}`;
-  const seasonRanked = [...rows].sort((a, b) => ((b.season?.key === sk ? b.season.xp : 0) || 0) - ((a.season?.key === sk ? a.season.xp : 0) || 0));
+  const seasonRanked = [...displayRows].sort((a, b) => ((b.season?.key === sk ? b.season.xp : 0) || 0) - ((a.season?.key === sk ? a.season.xp : 0) || 0));
   const reigningKey = seasonRanked[0] && ((seasonRanked[0].season?.key === sk ? seasonRanked[0].season.xp : 0) || 0) > 0 ? seasonRanked[0].key : null;
   const lookOf = (r) => {
     const L = { ...(r.look || {}) };
@@ -2980,7 +3224,7 @@ function Board({ s, setS, openProfile, gainXp }) {
                 <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} look={lookOf(r)} />
                 <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} /></div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase truncate w-full text-center" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
-                <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}</div>
+                <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}{cardNeedsXpUpdate(r) ? <div style={{ color: C.mute }}>not updated yet</div> : null}</div>
                 <div className="w-full flex items-start justify-center pt-2" style={{ height: P.h, borderRadius: "4px 4px 0 0", background: PROFILE_BGS.find((b) => b.id === r.look?.bg)?.css ? `linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.6)), ${PROFILE_BGS.find((b) => b.id === r.look?.bg).css}` : `linear-gradient(180deg, ${P.glow}, ${C.bg})`, backgroundSize: "cover", border: `1px solid ${r.look?.accent || P.color}`, borderBottom: "none", boxShadow: `0 0 20px ${P.glow}` }}>
                   <span className="text-3xl font-extrabold" style={{ color: P.color, textShadow: `0 0 12px ${P.glow}` }}>{P.place}</span>
                 </div>
@@ -3005,6 +3249,7 @@ function Board({ s, setS, openProfile, gainXp }) {
               <div className="text-right">
                 <div className="font-bold glowtext">{show(r)}</div>
                 <div className="body text-xs" style={{ color: C.mute }}>{unit}</div>
+                {cardNeedsXpUpdate(r) ? <div className="body text-xs" style={{ color: C.mute }}>not updated yet</div> : null}
               </div>
             </button>
           );
@@ -4323,6 +4568,7 @@ function profileCard(s) {
     weekXp: Object.entries(s.xpLog || {}).filter(([d]) => d >= ws).reduce((a, [, v]) => a + v, 0),
     prevWeek: (() => { const pw = shift(ws, -7); return { key: pw, xp: Object.entries(s.xpLog || {}).filter(([d]) => d >= pw && d < ws).reduce((a, [, v]) => a + v, 0) }; })(),
     xp: s.xp, points: pointsOf(s), lvl: levelFromXp(s.xp).lvl, rank: overallRank(s).id, div: overallInfo(s).div,
+    xpV: s.xpV || LB_XP_VERSION,
     streak: streakOf(s), week: s.workouts.filter((w) => w.date >= ws && isWorkout(w)).length, weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: s.profile.shareWeight ? Object.fromEntries(wl) : null,
     month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); workSets(ex.sets).forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: s.workouts.filter((w) => w.date.startsWith(mk) && isWorkout(w)).length, volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
@@ -7194,30 +7440,16 @@ function unlocked(item, s) {
 }
 function stripGhostCosmetics(s) {
   const real = { ...s, test: false };
-  const look = { ...(s.profile?.look || {}) };
-  let changed = false;
   const auraOk = (id) => {
     const a = AURAS.find((x) => x.id === id);
     return !id || id === "none" || (a && unlocked(a, real));
   };
-  if (!auraOk(look.aura)) {
-    look.aura = auraOk(look.auraPrev) ? look.auraPrev : "none";
-    changed = true;
-  }
   const borderOk = (id) => {
     const b = BORDERS.find((x) => x.id === id);
     return !id || id === "none" || (b && unlocked(b, real));
   };
-  if (!borderOk(look.border)) {
-    look.border = "none";
-    changed = true;
-  }
   const title = equippedTitle(real);
-  const tid = title?.id || "none";
-  const profile = { ...s.profile, look, title: tid };
-  if ((s.profile?.title || "none") !== tid) changed = true;
-  if (!changed && look === s.profile?.look) return { ...s, test: false };
-  return { ...s, test: false, profile };
+  return stripGhostCosmeticsState(s, { allowAura: auraOk, allowBorder: borderOk, titleId: title?.id || "none" });
 }
 async function fetchRunWeather(lat, lng) {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
@@ -10677,6 +10909,8 @@ const SB_URL = import.meta.env?.VITE_SUPABASE_URL, SB_KEY = import.meta.env?.VIT
 const toServerRow = (r) => ({ event_id: String(r.e).slice(0, 120), amount: r.a, source: String(r.m || "").slice(0, 120), day: r.d, at: new Date(r.t || Date.now()).toISOString() });
 const XpSync = {
   busy: false,
+  fail: 0,
+  retryTimer: null,
   key() { return `ascend-xp-outbox:${(typeof window !== "undefined" && window.ascendUserId) || "me"}`; },
   read() { try { return JSON.parse(localStorage.getItem(this.key()) || "null") || { replace: null, add: [] }; } catch (e) { return { replace: null, add: [] }; } },
   write(o) {
@@ -10694,22 +10928,28 @@ const XpSync = {
     if (typeof window !== "undefined" && window.__ascendNoPersist) return;
     if (this.busy || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
     this.busy = true;
+    const retry = () => {
+      if (this.retryTimer) return;
+      this.fail += 1;
+      this.retryTimer = setTimeout(() => { this.retryTimer = null; this.flush(); }, nextPublishBackoff(this.fail));
+    };
     try {
       const h = await this.headers();
       if (!h) return;
       let o = this.read();
       if (o.replace) {
         const r = await fetch(`${SB_URL}/rest/v1/rpc/xp_replace`, { method: "POST", headers: h, body: JSON.stringify({ p_rows: o.replace.map(toServerRow) }) });
-        if (!r.ok) return;
+        if (!r.ok) { retry(); return; }
         o = this.read(); o.replace = null; this.write(o);
       }
       while (o.add.length) {
         const batch = o.add.slice(0, 200);
         const r = await fetch(`${SB_URL}/rest/v1/xp_logs?on_conflict=user_id,event_id`, { method: "POST", headers: { ...h, Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(batch.map(toServerRow)) });
-        if (!r.ok) return;
+        if (!r.ok) { retry(); return; }
         o = this.read(); const sent = new Set(batch.map((x) => x.e)); o.add = o.add.filter((x) => !sent.has(x.e)); this.write(o);
       }
-    } catch (e) { /* offline or server hiccup: try again later */ } finally { this.busy = false; }
+      this.fail = 0;
+    } catch (e) { retry(); } finally { this.busy = false; }
   },
   async page(offset = 0, limit = 50) {
     const h = await this.headers();

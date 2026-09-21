@@ -99,8 +99,8 @@ export function installStorage(supabase, userId) {
         try {
           const state = JSON.parse(op.value);
           let snap = null;
-          try { snap = JSON.parse(localStorage.getItem("ascend-pending") || "null")?.snap || null; } catch { snap = null; }
-          localStorage.setItem("ascend-pending", JSON.stringify({ state, snap, t: op.t || Date.now() }));
+          try { snap = JSON.parse(localStorage.getItem(`ascend-pending:${userId}`) || localStorage.getItem("ascend-pending") || "null")?.snap || null; } catch { snap = null; }
+          localStorage.setItem(`ascend-pending:${userId}`, JSON.stringify({ state, snap, t: op.t || Date.now() }));
           changed = true;
         } catch (e) { rest.push(op); }
       } else rest.push(op);
@@ -131,20 +131,28 @@ export function installStorage(supabase, userId) {
         return { key, value: data.value, shared };
       } catch (e) {
         if (String(e?.message) === "Key not found") throw e;
-        const v = lsGet(ck);
-        if (v !== null) return { key, value: v, shared };
+        // fresh reads must not treat a local mirror as the server row — a stale
+        // empty mirror would look like a successful get and persist over the real blob.
+        if (!opts.fresh) {
+          const v = lsGet(ck);
+          if (v !== null) return { key, value: v, shared };
+        }
         throw e;
       }
     },
     async set(key, value, shared = false, opts = {}) {
       const ck = id(shared, key), v = String(value);
       cache.delete(ck);
-      if (mirrorable(scope(shared), key, v)) lsSet(ck, v);
       const op = { type: "set", scope: scope(shared), key, value: v, t: Date.now() };
-      try { await pushNow(op); }
-      catch (e) {
+      try {
+        await pushNow(op);
+        if (mirrorable(scope(shared), key, v)) lsSet(ck, v);
+      } catch (e) {
         if (opts.noQueue) throw e;
-        if (isNetErr(e) && !shared) { enqueue(op); return { key, value, shared, queued: true }; }
+        if (isNetErr(e) && !shared) {
+          if (mirrorable(scope(shared), key, v)) lsSet(ck, v);
+          enqueue(op); return { key, value, shared, queued: true };
+        }
         throw e;
       }
       return { key, value, shared };

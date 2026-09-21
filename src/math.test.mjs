@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -818,6 +818,233 @@ test("merge recounts PRs for the canonical name", () => {
   assert.equal(next.workouts[1].exercises[0].name, "Lat Pulldown");
   assert.equal(next.workouts[0].prBonus, PR_BONUS);
   assert.equal(next.workouts[1].prBonus, PR_BONUS);
+});
+
+test("own Board row uses live s.xp and re-ranks against others", () => {
+  const rows = [
+    { key: "lb:me", id: "me", name: "Me", xp: 90000 },
+    { key: "lb:a", id: "a", name: "A", xp: 500 },
+  ];
+  const live = { name: "Me", xp: 100, xpV: 3 };
+  const got = overlayOwnBoardRow(rows, live, "me");
+  assert.equal(got.find((r) => r.id === "me").xp, 100);
+  assert.equal(got.find((r) => r.id === "a").xp, 500);
+  const ranked = [...got].sort((a, b) => (b.xp || 0) - (a.xp || 0));
+  assert.equal(ranked[0].id, "a");
+  assert.equal(ranked[1].id, "me");
+});
+
+test("a card with xpV < 3 is marked, current cards are not", () => {
+  assert.equal(cardNeedsXpUpdate({ xp: 10 }), true);
+  assert.equal(cardNeedsXpUpdate({ xp: 10, xpV: 2 }), true);
+  assert.equal(cardNeedsXpUpdate({ xp: 10, xpV: 3 }), false);
+});
+
+test("publish retries after a failed write and on online", async () => {
+  let fails = 1;
+  const writes = [];
+  const scheduled = [];
+  const write = async (p) => {
+    if (fails > 0) { fails -= 1; throw new Error("net"); }
+    writes.push(p);
+  };
+  const first = await tryPublish(write, { xp: 9, xpV: 3 }, { attempt: 0, schedule: (ms, a) => scheduled.push([ms, a]) });
+  assert.equal(first.ok, false);
+  assert.equal(scheduled.length, 1);
+  assert.ok(scheduled[0][0] >= 1200);
+  assert.equal(scheduled[0][1], 1);
+  const second = await tryPublish(write, { xp: 9, xpV: 3 }, { attempt: 1 });
+  assert.equal(second.ok, true);
+  const online = await tryPublish(write, { xp: 9, xpV: 3 }, { attempt: 0 });
+  assert.equal(online.ok, true);
+  assert.equal(writes.length, 2);
+  assert.equal(nextPublishBackoff(2), 4800);
+});
+
+test("publish-on-load fires after a recount", async () => {
+  const s = { lb: true, test: false, profile: { name: "Brody" }, xp: 48000, xpV: 3 };
+  assert.equal(shouldPublishLbCard({ loaded: true, lb: s.lb, test: s.test, name: s.profile.name, noPersist: false }), true);
+  const writes = [];
+  await tryPublish(async (c) => writes.push(c), { xp: s.xp, xpV: s.xpV });
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].xp, 48000);
+  assert.equal(writes[0].xpV, 3);
+});
+
+test("scoped settings key — two users in one browser keep separate settings", () => {
+  assert.equal(settingsKey("u1"), "ascend-settings:u1");
+  assert.equal(settingsKey("u2"), "ascend-settings:u2");
+  assert.notEqual(settingsKey("u1"), settingsKey("u2"));
+  const server = { theme: "dark", dysFont: false, savedAt: 10 };
+  const unscoped = { theme: "light", dysFont: true, savedAt: 10 };
+  assert.equal(claimUnscopedSettings(unscoped, server), true);
+  assert.equal(claimUnscopedSettings({ ...unscoped, savedAt: 99 }, server), false);
+  const u1 = mergeScopedSettings(server, { theme: "light", dysFont: true, savedAt: 20 });
+  const u2 = mergeScopedSettings(server, { theme: "dark", zesty: true, savedAt: 30 });
+  assert.equal(u1.dysFont, true);
+  assert.equal(u1.theme, "light");
+  assert.equal(u2.zesty, true);
+  assert.equal(u2.dysFont, false);
+  assert.equal(pendingKey("u1"), "ascend-pending:u1");
+  assert.equal(claimUnscopedPending({ state: { playerId: "u1" } }, "u1"), true);
+  assert.equal(claimUnscopedPending({ state: { playerId: "u1" } }, "u2"), false);
+});
+
+test("stripGhostCosmetics leaves name, fonts and settings untouched", () => {
+  const s = {
+    test: true,
+    profile: { name: "Chud", title: "mythic", look: { aura: "stolen", border: "gilded", font: "bangers", accent: "#f00" } },
+    settings: { theme: "light", dysFont: true, zesty: true, custom: { on: true, bg: "#111" } },
+  };
+  const got = stripGhostCosmeticsState(s, {
+    allowAura: (id) => id === "none",
+    allowBorder: (id) => id === "none",
+    titleId: "none",
+  });
+  assert.equal(got.test, false);
+  assert.equal(got.profile.name, "Chud");
+  assert.equal(got.profile.look.font, "bangers");
+  assert.equal(got.profile.look.accent, "#f00");
+  assert.deepEqual(got.settings, s.settings);
+  assert.equal(got.profile.look.aura, "none");
+  assert.equal(got.profile.look.border, "none");
+  assert.equal(got.profile.title, "none");
+});
+
+test("classifyKvError only treats a confirmed missing key as not_found", () => {
+  assert.equal(classifyKvError(new Error("Key not found")), "not_found");
+  assert.equal(classifyKvError({ message: "key not found" }), "not_found");
+  assert.equal(classifyKvError(new Error("Failed to fetch")), "error");
+  assert.equal(classifyKvError(new Error("JWT expired")), "error");
+  assert.equal(classifyKvError(new Error("Unauthorized")), "error");
+  assert.equal(classifyKvError(new Error("network")), "error");
+});
+
+test("hydrateWritePlan: a failed read must retry and never persist", () => {
+  assert.deepEqual(hydrateWritePlan("error"), { persist: false, retry: true, ui: "load-error", useLocal: false });
+  assert.deepEqual(hydrateWritePlan(undefined), { persist: false, retry: true, ui: "load-error", useLocal: false });
+  assert.equal(hydrateWritePlan("not_found").persist, true);
+  assert.equal(hydrateWritePlan("not_found").firstRun, true);
+  assert.equal(hydrateWritePlan("ok").persist, true);
+  assert.equal(hydrateWritePlan("ok").firstRun, false);
+});
+
+test("readAccountBlob distinguishes ok, not_found, and network/auth errors", async () => {
+  assert.equal((await readAccountBlob(async () => ({ value: "{\"xp\":100}" }))).kind, "ok");
+  assert.equal((await readAccountBlob(async () => { throw new Error("Key not found"); })).kind, "not_found");
+  assert.equal((await readAccountBlob(async () => ({ value: null }))).kind, "not_found");
+  assert.equal((await readAccountBlob(async () => { throw new Error("Failed to fetch"); })).kind, "error");
+  assert.equal((await readAccountBlob(async () => { throw new Error("JWT expired"); })).kind, "error");
+});
+
+test("simulated network failure at load leaves the server row untouched", async () => {
+  const row = { xp: 100, workouts: [{ id: "w1" }], test: true };
+  const writes = [];
+  const get = async () => { throw new Error("Failed to fetch"); };
+  const set = async (_k, v) => {
+    writes.push(v);
+    Object.assign(row, JSON.parse(v));
+  };
+  const got = await readAccountBlob(get);
+  assert.equal(got.kind, "error");
+  const plan = hydrateWritePlan(got.kind);
+  assert.equal(plan.persist, false);
+  assert.equal(plan.retry, true);
+  assert.equal(plan.ui, "load-error");
+  const wr = await guardedAccountWrite({
+    get,
+    set,
+    next: { xp: 0, workouts: [], test: false },
+  });
+  assert.equal(wr.wrote, false);
+  assert.equal(wr.reason, "no-server-read");
+  assert.equal(writes.length, 0);
+  assert.equal(row.xp, 100);
+  assert.equal(row.test, true);
+  assert.equal(row.workouts.length, 1);
+});
+
+test("no-server-read refuses any raw ascend-state write", async () => {
+  const writes = [];
+  const next = { xp: 0, workouts: [], test: false };
+  assert.equal(canPersistAccount({ readKind: "error", next }).ok, false);
+  assert.equal(canPersistAccount({ readKind: "error", next }).reason, "no-server-read");
+  assert.equal(canPersistAccount({ next }).ok, false);
+  const wr = await guardedAccountWrite({
+    readKind: "error",
+    set: async (_k, v) => writes.push(v),
+    next,
+  });
+  assert.equal(wr.wrote, false);
+  assert.equal(writes.length, 0);
+});
+
+test("wipe tripwire refuses empty overwrite unless Reset all progress", async () => {
+  const server = { xp: 600, workouts: [{ id: "a" }, { id: "b" }, { id: "c" }], test: true };
+  const empty = { xp: 0, workouts: [], test: false };
+  const writes = [];
+  const set = async (_k, v) => writes.push(v);
+  assert.equal(persistWouldWipe(server, empty), true);
+  assert.equal(canPersistAccount({ readKind: "ok", server, next: empty }).ok, false);
+  assert.equal(canPersistAccount({ readKind: "ok", server, next: empty }).reason, "wipe-tripwire");
+  const blocked = await guardedAccountWrite({ readKind: "ok", server, set, next: empty });
+  assert.equal(blocked.wrote, false);
+  assert.equal(blocked.reason, "wipe-tripwire");
+  assert.equal(writes.length, 0);
+  const reset = await guardedAccountWrite({ readKind: "ok", server, set, next: empty, allowWipe: true });
+  assert.equal(reset.wrote, true);
+  assert.equal(writes.length, 1);
+});
+
+test("tripwire allows recount XP drops that stay above near-zero", () => {
+  const server = { xp: 800, workouts: [{ id: "a" }, { id: "b" }, { id: "c" }] };
+  const recounted = { xp: 720, workouts: [{ id: "a" }, { id: "b" }, { id: "c" }] };
+  assert.equal(persistWouldWipe(server, recounted), false);
+  assert.equal(canPersistAccount({ readKind: "ok", server, next: recounted }).ok, true);
+  assert.equal(persistWouldWipe(server, { xp: 0, workouts: server.workouts }), true);
+  assert.equal(persistWouldWipe(server, { xp: 8, workouts: server.workouts }), true);
+  assert.equal(persistWouldWipe(server, { xp: 800, workouts: [] }), true);
+  assert.equal(canPersistAccount({ readKind: "not_found", next: { xp: 0, workouts: [] } }).ok, true);
+});
+
+test("deleting the only workout on a 1-workout account is not a wipe", () => {
+  const server = { xp: 80, workouts: [{ id: "w1" }], profile: { name: "A" } };
+  const next = { xp: 80, workouts: [], profile: { name: "A" } };
+  assert.equal(persistWouldWipe(server, next), false);
+  assert.equal(canPersistAccount({ readKind: "ok", server, next }).ok, true);
+});
+
+test("recount landing at 0 on a level-1 account is not a wipe", () => {
+  const server = { xp: 40, workouts: [{ id: "w1" }] };
+  assert.equal(levelFromXp(server.xp).lvl, 1);
+  const next = { xp: 0, workouts: [{ id: "w1" }] };
+  assert.equal(persistWouldWipe(server, next), false);
+  assert.equal(canPersistAccount({ readKind: "ok", server, next }).ok, true);
+});
+
+test("offline launch from a verified copy is usable and does not persist", () => {
+  const userId = "u1";
+  const verified = { userId, rev: 4, state: { xp: 100, workouts: [], profile: { name: "Chud" }, rev: 4 } };
+  assert.equal(verifiedCopyKey(userId), "ascend-verified:u1");
+  assert.equal(isVerifiedLocalCopy(verified, userId), true);
+  const plan = hydrateWritePlan("error", { verified, userId });
+  assert.equal(plan.useLocal, true);
+  assert.equal(plan.persist, false);
+  assert.equal(plan.retry, false);
+  assert.equal(plan.ui, "offline");
+});
+
+test("offline launch from a default-looking copy stays read-only retry", () => {
+  const userId = "u1";
+  assert.equal(looksLikeDefaultBlob({ xp: 0, workouts: [], profile: { name: "" }, test: false }), true);
+  const verified = { userId, rev: 1, state: { xp: 0, workouts: [], profile: { name: "" }, test: false } };
+  assert.equal(isVerifiedLocalCopy(verified, userId), false);
+  const plan = hydrateWritePlan("error", { verified, userId });
+  assert.equal(plan.useLocal, false);
+  assert.equal(plan.retry, true);
+  assert.equal(plan.ui, "load-error");
+  assert.equal(plan.persist, false);
+  assert.equal(isVerifiedLocalCopy({ userId: "u2", rev: 4, state: { xp: 100, profile: { name: "X" } } }, userId), false);
 });
 
 
