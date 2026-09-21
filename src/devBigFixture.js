@@ -14,11 +14,16 @@ const dayKey = (offset) => {
 };
 
 export function buildBigFixture(base, catalog) {
-  const lifts = (catalog || []).filter((e) => e.type === "weighted").slice(0, LIFTS);
-  const names = lifts.length ? lifts : [{ name: "Bench Press", type: "weighted" }];
+  const lifts = (catalog || []).filter((e) => e.type === "weighted");
+  const machine = lifts.find((e) => /machine|cable/i.test(e.name)) || { name: "Chest Press Machine", type: "weighted" };
+  const bar = lifts.find((e) => e.name === "Bench Press") || lifts.find((e) => !/machine|cable/i.test(e.name)) || { name: "Bench Press", type: "weighted" };
+  const extra = lifts.filter((e) => e.name !== machine.name && e.name !== bar.name).slice(0, Math.max(0, LIFTS - 2));
+  const names = [machine, bar, ...extra];
+  const gyms = [{ id: "g1", name: "East" }, { id: "g2", name: "West" }];
   const workouts = [];
   for (let i = 0; i < WORKOUTS; i++) {
     const date = dayKey(i % 400);
+    const gym = i % 2 ? "g2" : "g1";
     const exercises = names.map((ex, ei) => ({
       name: ex.name,
       sets: Array.from({ length: SETS }, (_, si) => ({
@@ -28,14 +33,18 @@ export function buildBigFixture(base, catalog) {
       })),
     }));
     const volume = exercises.reduce((a, ex) => a + ex.sets.reduce((b, st) => b + (+st.w || 0) * (+st.r || 0), 0), 0);
+    const setXp = 40 + (i % 30);
+    const prBonus = 80;
     workouts.push({
       id: `fixw${i}`,
       date,
       title: ["Push", "Pull", "Legs", "Upper"][i % 4],
       preset: "",
+      gym,
       exercises,
       volume,
-      xp: 40 + (i % 30),
+      xp: setXp + prBonus,
+      prBonus,
       minutes: 40 + (i % 25),
       startedAt: Date.now() - i * 86400000,
     });
@@ -72,6 +81,8 @@ export function buildBigFixture(base, catalog) {
   return {
     ...base,
     workouts,
+    gyms,
+    currentGym: "g1",
     meals,
     chat,
     xpLog: { ...(base.xpLog || {}), ...xpLog },

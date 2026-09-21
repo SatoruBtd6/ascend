@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -628,4 +628,196 @@ test("switching gyms produces no ceremony", () => {
   assert.equal(next.currentGym, "g2");
   assert.equal(rankUpCeremony(next.rankSnap, afterGym), null);
 });
+
+function testFindEx(_s, name) {
+  const table = {
+    "Bench Press": { name: "Bench Press", type: "weighted", perHand: false, group: "Chest" },
+    "Dumbbell Press": { name: "Dumbbell Press", type: "weighted", perHand: true, group: "Chest" },
+    "Chest Press Machine": { name: "Chest Press Machine", type: "weighted", group: "Chest" },
+    "Push-up": { name: "Push-up", type: "bodyweight", group: "Chest" },
+    "Assisted Dip Machine": { name: "Assisted Dip Machine", type: "assisted", rankAs: "Dip", group: "Chest" },
+    "Plank": { name: "Plank", type: "timed", group: "Core" },
+    "New Lift": { name: "New Lift", type: "weighted", group: "Chest" },
+  };
+  return table[name] || { name, type: "weighted", group: "Chest" };
+}
+function prFlags(def, sets, history = [], workout = { date: "2026-09-21" }, ex = {}) {
+  return scoreExercisePrs(def, { ...ex, name: def.name, sets }, history, workout).map((f) => f.pr);
+}
+function logged(id, date, name, pairs, extra = {}) {
+  const sets = pairs.map(([w, r]) => ({ w, r, done: true }));
+  const setXp = extra.setXp ?? 10 * pairs.length;
+  const prBonus = extra.prBonus ?? 40 * pairs.length;
+  return {
+    id, date, title: extra.title || name, startedAt: extra.startedAt || 0,
+    exercises: [{ name, sets, ...(extra.ex || {}) }],
+    xp: setXp + prBonus, prBonus,
+    lines: [{ name, xp: setXp, sets: pairs.map(([w, r]) => ({ label: `${w}×${r}`, xp: 10, note: "", pr: true })) }],
+    ...(extra.gym != null ? { gym: extra.gym } : {}),
+  };
+}
+
+test("first-ever exercise with 5 increasing sets earns exactly 1 PR", () => {
+  const def = testFindEx(null, "New Lift");
+  const sets = [[95, 5], [115, 5], [135, 5], [155, 5], [175, 5]].map(([w, r]) => ({ w, r }));
+  const flags = prFlags(def, sets, []);
+  assert.deepEqual(flags, ["weight", false, false, false, false]);
+  assert.equal(flags.filter(Boolean).length, 1);
+});
+
+test("heavier weight than ever is a weight PR only", () => {
+  const def = testFindEx(null, "Bench Press");
+  const hist = [{ w: 135, r: 5 }, { w: 155, r: 3 }];
+  const flags = prFlags(def, [{ w: 185, r: 8 }, { w: 185, r: 8 }], hist);
+  assert.equal(flags[0], "weight");
+  assert.equal(flags[1], false);
+});
+
+test("more reps at an existing weight is a rep PR", () => {
+  const def = testFindEx(null, "Bench Press");
+  const hist = [{ w: 185, r: 5 }];
+  const flags = prFlags(def, [{ w: 185, r: 8 }], hist);
+  assert.equal(flags[0], "reps");
+});
+
+test("weight and rep PR can both land in one workout", () => {
+  const def = testFindEx(null, "Bench Press");
+  const hist = [{ w: 135, r: 5 }];
+  const flags = prFlags(def, [{ w: 185, r: 3 }, { w: 135, r: 8 }], hist);
+  assert.equal(flags[0], "weight");
+  assert.equal(flags[1], "reps");
+  assert.equal(flags.filter(Boolean).length, 2);
+});
+
+test("a third qualifying set in the same workout is still 2 PRs", () => {
+  const def = testFindEx(null, "Bench Press");
+  const hist = [{ w: 135, r: 5 }];
+  const flags = prFlags(def, [{ w: 185, r: 3 }, { w: 135, r: 8 }, { w: 155, r: 10 }], hist);
+  assert.equal(flags.filter(Boolean).length, 2);
+});
+
+test("per-hand vs total mode switch cannot fake a PR", () => {
+  const def = testFindEx(null, "Dumbbell Press");
+  assert.equal(effW(def, { wMode: "hand" }, 50), 50);
+  assert.equal(effW(def, { wMode: "total" }, 100), 50);
+  const hist = [{ w: 50, r: 8 }];
+  const flags = prFlags(def, [{ w: 100, r: 8 }], hist, { date: "2026-09-21" }, { wMode: "total" });
+  assert.equal(flags[0], false);
+});
+
+test("assisted PRs treat lower assist as better", () => {
+  const def = testFindEx(null, "Assisted Dip Machine");
+  const hist = [{ w: 80, r: 8 }];
+  const flags = prFlags(def, [{ w: 50, r: 8 }, { w: 80, r: 12 }], hist, { date: "2026-09-21" });
+  assert.equal(flags[0], "weight");
+  assert.equal(flags[1], "reps");
+});
+
+test("gym-specific PR history stays in the current gym bucket", () => {
+  const s = { gymSpecific: {}, currentGym: "g1", workouts: [
+    logged("a", "2026-09-01", "Chest Press Machine", [[160, 10]], { gym: "g1", prBonus: 40, setXp: 20 }),
+    logged("b", "2026-09-08", "Chest Press Machine", [[80, 10]], { gym: "g2", prBonus: 40, setXp: 20 }),
+    logged("c", "2026-09-15", "Chest Press Machine", [[90, 10]], { gym: "g2", prBonus: 40, setXp: 20 }),
+  ] };
+  const next = recountPrBonuses(s, testFindEx);
+  const g2 = next.workouts.find((w) => w.id === "c");
+  assert.equal(g2.prBonus, PR_BONUS);
+  const flags = g2.lines[0].sets.map((st) => st.pr);
+  assert.equal(flags[0], "weight");
+  const g1later = recountPrBonuses({
+    ...s,
+    workouts: [...s.workouts, logged("d", "2026-09-20", "Chest Press Machine", [[150, 8]], { gym: "g1", prBonus: 40, setXp: 20 })],
+  }, testFindEx).workouts.find((w) => w.id === "d");
+  assert.equal(g1later.prBonus, 0);
+});
+
+test("legacy assisted sets are ignored for PRs", () => {
+  const s = { workouts: [
+    logged("a", "2026-09-01", "Assisted Dip Machine", [[40, 8]], { prBonus: 40, setXp: 20 }),
+    logged("b", "2026-09-21", "Assisted Dip Machine", [[80, 8]], { prBonus: 40, setXp: 20 }),
+  ] };
+  const next = recountPrBonuses(s, testFindEx);
+  assert.equal(next.workouts[0].prBonus, 0);
+  assert.equal(next.workouts[1].prBonus, PR_BONUS);
+  assert.equal(next.workouts[1].lines[0].sets[0].pr, "weight");
+});
+
+test("set XP is unchanged and workouts without prBonus are untouched", () => {
+  const withBonus = logged("a", "2026-09-21", "New Lift", [[95, 5], [135, 5], [185, 5]], { prBonus: 120, setXp: 30 });
+  const without = { id: "b", date: "2026-09-22", title: "deck", source: "deck", exercises: [{ name: "Push-up", sets: [{ w: "", r: 20 }] }], xp: 15 };
+  const s = { workouts: [withBonus, without] };
+  const next = recountPrBonuses(s, testFindEx);
+  assert.equal(next.workouts[0].lines[0].xp, 30);
+  assert.deepEqual(next.workouts[0].lines[0].sets.map((st) => st.xp), [10, 10, 10]);
+  assert.equal(next.workouts[0].prBonus, PR_BONUS);
+  assert.equal(next.workouts[0].xp, 70);
+  assert.equal(next.workouts[1], without);
+});
+
+test("floor is stored as a record and a second recount is a no-op", () => {
+  const s = { xp: 1000, workouts: [logged("a", "2026-09-21", "New Lift", [[95, 5], [115, 5], [135, 5]], { prBonus: 120, setXp: 30 })] };
+  const first = dryRunPrRecount(s, testFindEx);
+  assert.equal(first.workouts[0].newBonus, PR_BONUS);
+  const floor = nextXpFloor(first.recomputed, { beforeXp: 1000, version: 3, day: "2026-09-21" });
+  assert.equal(floor.keep, xpAtLevelStart(levelFromXp(1000).lvl));
+  assert.equal(floor.amount, Math.max(0, floor.keep - first.recomputed));
+  const stored = { ...first.next, xp: first.final, xpFloor: floor };
+  const second = dryRunPrRecount(stored, testFindEx);
+  assert.equal(second.workouts[0].oldBonus, second.workouts[0].newBonus);
+  assert.equal(second.recomputed, first.recomputed);
+  const floor2 = nextXpFloor(second.recomputed, { xpFloor: stored.xpFloor, beforeXp: stored.xp, version: 3 });
+  assert.equal(floor2.keep, floor.keep);
+  assert.equal(floor2.amount, floor.amount);
+});
+
+test("unionAchievements never removes an earned id", () => {
+  const ach = { "workouts-0": "2026-01-01", "rank-1": "2026-02-01" };
+  const next = unionAchievements(ach, ["leveler-0"], "2026-09-21");
+  assert.equal(next["workouts-0"], "2026-01-01");
+  assert.equal(next["rank-1"], "2026-02-01");
+  assert.equal(next["leveler-0"], "2026-09-21");
+});
+
+test("gym retag recounts PRs and recomputes the floor instead of stacking", () => {
+  const s = {
+    xp: 500,
+    xpFloor: { v: 3, amount: 80, keep: 400, d: "2026-09-20" },
+    gyms: [{ id: "g1", name: "East" }, { id: "g2", name: "West" }],
+    currentGym: "g1",
+    workouts: [
+      logged("a", "2026-09-01", "Chest Press Machine", [[160, 10]], { prBonus: 40, setXp: 20, gym: "g1" }),
+      logged("b", "2026-09-08", "Chest Press Machine", [[80, 8]], { prBonus: 40, setXp: 20 }),
+    ],
+  };
+  const tagged = tagWorkouts(s, { gymId: "g1", untaggedOnly: true });
+  assert.equal(tagged.workouts[1].gym, "g1");
+  const names = gymSpecificNamesIn(tagged, retaggedWorkouts(s, tagged), testFindEx);
+  assert.deepEqual(names, ["Chest Press Machine"]);
+  const after = dryRunPrRecount(tagged, testFindEx);
+  assert.equal(after.workouts.find((w) => w.date === "2026-09-08").newBonus, 0);
+  const floor2 = nextXpFloor(after.recomputed, { xpFloor: s.xpFloor, beforeXp: s.xp, version: 3 });
+  assert.equal(floor2.keep, 400);
+  assert.ok(floor2.amount !== (s.xpFloor.amount + 80));
+  assert.equal(floor2.amount, Math.max(0, 400 - after.recomputed));
+  const again = dryRunPrRecount({ ...after.next, xp: after.final, xpFloor: floor2 }, testFindEx);
+  const floor3 = nextXpFloor(again.recomputed, { xpFloor: floor2, beforeXp: after.final, version: 3 });
+  assert.equal(floor3.amount, floor2.amount);
+  assert.equal(floor3.keep, 400);
+});
+
+test("merge recounts PRs for the canonical name", () => {
+  const s = {
+    workouts: [
+      logged("a", "2026-09-01", "lat pulldown", [[100, 8]], { prBonus: 40, setXp: 20 }),
+      logged("b", "2026-09-08", "Lat Pulldown", [[120, 8]], { prBonus: 40, setXp: 20 }),
+    ],
+  };
+  const merged = applyExerciseMerge(s, [{ names: ["lat pulldown", "Lat Pulldown"], canonical: "Lat Pulldown" }]);
+  const next = recountPrBonuses(merged, testFindEx, { names: ["Lat Pulldown", "lat pulldown"] });
+  assert.equal(next.workouts[0].exercises[0].name, "Lat Pulldown");
+  assert.equal(next.workouts[1].exercises[0].name, "Lat Pulldown");
+  assert.equal(next.workouts[0].prBonus, PR_BONUS);
+  assert.equal(next.workouts[1].prBonus, PR_BONUS);
+});
+
 

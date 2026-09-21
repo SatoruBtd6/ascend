@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -387,18 +387,6 @@ function rankFor(ex, best, p) {
   const nextLabel = next ? rankFromScore(Math.min(6.999, nextT + 1e-6)).label : null;
   return { ...r, score, pct: r.divPct, next, nextLabel, steps };
 }
-function levelFromXp(xp) {
-  let lvl = 1, need = 100, left = xp;
-  while (left >= need) { left -= need; lvl++; need = Math.round(100 * Math.pow(lvl, 1.25)); }
-  return { lvl, into: left, need };
-}
-
-// Weight as the exercise's factor expects it: per hand for dumbbell-style moves, total for bars and machines
-function effW(def, ex, w) {
-  const userHand = ex?.wMode ? ex.wMode === "hand" : !!def.perHand;
-  if (userHand === !!def.perHand) return w;
-  return def.perHand ? w / 2 : w * 2;
-}
 // Assisted machines: the weight entered is the help you got. What you actually moved is bodyweight minus that.
 const movedLb = (p, assist) => Math.max(0, Math.max(80, +p.weight || 170) - (+assist || 0));
 const assistedReps = (p, st) => (+st.r || 0) * (movedLb(p, st.w) / Math.max(80, +p.weight || 170));
@@ -530,29 +518,35 @@ function setXp(s, def, st, ex) {
   const xp = Math.max(Math.ceil(def.xp / 2), Math.round(def.xp * 0.7 * effort * mult));
   return { xp, note: `${rankFromScore(score).label}-level set`, score };
 }
-function workoutXp(s, exercises, bests) {
+const prNote = (pr) => (pr === "weight" ? " · weight PR" : pr === "reps" ? " · rep PR" : pr ? " · PR" : "");
+function workoutXp(s, exercises, bests, opts = {}) {
+  void bests;
+  const skipPr = opts.skipPr || bests == null;
+  const workout = opts.workout || { gym: s.currentGym ?? null, date: opts.date || today() };
+  const history = skipPr ? null : (opts.history || collectPrHistory(s, findEx, { excludeId: opts.excludeId }));
+  const usedByName = new Map();
   let xp = 0, prs = 0, volume = 0, sets = 0;
   const lines = [];
   exercises.forEach((ex) => {
     const def = findEx(s, ex.name);
     const line = { name: ex.name, xp: 0, sets: [] };
+    if (!usedByName.has(ex.name)) usedByName.set(ex.name, { weight: false, reps: false });
+    const flags = skipPr ? [] : scoreExercisePrs(def, ex, history?.get(prKey(s, def, workout)) || [], workout, usedByName.get(ex.name));
+    let si = 0;
     workSets(ex.sets).forEach((st) => {
       sets++;
       const { xp: sx, note } = setXp(s, def, st, ex);
       line.xp += sx; xp += sx;
       const label = (def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`) + (st.drop ? " drop" : "");
-      let pr = false;
-      if (def.type !== "timed") {
-        volume += (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0);
-        const v = bestValue(def, st, s.profile, ex);
-        const k = def.type === "assisted" ? def.rankAs : ex.name;
-        if (bests && v > (bests[k] || 0)) { prs++; pr = true; bests[k] = v; }
-      }
+      const pr = flags[si]?.pr || false;
+      si++;
+      if (pr) prs++;
+      if (def.type !== "timed") volume += (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0);
       line.sets.push({ label, xp: sx, note, pr });
     });
     lines.push(line);
   });
-  return { xp: xp + prs * 40, prs, volume, sets, lines, prBonus: prs * 40 };
+  return { xp: xp + prs * PR_BONUS, prs, volume, sets, lines, prBonus: prs * PR_BONUS };
 }
 function workoutRecap(s, workout) {
   const lifts = (workout.exercises || []).map((ex) => {
@@ -766,8 +760,8 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6x";
-const BACKUP_KEY = "ascend-state-backup-6x";
+const APP_VERSION = "6y";
+const BACKUP_KEY = "ascend-state-backup-6y";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -933,11 +927,6 @@ export default function App() {
       }
       // Crew boss damage only counts from the day you joined. Existing crews start clean today.
       if (st.crew?.code && !st.crew.since) st = { ...st, crew: { ...st.crew, since: today() } };
-      // XP recount: rebuild totals from real activity, drop the Gravemaw crew exploit, and resync the server log
-      if ((st.xpV || 1) < XP_VERSION) {
-        const hasHistory = (st.workouts || []).length || (st.xp || 0) > 0 || Object.keys(st.ach || {}).length;
-        if (hasHistory) { const r = recountXp(st); st = r.s; XpSync.replace(r.rows); } else st = { ...st, xpV: XP_VERSION };
-      }
       {
         const tid = equippedTitle(st).id;
         if ((st.profile?.title || "none") !== tid) st = { ...st, profile: { ...st.profile, title: tid } };
@@ -964,7 +953,15 @@ export default function App() {
           let exists = false;
           try { const b = await window.storage.get(BACKUP_KEY, false); exists = !!b?.value; } catch { exists = false; }
           if (!exists) await window.storage.set(BACKUP_KEY, JSON.stringify({ at: Date.now(), version: APP_VERSION, state: st }), false);
-        } catch (e) { console.warn("[ascend] backup-6x skipped", e); }
+        } catch (e) { console.warn("[ascend] backup-6y skipped", e); }
+      }
+      if ((st.xpV || 1) < XP_VERSION) {
+        const hasHistory = (st.workouts || []).length || (st.xp || 0) > 0 || Object.keys(st.ach || {}).length;
+        if (hasHistory) {
+          const r = applyPrXpRecount(st);
+          st = r.s;
+          XpSync.replace(r.rows);
+        } else st = { ...st, xpV: XP_VERSION };
       }
       if ((st.rankSnapV || 0) < 1) st = { ...st, rankSnap: rankSnapshot(st), rankSnapV: 1 };
       if (crateDirty && !noPersistRef.current && !recoveredPending) await window.storage.set("ascend-state", JSON.stringify(st), false);
@@ -980,7 +977,7 @@ export default function App() {
       if (!noPersistRef.current) setTimeout(pullSteps, 800);
       if (!noPersistRef.current) setTimeout(() => XpSync.flush(), 1500);
       if (import.meta.env.DEV) {
-        window.__phase1ComputeBests = () => { const t0 = performance.now(); computeBests(sRef.current); return performance.now() - t0; };
+        window.__prDryRun = () => dryRunPrRecount(sRef.current, findEx);
         window.__phase1Merge = () => { const t0 = performance.now(); mergeState(sRef.current, sRef.current, snapRef.current || sRef.current); return performance.now() - t0; };
         window.__phase1TimePersist = async () => {
           const t0 = performance.now();
@@ -1614,7 +1611,7 @@ function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, ope
       {s.xpRecount && !s.xpRecount.seen && (
         <div className="panel p-4 space-y-2" style={{ borderColor: `${C.gold}66` }}>
           <div className="font-bold flex items-center gap-2"><Zap size={16} style={{ color: C.gold }} />Your XP was recounted</div>
-          <div className="body text-sm" style={{ color: C.sub }}>{s.xpRecount.before.toLocaleString()} → <b style={{ color: C.text }}>{s.xpRecount.after.toLocaleString()} XP</b>. Totals are now rebuilt from what you actually logged, so deleted workouts and double counts no longer count.{s.xpRecount.gravemaw ? ` The Gravemaw crew-boss exploit was also undone (−${s.xpRecount.gravemaw} XP and its loot).` : ""}</div>
+          <div className="body text-sm" style={{ color: C.sub }}>{s.xpRecount.before.toLocaleString()} → <b style={{ color: C.text }}>{s.xpRecount.after.toLocaleString()} XP</b>. PR bonuses now count once per exercise per workout.{s.xpRecount.floor ? ` Your level was kept (+${s.xpRecount.floor.toLocaleString()} XP).` : ""}{s.xpRecount.gravemaw ? ` The Gravemaw crew-boss exploit was also undone (−${s.xpRecount.gravemaw} XP and its loot).` : ""}</div>
           <div className="flex gap-2">
             <button onClick={() => { setS((p) => ({ ...p, xpRecount: { ...p.xpRecount, seen: true } })); openXp?.(); }} className="btn px-4 py-2 text-sm">See XP history</button>
             <button onClick={() => setS((p) => ({ ...p, xpRecount: { ...p.xpRecount, seen: true } }))} className="ghost px-4 py-2 text-sm font-bold">Got it</button>
@@ -1843,19 +1840,35 @@ function Train({ s, setS, gainXp, openRun }) {
   });
   const lastSets = (name) => lastWorkingSets(s, name, a?.editId)?.sets || [];
   const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
+  const sessionGym = () => (a.gym !== undefined ? a.gym : s.currentGym) ?? null;
+  const xpOpts = () => ({ history: collectPrHistory(s, findEx, { excludeId: a?.editId }), workout: { gym: sessionGym(), date: a?.date || today() }, excludeId: a?.editId });
 
   const finish = () => {
     const exercises = cleaned(a.exercises);
     if (!exercises.length) { setS((p) => ({ ...p, active: null })); return; }
+    const opts = xpOpts();
     if (a.editId) {
       const old = s.workouts.find((w) => w.id === a.editId);
-      const res = workoutXp(s, exercises, { ...bests });
+      const res = workoutXp(s, exercises, { ...bests }, opts);
       const delta = res.xp - (old?.xp || 0);
-      setS((p) => ({ ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, gym: a.gym !== undefined ? a.gym : w.gym } : w) }));
-      gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
+      const newGym = a.gym !== undefined ? a.gym : old?.gym;
+      const gymChanged = workoutGym({ gym: newGym }) !== workoutGym(old);
+      setS((p) => {
+        let next = { ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, gym: newGym } : w) };
+        if (gymChanged) {
+          const names = gymSpecificNamesIn(next, [{ ...old, gym: newGym, exercises }], findEx);
+          if (names.length) {
+            const r = applyPrXpRecount(next, { names, banner: false });
+            try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
+            return withSilentRankSnap(r.s);
+          }
+        }
+        return next;
+      });
+      if (!gymChanged) gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
       return;
     }
-    const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, { ...bests });
+    const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, { ...bests }, opts);
     const d = today();
     const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
     const after = { ...s, workouts: [...s.workouts, workout] };
@@ -1956,7 +1969,7 @@ function Train({ s, setS, gainXp, openRun }) {
                   {w.lines ? w.lines.map((l, i) => (
                     <div key={i}>
                       <div className="flex justify-between font-semibold" style={{ color: C.sub }}><span>{l.name}</span><span style={{ color: C.gold }}>+{l.xp}</span></div>
-                      {l.sets.map((st, j) => <div key={j} className="flex justify-between pl-3"><span>{st.label} · {st.note}{st.pr ? " · PR" : ""}</span><span>+{st.xp}</span></div>)}
+                      {l.sets.map((st, j) => <div key={j} className="flex justify-between pl-3"><span>{st.label} · {st.note}{prNote(st.pr)}</span><span>+{st.xp}</span></div>)}
                     </div>
                   )) : <div>Logged before detailed breakdowns existed.</div>}
                   {w.prBonus ? <div className="flex justify-between font-semibold" style={{ color: C.green }}><span>PR bonus</span><span>+{w.prBonus}</span></div> : null}
@@ -1970,7 +1983,7 @@ function Train({ s, setS, gainXp, openRun }) {
     );
   }
 
-  const live = workoutXp(s, cleaned(a.exercises), { ...bests });
+  const live = workoutXp(s, cleaned(a.exercises), { ...bests }, xpOpts());
   const hasWork = a.exercises.some((e) => e.sets.some((st) => st.done));
 
   return (
@@ -3136,7 +3149,7 @@ function GymsSettings({ s, setS }) {
     setS((p) => withSilentRankSnap({ ...p, gyms: [...(p.gyms || []), { id, name: n }], currentGym: p.currentGym || id }));
     setName("");
     setTagGym(id);
-    if (first) ask(`Tag all untagged workouts as ${n}? Runs and imports stay untagged.`, () => setS((p) => withSilentRankSnap(tagWorkouts(p, { gymId: id, untaggedOnly: true }))), "Tag them");
+    if (first) ask(`Tag all untagged workouts as ${n}? Runs and imports stay untagged.`, () => setS((p) => commitGymRetag(p, tagWorkouts(p, { gymId: id, untaggedOnly: true }))), "Tag them");
   };
   return (
     <div className="panel p-4 space-y-3">
@@ -3162,8 +3175,8 @@ function GymsSettings({ s, setS }) {
             </select>
             <input type="date" className="inp text-sm" value={tagDate} onChange={(e) => setTagDate(e.target.value)} aria-label="Tag workouts before this date" />
           </div>
-          <button type="button" disabled={!tagGym || !tagDate} onClick={() => setS((p) => withSilentRankSnap(tagWorkouts(p, { gymId: tagGym, before: tagDate })))} className="ghost w-full py-2 text-sm font-bold">Tag all workouts before that date</button>
-          <button type="button" disabled={!tagGym} onClick={() => setS((p) => withSilentRankSnap(tagWorkouts(p, { gymId: tagGym, untaggedOnly: true })))} className="ghost w-full py-2 text-sm font-bold">Tag all untagged workouts</button>
+          <button type="button" disabled={!tagGym || !tagDate} onClick={() => setS((p) => commitGymRetag(p, tagWorkouts(p, { gymId: tagGym, before: tagDate })))} className="ghost w-full py-2 text-sm font-bold">Tag all workouts before that date</button>
+          <button type="button" disabled={!tagGym} onClick={() => setS((p) => commitGymRetag(p, tagWorkouts(p, { gymId: tagGym, untaggedOnly: true })))} className="ghost w-full py-2 text-sm font-bold">Tag all untagged workouts</button>
         </div>
       )}
     </div>
@@ -3185,7 +3198,13 @@ function DedupeSettings({ s, setS }) {
     const chosen = groups.filter((g) => !g.skip && g.canonical);
     if (!chosen.length) { setOpen(false); return; }
     ask("Rewrite every stored name in the ticked groups to the canonical name? Custom definitions that get absorbed are removed.", () => {
-      setS((p) => withSilentRankSnap(applyExerciseMerge(p, chosen, catalogNames)));
+      setS((p) => {
+        const merged = applyExerciseMerge(p, chosen, catalogNames);
+        const names = [...new Set(chosen.flatMap((g) => [g.canonical, ...(g.names || [])]).filter(Boolean))];
+        const r = applyPrXpRecount(merged, { names, banner: false });
+        try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
+        return withSilentRankSnap(r.s);
+      });
       setOpen(false);
     }, "Apply");
   };
@@ -4006,7 +4025,7 @@ function CardDeck({ visible, s, setS, gainXp, onBack }) {
   const complete = () => {
     if (!current) return;
     const name = exFor(current), reps = repsFor(current);
-    const { xp, prs } = workoutXp(s, [{ name, sets: [{ w: "", r: reps }] }], computeBests(s));
+    const { xp } = workoutXp(s, [{ name, sets: [{ w: "", r: reps }] }], computeBests(s), { skipPr: true });
     const lastCard = deck.length === 0;
     const bonus = lastCard ? 150 : 0;
     setS((p) => addDeckSet(p, sessionId, name, reps, xp + bonus));
@@ -6056,7 +6075,12 @@ function ExercisePage({ s, setS, name, onBack, openMuscle }) {
           <div className="font-bold text-sm">Gym-specific history</div>
           <div className="body text-xs" style={{ color: C.dim }}>{gymSpecific ? "Bests, Previous, ranks, and charts use the current gym. Free weights stay shared unless you override." : "Shared across gyms. Turn on if this machine or cable stack differs by gym."}</div>
         </div>
-        <button role="switch" aria-checked={gymSpecific} aria-label="Gym-specific history" onClick={() => setS((p) => withSilentRankSnap({ ...p, gymSpecific: { ...(p.gymSpecific || {}), [name]: !isGymSpecific(p, def) } }))} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: gymSpecific ? C.cyan : C.track, border: `1px solid ${C.border}` }}>
+        <button role="switch" aria-checked={gymSpecific} aria-label="Gym-specific history" onClick={() => setS((p) => {
+          const next = { ...p, gymSpecific: { ...(p.gymSpecific || {}), [name]: !isGymSpecific(p, def) } };
+          const r = applyPrXpRecount(next, { names: [name], banner: false });
+          try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
+          return withSilentRankSnap(r.s);
+        })} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: gymSpecific ? C.cyan : C.track, border: `1px solid ${C.border}` }}>
           <span className="absolute top-0.5" style={{ left: gymSpecific ? 24 : 2, width: 22, height: 22, borderRadius: 999, background: "#fff" }} />
         </button>
       </div>
@@ -6978,7 +7002,7 @@ function importWorkoutsFromCsv(s, text) {
     const fp = `${sess.date}|${sess.title.toLowerCase()}|${exercises.map((e) => e.name).join(",")}`;
     if (fingerprints.has(fp)) { skipped++; continue; }
     fingerprints.add(fp);
-    const res = workoutXp(acc, exercises, computeBests(acc));
+    const res = workoutXp(acc, exercises, computeBests(acc), { workout: { gym: null, date: sess.date }, history: collectPrHistory(acc, findEx) });
     const workout = { id: uid(), date: sess.date, title: sess.title, exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, source: "import" };
     acc = { ...acc, workouts: [...acc.workouts, workout] };
     added.push(workout);
@@ -10590,6 +10614,7 @@ function xpFromRecords(s) {
   Object.keys(s.loot?.claimed || {}).forEach((k) => { const mk = k.slice(0, 7); const b = bossFor(mk, k.endsWith("_crew") ? "crew" : "global"); add(`boss_${k}`, BOSS_XP, `Defeated ${b.name}`, minDay(monthEnd(mk), t), true); });
   Object.entries(s.mogClaimed || {}).forEach(([id, v]) => v && add(`mog_${id}`, MOG_XP, "Mog-off win", t, true));
   Object.entries(s.duelClaimed || {}).forEach(([id, v]) => v && add(`duel_${id}`, DUEL_XP, "Duel win", t, true));
+  if (s.xpFloor?.amount) add(`floor_v${s.xpFloor.v || XP_VERSION}`, s.xpFloor.amount, "Level floor", s.xpFloor.d || t);
   // Borrow real timestamps (and real days for undated awards) from the old per-day detail log where they match
   const pool = Object.entries(s.xpDetail || {}).flatMap(([d, list]) => (list || []).map((x) => ({ ...x, d, used: false })));
   const byDay = {};
@@ -10603,15 +10628,31 @@ function xpFromRecords(s) {
 }
 
 // One-time (per version) rebuild: totals, per-day log and detail all come from the rows above
-const XP_VERSION = 2;
-function recountXp(s) {
+const XP_VERSION = 3;
+function grantAchievementsKeep(s) {
+  const earned = earnedAchievements(s).map((a) => a.id);
+  const ach = unionAchievements(s.ach, earned, today());
+  return ach === s.ach ? s : { ...s, ach };
+}
+function applyPrXpRecount(s, { names = null, banner = true } = {}) {
+  return recountXp(recountPrBonuses(s, findEx, names ? { names } : {}), { banner });
+}
+function commitGymRetag(prev, tagged, banner = false) {
+  const names = gymSpecificNamesIn(tagged, retaggedWorkouts(prev, tagged), findEx);
+  if (!names.length) return withSilentRankSnap(tagged);
+  const r = applyPrXpRecount(tagged, { names, banner });
+  try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
+  return withSilentRankSnap(r.s);
+}
+function recountXp(s, { banner = true } = {}) {
   const before = s.xp || 0;
   const { s: fixed, reverted } = revertBossExploit(s);
-  // Achievements can depend on XP (the Leveler series), so settle them against the recounted total
-  let st = fixed;
+  const keepFloor = fixed.xpFloor;
+  let st = { ...fixed, xpFloor: null };
   for (let i = 0; i < 4; i++) {
-    const xp = Math.max(0, xpFromRecords(st).reduce((a, r) => a + r.a, 0));
-    const next = reconcileAchievements({ ...st, xp }, false);
+    const recomputed = Math.max(0, xpFromRecords({ ...st, xpFloor: null }).reduce((a, r) => a + r.a, 0));
+    const floor = nextXpFloor(recomputed, { xpFloor: keepFloor, beforeXp: before, version: XP_VERSION, day: keepFloor?.d || today() });
+    const next = grantAchievementsKeep({ ...st, xp: recomputed + floor.amount, xpFloor: floor });
     const same = Object.keys(next.ach || {}).length === Object.keys(st.ach || {}).length;
     st = next;
     if (same) break;
@@ -10623,7 +10664,11 @@ function recountXp(s) {
   const after = Math.max(0, rows.reduce((a, r) => a + r.a, 0));
   const xpDone = { ...(st.xpDone || {}) };
   rows.forEach((r) => { xpDone[r.e] = 1; });
-  const next = { ...st, xp: after, xpLog, xpDetail, xpDone, xpV: XP_VERSION, xpRecount: { at: Date.now(), before, after, gravemaw: reverted ? BOSS_XP : 0, seen: false } };
+  const floorAmt = st.xpFloor?.amount || 0;
+  const xpRecount = banner
+    ? { at: Date.now(), before, after, floor: floorAmt, gravemaw: reverted ? BOSS_XP : 0, seen: false }
+    : (s.xpRecount || { at: Date.now(), before, after, floor: floorAmt, gravemaw: reverted ? BOSS_XP : 0, seen: true });
+  const next = { ...st, xp: after, xpLog, xpDetail, xpDone, xpV: XP_VERSION, xpRecount };
   return { s: next, rows };
 }
 
@@ -10754,7 +10799,7 @@ function XpLedger({ s, onBack, drawer = false }) {
       {rc && (
         <div className="panel p-3 body text-xs space-y-0.5" style={{ color: C.dim }}>
           <div className="text-sm font-semibold" style={{ color: C.text }}>Recounted {new Date(rc.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}: {rc.before.toLocaleString()} → {rc.after.toLocaleString()} XP</div>
-          <div>XP is now rebuilt from what you actually logged, so deleted workouts and double counts no longer add up.{rc.gravemaw ? ` Includes −${rc.gravemaw} XP from the Gravemaw crew-boss exploit.` : ""}</div>
+          <div>PR bonuses now count once per exercise per workout.{rc.floor ? ` Level kept with a +${rc.floor.toLocaleString()} XP floor.` : ""}{rc.gravemaw ? ` Includes −${rc.gravemaw} XP from the Gravemaw crew-boss exploit.` : ""}</div>
         </div>
       )}
       {src !== "loading" && list.length === 0 && <Empty>No XP yet. Every point you earn shows up here with where it came from.</Empty>}

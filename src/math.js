@@ -163,6 +163,16 @@ export function normalizeState(s) {
   }
   if (out.rev != null) set("rev", asNum(out.rev, "rev"));
   if (out.rankSnapV != null || "rankSnapV" in out) set("rankSnapV", asNum(out.rankSnapV, "rankSnapV"));
+  if (out.xpFloor != null) {
+    const f = asObj(out.xpFloor, "xpFloor");
+    const next = {
+      v: asNum(f.v, "xpFloor.v"),
+      amount: asNum(f.amount, "xpFloor.amount"),
+      keep: asNum(f.keep, "xpFloor.keep"),
+    };
+    if (typeof f.d === "string") next.d = f.d;
+    set("xpFloor", next);
+  }
 
   const profile = asObj(out.profile, "profile");
   if (profile !== out.profile) set("profile", profile);
@@ -960,4 +970,240 @@ export function applyExerciseMerge(s, groups, catalogNames = []) {
   });
   void catalogNames;
   return rewriteExerciseNames(s, mapping);
+}
+
+export const PR_BONUS = 40;
+
+export function levelFromXp(xp) {
+  let lvl = 1, need = 100, left = Math.max(0, +xp || 0);
+  while (left >= need) { left -= need; lvl++; need = Math.round(100 * Math.pow(lvl, 1.25)); }
+  return { lvl, into: left, need };
+}
+
+export function xpAtLevelStart(level) {
+  const top = Math.max(1, Math.floor(+level || 1));
+  let xp = 0;
+  for (let n = 1; n < top; n++) xp += Math.round(100 * Math.pow(n, 1.25));
+  return xp;
+}
+
+export function nextXpFloor(recomputed, { xpFloor = null, beforeXp = 0, version = 3, day = null } = {}) {
+  const keep = (xpFloor && Number.isFinite(+xpFloor.keep))
+    ? +xpFloor.keep
+    : xpAtLevelStart(levelFromXp(beforeXp).lvl);
+  const amount = Math.max(0, keep - Math.max(0, +recomputed || 0));
+  const out = { v: version, amount, keep };
+  const d = day || xpFloor?.d;
+  if (d) out.d = d;
+  return out;
+}
+
+export function unionAchievements(ach, earnedIds, date) {
+  const out = { ...(ach || {}) };
+  let added = false;
+  (earnedIds || []).forEach((id) => {
+    if (!id || out[id]) return;
+    out[id] = date;
+    added = true;
+  });
+  return added ? out : (ach || {});
+}
+
+export function effW(def, ex, w) {
+  const userHand = ex?.wMode ? ex.wMode === "hand" : !!def?.perHand;
+  if (userHand === !!def?.perHand) return +w || 0;
+  return def?.perHand ? (+w || 0) / 2 : (+w || 0) * 2;
+}
+
+export function prLoad(def, ex, st) {
+  if (!def || def.type === "timed") return null;
+  const w = +st?.w || 0;
+  if (def.type === "weighted") return effW(def, ex, w);
+  return w;
+}
+
+export function prKey(s, def, workout) {
+  const name = def?.name || "";
+  if (isGymSpecific(s, def)) return `${name}@@${workoutGym(workout)}`;
+  return name;
+}
+
+export function isWeightPr(history, def, load) {
+  if (!(history || []).length) return true;
+  if (def?.type === "assisted") return history.every((h) => load < h.w);
+  return history.every((h) => load > h.w);
+}
+
+export function isRepPr(history, def, load, reps) {
+  const pool = (history || []).filter((h) => (def?.type === "assisted" ? h.w <= load : h.w >= load));
+  if (!pool.length) return false;
+  return pool.every((h) => reps > h.r);
+}
+
+export function chronoWorkouts(workouts) {
+  return (workouts || []).map((w, i) => ({ w, i })).sort((a, b) => {
+    const d = String(a.w?.date || "").localeCompare(String(b.w?.date || ""));
+    if (d) return d;
+    const sa = +a.w?.startedAt || 0, sb = +b.w?.startedAt || 0;
+    if (sa !== sb) return sa - sb;
+    return a.i - b.i;
+  }).map((x) => x.w);
+}
+
+export function scoreExercisePrs(def, ex, history, workout, used = null) {
+  const flags = [];
+  if (!def || def.type === "timed" || isLegacyAssisted(workout, def)) {
+    workSets(ex?.sets).forEach(() => flags.push({ pr: false }));
+    return flags;
+  }
+  const got = used || { weight: false, reps: false };
+  workSets(ex?.sets).forEach((st) => {
+    const reps = +st?.r || 0;
+    const load = prLoad(def, ex, st);
+    let pr = false;
+    if (reps > 0 && load != null) {
+      if (!got.weight && isWeightPr(history, def, load)) { pr = "weight"; got.weight = true; }
+      else if (!got.reps && isRepPr(history, def, load, reps)) { pr = "reps"; got.reps = true; }
+    }
+    flags.push({ pr, load, reps });
+  });
+  return flags;
+}
+
+export function appendPrHistory(hist, s, workout, findEx) {
+  (workout?.exercises || []).forEach((ex) => {
+    const def = findEx(s, ex.name);
+    if (!def || def.type === "timed" || isLegacyAssisted(workout, def)) return;
+    const key = prKey(s, def, workout);
+    const row = hist.get(key) || [];
+    workSets(ex.sets).forEach((st) => {
+      if ((+st?.r || 0) <= 0) return;
+      const load = prLoad(def, ex, st);
+      if (load == null) return;
+      row.push({ w: load, r: +st.r || 0 });
+    });
+    hist.set(key, row);
+  });
+}
+
+export function collectPrHistory(s, findEx, { excludeId = null } = {}) {
+  const hist = new Map();
+  chronoWorkouts(s?.workouts || []).forEach((w) => {
+    if (excludeId && w.id === excludeId) return;
+    appendPrHistory(hist, s, w, findEx);
+  });
+  return hist;
+}
+
+export function scoreWorkoutPrs(s, workout, findEx, hist) {
+  const byName = new Map();
+  const usedByName = new Map();
+  let prs = 0;
+  (workout?.exercises || []).forEach((ex) => {
+    const def = findEx(s, ex.name);
+    const key = prKey(s, def, workout);
+    const history = hist.get(key) || [];
+    if (!usedByName.has(ex.name)) usedByName.set(ex.name, { weight: false, reps: false });
+    const flags = scoreExercisePrs(def, ex, history, workout, usedByName.get(ex.name));
+    const prev = byName.get(ex.name) || [];
+    byName.set(ex.name, prev.concat(flags));
+    flags.forEach((f) => { if (f.pr) prs++; });
+  });
+  return { prs, prBonus: prs * PR_BONUS, byName };
+}
+
+function applyPrScoreToWorkout(w, scored) {
+  const oldBonus = typeof w.prBonus === "number" && Number.isFinite(w.prBonus) ? w.prBonus : 0;
+  const newBonus = scored.prBonus;
+  let lines = w.lines;
+  let linesChanged = false;
+  if (Array.isArray(lines)) {
+    const next = lines.map((line) => {
+      const flags = scored.byName.get(line.name);
+      if (!flags || !Array.isArray(line.sets)) return line;
+      let setChanged = false;
+      const sets = line.sets.map((st, i) => {
+        const pr = flags[i]?.pr || false;
+        if (st.pr === pr) return st;
+        setChanged = true;
+        return { ...st, pr };
+      });
+      if (!setChanged) return line;
+      linesChanged = true;
+      return { ...line, sets };
+    });
+    if (linesChanged) lines = next;
+  }
+  if (newBonus === oldBonus && !linesChanged) return w;
+  return { ...w, xp: (w.xp || 0) - oldBonus + newBonus, prBonus: newBonus, ...(w.lines ? { lines } : {}) };
+}
+
+export function recountPrBonuses(s, findEx, { names = null } = {}) {
+  const want = names ? new Set(names) : null;
+  const hist = new Map();
+  const byId = new Map();
+  let changed = false;
+  chronoWorkouts(s?.workouts || []).forEach((w) => {
+    const hasBonus = typeof w.prBonus === "number" && Number.isFinite(w.prBonus);
+    const touches = !want || (w.exercises || []).some((ex) => want.has(ex.name));
+    let next = w;
+    if (hasBonus && touches) {
+      next = applyPrScoreToWorkout(w, scoreWorkoutPrs(s, w, findEx, hist));
+      if (next !== w) changed = true;
+    }
+    appendPrHistory(hist, s, w, findEx);
+    if (w.id != null) byId.set(w.id, next);
+  });
+  if (!changed) return s;
+  const workouts = (s.workouts || []).map((w) => (w.id != null && byId.has(w.id) ? byId.get(w.id) : w));
+  return { ...s, workouts };
+}
+
+export function gymSpecificNamesIn(s, workouts, findEx) {
+  const names = [];
+  const seen = new Set();
+  (workouts || []).forEach((w) => (w.exercises || []).forEach((ex) => {
+    const n = ex?.name;
+    if (!n || seen.has(n)) return;
+    if (!isGymSpecific(s, findEx(s, n))) return;
+    seen.add(n);
+    names.push(n);
+  }));
+  return names;
+}
+
+export function retaggedWorkouts(prev, next) {
+  const byId = new Map((prev?.workouts || []).map((w) => [w.id, w]));
+  return (next?.workouts || []).filter((w) => workoutGym(w) !== workoutGym(byId.get(w.id)));
+}
+
+export function dryRunPrRecount(s, findEx, { version = 3 } = {}) {
+  const next = recountPrBonuses(s, findEx);
+  const byNew = new Map((next.workouts || []).map((w) => [w.id, w]));
+  const hist = new Map();
+  const workouts = [];
+  chronoWorkouts(s?.workouts || []).forEach((w) => {
+    const hasBonus = typeof w.prBonus === "number" && Number.isFinite(w.prBonus);
+    if (hasBonus) {
+      const scored = scoreWorkoutPrs(s, w, findEx, hist);
+      const nw = byNew.get(w.id) || w;
+      const sets = [];
+      (w.exercises || []).forEach((ex) => {
+        const flags = scored.byName.get(ex.name) || [];
+        const lineSets = (nw.lines || []).find((l) => l.name === ex.name)?.sets || [];
+        workSets(ex.sets).forEach((st, i) => {
+          if (!flags[i]?.pr) return;
+          sets.push({ name: ex.name, label: lineSets[i]?.label || `${st.w}×${st.r}`, pr: flags[i].pr });
+        });
+      });
+      workouts.push({ date: w.date, title: w.title || "", oldBonus: w.prBonus, newBonus: nw.prBonus, sets });
+    }
+    appendPrHistory(hist, s, w, findEx);
+  });
+  const sumXp = (list) => (list || []).reduce((a, w) => a + (+w.xp || 0), 0);
+  const oldTotal = +s.xp || 0;
+  const woDelta = sumXp(next.workouts) - sumXp(s.workouts);
+  const recomputed = oldTotal + woDelta - (+s.xpFloor?.amount || 0);
+  const floor = nextXpFloor(recomputed, { xpFloor: s.xpFloor, beforeXp: oldTotal, version });
+  return { workouts, oldTotal, recomputed, floor: floor.amount, keep: floor.keep, final: recomputed + floor.amount, next };
 }
