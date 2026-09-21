@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import Auth from "./Auth.jsx";
 
+window.__ascendBooted = true;
+window.__ascendSw = "precache";
+
 createRoot(document.getElementById("root")).render(<React.StrictMode><Auth /></React.StrictMode>);
 
 if ("serviceWorker" in navigator) {
