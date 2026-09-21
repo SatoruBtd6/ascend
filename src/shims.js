@@ -9,6 +9,8 @@ const lsDel = (k) => { try { localStorage.removeItem(LS + k); } catch { /* ignor
 const readQueue = () => { try { return JSON.parse(localStorage.getItem(QUEUE) || "[]"); } catch { return []; } };
 const writeQueue = (q) => { try { localStorage.setItem(QUEUE, JSON.stringify(q)); } catch { /* ignore */ } };
 const isNetErr = (e) => !navigator.onLine || /fetch|network|failed|load/i.test(String(e?.message || e));
+const isAuthErr = (e) => /jwt|token|auth|unauthorized|401|expired|invalid_grant|session/i.test(`${e?.message || e} ${e?.code || ""} ${e?.status || ""}`);
+const isPermanentErr = (e) => /payload too large|too large|413|value too long|22p02/i.test(`${e?.message || e} ${e?.code || ""} ${e?.status || ""} ${e?.details || ""}`);
 // Only the user's own small records get mirrored; big shared blobs (songs, photos) stay online-only
 const mirrorable = (scope, key, value) => !scope.startsWith("shared") && String(value ?? "").length < 1_500_000;
 
@@ -54,13 +56,58 @@ export function installStorage(supabase, userId) {
     flushing = true;
     try {
       let q = readQueue();
+      let refreshed = false;
       while (q.length) {
-        try { await pushNow(q[0]); } catch (e) { if (isNetErr(e)) break; /* permission or bad row: drop it */ }
+        try {
+          await pushNow(q[0]);
+        } catch (e) {
+          if (isNetErr(e)) break;
+          if (isAuthErr(e)) {
+            if (!refreshed) {
+              refreshed = true;
+              try { await supabase.auth.refreshSession(); } catch (re) { console.warn("[ascend] queue flush: session refresh failed", re); break; }
+              try { await pushNow(q[0]); }
+              catch (e2) {
+                if (isPermanentErr(e2)) { console.warn("[ascend] dropped queued op", q[0]?.key, e2); q = readQueue().slice(1); writeQueue(q); continue; }
+                console.warn("[ascend] queue flush: keeping op", e2);
+                break;
+              }
+            } else {
+              console.warn("[ascend] queue flush: auth error after refresh, keeping op", e);
+              break;
+            }
+          } else if (isPermanentErr(e)) {
+            console.warn("[ascend] dropped queued op", q[0]?.key, e);
+            q = readQueue().slice(1); writeQueue(q);
+            continue;
+          } else {
+            console.warn("[ascend] queue flush: keeping op", e);
+            break;
+          }
+        }
         q = readQueue().slice(1); writeQueue(q);
       }
     } finally { flushing = false; }
     return readQueue().length === 0;
   };
+  const convertQueuedState = () => {
+    const q = readQueue();
+    const rest = [];
+    let changed = false;
+    for (const op of q) {
+      if (op?.type === "set" && op.key === "ascend-state") {
+        try {
+          const state = JSON.parse(op.value);
+          let snap = null;
+          try { snap = JSON.parse(localStorage.getItem("ascend-pending") || "null")?.snap || null; } catch { snap = null; }
+          localStorage.setItem("ascend-pending", JSON.stringify({ state, snap, t: op.t || Date.now() }));
+          changed = true;
+        } catch (e) { rest.push(op); }
+      } else rest.push(op);
+    }
+    if (changed || rest.length !== q.length) writeQueue(rest);
+  };
+  convertQueuedState();
   window.addEventListener("online", flush);
   window.addEventListener("pagehide", () => { flush(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
@@ -89,13 +136,14 @@ export function installStorage(supabase, userId) {
         throw e;
       }
     },
-    async set(key, value, shared = false) {
+    async set(key, value, shared = false, opts = {}) {
       const ck = id(shared, key), v = String(value);
       cache.delete(ck);
       if (mirrorable(scope(shared), key, v)) lsSet(ck, v);
       const op = { type: "set", scope: scope(shared), key, value: v, t: Date.now() };
       try { await pushNow(op); }
       catch (e) {
+        if (opts.noQueue) throw e;
         if (isNetErr(e) && !shared) { enqueue(op); return { key, value, shared, queued: true }; }
         throw e;
       }

@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
+﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -168,14 +168,24 @@ const EXERCISES = [
   { name: "Battle Ropes", group: "Cardio", type: "timed", xp: 8 },
   { name: "Burpee", group: "Cardio", type: "bodyweight", reps: 2, xp: 9 },
 ];
+let exMemo = { custom: null, cex: null, list: null, byName: null };
 const allExercises = (s) => {
+  const custom = s.custom || [];
+  const cex = s.community?.ex || [];
+  if (exMemo.custom === custom && exMemo.cex === cex && exMemo.list) return exMemo.list;
   const seen = new Set();
-  const local = [...EXERCISES, ...(s.custom || [])].filter((e) => { const k = e.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  const local = [...EXERCISES, ...custom].filter((e) => { const k = e.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
   const names = new Set(local.map((e) => e.name.toLowerCase()));
-  return [...local, ...(s.community?.ex || []).filter((e) => e.name && !names.has(e.name.toLowerCase())).map((e) => ({ ...e, community: true }))].map((e) =>
-  e.type === "weighted" ? { ...e, factor: Math.max(e.factor || 0.5, (FACTOR_FLOOR[e.group] || 0.2) * (e.perHand ? 0.4 : 1)) } : e);
+  const list = [...local, ...cex.filter((e) => e.name && !names.has(e.name.toLowerCase())).map((e) => ({ ...e, community: true }))].map((e) =>
+    e.type === "weighted" ? { ...e, factor: Math.max(e.factor || 0.5, (FACTOR_FLOOR[e.group] || 0.2) * (e.perHand ? 0.4 : 1)) } : e);
+  const byName = new Map(list.map((e) => [e.name, e]));
+  exMemo = { custom, cex, list, byName };
+  return list;
 };
-const findEx = (s, name) => allExercises(s).find((d) => d.name === name) || { name, group: "Core", type: "weighted", factor: 1.2, xp: 8 };
+const findEx = (s, name) => {
+  allExercises(s);
+  return exMemo.byName.get(name) || { name, group: "Core", type: "weighted", factor: 1.2, xp: 8 };
+};
 
 const QUEST_POOL = [
   { qid: "pushups", title: "push-ups", target: 100, unit: "reps", xp: 60 },
@@ -465,7 +475,7 @@ const newDay = () => {
 };
 
 /* ---------- XP, achievements, community ---------- */
-const publishShared = async (key, obj) => { try { if (window.storage?.set) await window.storage.set(key, JSON.stringify(obj), true); } catch (e) { /* offline or preview */ } };
+const publishShared = async (key, obj) => { try { if (window.__ascendNoPersist) return; if (window.storage?.set) await window.storage.set(key, JSON.stringify(obj), true); } catch (e) { /* offline or preview */ } };
 const slug = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 async function loadCommunity() {
   if (!window.storage?.list) return null;
@@ -707,7 +717,23 @@ const DEFAULT = {
 };
 
 const SaveCtx = React.createContext({ status: "idle" });
-const URGENT_SAVE = ["meals", "workouts", "active", "weightLog", "presets", "savedFoods", "dayTemplates", "fuelClaimed", "water", "measure"];
+const PENDING_KEY = "ascend-pending";
+let pendingWarned = false;
+function readPending() {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function writePending(state, snap) {
+  if (typeof window !== "undefined" && window.__ascendNoPersist) return;
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify({ state, snap, t: Date.now() })); }
+  catch (e) { if (!pendingWarned) { pendingWarned = true; console.warn("[ascend] pending copy failed", e); } }
+}
+function clearPending() {
+  try { localStorage.removeItem(PENDING_KEY); } catch (e) { /* private mode */ }
+}
+const URGENT_SAVE = ["meals", "workouts", "weightLog", "presets", "savedFoods", "dayTemplates", "fuelClaimed", "water", "measure"];
 function SaveMark() {
   const { status } = useContext(SaveCtx);
   const common = { size: 14, className: "shrink-0", "aria-hidden": true };
@@ -719,7 +745,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6v";
+const APP_VERSION = "6w";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
@@ -826,7 +852,10 @@ export default function App() {
   const [lastSaveAt, setLastSaveAt] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle");
   const [saveNote, setSaveNote] = useState(null);
+  const [saveDiag, setSaveDiag] = useState({ kb: 0, ms: null });
+  const noPersistRef = useRef(false);
   const snapRef = useRef(null);
+  const writtenRef = useRef(null);
   const persistLock = useRef(false);
   const persistAgain = useRef(false);
   const persistUrgent = useRef(false);
@@ -852,14 +881,23 @@ export default function App() {
     (async () => {
       let st = DEFAULT;
       let crateDirty = false;
+      let hadServer = false;
       try {
         const r = await window.storage.get("ascend-state", false);
         if (r?.value) {
+          hadServer = true;
           const raw = JSON.parse(r.value), v = migrateAnimeCrateState(raw);
           st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } };
           crateDirty = raw.crateV !== v.crateV || typeof raw.cratePity !== "number";
         }
       } catch (e) { /* first run */ }
+      const pending = readPending();
+      let recoveredPending = false;
+      if (pending?.state && !(import.meta.env.DEV && new URLSearchParams(window.location.search).get("fixture") === "big")) {
+        const local = { ...DEFAULT, ...pending.state, profile: { ...DEFAULT.profile, ...(pending.state.profile || {}), sex: pending.state.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(pending.state.settings || {}) } };
+        st = hadServer ? mergeState(local, st, pending.snap && typeof pending.snap === "object" ? pending.snap : {}) : local;
+        recoveredPending = true;
+      }
       try {
         const ls = JSON.parse(localStorage.getItem("ascend-settings") || "null");
         if (ls && (ls.savedAt || 0) > (st.settings?.savedAt || 0)) st = { ...st, settings: { ...st.settings, ...ls } };
@@ -888,12 +926,50 @@ export default function App() {
       if (ok) setLastSaveAt(Date.now());
       const beforeNorm = st;
       st = normalizeState(st);
-      if (crateDirty) await window.storage.set("ascend-state", JSON.stringify(st), false);
-      snapRef.current = JSON.parse(JSON.stringify(crateDirty ? st : (st === beforeNorm ? st : beforeNorm)));
+      if (import.meta.env.DEV) {
+        try {
+          if (new URLSearchParams(window.location.search).get("fixture") === "big") {
+            window.__ascendNoPersist = true;
+            noPersistRef.current = true;
+            const { buildBigFixture } = await import("./devBigFixture.js");
+            st = normalizeState(buildBigFixture(st, EXERCISES));
+            crateDirty = false;
+          }
+        } catch (e) { console.warn("[ascend] fixture skipped", e); }
+      }
+      if (crateDirty && !noPersistRef.current && !recoveredPending) await window.storage.set("ascend-state", JSON.stringify(st), false);
+      if (recoveredPending && !noPersistRef.current) {
+        try { snapRef.current = JSON.parse(JSON.stringify(pending.snap && typeof pending.snap === "object" ? pending.snap : {})); }
+        catch (e) { snapRef.current = {}; }
+      } else {
+        snapRef.current = JSON.parse(JSON.stringify(crateDirty ? st : (st === beforeNorm ? st : beforeNorm)));
+      }
       setS(st); setLoaded(true);
-      loadCommunity().then((c) => { if (c) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
-      setTimeout(pullSteps, 800);
-      setTimeout(() => XpSync.flush(), 1500);
+      try { setSaveDiag({ kb: Math.round(JSON.stringify(st).length / 1024), ms: null }); } catch (e) { /* huge or circular */ }
+      loadCommunity().then((c) => { if (c && !noPersistRef.current) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
+      if (!noPersistRef.current) setTimeout(pullSteps, 800);
+      if (!noPersistRef.current) setTimeout(() => XpSync.flush(), 1500);
+      if (import.meta.env.DEV) {
+        window.__phase1ComputeBests = () => { const t0 = performance.now(); computeBests(sRef.current); return performance.now() - t0; };
+        window.__phase1Merge = () => { const t0 = performance.now(); mergeState(sRef.current, sRef.current, snapRef.current || sRef.current); return performance.now() - t0; };
+        window.__phase1TimePersist = async () => {
+          const t0 = performance.now();
+          let remote = null;
+          try {
+            const r = await window.storage.get("ascend-state", false, { fresh: true });
+            if (r?.value) remote = normalizeState(migrateAnimeCrateState(JSON.parse(r.value)));
+          } catch (e) { /* offline */ }
+          const tMerge = performance.now();
+          const p = sRef.current;
+          const base = snapRef.current || {};
+          const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
+          const useRemote = remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
+          const merged = normalizeState(useRemote ? mergeState(p, remote, base) : p);
+          const mergeMs = performance.now() - tMerge;
+          JSON.stringify({ ...merged, rev: Math.max(+p.rev || 0, remoteRev, +merged.rev || 0) + 1 });
+          return { total: performance.now() - t0, mergeMs, wrote: false };
+        };
+      }
     })();
   }, []);
 
@@ -901,9 +977,12 @@ export default function App() {
   const dirtyRef = useRef(false);
   const persistNow = async ({ urgent = false } = {}) => {
     if (!loaded || !window.storage?.set) return;
+    if (noPersistRef.current) return;
     if (persistLock.current) { persistAgain.current = true; if (urgent) persistUrgent.current = true; return; }
     persistLock.current = true;
     setSaveStatus("saving");
+    const t0 = performance.now();
+    writePending(sRef.current, snapRef.current);
     try {
       let remote = null;
       try {
@@ -911,23 +990,33 @@ export default function App() {
         if (r?.value) remote = normalizeState(migrateAnimeCrateState(JSON.parse(r.value)));
       } catch (e) { /* first save or offline read */ }
       let toWrite = null;
+      let mergeMs = 0;
+      let nextState = null;
       setS((p) => {
         const base = snapRef.current || {};
         const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
         // A stale read (older rev than we last ack'd) must not replace newer local data
         const useRemote = remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
+        const tMerge = performance.now();
         const merged = normalizeState(useRemote ? mergeState(p, remote, base) : p);
+        mergeMs = performance.now() - tMerge;
         toWrite = { ...merged, rev: Math.max(+p.rev || 0, remoteRev, +merged.rev || 0) + 1 };
         sRef.current = toWrite;
-        return JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
+        nextState = JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
+        return nextState;
       });
-      const res = await window.storage.set("ascend-state", JSON.stringify(toWrite || sRef.current), false);
+      const res = await window.storage.set("ascend-state", JSON.stringify(toWrite || sRef.current), false, { noQueue: true });
       if (res?.queued) throw new Error("queued");
       dirtyRef.current = false;
       snapRef.current = JSON.parse(JSON.stringify(sRef.current));
+      writtenRef.current = nextState;
+      clearPending();
       setOffline(false);
       setLastSaveAt(Date.now());
       setSaveStatus("saved");
+      const ms = Math.round(performance.now() - t0);
+      try { setSaveDiag({ kb: Math.round(JSON.stringify(toWrite || sRef.current).length / 1024), ms }); } catch (e) { setSaveDiag((d) => ({ ...d, ms })); }
+      if (import.meta.env.DEV) window.__phase1LastPersist = { ms, mergeMs };
       if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
       if (urgent || persistUrgent.current) {
         setSaveNote("Saved");
@@ -954,12 +1043,27 @@ export default function App() {
   const prevSave = useRef(s);
   useEffect(() => {
     if (!loaded) return;
+    const t0 = performance.now();
     const prev = prevSave.current;
     prevSave.current = s;
-    if (JSON.stringify({ ...s, rev: 0 }) === JSON.stringify({ ...(snapRef.current || {}), rev: 0 })) return;
-    const urgent = URGENT_SAVE.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(s[k]));
+    if (shouldSkipSave(s, writtenRef.current)) {
+      if (import.meta.env.DEV) window.__phase1LastDetectMs = performance.now() - t0;
+      return;
+    }
+    const dirty = stateKeysChanged(s, prev);
+    const detectMs = performance.now() - t0;
+    if (import.meta.env.DEV) {
+      window.__phase1LastDetectMs = detectMs;
+      const samples = window.__phase1DetectSamples || (window.__phase1DetectSamples = []);
+      samples.push(detectMs);
+      if (samples.length > 40) samples.splice(0, samples.length - 40);
+    }
+    if (!dirty) return;
+    const urgent = saveIsUrgent(prev, s, URGENT_SAVE);
+    if (noPersistRef.current) return;
     dirtyRef.current = true;
-    const t = setTimeout(() => persistRef.current({ urgent }), urgent ? 0 : 400);
+    const delay = saveDelayMs(urgent, prev, s);
+    const t = setTimeout(() => persistRef.current({ urgent }), delay);
     return () => clearTimeout(t);
   }, [s, loaded]);
   useEffect(() => {
@@ -969,6 +1073,8 @@ export default function App() {
   }, [loaded]);
   useEffect(() => {
     const hide = () => {
+      if (noPersistRef.current) return;
+      writePending(sRef.current, snapRef.current);
       if (dirtyRef.current) persistRef.current({ urgent: true });
       window.storage?.flush?.();
     };
@@ -982,7 +1088,7 @@ export default function App() {
 
   // Push leaderboard card whenever progress changes
   useEffect(() => {
-    if (!loaded || !s.lb || !s.profile.name || s.test) return;
+    if (!loaded || !s.lb || !s.profile.name || s.test || noPersistRef.current) return;
     const t = setTimeout(async () => {
       const card = profileCard(s);
       if (s.profile.song?.type === "clip" && !songPushed.current) { try { const r = await window.storage.get("ascend-song", false); if (r?.value) { await window.storage.set(`song:${s.playerId}`, r.value, true); songPushed.current = true; } } catch (e) { /* skip */ } }
@@ -1291,7 +1397,7 @@ export default function App() {
           </div>
         )}
         {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><TabErrorBoundary><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></TabErrorBoundary></Sheet>}
-        {onboard === null && tab === "settings" && <TabErrorBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} /></TabErrorBoundary>}
+        {onboard === null && tab === "settings" && <TabErrorBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} saveDiag={saveDiag} /></TabErrorBoundary>}
         <TabErrorBoundary><IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} /></TabErrorBoundary>
         <TabErrorBoundary><CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} /></TabErrorBoundary>
         {onboard === null && tab === "assistant" && <TabErrorBoundary><Assistant s={s} setS={setS} onBack={() => setTab("status")} /></TabErrorBoundary>}
@@ -1687,6 +1793,10 @@ function Train({ s, setS, gainXp, openRun }) {
   const [presetName, setPresetName] = useState("");
   const [open, setOpen] = useState({});
   const a = s.active;
+  const bests = useMemo(
+    () => computeBests(a?.editId ? { ...s, workouts: (s.workouts || []).filter((w) => w.id !== a.editId) } : s),
+    [s.workouts, s.profile, s.custom, s.community, a?.editId]
+  );
   const setActive = (fn) => setS((p) => {
     const next = fn(p.active);
     if (next == null) return { ...p, active: null };
@@ -1701,13 +1811,13 @@ function Train({ s, setS, gainXp, openRun }) {
     if (!exercises.length) { setS((p) => ({ ...p, active: null })); return; }
     if (a.editId) {
       const old = s.workouts.find((w) => w.id === a.editId);
-      const res = workoutXp(s, exercises, computeBests({ ...s, workouts: s.workouts.filter((w) => w.id !== a.editId) }));
+      const res = workoutXp(s, exercises, { ...bests });
       const delta = res.xp - (old?.xp || 0);
       setS((p) => ({ ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus } : w) }));
       gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
       return;
     }
-    const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, computeBests(s));
+    const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, { ...bests });
     const d = today();
     const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start };
     const after = { ...s, workouts: [...s.workouts, workout] };
@@ -1822,7 +1932,7 @@ function Train({ s, setS, gainXp, openRun }) {
     );
   }
 
-  const live = workoutXp(s, cleaned(a.exercises), computeBests(a.editId ? { ...s, workouts: s.workouts.filter((w) => w.id !== a.editId) } : s));
+  const live = workoutXp(s, cleaned(a.exercises), { ...bests });
   const hasWork = a.exercises.some((e) => e.sets.some((st) => st.done));
 
   return (
@@ -1976,14 +2086,18 @@ function Train({ s, setS, gainXp, openRun }) {
 // Full page (not a popup) so it scrolls normally on phones
 function ExercisePicker({ s, setS, onPick, onBack }) {
   const [q, setQ] = useState("");
+  const deferredQ = useDeferredValue(q);
   const [group, setGroup] = useState("All");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState(null);
 
-  const list = allExercises(s).filter((e) =>
-    (group === "All" || (group === "Custom" ? e.custom : group === "Community" ? e.community : e.group === group)) && e.name.toLowerCase().includes(q.trim().toLowerCase()));
-  const exact = allExercises(s).some((e) => e.name.toLowerCase() === q.trim().toLowerCase());
+  const catalog = useMemo(() => allExercises(s).map((e) => ({ e, n: e.name.toLowerCase() })), [s.custom, s.community]);
+  const needle = deferredQ.trim().toLowerCase();
+  const list = useMemo(() => catalog.filter(({ e, n }) =>
+    (group === "All" || (group === "Custom" ? e.custom : group === "Community" ? e.community : e.group === group)) && (!needle || n.includes(needle))).map((x) => x.e), [catalog, group, needle]);
+  const exact = !!needle && catalog.some(({ n }) => n === needle);
+  const onDeleteCustom = useCallback((name) => ask(`Delete custom exercise "${name}"? Past workouts keep it.`, () => setS((p) => ({ ...p, custom: p.custom.filter((c) => c.name !== name) })), "Delete"), [setS]);
 
   const estimate = async () => {
     setLoading(true); setErr(""); setDraft(null);
@@ -2078,20 +2192,9 @@ Respond ONLY with JSON, no markdown:
       </div>
 
       {list.length === 0 && <Empty>{group === "Custom" && !q ? "No custom exercises yet. Type any exercise above to create one." : group === "Community" && !q ? "Nothing shared yet. Custom exercises anyone creates show up here for everyone." : "No match. Tap create above to add it as a custom exercise."}</Empty>}
-      <div className="space-y-2">
-        {list.map((e) => (
-          <div key={e.name} className="ghost flex items-center">
-            <button onClick={() => onPick(e.name)} className="flex-1 text-left p-3 flex justify-between items-center gap-2">
-              <span className="font-semibold">{e.name}</span>
-              <span className="body text-xs whitespace-nowrap" style={{ color: C.mute }}>{e.group}{e.perHand ? " · per hand" : ""}{e.community && e.by ? ` · by ${e.by}` : ""}</span>
-            </button>
-            <a href={ytUrl(e.name)} target="_blank" rel="noreferrer" aria-label={`How to do ${e.name} on YouTube`} className="px-2" style={{ color: C.mute }}><Youtube size={16} /></a>
-            {e.custom && (
-              <button aria-label={`Delete ${e.name}`} onClick={() => ask(`Delete custom exercise "${e.name}"? Past workouts keep it.`, () => setS((p) => ({ ...p, custom: p.custom.filter((c) => c.name !== e.name) })), "Delete")} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>
-            )}
-          </div>
-        ))}
-      </div>
+      {list.length > 0 && (
+        <ExResultList items={list} onPick={onPick} onDeleteCustom={onDeleteCustom} />
+      )}
     </div>
   );
 }
@@ -2298,8 +2401,66 @@ function Fuel({ s, setS, gainXp }) {
   );
 }
 
+const SEARCH_CAP = 30;
+const EMPTY_ARR = [];
+const foodNorm = (n) => String(n || "").toLowerCase().replace(/[’']/g, "");
+
+const FoodResultList = React.memo(function FoodResultList({ items, savedNames, onAdd, onRemoveSaved }) {
+  const [more, setMore] = useState(false);
+  useEffect(() => { setMore(false); }, [items]);
+  const cap = more ? items.length : SEARCH_CAP;
+  const shown = items.slice(0, cap);
+  return (
+    <>
+      <div className="space-y-2">
+        {shown.map((f) => (
+          <div key={`${f.r || "b"}-${f.name}`} className="ghost flex items-center">
+            <button onClick={() => onAdd(f)} className="flex-1 text-left p-3 min-w-0">
+              <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
+              <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
+            </button>
+            {savedNames?.has(f.name) && onRemoveSaved && <button aria-label={`Remove ${f.name} from saved`} onClick={() => onRemoveSaved(f.name)} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
+          </div>
+        ))}
+      </div>
+      {items.length > SEARCH_CAP && !more && (
+        <button type="button" className="ghost w-full py-2 text-sm font-bold" onClick={() => setMore(true)}>Show more ({items.length - SEARCH_CAP})</button>
+      )}
+    </>
+  );
+});
+
+const ExResultList = React.memo(function ExResultList({ items, onPick, onDeleteCustom }) {
+  const [more, setMore] = useState(false);
+  useEffect(() => { setMore(false); }, [items]);
+  const cap = more ? items.length : SEARCH_CAP;
+  const shown = items.slice(0, cap);
+  return (
+    <>
+      <div className="space-y-2">
+        {shown.map((e) => (
+          <div key={e.name} className="ghost flex items-center">
+            <button onClick={() => onPick(e.name)} className="flex-1 text-left p-3 flex justify-between items-center gap-2">
+              <span className="font-semibold">{e.name}</span>
+              <span className="body text-xs whitespace-nowrap" style={{ color: C.mute }}>{e.group}{e.perHand ? " · per hand" : ""}{e.community && e.by ? ` · by ${e.by}` : ""}</span>
+            </button>
+            <a href={ytUrl(e.name)} target="_blank" rel="noreferrer" aria-label={`How to do ${e.name} on YouTube`} className="px-2" style={{ color: C.mute }}><Youtube size={16} /></a>
+            {e.custom && onDeleteCustom && (
+              <button aria-label={`Delete ${e.name}`} onClick={() => onDeleteCustom(e.name)} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>
+            )}
+          </div>
+        ))}
+      </div>
+      {items.length > SEARCH_CAP && !more && (
+        <button type="button" className="ghost w-full py-2 text-sm font-bold" onClick={() => setMore(true)}>Show more ({items.length - SEARCH_CAP})</button>
+      )}
+    </>
+  );
+});
+
 function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const [q, setQ] = useState("");
+  const deferredQ = useDeferredValue(q);
   const [loading, setLoading] = useState(null); // "estimate" | "lookup"
   const [err, setErr] = useState("");
   const [src, setSrc] = useState("All");
@@ -2314,7 +2475,7 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
     catch (e2) { setErr(e2.message === "notfound" ? "Barcode read, but that product isn't in the database. Try the AI estimate or a photo of the label." : "Couldn't read the barcode. Fill the frame with it, flat and in focus."); }
     setLoading(null);
   };
-  const saved = s.savedFoods || [];
+  const saved = s.savedFoods || EMPTY_ARR;
 
   // Recent foods from the log, newest first
   const recent = useMemo(() => {
@@ -2325,10 +2486,16 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
     return out;
   }, [s.meals]);
 
-  const community = (s.community?.foods || []).map((f) => ({ ...f, r: f.r || "Community", community: true }));
-  const pool = src === "All" ? [...saved, ...community, ...RESTAURANT_FOODS, ...FOODS] : src === "Saved" ? saved : src === "Basics" ? FOODS : src === "Community" ? community : src === "Meals" ? [...saved, ...community].filter((f) => f.meal) : RESTAURANT_FOODS.filter((f) => f.r === src);
-  const needle = q.trim().toLowerCase().replace(/[’']/g, "");
-  const list = pool.filter((f) => f.name.toLowerCase().replace(/[’']/g, "").includes(needle));
+  const communityFoods = s.community?.foods;
+  const community = useMemo(() => (communityFoods || EMPTY_ARR).map((f) => ({ ...f, r: f.r || "Community", community: true })), [communityFoods]);
+  const indexed = useMemo(() => {
+    const pool = src === "All" ? [...saved, ...community, ...RESTAURANT_FOODS, ...FOODS] : src === "Saved" ? saved : src === "Basics" ? FOODS : src === "Community" ? community : src === "Meals" ? [...saved, ...community].filter((f) => f.meal) : RESTAURANT_FOODS.filter((f) => f.r === src);
+    return pool.map((f) => ({ f, n: foodNorm(f.name) }));
+  }, [src, saved, community]);
+  const needle = foodNorm(deferredQ.trim());
+  const list = useMemo(() => (needle ? indexed.filter((x) => x.n.includes(needle)) : indexed).map((x) => x.f), [indexed, needle]);
+  const savedNames = useMemo(() => new Set(saved.map((f) => f.name)), [saved]);
+  const onRemoveSaved = useCallback((name) => setS((x) => ({ ...x, savedFoods: (x.savedFoods || []).filter((y) => y.name !== name) })), [setS]);
 
   const callClaude = async (prompt) => {
     const ck = `food:${q.trim().toLowerCase()}`;
@@ -2459,11 +2626,9 @@ function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
 
       {src === "Community feed" && <CommunityMeals s={s} setS={setS} onAdd={onAdd} />}
       {src !== "Community feed" && list.length === 0 && <Empty>No match here. Tap "Look up restaurant online" to search the restaurant's nutrition info.</Empty>}
-      <div className="space-y-2">
-        {list.map((f) => (
-          <Row key={`${f.r || "b"}-${f.name}`} f={f} onDelete={saved.includes(f) ? () => setS((x) => ({ ...x, savedFoods: (x.savedFoods || []).filter((y) => y.name !== f.name) })) : null} />
-        ))}
-      </div>
+      {src !== "Community feed" && list.length > 0 && (
+        <FoodResultList items={list} savedNames={savedNames} onAdd={onAdd} onRemoveSaved={onRemoveSaved} />
+      )}
       <div className="body text-xs pt-2" style={{ color: C.mute }}>Built-in restaurant numbers come from published nutrition info as of September 2026. Items marked approx. are less certain, and portions vary by location.</div>
     </div>
   );
@@ -2906,7 +3071,7 @@ async function decodeSave(code) {
   return parsed;
 }
 
-function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
+function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) {
   const st = s.settings || {};
   const setSet = (k, v) => setS((p) => ({ ...p, settings: { ...p.settings, [k]: v, savedAt: Date.now() } }));
   const [code, setCode] = useState("");
@@ -3074,6 +3239,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
       </div>
 
       <div className="body text-xs text-center" style={{ color: C.mute }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</div>
+      <div className="body text-xs text-center" style={{ color: C.mute }}>State {saveDiag?.kb ?? 0} KB{saveDiag?.ms != null ? ` · last save ${saveDiag.ms} ms` : ""}</div>
 
       <h2 className="text-lg font-bold">Contact support</h2>
       <SupportForm s={s} />
@@ -10159,14 +10325,15 @@ const XpSync = {
     try { localStorage.setItem(this.key(), JSON.stringify(o)); } catch (e) { /* storage full: rows stay in memory state */ }
     try { window.dispatchEvent(new CustomEvent("ascend-xp-sync")); } catch (e) { /* UI refresh only */ }
   },
-  add(row) { const o = this.read(); o.add = [...o.add.filter((x) => x.e !== row.e), row]; this.write(o); this.flush(); },
-  replace(rows) { this.write({ replace: rows, add: [] }); this.flush(); },
+  add(row) { if (typeof window !== "undefined" && window.__ascendNoPersist) return; const o = this.read(); o.add = [...o.add.filter((x) => x.e !== row.e), row]; this.write(o); this.flush(); },
+  replace(rows) { if (typeof window !== "undefined" && window.__ascendNoPersist) return; this.write({ replace: rows, add: [] }); this.flush(); },
   pending() { const o = this.read(); return (o.replace ? o.replace.length : 0) + o.add.length; },
   async headers() {
     const token = await window.ascendAuth?.token?.().catch(() => null);
     return token && SB_URL && SB_KEY ? { apikey: SB_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null;
   },
   async flush() {
+    if (typeof window !== "undefined" && window.__ascendNoPersist) return;
     if (this.busy || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
     this.busy = true;
     try {

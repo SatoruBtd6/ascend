@@ -616,3 +616,64 @@ export function migrateAnimeCrateState(s) {
   const crateLog = (s.crateLog || []).map((x) => (x && !x.type && x.kind ? { ...x, type: x.kind } : x));
   return { ...s, crateV: 2, cratePity: Math.min(ANIME_PITY_AT - 1, pity), crateLog };
 }
+
+// Save-effect helpers: identity skip, per-key reference dirty check, and a cheap
+// projection so typing in an in-progress workout is not treated as urgent.
+export function shouldSkipSave(s, justWritten) {
+  return s === justWritten;
+}
+
+export function stateKeysChanged(s, prev) {
+  if (s === prev) return false;
+  if (s == null || prev == null) return s != null || prev != null;
+  for (const k of Object.keys(s)) if (s[k] !== prev[k]) return true;
+  for (const k of Object.keys(prev)) if (!(k in s)) return true;
+  return false;
+}
+
+export function activeShape(a) {
+  if (a == null) return null;
+  const ex = a.exercises || [];
+  let out = String(ex.length);
+  for (let i = 0; i < ex.length; i++) {
+    const sets = ex[i]?.sets || [];
+    out += `\n${ex[i]?.name || ""}\t${sets.length}\t`;
+    for (let j = 0; j < sets.length; j++) out += sets[j]?.done ? "1" : "0";
+  }
+  return out;
+}
+
+export function activeIsUrgent(prev, next) {
+  if (prev == null && next == null) return false;
+  if (prev == null || next == null) return true;
+  return activeShape(prev) !== activeShape(next);
+}
+
+export function saveIsUrgent(prev, s, urgentKeys) {
+  if (!prev || !s) return true;
+  if (activeIsUrgent(prev.active, s.active)) return true;
+  for (const k of urgentKeys) {
+    if (k === "active") continue;
+    if (s[k] === prev[k]) continue;
+    if (!eq(s[k], prev[k])) return true;
+  }
+  return false;
+}
+
+export function saveDelayMs(urgent, prev, s) {
+  if (urgent) return 0;
+  if (!prev || !s) return 400;
+  let other = false;
+  for (const k of Object.keys(s)) {
+    if (k === "active") continue;
+    if (s[k] !== prev[k]) { other = true; break; }
+  }
+  if (!other) {
+    for (const k of Object.keys(prev)) {
+      if (k === "active") continue;
+      if (!(k in s)) { other = true; break; }
+    }
+  }
+  if (!other && s.active !== prev.active) return 1000;
+  return 400;
+}

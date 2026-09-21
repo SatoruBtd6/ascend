@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -195,6 +195,44 @@ test("normalizeState is additive and identity-stable when already valid", () => 
   assert.equal(filled.mystery.keep, true);
   assert.deepEqual(filled.workouts, []);
   assert.equal(normalizeState(filled), filled);
+});
+
+test("a save does not re-trigger itself when s is the just-written object", () => {
+  const s = { xp: 1, meals: {} };
+  assert.equal(shouldSkipSave(s, s), true);
+  assert.equal(shouldSkipSave({ ...s }, s), false);
+  assert.equal(shouldSkipSave(s, null), false);
+  assert.equal(stateKeysChanged(s, s), false);
+  assert.equal(stateKeysChanged({ ...s, xp: 2 }, s), true);
+  assert.equal(stateKeysChanged({ ...s, meals: s.meals }, s), false);
+});
+
+test("active typing is not urgent; structural active changes are", () => {
+  const sess = { start: 1, title: "Push", exercises: [{ name: "Bench", sets: [{ w: "135", r: "5", done: false }] }] };
+  assert.equal(activeIsUrgent(sess, { ...sess, title: "Legs" }), false);
+  assert.equal(activeIsUrgent(sess, { ...sess, exercises: [{ name: "Bench", sets: [{ w: "185", r: "5", done: false }] }] }), false);
+  assert.equal(activeIsUrgent(sess, { ...sess, exercises: [{ name: "Bench", sets: [{ w: "135", r: "5", done: true }] }] }), true);
+  assert.equal(activeIsUrgent(sess, { ...sess, exercises: [{ name: "Bench", sets: [{ w: "135", r: "5", done: false }, { w: "", r: "", done: false }] }] }), true);
+  assert.equal(activeIsUrgent(sess, { ...sess, exercises: [...sess.exercises, { name: "Squat", sets: [] }] }), true);
+  assert.equal(activeIsUrgent(sess, null), true);
+  assert.equal(activeIsUrgent(null, sess), true);
+  assert.equal(activeShape(sess), activeShape({ ...sess, title: "x", exercises: [{ name: "Bench", sets: [{ w: "9", r: "1", done: false }] }] }));
+  const prev = { active: sess, meals: { a: 1 } };
+  const typed = { ...prev, active: { ...sess, title: "P" } };
+  assert.equal(saveIsUrgent(prev, typed, ["meals", "workouts"]), false);
+  assert.equal(saveDelayMs(false, prev, typed), 1000);
+  const checked = { ...prev, active: { ...sess, exercises: [{ name: "Bench", sets: [{ w: "135", r: "5", done: true }] }] } };
+  assert.equal(saveIsUrgent(prev, checked, ["meals", "workouts"]), true);
+  assert.equal(saveDelayMs(true, prev, checked), 0);
+});
+
+test("pending recovery keeps a local meal and a concurrent server-side meal", () => {
+  const snap = { meals: { "2026-09-20": [{ id: "a", name: "oats", cal: 150, qty: 1 }] }, workouts: [{ id: "w1", title: "Push" }], profile: { name: "Chud" } };
+  const local = { ...snap, meals: { "2026-09-20": [{ id: "a", name: "oats", cal: 150, qty: 1 }, { id: "b", name: "chicken", cal: 230, qty: 1 }] } };
+  const server = { ...snap, meals: { "2026-09-20": [{ id: "a", name: "oats", cal: 150, qty: 1 }, { id: "c", name: "rice", cal: 200, qty: 1 }] } };
+  const got = normalizeState(mergeState(local, server, snap));
+  const names = got.meals["2026-09-20"].map((m) => m.name).sort();
+  assert.deepEqual(names, ["chicken", "oats", "rice"]);
 });
 
 const gym = { lat: 0, lng: 0 };
