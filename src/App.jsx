@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
 
 /* ---------- Theme ---------- */
@@ -285,7 +285,7 @@ const ask = (message, onYes, yesLabel) => AskRef.current(message, onYes, yesLabe
 // Add a finished workout and push its reps into matching daily quests
 function fillQuests(p, d, exercises) {
   const day = p.days?.[d] || newDay();
-  const list = day.list.map((q) => {
+  const list = (day.list || []).map((q) => {
     if (q.qid === "run" && !q.claimed) {
       const mi = exercises.filter((e) => /^(Running|Walking|Incline Walk)$/.test(e.name)).reduce((a, e) => a + workSets(e.sets).reduce((b, st) => b + (+st.w || 0), 0), 0);
       return mi ? { ...q, progress: Math.round((q.progress + mi) * 100) / 100, fromWorkout: Math.round(((q.fromWorkout || 0) + mi) * 100) / 100 } : q;
@@ -719,11 +719,44 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6u";
+const APP_VERSION = "6v";
 // Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
 const runningBundle = () => { try { return [...document.querySelectorAll('script[src*="/assets/"]')].map((x) => x.getAttribute("src").split("/assets/").pop()).find((n) => /^index-/.test(n)) || null; } catch (e) { return null; } };
+
+class TabErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { err: null, info: null, open: false, copied: false };
+  }
+  static getDerivedStateFromError(error) {
+    return { err: error, open: false, copied: false };
+  }
+  componentDidCatch(error, info) {
+    console.error(error, info);
+    this.setState({ info });
+  }
+  render() {
+    if (!this.state.err) return this.props.children;
+    const details = `${this.state.err?.name || "Error"}: ${this.state.err?.message || String(this.state.err)}\n${this.state.info?.componentStack || ""}`;
+    return (
+      <div className="panel p-4 space-y-3" role="alert">
+        <div className="font-bold">Something broke in this tab</div>
+        <div className="body text-sm" style={{ color: C.dim }}>The rest of the app still works. Copy the details if you want to report it, or reload.</div>
+        <button type="button" className="ghost py-2 px-3 text-sm font-bold w-full" onClick={() => this.setState({ open: !this.state.open })}>Details</button>
+        {this.state.open && <pre className="body text-xs overflow-auto p-2" style={{ color: C.sub, maxHeight: 180, whiteSpace: "pre-wrap", background: C.soft, borderRadius: 6, border: `1px solid ${C.line}` }}>{details}</pre>}
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" className="ghost py-3 font-bold flex items-center justify-center gap-2" onClick={async () => { try { await navigator.clipboard.writeText(details); this.setState({ copied: true }); } catch (e) { /* clipboard blocked */ } }}>
+            <Copy size={16} />{this.state.copied ? "Copied" : "Copy details"}
+          </button>
+          <button type="button" className="btn py-3 font-bold" onClick={() => window.location.reload()}>Reload</button>
+        </div>
+      </div>
+    );
+  }
+}
+
 export default function App() {
   const [s, setS] = useState(DEFAULT);
   const sRef = useRef(s); sRef.current = s;
@@ -818,12 +851,13 @@ export default function App() {
   useEffect(() => {
     (async () => {
       let st = DEFAULT;
+      let crateDirty = false;
       try {
         const r = await window.storage.get("ascend-state", false);
         if (r?.value) {
           const raw = JSON.parse(r.value), v = migrateAnimeCrateState(raw);
           st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } };
-          if (raw.crateV !== v.crateV || typeof raw.cratePity !== "number") await window.storage.set("ascend-state", JSON.stringify(st), false);
+          crateDirty = raw.crateV !== v.crateV || typeof raw.cratePity !== "number";
         }
       } catch (e) { /* first run */ }
       try {
@@ -835,7 +869,7 @@ export default function App() {
       if ((st.achV || 1) < 3) st = reconcileAchievements(st, true);
       if (!st.assistV) {
         const bw = Math.max(80, +st.profile?.weight || 170);
-        st = { ...st, assistV: 1, workouts: (st.workouts || []).map((w) => ({ ...w, exercises: w.exercises.map((ex) => (/^Assisted (Dip|Pull-up) Machine$/.test(ex.name) ? { ...ex, sets: ex.sets.map((x) => (+x.w >= bw * 0.5 ? { ...x, w: Math.max(0, Math.round(bw - +x.w)) } : x)) } : ex)) })) };
+        st = { ...st, assistV: 1, workouts: (st.workouts || []).map((w) => ({ ...w, exercises: (w.exercises || []).map((ex) => (/^Assisted (Dip|Pull-up) Machine$/.test(ex.name) ? { ...ex, sets: (ex.sets || []).map((x) => (+x.w >= bw * 0.5 ? { ...x, w: Math.max(0, Math.round(bw - +x.w)) } : x)) } : ex)) })) };
       }
       // Crew boss damage only counts from the day you joined. Existing crews start clean today.
       if (st.crew?.code && !st.crew.since) st = { ...st, crew: { ...st.crew, since: today() } };
@@ -852,7 +886,10 @@ export default function App() {
       if (ok) { try { await window.storage.set("ascend-probe", "1", false); } catch (e) { ok = false; } }
       setStorageOk(ok);
       if (ok) setLastSaveAt(Date.now());
-      snapRef.current = JSON.parse(JSON.stringify(st));
+      const beforeNorm = st;
+      st = normalizeState(st);
+      if (crateDirty) await window.storage.set("ascend-state", JSON.stringify(st), false);
+      snapRef.current = JSON.parse(JSON.stringify(crateDirty ? st : (st === beforeNorm ? st : beforeNorm)));
       setS(st); setLoaded(true);
       loadCommunity().then((c) => { if (c) setS((p) => ({ ...p, community: c })); }).catch(() => { /* offline */ });
       setTimeout(pullSteps, 800);
@@ -871,7 +908,7 @@ export default function App() {
       let remote = null;
       try {
         const r = await window.storage.get("ascend-state", false, { fresh: true });
-        if (r?.value) remote = migrateAnimeCrateState(JSON.parse(r.value));
+        if (r?.value) remote = normalizeState(migrateAnimeCrateState(JSON.parse(r.value)));
       } catch (e) { /* first save or offline read */ }
       let toWrite = null;
       setS((p) => {
@@ -879,7 +916,7 @@ export default function App() {
         const remoteRev = +remote?.rev || 0, baseRev = +base.rev || 0;
         // A stale read (older rev than we last ack'd) must not replace newer local data
         const useRemote = remote && remoteRev >= baseRev && JSON.stringify(remote) !== JSON.stringify(base);
-        const merged = useRemote ? mergeState(p, remote, base) : p;
+        const merged = normalizeState(useRemote ? mergeState(p, remote, base) : p);
         toWrite = { ...merged, rev: Math.max(+p.rev || 0, remoteRev, +merged.rev || 0) + 1 };
         sRef.current = toWrite;
         return JSON.stringify(merged) === JSON.stringify(p) ? p : merged;
@@ -1242,28 +1279,28 @@ export default function App() {
 
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
-        {onboard !== null && <Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} />}
-        {onboard !== null ? null : tab === "status" && <Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} />}
-        {onboard === null && tab === "exercise" && <ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} />}
-        {onboard === null && tab === "run" && <RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} />}
-        {onboard === null && tab === "muscle" && <MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} />}
-        {onboard === null && tab === "profile" && <ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => setXpOpen(true)} />}
+        {onboard !== null && <TabErrorBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></TabErrorBoundary>}
+        {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} /></TabErrorBoundary>}
+        {onboard === null && tab === "exercise" && <TabErrorBoundary><ExercisePage s={s} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} /></TabErrorBoundary>}
+        {onboard === null && tab === "run" && <TabErrorBoundary><RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} /></TabErrorBoundary>}
+        {onboard === null && tab === "muscle" && <TabErrorBoundary><MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} /></TabErrorBoundary>}
+        {onboard === null && tab === "profile" && <TabErrorBoundary><ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => setXpOpen(true)} /></TabErrorBoundary>}
         {!storageOk && (
           <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
             Progress can't save right now. Check your connection, or sign out and back in from Settings.
           </div>
         )}
-        {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></Sheet>}
-        {onboard === null && tab === "settings" && <SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} />}
-        <IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} />
-        <CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} />
-        {onboard === null && tab === "assistant" && <Assistant s={s} setS={setS} onBack={() => setTab("status")} />}
-        {onboard === null && tab === "train" && <Train s={s} setS={setS} gainXp={gainXp} openRun={() => setTab("run")} />}
-        {onboard === null && tab === "quests" && <Quests s={s} setS={setS} gainXp={gainXp} />}
-        {onboard === null && tab === "fuel" && <Fuel s={s} setS={setS} gainXp={gainXp} />}
-        {onboard === null && tab === "calendar" && <Calendar s={s} setS={setS} />}
-        {onboard === null && tab === "ranks" && <Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} />}
-        {onboard === null && tab === "board" && <Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} />}
+        {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><TabErrorBoundary><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></TabErrorBoundary></Sheet>}
+        {onboard === null && tab === "settings" && <TabErrorBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} /></TabErrorBoundary>}
+        <TabErrorBoundary><IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} /></TabErrorBoundary>
+        <TabErrorBoundary><CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} /></TabErrorBoundary>
+        {onboard === null && tab === "assistant" && <TabErrorBoundary><Assistant s={s} setS={setS} onBack={() => setTab("status")} /></TabErrorBoundary>}
+        {onboard === null && tab === "train" && <TabErrorBoundary><Train s={s} setS={setS} gainXp={gainXp} openRun={() => setTab("run")} /></TabErrorBoundary>}
+        {onboard === null && tab === "quests" && <TabErrorBoundary><Quests s={s} setS={setS} gainXp={gainXp} /></TabErrorBoundary>}
+        {onboard === null && tab === "fuel" && <TabErrorBoundary><Fuel s={s} setS={setS} gainXp={gainXp} /></TabErrorBoundary>}
+        {onboard === null && tab === "calendar" && <TabErrorBoundary><Calendar s={s} setS={setS} /></TabErrorBoundary>}
+        {onboard === null && tab === "ranks" && <TabErrorBoundary><Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} /></TabErrorBoundary>}
+        {onboard === null && tab === "board" && <TabErrorBoundary><Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} /></TabErrorBoundary>}
       </div>
 
       {toast && (
@@ -1650,7 +1687,12 @@ function Train({ s, setS, gainXp, openRun }) {
   const [presetName, setPresetName] = useState("");
   const [open, setOpen] = useState({});
   const a = s.active;
-  const setActive = (fn) => setS((p) => ({ ...p, active: fn(p.active) }));
+  const setActive = (fn) => setS((p) => {
+    const next = fn(p.active);
+    if (next == null) return { ...p, active: null };
+    if (!Array.isArray(next.exercises)) return { ...p, active: { ...next, exercises: [] } };
+    return { ...p, active: next };
+  });
   const lastSets = (name) => lastWorkingSets(s, name, a?.editId)?.sets || [];
   const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
 
@@ -1685,7 +1727,7 @@ function Train({ s, setS, gainXp, openRun }) {
     window.scrollTo?.(0, 0);
   };
   const startPreset = (pr) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, exercises: pr.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
+    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, exercises: (pr.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
     setShowPresets(false); window.scrollTo?.(0, 0);
   };
   const savePreset = () => {
@@ -1695,7 +1737,7 @@ function Train({ s, setS, gainXp, openRun }) {
     setNaming(false); setPresetName("");
   };
   const editWorkout = (w) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: w.exercises.map((e) => ({ name: e.name, sets: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) })) })) } }));
+    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", exercises: (w.exercises || []).map((e) => ({ name: e.name, sets: (e.sets || []).map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) })) })) } }));
     window.scrollTo?.(0, 0);
   };
 
@@ -2892,7 +2934,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool }) {
       const { data, saved } = await decodeSave(paste);
       const when = new Date(saved).toLocaleString();
       ask(`Load save from ${when}? This replaces everything currently in the app.`, () => {
-        setS({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId });
+        setS(normalizeState({ ...DEFAULT, ...data, active: null, settings: { ...DEFAULT.settings, ...(data.settings || {}) }, playerId: data.playerId || s.playerId }));
         setPaste(""); setMsg({ ok: true, text: `Save loaded: level ${levelFromXp(data.xp || 0).lvl}, ${data.workouts.length} workouts.` });
       }, "Load");
     } catch (e) {
@@ -7523,6 +7565,7 @@ function CrateVault({ s, setS }) {
   const visible = crate.prizes.filter((p) => p.type === typeTab && (p.rarity !== "secret" || s.test || crateOwned(s, p) || show?.id === p.id)).sort((a, b) => CRATE_RARITY_DESC.indexOf(a.rarity) - CRATE_RARITY_DESC.indexOf(b.rarity));
   const secretLocked = typeTab === "aura" && !s.test && !s.crateUnlocks?.blacksun && show?.id !== "blacksun";
   return (
+    <>
     <div className="panel overflow-hidden" style={{ borderColor: `${crate.theme.gold}44` }}>
       <div className="px-4 pt-4 pb-3 space-y-1" style={{ background: "radial-gradient(80% 90% at 50% 0%, rgba(106,0,255,.28), transparent 70%)" }}>
         <div className="body text-xs uppercase tracking-wider font-bold" style={{ color: C.gold }}>{crate.tag}</div>
@@ -7567,14 +7610,16 @@ function CrateVault({ s, setS }) {
           <div className="body text-xs" style={{ color: C.mute }}>Last: {(s.crateLog || []).slice(0, 6).map((x) => x.name).join(" · ")}</div>
         )}
       </div>
+    </div>
       {(busy || show) && (
         <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center p-6" style={{ background: "rgba(2,4,12,.86)" }} onClick={() => !busy && setShow(null)}>
           {busy && <div className="w-28 h-28" style={{ borderRadius: 18, background: `conic-gradient(${crate.theme.gold}, ${crate.theme.void}, ${crate.theme.rose}, ${crate.theme.gold})`, animation: "cratespin 0.9s linear infinite", boxShadow: `0 0 40px ${crate.theme.gold}` }} />}
           {show && meta && (
-            <div className="w-full max-w-sm panel p-5 space-y-3 text-center" style={{ borderColor: meta.color, animation: "cratereveal .55s cubic-bezier(.2,.8,.2,1)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ animation: "cratereveal .55s cubic-bezier(.2,.8,.2,1)", width: "100%", maxWidth: "24rem" }} onClick={(e) => e.stopPropagation()}>
+              <div className="p-5 space-y-3 text-center" style={{ background: C.sheet, border: `1px solid ${meta.color}`, borderRadius: 16, boxShadow: "0 8px 30px rgba(0,0,0,.18)" }}>
               <div className="text-xs font-extrabold tracking-widest uppercase" style={{ color: meta.color }}>{meta.name}</div>
               {show.type === "aura" ? (
-                <div className="relative mx-auto" style={{ width: 160, height: 160 }}><AuraCanvas aura={show.id} w={160} h={160} ringR={52} style={{ left: 0, top: 0 }} /></div>
+                <div className="relative mx-auto overflow-hidden" style={{ width: 160, height: 160 }}><AuraCanvas aura={show.id} w={160} h={160} ringR={52} style={{ left: 0, top: 0 }} /></div>
               ) : show.type === "border" ? (
                 <div className="relative mx-auto" style={{ width: 72, height: 72 }}><AnimatedBorder border={BORDERS.find((b) => b.id === show.id)} color={C.cyan} /><div className="absolute" style={{ inset: 7, borderRadius: 999, background: C.sheet }} /></div>
               ) : (
@@ -7583,12 +7628,13 @@ function CrateVault({ s, setS }) {
               <div className="text-xl font-bold">{show.name}</div>
               <div className="body text-sm" style={{ color: C.dim }}>{show.dupe ? `Already owned · ${show.refund} pts back` : "Unlocked. Equip it in Customize."}</div>
               <button type="button" onClick={() => setShow(null)} className="btn w-full py-3">Continue</button>
+              </div>
             </div>
           )}
         </div>
       )}
       {secretToast && <div className="fixed z-[90] left-1/2 top-8 -translate-x-1/2 px-5 py-3 font-black tracking-widest uppercase" style={{ background: "#fff", color: "#000", boxShadow: "0 0 40px #fff", borderRadius: 10 }}>Secret found · Black Sun</div>}
-    </div>
+    </>
   );
 }
 

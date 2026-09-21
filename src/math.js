@@ -51,7 +51,10 @@ function keyIn(obj, k) {
 function mergeValue(local, server, snap, lHas, sHas, pHas) {
   if (lHas && !eq(local, snap)) {
     if (asIdList(local, server, snap)) return mergeIdList(lHas ? local : [], sHas ? server : [], pHas ? snap : []);
-    if (isObj(local) || isObj(server) || isObj(snap)) return mergeMap(isObj(local) ? local : {}, isObj(server) ? server : {}, isObj(snap) ? snap : {});
+    // Nested merge only when local is still a map. Nulling a session/object (active,
+    // lastSummary, crew, …) is a local change and must win as a whole — otherwise
+    // mergeMap({}, server, snap) rebuilds a partial object and drops child arrays.
+    if (isObj(local)) return mergeMap(local, isObj(server) ? server : {}, isObj(snap) ? snap : {});
     return clone(local);
   }
   if (!lHas && pHas) return undefined;
@@ -83,6 +86,150 @@ function mergeIdList(local, server, snap) {
   return out;
 }
 
+// Additive repair of a persisted ascend-state blob. Unknown keys are kept. Values that
+// are already the right type are left alone. Missing arrays become [], missing maps {}.
+export function normalizeState(s) {
+  if (!s || typeof s !== "object" || Array.isArray(s)) return s;
+  const repaired = new Set();
+  const note = (field) => {
+    if (repaired.has(field)) return;
+    repaired.add(field);
+    console.warn("[ascend] repaired state field:", field);
+  };
+  const asArr = (v, field) => { if (Array.isArray(v)) return v; note(field); return []; };
+  const asObj = (v, field) => { if (isObj(v)) return v; note(field); return {}; };
+  const asNum = (v, field, fallback = 0) => { if (typeof v === "number" && Number.isFinite(v)) return v; note(field); return fallback; };
+  const asBool = (v, field, fallback = false) => { if (typeof v === "boolean") return v; note(field); return fallback; };
+
+  const mapItems = (arr, field, fn) => {
+    if (!Array.isArray(arr)) { note(field); return []; }
+    let changed = false;
+    const next = arr.map((item) => {
+      const n = fn(item);
+      if (n !== item) changed = true;
+      return n;
+    });
+    return changed ? next : arr;
+  };
+  const mapVals = (obj, field, fn) => {
+    const src = asObj(obj, field);
+    let changed = src !== obj;
+    const next = {};
+    Object.keys(src).forEach((k) => {
+      const n = fn(src[k], k);
+      next[k] = n;
+      if (n !== src[k]) changed = true;
+    });
+    return changed ? next : obj;
+  };
+  const withSets = (ex, field) => {
+    if (!isObj(ex)) { note(field); return { sets: [] }; }
+    if (Array.isArray(ex.sets)) return ex;
+    note(`${field}[].sets`);
+    return { ...ex, sets: [] };
+  };
+  const withExercises = (row, field) => {
+    if (!isObj(row)) { note(field); return { exercises: [] }; }
+    const exercises = mapItems(row.exercises, `${field}.exercises`, (ex) => withSets(ex, `${field}.exercises`));
+    return exercises === row.exercises ? row : { ...row, exercises };
+  };
+  const nullable = (v, field, inner) => {
+    if (v == null) return null;
+    if (!isObj(v)) { note(field); return null; }
+    return inner(v);
+  };
+
+  let out = s;
+  const set = (key, val) => {
+    if (val === out[key]) return;
+    if (out === s) out = { ...s };
+    out[key] = val;
+  };
+
+  const topArr = ["workouts", "savedRoutes", "dayTemplates", "custom", "chat", "presets", "savedFoods", "crateLog"];
+  topArr.forEach((k) => { if (!Array.isArray(out[k])) set(k, asArr(out[k], k)); });
+  const topObj = ["xpLog", "days", "meals", "weekly", "monthly", "rankHist", "steps", "stepXp", "loot", "seasonBadges", "nemesisSeen", "roasts", "checkins", "water", "measure", "groupClaimed", "duelClaimed", "bossRecaps", "worldFirsts", "wfClaim", "crewBanners", "fuelClaimed", "ach", "mogClaimed", "xpDetail", "xpDone", "weightLog", "crateUnlocks", "auraUnlocks", "duelResults"];
+  topObj.forEach((k) => { if (!isObj(out[k])) set(k, asObj(out[k], k)); });
+
+  set("xp", asNum(out.xp, "xp"));
+  set("achV", asNum(out.achV, "achV", 3));
+  set("lb", asBool(out.lb, "lb"));
+  set("test", asBool(out.test, "test"));
+  if (out.crateSpent != null || "crateSpent" in out) set("crateSpent", asNum(out.crateSpent, "crateSpent"));
+  if (out.crateV != null || "crateV" in out) set("crateV", asNum(out.crateV, "crateV", 2));
+  if (out.cratePity != null || "cratePity" in out) {
+    const pity = out.cratePity;
+    if (typeof pity !== "number" || !Number.isFinite(pity)) set("cratePity", asNum(typeof pity === "object" ? +(pity?.legendary || pity?.rare || 0) : pity, "cratePity"));
+  }
+  if (out.rev != null) set("rev", asNum(out.rev, "rev"));
+
+  const profile = asObj(out.profile, "profile");
+  if (profile !== out.profile) set("profile", profile);
+  if (profile.look != null && !isObj(profile.look)) {
+    note("profile.look");
+    set("profile", { ...profile, look: {} });
+  }
+
+  const settings = asObj(out.settings, "settings");
+  if (settings !== out.settings) set("settings", settings);
+  if (settings.custom != null && !isObj(settings.custom) && settings.custom !== false) {
+    note("settings.custom");
+    set("settings", { ...settings, custom: {} });
+  }
+
+  const community = asObj(out.community, "community");
+  const communityEx = asArr(community.ex, "community.ex");
+  const communityFoods = asArr(community.foods, "community.foods");
+  if (community !== out.community || communityEx !== community.ex || communityFoods !== community.foods) {
+    set("community", { ...community, ex: communityEx, foods: communityFoods });
+  }
+
+  const workouts = mapItems(out.workouts, "workouts", (w) => withExercises(w, "workouts[]"));
+  set("workouts", workouts);
+  const presets = mapItems(out.presets, "presets", (w) => withExercises(w, "presets[]"));
+  set("presets", presets);
+
+  set("active", nullable(out.active, "active", (a) => withExercises(a, "active")));
+  set("lastSummary", nullable(out.lastSummary, "lastSummary", (sum) => {
+    const suggestions = asArr(sum.suggestions, "lastSummary.suggestions");
+    const prNames = asArr(sum.prNames, "lastSummary.prNames");
+    let recap = sum.recap;
+    if (recap != null) {
+      if (!isObj(recap)) { note("lastSummary.recap"); recap = { lifts: [] }; }
+      else {
+        const lifts = asArr(recap.lifts, "lastSummary.recap.lifts");
+        if (lifts !== recap.lifts) recap = { ...recap, lifts };
+      }
+    }
+    if (suggestions === sum.suggestions && prNames === sum.prNames && recap === sum.recap) return sum;
+    return { ...sum, suggestions, prNames, recap };
+  }));
+  set("crew", nullable(out.crew, "crew", (c) => {
+    const members = c.members == null || Array.isArray(c.members) ? c.members : (note("crew.members"), []);
+    return members === c.members ? c : { ...c, members };
+  }));
+  set("nemesis", nullable(out.nemesis, "nemesis", (n) => n));
+  set("rankSnap", nullable(out.rankSnap, "rankSnap", (n) => n));
+  set("ghost", nullable(out.ghost, "ghost", (n) => n));
+  set("atGym", nullable(out.atGym, "atGym", (n) => n));
+
+  const days = mapVals(out.days, "days", (d) => {
+    if (!isObj(d)) { note("days[]"); return { list: [] }; }
+    const list = asArr(d.list, "days[].list");
+    return list === d.list ? d : { ...d, list };
+  });
+  set("days", days);
+
+  const meals = mapVals(out.meals, "meals", (list) => asArr(list, "meals[]"));
+  set("meals", meals);
+  const xpDetail = mapVals(out.xpDetail, "xpDetail", (list) => asArr(list, "xpDetail[]"));
+  set("xpDetail", xpDetail);
+
+  const chat = mapItems(out.chat, "chat", (c) => (isObj(c) || typeof c === "string" ? c : (note("chat[]"), null))).filter((c) => c != null);
+  if (chat.length !== (out.chat || []).length) set("chat", chat);
+
+  return out;
+}
 
 // World First: every player who lands a killing blow writes their own claim row, so upsert
 // storage can't let one overwrite another. Everyone then resolves the same winner from the

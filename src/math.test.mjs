@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, normalizeState, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -171,6 +171,30 @@ test("mergeState merges nested profile: local weight, server look", () => {
   assert.equal(got.profile.weight, 182);
   assert.equal(got.profile.look.aura, "tide");
   assert.equal(got.profile.name, "Finn");
+});
+
+test("mergeState keeps local nulling of active instead of resurrecting a partial session", () => {
+  const base = { ...snap, active: { start: 1, title: "Push", exercises: [{ name: "Bench", sets: [] }] } };
+  const local = { ...base, active: null };
+  const got = mergeState(local, base, base);
+  assert.equal(got.active, null);
+});
+
+test("normalizeState fills missing active.exercises without dropping extra keys", () => {
+  const s = { active: { start: 1, title: "Push", extra: true }, mystery: 9, workouts: [{ id: "w1", title: "Push" }] };
+  const n = normalizeState(s);
+  assert.deepEqual(n.active.exercises, []);
+  assert.equal(n.active.extra, true);
+  assert.equal(n.mystery, 9);
+  assert.deepEqual(n.workouts[0].exercises, []);
+  assert.equal(n.workouts[0].title, "Push");
+});
+
+test("normalizeState is additive and identity-stable when already valid", () => {
+  const filled = normalizeState({ xp: 10, mystery: { keep: true } });
+  assert.equal(filled.mystery.keep, true);
+  assert.deepEqual(filled.workouts, []);
+  assert.equal(normalizeState(filled), filled);
 });
 
 const gym = { lat: 0, lng: 0 };
