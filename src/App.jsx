@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
-import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff, MoreHorizontal } from "lucide-react";
+﻿import React, { useState, useEffect, useMemo, useRef, useId, useDeferredValue, useCallback } from "react";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, duplicateExerciseGroups, applyExerciseMerge, accountExerciseNames, rankUpCeremony, levelFromXp, collectPrHistory, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Repeat, Activity, Zap, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, MoreHorizontal } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
 import {
@@ -8,432 +8,31 @@ import {
   switchRunMode, toggleRunPause, ensureSegments, buildSavedRun, openSegment, segmentMovingSecs,
   runTitle, runXpLabel, runKind, runBreakdown,
 } from "./run.js";
+import { C, RAINBOW, applyTheme, hexRgb } from "./theme.js";
+import { RANKS, RANK_INFO, GROUP_WEIGHT, GROUPS } from "./data/ranks.js";
+import { EXERCISES } from "./data/exercises.js";
+import { DAILY_REROLLS, QUEST_EX, questStep, FUEL_XP } from "./data/quests.js";
+import { FOODS, RESTAURANT_FOODS, RESTAURANTS, ACTIVITY, GOALS } from "./data/foods.js";
+import { TIER_STYLE, ACH_ICONS } from "./data/achievements.js";
+import { WEEKLY_POOL, MONTHLY_POOL, WEEKLY_REPS, MONTHLY_REPS } from "./data/challenges.js";
+import { dkey, today, shift, uid, fmtDay, sexLabel, sexLine, weekStart, monthKey } from "./lib/dates.js";
+import { AskRef, ask } from "./lib/ask.js";
+import { allExercises, findEx } from "./lib/exercises.js";
+import { addWorkout, addDeckSet, rankFromScore, rankFor, movedLb, assistedReps, bestValue, computeBests, rankedLifts, groupScores, overallInfo, overallRank, isWorkout, activeDays, streakOf, mealTotals, makeQuest, newDay, prNote, workoutXp, workoutRecap, allAchievements, lifetimeStats, reconcileAchievements, earnedAchievements, rangeStats, pickChallenges } from "./lib/stats.js";
+import { SaveCtx } from "./ui/saveCtx.js";
+import { SaveMark } from "./ui/SaveMark.jsx";
+import { DiagProbe } from "./ui/DiagProbe.jsx";
+import { NumField } from "./ui/NumField.jsx";
+import { Bar, Title, Empty, Sheet, Stat, SettingsToggle } from "./ui/primitives.jsx";
 
-/* ---------- Theme ---------- */
-const THEMES = {
-  dark: {
-    bg: "#000000", text: "#F2F8FF", dim: "#A3B6CF", mute: "#71869F", sub: "#CFDCEE",
-    blue: "#0A84FF", cyan: "#00D9FF", soft: "#03080F", line: "rgba(0,217,255,.26)", border: "#10283F",
-    track: "#081530", sheet: "#040A1C", accentBg: "#0C2350", navBg: "rgba(0,0,0,.96)", badgeBg: "rgba(2,6,16,.8)",
-    inpBg: "#000000", panelTop: "rgba(0,34,70,.42)", panelBot: "rgba(0,0,0,.94)", glow: "rgba(0,217,255,.75)",
-    grid: "rgba(0,217,255,.028)", halo: "rgba(40,110,255,.20)", glass: "rgba(255,255,255,.045)", glassLine: "rgba(255,255,255,.09)",
-    gold: "#FFD447", green: "#39E68F", orange: "#FF9340", red: "#FF4D6D",
-  },
-  light: {
-    bg: "#EEF4FA", text: "#07162A", dim: "#3F5873", mute: "#6F849C", sub: "#2A4461",
-    blue: "#0070F0", cyan: "#0088CC", soft: "#FFFFFF", line: "rgba(0,120,210,.28)", border: "#C9D9EA",
-    track: "#D6E3F0", sheet: "#FFFFFF", accentBg: "#DDEEFF", navBg: "rgba(255,255,255,.96)", badgeBg: "rgba(255,255,255,.92)",
-    inpBg: "#FFFFFF", panelTop: "rgba(255,255,255,.97)", panelBot: "rgba(230,240,250,.97)", glow: "rgba(0,136,204,.3)",
-    grid: "rgba(0,120,210,.06)", halo: "rgba(0,144,255,.18)", glass: "rgba(255,255,255,.72)", glassLine: "rgba(10,30,60,.08)",
-    gold: "#D99A00", green: "#12A860", orange: "#E8740C", red: "#E0284A",
-  },
-};
-const ZEST = {
-  dark: { cyan: "#FF5AD9", blue: "#8A5CFF", line: "rgba(255,90,217,.35)", glow: "rgba(255,90,217,.8)", accentBg: "#2A0A3A", track: "#1B0B2C" },
-  light: { cyan: "#D01FAE", blue: "#7A3CFF", line: "rgba(208,31,174,.3)", glow: "rgba(208,31,174,.3)", accentBg: "#FBE3F7", track: "#EBDDF5" },
-};
-const C = { ...THEMES.dark };
-const RAINBOW = "linear-gradient(90deg,#ff3cac,#ffb43c,#f7ff3c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)";
 
-/* ---------- Game data ---------- */
-const RANKS = [
-  { id: "E", color: "#9AA7BD", alt: "#DDE6F2", glow: "rgba(154,167,189,.4)" },
-  { id: "D", color: "#3DF08A", alt: "#B6FFD9", glow: "rgba(61,240,138,.55)" },
-  { id: "C", color: "#38C6FF", alt: "#B3ECFF", glow: "rgba(56,198,255,.6)" },
-  { id: "B", color: "#B14BFF", alt: "#E6BFFF", glow: "rgba(177,75,255,.65)" },
-  { id: "A", color: "#FF2D6F", alt: "#FF9A3D", glow: "rgba(255,45,111,.7)" },
-  { id: "S", color: "#FFD447", alt: "#FFFFFF", glow: "rgba(255,212,71,.85)" },
-  { id: "SS", color: "#F4FBFF", alt: "#7DF9FF", glow: "rgba(200,240,255,.95)" },
-];
-const RANK_DARK = RANKS.map((r) => r.color);
-const RANK_LIGHT = ["#66748A", "#15A34A", "#0284C7", "#7C3AED", "#D6194F", "#C28A00", "#0B1220"];
-function applyTheme(settings = {}) {
-  const mode = settings.theme === "light" ? "light" : "dark";
-  Object.keys(C).forEach((k) => delete C[k]);
-  Object.assign(C, THEMES[mode], settings.zesty ? ZEST[mode] : {}, settings.custom?.on && !settings.zesty ? customTheme(settings.custom) : {});
-  RANKS.forEach((r, i) => { r.color = mode === "light" ? RANK_LIGHT[i] : RANK_DARK[i]; });
-}
-const DIVS = ["III", "II", "I"];
-const RANK_INFO = {
-  E: ["Awakening", "Just getting started. Everyone begins here."],
-  D: ["Beginner", "The habit is forming and form is dialed in."],
-  C: ["Regular", "Consistent lifter with a real foundation."],
-  B: ["Strong", "Clearly trained. Stronger than most people in any gym."],
-  A: ["Advanced", "Years of serious, disciplined training."],
-  S: ["Elite", "Genuinely strong for your frame. Very few ever get here."],
-  SS: ["Gym God", "Beyond elite. Nobody is supposed to get here."],
-};
-// Minimum strength factor per group so custom lifts (especially machines) can't be rated too easy
-const FACTOR_FLOOR = { Chest: 0.35, Back: 0.4, Legs: 0.5, Shoulders: 0.25, Arms: 0.3, Core: 1.3 };
-// How much each muscle group counts toward overall rank; groups you haven't trained count as zero
-const GROUP_WEIGHT = { Legs: 3, Back: 3, Chest: 3, Shoulders: 2, Arms: 1, Core: 1 };
 
-const GROUPS = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio"];
-// type: weighted (lb x reps, ranked vs bodyweight) | bodyweight (reps, ranked by reps) | timed (minutes, no rank)
-// xp: XP per set (weighted/bodyweight) or per minute (timed)
-// perHand: weight is entered per hand (dumbbells, single-arm cables). The factor is for the weight as entered.
-const EXERCISES = [
-  { name: "Bench Press", group: "Chest", type: "weighted", factor: 1, xp: 12 },
-  { name: "Incline Bench Press", group: "Chest", type: "weighted", factor: 0.85, xp: 12 },
-  { name: "Smith Machine Bench Press", group: "Chest", type: "weighted", factor: 1.05, xp: 11 },
-  { name: "Chest Press Machine", group: "Chest", type: "weighted", factor: 1.1, xp: 10 },
-  { name: "Dumbbell Press", group: "Chest", type: "weighted", factor: 0.4, perHand: true, xp: 11 },
-  { name: "Incline Dumbbell Press", group: "Chest", type: "weighted", factor: 0.35, perHand: true, xp: 11 },
-  { name: "Pec Deck", group: "Chest", type: "weighted", factor: 0.75, xp: 8 },
-  { name: "Cable Crossover", group: "Chest", type: "weighted", factor: 0.35, perHand: true, xp: 8 },
-  { name: "Low Cable Fly", group: "Chest", type: "weighted", factor: 0.33, perHand: true, xp: 8 },
-  { name: "Cable Chest Press", group: "Chest", type: "weighted", factor: 0.45, perHand: true, xp: 10 },
-  { name: "Chest Fly (dumbbell)", group: "Chest", type: "weighted", factor: 0.25, perHand: true, xp: 8 },
-  { name: "Push-up", group: "Chest", type: "bodyweight", reps: 2.8, xp: 8 },
-  { name: "Dip", group: "Chest", type: "bodyweight", reps: 1.3, xp: 11 },
-  { name: "Assisted Dip Machine", group: "Chest", type: "assisted", rankAs: "Dip", xp: 9 },
-  { name: "Deadlift", group: "Back", type: "weighted", factor: 1.5, xp: 18 },
-  { name: "Trap Bar Deadlift", group: "Back", type: "weighted", factor: 1.6, xp: 17 },
-  { name: "Barbell Row", group: "Back", type: "weighted", factor: 0.85, xp: 12 },
-  { name: "T-Bar Row", group: "Back", type: "weighted", factor: 0.9, xp: 12 },
-  { name: "Dumbbell Row", group: "Back", type: "weighted", factor: 0.4, perHand: true, xp: 10 },
-  { name: "Machine Row", group: "Back", type: "weighted", factor: 0.9, xp: 10 },
-  { name: "Seated Cable Row", group: "Back", type: "weighted", factor: 0.8, xp: 10 },
-  { name: "Lat Pulldown", group: "Back", type: "weighted", factor: 0.8, xp: 10 },
-  { name: "Straight-Arm Pulldown", group: "Back", type: "weighted", factor: 0.45, xp: 7 },
-  { name: "Cable Pullover", group: "Back", type: "weighted", factor: 0.45, xp: 7 },
-  { name: "Single-Arm Cable Row", group: "Back", type: "weighted", factor: 0.4, perHand: true, xp: 9 },
-  { name: "Cable Pull-Through", group: "Legs", type: "weighted", factor: 0.7, xp: 8 },
-  { name: "Assisted Pull-up Machine", group: "Back", type: "assisted", rankAs: "Pull-up", xp: 10 },
-  { name: "Pull-up", group: "Back", type: "bodyweight", reps: 0.85, xp: 14 },
-  { name: "Chin-up", group: "Back", type: "bodyweight", reps: 0.95, xp: 13 },
-  { name: "Back Extension", group: "Back", type: "bodyweight", reps: 1.2, xp: 6 },
-  { name: "Dead Hang", group: "Back", type: "timed", xp: 5 },
-  { name: "Squat", group: "Legs", type: "weighted", factor: 1.25, xp: 16 },
-  { name: "Front Squat", group: "Legs", type: "weighted", factor: 1, xp: 16 },
-  { name: "Smith Machine Squat", group: "Legs", type: "weighted", factor: 1.3, xp: 14 },
-  { name: "Hack Squat", group: "Legs", type: "weighted", factor: 1.6, xp: 14 },
-  { name: "Leg Press", group: "Legs", type: "weighted", factor: 2.4, xp: 13 },
-  { name: "Romanian Deadlift", group: "Legs", type: "weighted", factor: 1.1, xp: 14 },
-  { name: "Hip Thrust", group: "Legs", type: "weighted", factor: 1.5, xp: 12 },
-  { name: "Bulgarian Split Squat", group: "Legs", type: "weighted", factor: 0.35, perHand: true, xp: 14 },
-  { name: "Goblet Squat", group: "Legs", type: "weighted", factor: 0.55, xp: 12 },
-  { name: "Leg Extension", group: "Legs", type: "weighted", factor: 0.7, xp: 8 },
-  { name: "Leg Curl", group: "Legs", type: "weighted", factor: 0.55, xp: 8 },
-  { name: "Hip Abduction Machine", group: "Legs", type: "weighted", factor: 0.7, xp: 6 },
-  { name: "Hip Adduction Machine", group: "Legs", type: "weighted", factor: 0.7, xp: 6 },
-  { name: "Calf Raise", group: "Legs", type: "weighted", factor: 1.5, xp: 6 },
-  { name: "Seated Calf Raise", group: "Legs", type: "weighted", factor: 0.8, xp: 6 },
-  { name: "Walking Lunge", group: "Legs", type: "bodyweight", reps: 2, xp: 10 },
-  { name: "Air Squat", group: "Legs", type: "bodyweight", reps: 3, xp: 5 },
-  { name: "Overhead Press", group: "Shoulders", type: "weighted", factor: 0.65, xp: 12 },
-  { name: "Shoulder Press Machine", group: "Shoulders", type: "weighted", factor: 0.7, xp: 10 },
-  { name: "Dumbbell Shoulder Press", group: "Shoulders", type: "weighted", factor: 0.28, perHand: true, xp: 11 },
-  { name: "Arnold Press", group: "Shoulders", type: "weighted", factor: 0.25, perHand: true, xp: 11 },
-  { name: "Lateral Raise", group: "Shoulders", type: "weighted", factor: 0.1, perHand: true, xp: 7 },
-  { name: "Cable Lateral Raise", group: "Shoulders", type: "weighted", factor: 0.09, perHand: true, xp: 7 },
-  { name: "Lateral Raise Machine", group: "Shoulders", type: "weighted", factor: 0.55, xp: 7 },
-  { name: "Front Raise", group: "Shoulders", type: "weighted", factor: 0.1, perHand: true, xp: 6 },
-  { name: "Rear Delt Fly (dumbbell)", group: "Shoulders", type: "weighted", factor: 0.09, perHand: true, xp: 7 },
-  { name: "Reverse Fly Machine", group: "Shoulders", type: "weighted", factor: 0.6, xp: 7 },
-  { name: "Face Pull", group: "Shoulders", type: "weighted", factor: 0.4, xp: 7 },
-  { name: "Cable Rear Delt Fly", group: "Shoulders", type: "weighted", factor: 0.35, xp: 7 },
-  { name: "Cable Front Raise", group: "Shoulders", type: "weighted", factor: 0.3, xp: 6 },
-  { name: "Cable Upright Row", group: "Shoulders", type: "weighted", factor: 0.45, xp: 7 },
-  { name: "Cable Shrug", group: "Shoulders", type: "weighted", factor: 1.1, xp: 6 },
-  { name: "Upright Row", group: "Shoulders", type: "weighted", factor: 0.45, xp: 8 },
-  { name: "Shrug", group: "Shoulders", type: "weighted", factor: 1.2, xp: 7 },
-  { name: "Barbell Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 8 },
-  { name: "EZ Bar Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 8 },
-  { name: "Dumbbell Curl", group: "Arms", type: "weighted", factor: 0.17, perHand: true, xp: 7 },
-  { name: "Hammer Curl", group: "Arms", type: "weighted", factor: 0.19, perHand: true, xp: 7 },
-  { name: "Preacher Curl", group: "Arms", type: "weighted", factor: 0.4, xp: 7 },
-  { name: "Cable Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 7 },
-  { name: "Rope Hammer Curl", group: "Arms", type: "weighted", factor: 0.45, xp: 7 },
-  { name: "Rope Pushdown", group: "Arms", type: "weighted", factor: 0.42, xp: 7 },
-  { name: "Cable Overhead Extension", group: "Arms", type: "weighted", factor: 0.4, xp: 7 },
-  { name: "Cable Kickback", group: "Arms", type: "weighted", factor: 0.15, perHand: true, xp: 6 },
-  { name: "Bicep Curl Machine", group: "Arms", type: "weighted", factor: 0.5, xp: 7 },
-  { name: "Tricep Pushdown", group: "Arms", type: "weighted", factor: 0.45, xp: 7 },
-  { name: "Overhead Tricep Extension", group: "Arms", type: "weighted", factor: 0.4, xp: 7 },
-  { name: "Skull Crusher", group: "Arms", type: "weighted", factor: 0.4, xp: 8 },
-  { name: "Tricep Extension Machine", group: "Arms", type: "weighted", factor: 0.55, xp: 7 },
-  { name: "Close-Grip Bench Press", group: "Arms", type: "weighted", factor: 0.85, xp: 11 },
-  { name: "Plank", group: "Core", type: "timed", xp: 8 },
-  { name: "Hanging Leg Raise", group: "Core", type: "bodyweight", reps: 0.8, xp: 9 },
-  { name: "Cable Crunch", group: "Core", type: "weighted", factor: 1.3, xp: 7 },
-  { name: "Cable Woodchop", group: "Core", type: "weighted", factor: 0.45, xp: 7 },
-  { name: "Cable Pallof Press", group: "Core", type: "weighted", factor: 0.3, xp: 6 },
-  { name: "Ab Crunch Machine", group: "Core", type: "weighted", factor: 1.3, xp: 7 },
-  { name: "Russian Twist", group: "Core", type: "bodyweight", reps: 2.5, xp: 5 },
-  { name: "Sit-up", group: "Core", type: "bodyweight", reps: 3, xp: 5 },
-  { name: "Farmer's Carry", group: "Core", type: "weighted", factor: 0.5, perHand: true, xp: 9 },
-  { name: "Running", group: "Cardio", type: "timed", xp: 6 },
-  { name: "Walking", group: "Cardio", type: "timed", xp: 3 },
-  { name: "Incline Walk", group: "Cardio", type: "timed", xp: 4 },
-  { name: "Cycling", group: "Cardio", type: "timed", xp: 5 },
-  { name: "Stairmaster", group: "Cardio", type: "timed", xp: 6 },
-  { name: "Elliptical", group: "Cardio", type: "timed", xp: 5 },
-  { name: "Rowing Machine", group: "Cardio", type: "timed", xp: 6 },
-  { name: "Swimming", group: "Cardio", type: "timed", xp: 7 },
-  { name: "Jump Rope", group: "Cardio", type: "timed", xp: 7 },
-  { name: "Battle Ropes", group: "Cardio", type: "timed", xp: 8 },
-  { name: "Burpee", group: "Cardio", type: "bodyweight", reps: 2, xp: 9 },
-];
-let exMemo = { token: null, list: null, byName: null, byKey: null };
-const allExercises = (s) => {
-  const custom = s.custom || [];
-  const cex = s.community?.ex || [];
-  const hist = exerciseHistoryCounts(s);
-  const token = `${custom.length}\n${cex.length}\n${[...hist.entries()].map(([n, c]) => `${n}:${c}`).join("\n")}`;
-  if (exMemo.token === token && exMemo.list) return exMemo.list;
-  const buckets = new Map();
-  const add = (ex, source) => {
-    if (!ex?.name) return;
-    const k = exKey(ex.name);
-    if (!k) return;
-    if (!buckets.has(k)) buckets.set(k, []);
-    buckets.get(k).push({ ex, source });
-  };
-  EXERCISES.forEach((e) => add(e, "catalog"));
-  custom.forEach((e) => add(e, "custom"));
-  cex.forEach((e) => add(e, "community"));
-  const list = [];
-  const byName = new Map();
-  const byKey = new Map();
-  buckets.forEach((group, k) => {
-    const preferred = pickPreferredExercise(group, hist);
-    if (!preferred) return;
-    const row = preferred.type === "weighted" ? { ...preferred, factor: Math.max(preferred.factor || 0.5, (FACTOR_FLOOR[preferred.group] || 0.2) * (preferred.perHand ? 0.4 : 1)) } : preferred;
-    list.push(row);
-    byKey.set(k, row);
-    group.forEach((g) => byName.set(g.ex.name, row));
-    byName.set(row.name, row);
-  });
-  exMemo = { token, list, byName, byKey };
-  return list;
-};
-const findEx = (s, name) => {
-  allExercises(s);
-  return exMemo.byName.get(name) || exMemo.byKey.get(exKey(name)) || { name, group: "Core", type: "weighted", factor: 1.2, xp: 8 };
-};
 
-const QUEST_POOL = [
-  { qid: "pushups", title: "push-ups", target: 100, unit: "reps", xp: 60 },
-  { qid: "squats", title: "air squats", target: 100, unit: "reps", xp: 60 },
-  { qid: "situps", title: "sit-ups", target: 100, unit: "reps", xp: 60 },
-  { qid: "run", title: "Run or walk", target: 3, unit: "mi", xp: 80 },
-  { qid: "water", title: "Drink water", target: 16, unit: "cups", xp: 40 },
-  { qid: "plank", title: "Plank (total)", target: 5, unit: "min", xp: 50 },
-  { qid: "pullups", title: "pull-ups", target: 30, unit: "reps", xp: 70 },
-  { qid: "steps", title: "Walk", target: 10000, unit: "steps", xp: 50 },
-  { qid: "stretch", title: "Stretch", target: 15, unit: "min", xp: 30 },
-  { qid: "lunges", title: "walking lunges", target: 60, unit: "reps", xp: 55 },
-  { qid: "burpees", title: "burpees", target: 40, unit: "reps", xp: 70 },
-  { qid: "jumprope", title: "Jump rope", target: 10, unit: "min", xp: 60 },
-  { qid: "dips", title: "dips", target: 40, unit: "reps", xp: 60 },
-  { qid: "hang", title: "Dead hang (total)", target: 3, unit: "min", xp: 45 },
-];
-const DAILY_REROLLS = 3;
-// Which quests are the same as a logged exercise (quest progress and workout sets feed each other)
-const QUEST_EX = { pushups: "Push-up", squats: "Air Squat", situps: "Sit-up", pullups: "Pull-up", plank: "Plank", lunges: "Walking Lunge", burpees: "Burpee", jumprope: "Jump Rope", dips: "Dip", hang: "Dead Hang" };
-const questStep = (q) => (q.target >= 1000 ? 1000 : q.target >= 50 ? 10 : q.unit === "min" ? 1 : 5);
-const FUEL_XP = 75;
-
-const FOODS = [
-  { name: "Chicken breast (4 oz cooked)", cal: 187, p: 35, c: 0, f: 4 },
-  { name: "Ground beef 90/10 (4 oz cooked)", cal: 240, p: 30, c: 0, f: 13 },
-  { name: "Salmon (4 oz cooked)", cal: 233, p: 25, c: 0, f: 14 },
-  { name: "Egg (large)", cal: 72, p: 6, c: 0, f: 5 },
-  { name: "Egg whites (1 cup)", cal: 126, p: 26, c: 2, f: 0 },
-  { name: "Greek yogurt nonfat (1 cup)", cal: 130, p: 23, c: 9, f: 0 },
-  { name: "Whole milk (1 cup)", cal: 150, p: 8, c: 12, f: 8 },
-  { name: "Whey protein (1 scoop)", cal: 120, p: 24, c: 3, f: 1.5 },
-  { name: "White rice (1 cup cooked)", cal: 205, p: 4, c: 45, f: 0 },
-  { name: "Oats (1/2 cup dry)", cal: 150, p: 5, c: 27, f: 3 },
-  { name: "Pasta (1 cup cooked)", cal: 220, p: 8, c: 43, f: 1 },
-  { name: "Potato (medium)", cal: 160, p: 4, c: 37, f: 0 },
-  { name: "Sweet potato (medium)", cal: 112, p: 2, c: 26, f: 0 },
-  { name: "Bread slice", cal: 80, p: 3, c: 15, f: 1 },
-  { name: "Tortilla (flour, 10\")", cal: 210, p: 6, c: 35, f: 5 },
-  { name: "Banana", cal: 105, p: 1, c: 27, f: 0 },
-  { name: "Apple", cal: 95, p: 0, c: 25, f: 0 },
-  { name: "Peanut butter (2 tbsp)", cal: 190, p: 7, c: 7, f: 16 },
-  { name: "Olive oil (1 tbsp)", cal: 120, p: 0, c: 0, f: 14 },
-  { name: "Avocado (half)", cal: 120, p: 1, c: 6, f: 11 },
-  { name: "Cheddar cheese (1 oz)", cal: 115, p: 7, c: 0, f: 9 },
-  { name: "Broccoli (1 cup)", cal: 55, p: 4, c: 11, f: 0 },
-  { name: "Black beans (1/2 cup)", cal: 110, p: 7, c: 20, f: 0 },
-  { name: "Almonds (1 oz)", cal: 165, p: 6, c: 6, f: 14 },
-];
-
-// Restaurant menu items from published nutrition info (checked September 2026). Menus change, so use "Look up online" for anything missing.
-const RESTAURANT_FOODS = [
-  // P. Terry's official nutrition sheet (rev. 3/7/2024)
-  ...[
-    ["Hamburger", 394, 22, 27, 19.5], ["Hamburger lettuce wrap", 255, 19, 9, 16.5], ["Cheeseburger", 464, 26, 28, 25.5], ["Cheeseburger lettuce wrap", 370, 23, 10, 22],
-    ["Double cheeseburger", 743, 51, 29, 45], ["Double cheeseburger lettuce wrap", 588, 48, 11, 41], ["Grilled chicken burger", 406, 31, 27, 15], ["Grilled chicken burger lettuce wrap", 236, 27, 1, 12],
-    ["Crispy chicken burger", 606, 34, 44, 29], ["Spicy crispy chicken burger", 621, 34, 44, 29], ["Crispy chicken bites (8 pc)", 300, 42, 13, 13], ["Veggie burger", 403, 12, 46, 19],
-    ["Egg burger w/ cheese", 280, 13, 28, 12.5], ["Egg burger w/ cheese & bacon", 385, 17.5, 28, 21.5], ["Egg burger w/ cheese & sausage", 450, 20, 28, 28.5], ["French fries", 386, 5, 50, 18],
-    ["Oatmeal chocolate chip cookie", 241, 4, 27, 13], ["Banana bread", 192, 4.5, 45, 1.7], ["Vanilla shake (small)", 555, 16, 91, 14], ["Chocolate shake (small)", 722, 16, 136, 14], ["Oreo shake (small)", 577, 16, 93, 16],
-  ].map(([n, cal, p, c, f]) => ({ r: "P. Terry's", name: `P. Terry's ${n}`, cal, p, c, f })),
-  // Torchy's Tacos 2026 nutritional evaluations
-  ...[
-    ["Trailer Park", 298, 17, 22, 15], ["Trailer Park (trashy)", 355, 19, 23, 20], ["Chicken Fajita", 353, 20, 20, 21], ["Brushfire", 300, 18, 25, 14], ["Tipsy Chick", 453, 22, 40, 22],
-    ["Democrat", 168, 10, 20, 5], ["Crossroads", 346, 20, 18, 22], ["Steak Fajita", 449, 20, 20, 26], ["Republican", 474, 16, 35, 29], ["Green Chile Pork", 217, 11, 26, 10], ["Hogfather", 428, 20, 32, 25],
-    ["Baja Shrimp", 267, 12, 24, 14], ["Grilled Baja Shrimp", 169, 9, 6, 12], ["Mr. Orange", 207, 14, 23, 10], ["Fresh Avocado", 249, 8, 24, 14], ["Fried Avocado", 269, 9, 27, 14],
-    ["Migas taco", 379, 17, 27, 23], ["The Wrangler", 456, 23, 24, 29], ["Ranch Hand", 451, 23, 19, 31], ["Bacon, egg & cheese taco", 383, 21, 17, 25], ["Potato, egg & cheese taco", 384, 18, 25, 22], ["Chorizo, egg & cheese taco", 388, 19, 19, 26],
-    ["Breakfast burrito", 1139, 49, 100, 62], ["Big Tipsy Bowl (fajita chicken)", 990, 39, 111, 43], ["Big Tipsy Bowl (fried chicken)", 999, 44, 116, 39], ["Bonfire bowl (jerk chicken)", 771, 33, 94, 23], ["Bonfire bowl (salmon)", 762, 39, 98, 24],
-    ["Outlaw Bowl (fajita chicken)", 786, 29, 109, 26], ["Outlaw Bowl (fried chicken)", 794, 35, 113, 22], ["Grande burrito", 797, 23, 96, 35], ["Green chile queso & chips", 643, 21, 32, 46], ["Guacamole & chips", 423, 6, 23, 33],
-    ["Street corn", 383, 8, 48, 22], ["Damn Good Tots", 680, 19, 44, 42], ["Refried pinto beans", 198, 12, 35, 1], ["Black beans", 162, 9, 31, 1], ["Mexican rice", 241, 5, 48, 3], ["Trailer Park (hillbilly style)", 560, 31, 24, 36],
-  ].map(([n, cal, p, c, f]) => ({ r: "Torchy's", name: `Torchy's ${n}`, cal, p, c, f })),
-  // Chipotle official nutrition facts (March 2025)
-  ...[
-    ["chicken (4 oz)", 180, 32, 0, 7], ["steak (4 oz)", 150, 21, 1, 6], ["barbacoa (4 oz)", 170, 24, 2, 7], ["carnitas (4 oz)", 210, 23, 0, 12], ["sofritas (4 oz)", 150, 8, 9, 10],
-    ["white rice (4 oz)", 210, 4, 40, 4], ["brown rice (4 oz)", 210, 4, 36, 6], ["black beans (4 oz)", 130, 8, 22, 1.5], ["pinto beans (4 oz)", 130, 8, 21, 1.5], ["fajita veggies", 20, 0, 5, 0],
-    ["burrito tortilla", 320, 8, 50, 9], ["taco flour tortilla", 80, 2, 13, 2.5], ["crispy corn taco shell", 70, 1, 10, 3], ["guacamole (4 oz)", 230, 2, 8, 22],
-  ].map(([n, cal, p, c, f]) => ({ r: "Chipotle", name: `Chipotle ${n}`, cal, p, c, f })),
-  { r: "Chick-fil-A", name: "Chick-fil-A grilled nuggets (8 ct)", cal: 130, p: 25, c: 1, f: 3 },
-  // Raising Cane's: calories published; macro split estimated from published calorie breakdown
-  { r: "Raising Cane's", name: "Raising Cane's chicken finger (1)", cal: 130, p: 12, c: 5, f: 7, approx: true },
-  { r: "Raising Cane's", name: "Raising Cane's Cane's Sauce (1 cup)", cal: 190, p: 0, c: 4, f: 19, approx: true },
-  { r: "Raising Cane's", name: "Raising Cane's crinkle-cut fries", cal: 400, p: 5, c: 52, f: 18, approx: true },
-  { r: "Raising Cane's", name: "Raising Cane's Texas toast", cal: 150, p: 4, c: 18, f: 7, approx: true },
-  // Whataburger: third-party compiled figures, may differ from store
-  { r: "Whataburger", name: "Whataburger (original)", cal: 590, p: 29, c: 52, f: 32, approx: true },
-  { r: "Whataburger", name: "Whataburger Double Meat", cal: 830, p: 47, c: 62, f: 44, approx: true },
-  { r: "Whataburger", name: "Whataburger Honey Butter Chicken Biscuit", cal: 570, p: 18, c: 52, f: 32, approx: true },
-];
-const RESTAURANTS = [...new Set(RESTAURANT_FOODS.map((f) => f.r))];
-
-const ACTIVITY = [
-  { id: 1.2, label: "Mostly sitting" },
-  { id: 1.375, label: "Train 1–3 days/week" },
-  { id: 1.55, label: "Train 3–5 days/week" },
-  { id: 1.725, label: "Train 6–7 days/week" },
-];
-const GOALS = [
-  { id: "cut", label: "Cut", adj: -400 },
-  { id: "maintain", label: "Maintain", adj: 0 },
-  { id: "lean", label: "Lean bulk", adj: 250 },
-  { id: "bulk", label: "Bulk", adj: 450 },
-];
 
 /* ---------- Helpers ---------- */
-// In-app confirm dialog (window.confirm is blocked in published apps)
-const AskRef = { current: (msg, fn) => fn() };
-const ask = (message, onYes, yesLabel) => AskRef.current(message, onYes, yesLabel);
-// Add a finished workout and push its reps into matching daily quests
-function fillQuests(p, d, exercises) {
-  const day = p.days?.[d] || newDay();
-  const list = (day.list || []).map((q) => {
-    if (q.qid === "run" && !q.claimed) {
-      const mi = exercises.filter((e) => /^(Running|Walking|Incline Walk)$/.test(e.name)).reduce((a, e) => a + workSets(e.sets).reduce((b, st) => b + (+st.w || 0), 0), 0);
-      return mi ? { ...q, progress: Math.round((q.progress + mi) * 100) / 100, fromWorkout: Math.round(((q.fromWorkout || 0) + mi) * 100) / 100 } : q;
-    }
-    const exName = QUEST_EX[q.qid];
-    if (q.claimed || !exName) return q;
-    const amt = exercises.filter((e) => e.name === exName).reduce((a, e) => a + workSets(e.sets).reduce((b, st) => b + (+st.r || 0), 0), 0);
-    return amt ? { ...q, progress: q.progress + amt, fromWorkout: (q.fromWorkout || 0) + amt } : q;
-  });
-  return { ...p, days: { ...p.days, [d]: { ...day, list } } };
-}
-function addWorkout(p, workout) {
-  return { ...fillQuests(p, workout.date, workout.exercises), workouts: [...p.workouts, workout] };
-}
-// Add one completed card to today's deck session workout (creates it on the first card)
-function addDeckSet(p, sessionId, name, reps, xp) {
-  const d = today();
-  const set = { w: "", r: reps, done: true };
-  const existing = p.workouts.find((w) => w.id === sessionId);
-  let workouts;
-  if (existing) {
-    workouts = p.workouts.map((w) => {
-      if (w.id !== sessionId) return w;
-      const has = w.exercises.some((e) => e.name === name);
-      const exercises = has ? w.exercises.map((e) => (e.name === name ? { ...e, sets: [...e.sets, set] } : e)) : [...w.exercises, { name, sets: [set] }];
-      return { ...w, exercises, xp: (w.xp || 0) + xp };
-    });
-  } else {
-    workouts = [...p.workouts, { id: sessionId, date: d, source: "deck", exercises: [{ name, sets: [set] }], xp, volume: 0 }];
-  }
-  return { ...fillQuests(p, d, [{ name, sets: [set] }]), workouts };
-}
 
-const dkey = (dt) => dt.toLocaleDateString("en-CA");
-const today = () => dkey(new Date());
-const shift = (d, n) => { const x = new Date(d + "T12:00"); x.setDate(x.getDate() + n); return dkey(x); };
-const uid = () => Math.random().toString(36).slice(2, 10);
-const e1rm = (w, r) => (r <= 0 ? 0 : w * (1 + r / 30));
-const fmtDay = (d) => new Date(d + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-
-const sexLabel = (p) => (bodySex(p) === "f" ? "female" : "male");
-const sexLine = (p) => `Body type: ${sexLabel(p)}.`;
 // Score from 0 to 6: E is 0–1, D 1–2 ... S 5–6 (S I is 15% past the S line)
 // Score 0–7: E 0–1 … S 5–6, and a hidden SS tier 6–7. S I ends 35% past the S line; SS caps at 75% past it.
-function scoreFor(best, steps) {
-  if (best < steps[0]) return best / steps[0];
-  for (let i = 1; i < steps.length; i++) if (best < steps[i]) return i + (best - steps[i - 1]) / (steps[i] - steps[i - 1]);
-  const s6 = steps[4] * 1.35, s7 = steps[4] * 1.75;
-  if (best < s6) return 5 + (best - steps[4]) / (s6 - steps[4]);
-  return Math.min(7, 6 + (best - s6) / (s7 - s6));
-}
-function valueAt(t, steps) {
-  if (t <= 1) return t * steps[0];
-  if (t <= 5) { const i = Math.floor(t); return i === 5 ? steps[4] : steps[i - 1] + (t - i) * (steps[i] - steps[i - 1]); }
-  if (t <= 6) return steps[4] * (1 + 0.35 * (t - 5));
-  return steps[4] * (1.35 + 0.4 * (t - 6));
-}
-function rankFromScore(score) {
-  const i = Math.min(6, Math.floor(score));
-  const frac = Math.min(0.999, score - i);
-  const d = Math.min(2, Math.floor(frac * 3));
-  return { rank: RANKS[i], div: DIVS[d], label: `${RANKS[i].id} ${DIVS[d]}`, divPct: Math.round(((frac * 3) - d) * 100) };
-}
-function rankFor(ex, best, p) {
-  const steps = thresholds(ex, p);
-  const score = scoreFor(best, steps);
-  const r = rankFromScore(score);
-  const nextT = Math.floor(score * 3 + 1e-9) / 3 + 1 / 3;
-  const next = score >= 6.999 ? null : Math.ceil(valueAt(Math.min(7, nextT), steps));
-  const nextLabel = next ? rankFromScore(Math.min(6.999, nextT + 1e-6)).label : null;
-  return { ...r, score, pct: r.divPct, next, nextLabel, steps };
-}
-// Assisted machines: the weight entered is the help you got. What you actually moved is bodyweight minus that.
-const movedLb = (p, assist) => Math.max(0, Math.max(80, +p.weight || 170) - (+assist || 0));
-const assistedReps = (p, st) => (+st.r || 0) * (movedLb(p, st.w) / Math.max(80, +p.weight || 170));
-function bestValue(def, st, p, ex) {
-  if (def.type === "assisted") return assistedReps(p, st);
-  if (def.type === "bodyweight") return (+st.r || 0) * (1 + (+st.w || 0) / Math.max(80, +p.weight || 170));
-  return e1rm(effW(def, ex, +st.w || 0), +st.r);
-}
-function computeBests(s) {
-  const b = {};
-  s.workouts.forEach((w) => w.exercises.forEach((ex) => {
-    const def = findEx(s, ex.name);
-    if (def.type === "timed") return;
-    if (!inGymBucket(s, w, def)) return;
-    if (isLegacyAssisted(w, def)) return;
-    workSets(ex.sets).forEach((st) => {
-      const v = bestValue(def, st, s.profile, ex);
-      const k = def.type === "assisted" ? def.rankAs : ex.name;
-      if (v > (b[k] || 0)) b[k] = v;
-    });
-  }));
-  return b;
-}
-function rankedLifts(s) {
-  const bests = computeBests(s);
-  return allExercises(s).filter((e) => e.type !== "timed" && bests[e.name]).map((e) => ({ e, best: bests[e.name], ...rankFor(e, bests[e.name], s.profile) }));
-}
-function groupScores(s) {
-  const g = {};
-  rankedLifts(s).forEach((r) => { if (GROUP_WEIGHT[r.e.group]) g[r.e.group] = Math.max(g[r.e.group] || 0, r.score); });
-  return g;
-}
-function overallInfo(s) {
-  const g = groupScores(s);
-  const total = Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0);
-  const score = Object.entries(GROUP_WEIGHT).reduce((a, [k, w]) => a + (g[k] || 0) * w, 0) / total;
-  return { score, groups: g, ...rankFromScore(score) };
-}
-const overallRank = (s) => overallInfo(s).rank;
-// Leaderboard points: workout XP + lift ranks + hustle XP, then vault aura, then crate spends.
 function crateAuraMult(s) {
   let best = 0;
   (AURAS || []).forEach((a) => { if (a.crate && a.ptsMult && unlocked(a, s)) best = Math.max(best, a.ptsMult); });
@@ -459,39 +58,6 @@ function pointsOf(s) {
 }
 const crateSpentOf = (s) => Math.max(0, Math.round(+s.crateSpent || 0));
 const crateBank = (s) => pointsOf(s);
-// A "workout" is a real session. Card-deck flips and quest top-ups still give XP and reps, but don't count as one.
-const isWorkout = (w) => w.source !== "quest" && w.source !== "deck";
-function activeDays(s) {
-  const days = new Set(s.workouts.filter((w) => w.source !== "deck").map((w) => w.date));
-  Object.entries(s.days || {}).forEach(([d, v]) => v.list?.some((q) => q.claimed) && days.add(d));
-  return days;
-}
-function streakOf(s) {
-  const days = activeDays(s);
-  let n = 0, d = today();
-  if (!days.has(d)) d = shift(d, -1);
-  while (days.has(d)) { n++; d = shift(d, -1); }
-  return n;
-}
-function weekStart() { const x = new Date(); x.setDate(x.getDate() - x.getDay()); return dkey(x); }
-
-const mealTotals = (meals = []) => meals.reduce((a, m) => {
-  const q = +m.qty || 0;
-  return { cal: a.cal + m.cal * q, p: a.p + m.p * q, c: a.c + m.c * q, f: a.f + m.f * q };
-}, { cal: 0, p: 0, c: 0, f: 0 });
-
-function makeQuest(exclude = [], tier = 1) {
-  const pool = QUEST_POOL.filter((q) => !exclude.includes(q.qid));
-  const q = pool[Math.floor(Math.random() * pool.length)] || QUEST_POOL[0];
-  const mult = tier === 1 ? 1 : 1 + 0.5 * (tier - 1);
-  const target = q.target >= 1000 ? Math.round((q.target * mult) / 1000) * 1000 : Math.round(q.target * mult);
-  return { id: uid(), qid: q.qid, title: q.title, target, unit: q.unit, xp: Math.round(q.xp * mult), progress: 0, claimed: false, tier };
-}
-const newDay = () => {
-  const list = [];
-  while (list.length < 3) list.push(makeQuest(list.map((q) => q.qid)));
-  return { list, rerolls: 0, bonuses: 0 };
-};
 
 /* ---------- XP, achievements, community ---------- */
 const publishShared = async (key, obj) => { try { if (window.__ascendNoPersist) return; if (window.storage?.set) await window.storage.set(key, JSON.stringify(obj), true); } catch (e) { /* offline or preview */ } };
@@ -507,73 +73,6 @@ async function loadCommunity() {
 }
 
 // XP for one set: effort (how much work relative to your personal S-rank line) × difficulty (which rank the set lands in)
-function setXp(s, def, st, ex) {
-  if (def.type === "assisted") {
-    const base = findEx(s, def.rankAs), eq = assistedReps(s.profile, st);
-    const out = setXp(s, { ...base, xp: def.xp }, { r: eq, w: 0 }, ex);
-    return { ...out, note: `${Math.round(movedLb(s.profile, st.w))} lb moved · ${out.note}` };
-  }
-  const p = s.profile, r = +st.r || 0, w = def.type === "weighted" ? effW(def, ex, +st.w || 0) : +st.w || 0;
-  if (r <= 0) return { xp: 0, note: "" };
-  if (def.type === "timed") {
-    const mi = def.group === "Cardio" ? w : 0;
-    return { xp: Math.round(r * def.xp + mi * 10), note: `${r} min × ${def.xp}${mi ? ` + ${mi} mi × 10` : ""}` };
-  }
-  const steps = thresholds(def, p), sTop = steps[4];
-  const bw = Math.max(80, +p.weight || 170);
-  const val = def.type === "bodyweight" ? r * (1 + w / bw) : e1rm(w, r);
-  const effort = def.type === "bodyweight" ? (val / sTop) * 6 : (w * r) / sTop;
-  const score = scoreFor(val, steps);
-  const mult = 0.5 + score * 0.3;
-  const xp = Math.max(Math.ceil(def.xp / 2), Math.round(def.xp * 0.7 * effort * mult));
-  return { xp, note: `${rankFromScore(score).label}-level set`, score };
-}
-const prNote = (pr) => (pr === "weight" ? " · weight PR" : pr === "reps" ? " · rep PR" : pr ? " · PR" : "");
-function workoutXp(s, exercises, bests, opts = {}) {
-  void bests;
-  const skipPr = opts.skipPr || bests == null;
-  const workout = opts.workout || { gym: s.currentGym ?? null, date: opts.date || today() };
-  const history = skipPr ? null : (opts.history || collectPrHistory(s, findEx, { excludeId: opts.excludeId }));
-  const usedByName = new Map();
-  let xp = 0, prs = 0, volume = 0, sets = 0;
-  const lines = [];
-  exercises.forEach((ex) => {
-    const def = findEx(s, ex.name);
-    const line = { name: ex.name, xp: 0, sets: [] };
-    if (!usedByName.has(ex.name)) usedByName.set(ex.name, { weight: false, reps: false });
-    const flags = skipPr ? [] : scoreExercisePrs(def, ex, history?.get(prKey(s, def, workout)) || [], workout, usedByName.get(ex.name));
-    let si = 0;
-    workSets(ex.sets).forEach((st) => {
-      sets++;
-      const { xp: sx, note } = setXp(s, def, st, ex);
-      line.xp += sx; xp += sx;
-      const label = (def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`) + (st.drop ? " drop" : "");
-      const pr = flags[si]?.pr || false;
-      si++;
-      if (pr) prs++;
-      if (def.type !== "timed") volume += (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0);
-      line.sets.push({ label, xp: sx, note, pr });
-    });
-    lines.push(line);
-  });
-  return { xp: xp + prs * PR_BONUS, prs, volume, sets, lines, prBonus: prs * PR_BONUS };
-}
-function workoutRecap(s, workout) {
-  const lifts = (workout.exercises || []).map((ex) => {
-    const def = findEx(s, ex.name);
-    const working = workSets(ex.sets).filter((st) => +st.r > 0);
-    let rank = null, best = 0;
-    if (def.type !== "timed" && working.length) {
-      best = Math.max(...working.map((st) => bestValue(def, st, s.profile, ex)));
-      rank = rankFor(def, best, s.profile);
-    }
-    const vol = working.reduce((a, st) => a + (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0), 0);
-    return { name: ex.name, group: def.group, rank, best, vol, sets: working, drops: working.filter((st) => st.drop).length };
-  }).filter((l) => l.sets.length);
-  const scored = lifts.filter((l) => l.rank);
-  const avg = scored.length ? scored.reduce((a, l) => a + l.rank.score, 0) / scored.length : 0;
-  return { lifts, overall: scored.length ? rankFromScore(avg) : null };
-}
 function WorkoutRecap({ s, setS }) {
   const sum = s.lastSummary;
   const recap = sum.recap || { lifts: [], overall: null };
@@ -639,101 +138,7 @@ function WorkoutRecap({ s, setS }) {
   );
 }
 
-const TIER_STYLE = [null,
-  { name: "Bronze", color: "#D08A4A", glow: "rgba(208,138,74,.55)", xp: 100 },
-  { name: "Silver", color: "#D9E2EE", glow: "rgba(217,226,238,.6)", xp: 250 },
-  { name: "Gold", color: "#FFD447", glow: "rgba(255,212,71,.7)", xp: 600 },
-  { name: "Platinum", color: "#7CF0FF", glow: "rgba(124,240,255,.75)", xp: 1500 },
-  { name: "Mythic", color: "#FF5AD9", glow: "rgba(255,90,217,.85)", xp: 4000 },
-];
-const ACH_ICONS = { Footprints, Weight, Repeat, CalendarCheck, Flame, Activity, Zap, Dumbbell, Shield, Swords, Star };
-const ACH_SERIES = [
-  { key: "miles", icon: "Footprints", title: "Road Runner", unit: "miles", steps: [10, 50, 100, 250, 1000], get: (st) => st.miles },
-  { key: "volume", icon: "Weight", title: "Iron Mover", unit: "lb lifted", steps: [50000, 250000, 1000000, 5000000, 20000000], get: (st) => st.volume },
-  { key: "reps", icon: "Repeat", title: "Rep Machine", unit: "total reps", steps: [1000, 5000, 25000, 100000, 500000], get: (st) => st.reps },
-  { key: "workouts", icon: "CalendarCheck", title: "Show Up", unit: "workouts", steps: [10, 50, 150, 365, 1000], get: (st) => st.workouts },
-  { key: "streak", icon: "Flame", title: "Unbroken", unit: "day streak", steps: [7, 30, 100, 365], get: (st) => st.longestStreak },
-  { key: "pushups", icon: "Activity", title: "Push-up King", unit: "push-ups", steps: [500, 2500, 10000, 50000], get: (st) => st.pushups },
-  { key: "pullups", icon: "Zap", title: "Bar Hanger", unit: "pull-ups", steps: [100, 1000, 5000, 25000], get: (st) => st.pullups },
-  { key: "bench", icon: "Dumbbell", title: "Bench Club", unit: "lb bench (est. max)", steps: [135, 225, 315, 405, 495], get: (st) => st.bench },
-  { key: "squat", icon: "Dumbbell", title: "Squat Club", unit: "lb squat (est. max)", steps: [225, 315, 405, 495, 600], get: (st) => st.squat },
-  { key: "deadlift", icon: "Dumbbell", title: "Deadlift Club", unit: "lb deadlift (est. max)", steps: [225, 315, 405, 495, 600], get: (st) => st.deadlift },
-  { key: "rank", icon: "Shield", title: "Ascension", labels: ["First C-rank lift", "First B-rank lift", "First A-rank lift", "First S-rank lift", "Overall S-rank"], steps: [1, 2, 3, 4, 5], get: (st) => st.rankTier },
-  { key: "quests", icon: "Swords", title: "Quest Hunter", unit: "quests cleared", steps: [10, 50, 250, 1000], get: (st) => st.quests },
-  { key: "level", icon: "Star", title: "Leveler", unit: "level", steps: [10, 25, 50, 100], get: (st) => st.level },
-  { key: "steps", icon: "Footprints", title: "Wanderer", unit: "lifetime steps", steps: [100000, 500000, 1000000, 5000000, 10000000], get: (st) => st.steps || 0 },
-  { key: "yogurt", icon: "Star", title: "Yogurt Male", names: ["Yogurt Male"], unit: "yogurts logged", steps: [100], tierOffset: 2, get: (st) => st.yogurt || 0 },
-];
-const ROMAN = ["I", "II", "III", "IV", "V"];
-function allAchievements() {
-  return ACH_SERIES.flatMap((series) => series.steps.map((v, i) => ({ id: `${series.key}-${i}`, series, tier: i + 1 + (series.tierOffset || 0), value: v, title: series.names ? series.names[i] : `${series.title} ${ROMAN[i]}`, desc: series.labels ? series.labels[i] : `${v.toLocaleString()} ${series.unit}`, xp: TIER_STYLE[i + 1 + (series.tierOffset || 0)].xp })));
-}
-function lifetimeStats(s) {
-  let miles = 0, volume = 0, reps = 0, workouts = 0, pushups = 0, pullups = 0, yogurt = 0;
-  Object.values(s.meals || {}).forEach((list) => (list || []).forEach((m) => {
-    const q = +m.qty || 0;
-    if (/yogh?urt/i.test(m.name || "")) yogurt += q;
-    else if (m.ingredients) m.ingredients.forEach((it) => { if (/yogh?urt/i.test(it.name || "")) yogurt += q * (+it.qty || 1); });
-  }));
-  const bests = computeBests(s);
-  s.workouts.forEach((w) => {
-    if (isWorkout(w)) workouts++;
-    w.exercises.forEach((ex) => {
-      const def = findEx(s, ex.name);
-      workSets(ex.sets).forEach((st) => {
-        const r = +st.r || 0, wt = +st.w || 0;
-        if (def.type === "timed") { if (def.group === "Cardio") miles += wt; return; }
-        reps += r; volume += (def.type === "assisted" ? movedLb(s.profile, wt) : wt) * r;
-        if (/push-?up/i.test(ex.name)) pushups += r;
-        if (/pull-?up|chin-?up/i.test(ex.name)) pullups += r;
-      });
-    });
-  });
-  let quests = 0;
-  Object.values(s.days || {}).forEach((day) => (day.list || []).forEach((q) => { if (q.claimed) { quests++; if (q.qid === "run") miles += q.progress || q.target || 0; } }));
-  const days = [...activeDays(s)].sort();
-  let longest = 0, run = 0, prev = null;
-  days.forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; longest = Math.max(longest, run); prev = d; });
-  const ranked = rankedLifts(s);
-  const maxScore = ranked.reduce((a, r) => Math.max(a, r.score), 0);
-  const overall = overallInfo(s).score;
-  const rankTier = overall >= 5 ? 5 : maxScore >= 5 ? 4 : maxScore >= 4 ? 3 : maxScore >= 3 ? 2 : maxScore >= 2 ? 1 : 0;
-  return {
-    yogurt: Math.round(yogurt * 10) / 10, steps: Object.values(s.steps || {}).reduce((a, n) => a + (+n || 0), 0), miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts, pushups, pullups, quests, longestStreak: longest,
-    bench: Math.round(bests["Bench Press"] || 0), squat: Math.round(bests["Squat"] || 0), deadlift: Math.round(bests["Deadlift"] || 0),
-    rankTier, level: levelFromXp(s.xp).lvl, since: s.workouts[0]?.date || null,
-  };
-}
-// Drop achievements that no longer hold up (e.g. ranks earned under the old, easier scale) and take back their XP
-function reconcileAchievements(s, rankOnly = false) {
-  const earned = new Set(earnedAchievements(s).map((a) => a.id));
-  const all = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
-  const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && (!rankOnly || id.startsWith("rank-")));
-  if (!lost.length) return { ...s, achV: 3 };
-  const refund = lost.reduce((a, id) => a + (all[id]?.xp || 0), 0);
-  const ach = { ...s.ach }; lost.forEach((id) => delete ach[id]);
-  return { ...s, ach, achV: 3, xp: Math.max(0, s.xp - refund) };
-}
-function earnedAchievements(s) {
-  const st = lifetimeStats(s);
-  return allAchievements().filter((a) => a.series.get(st) >= a.value);
-}
 
-// Custom RGB theme: derive every color from three picks
-const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
-const rgbaOf = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-const mixRgb = (a, b, t) => `rgb(${a.map((x, i) => Math.round(x + (b[i] - x) * t)).join(",")})`;
-function customTheme(cu) {
-  const cy = hexRgb(cu.cyan), bl = hexRgb(cu.blue), bg = hexRgb(cu.bg);
-  if (!cy || !bl || !bg) return {};
-  const light = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) / 255 > 0.5;
-  const fg = light ? [7, 22, 42] : [230, 246, 255];
-  return {
-    bg: mixRgb(bg, bg, 0), text: mixRgb(fg, fg, 0), dim: mixRgb(fg, bg, 0.34), mute: mixRgb(fg, bg, 0.52), sub: mixRgb(fg, bg, 0.16),
-    cyan: cu.cyan, blue: cu.blue, soft: mixRgb(bg, cy, 0.05), sheet: mixRgb(bg, cy, 0.06), accentBg: mixRgb(bg, cy, 0.18), track: mixRgb(bg, cy, 0.12), border: mixRgb(bg, cy, 0.24), inpBg: mixRgb(bg, bg, 0),
-    glass: light ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.05)", glassLine: light ? "rgba(10,30,60,.08)" : rgbaOf(cy, 0.14), line: rgbaOf(cy, 0.3), glow: rgbaOf(cy, light ? 0.35 : 0.75), grid: rgbaOf(cy, 0.05), halo: rgbaOf(bl, light ? 0.18 : 0.3), navBg: rgbaOf(bg, 0.96), badgeBg: rgbaOf(bg, 0.85), panelTop: rgbaOf(cy, 0.12), panelBot: rgbaOf(bg, 0.94),
-  };
-}
 
 const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
@@ -741,7 +146,6 @@ const DEFAULT = {
   settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
 };
 
-const SaveCtx = React.createContext({ status: "idle" });
 let pendingWarned = false;
 function deviceUserId() {
   return (typeof window !== "undefined" && (window.ascendUserId || window.__ascendStorageUser)) || "me";
@@ -785,14 +189,6 @@ function writeVerifiedCopy(state) {
 }
 const WIPE_SAVE_NOTE = "Couldn't save: this would wipe your progress. Local copy kept.";
 const URGENT_SAVE = ["meals", "workouts", "weightLog", "presets", "savedFoods", "dayTemplates", "fuelClaimed", "water", "measure"];
-function SaveMark() {
-  const { status } = useContext(SaveCtx);
-  const common = { size: 14, className: "shrink-0", "aria-hidden": true };
-  if (status === "saving") return <Loader2 {...common} className="shrink-0 animate-spin" style={{ color: C.cyan }} />;
-  if (status === "error") return <CloudOff {...common} style={{ color: C.orange }} />;
-  if (status === "saved") return <Check {...common} style={{ color: C.green }} />;
-  return <Cloud {...common} style={{ color: C.mute }} />;
-}
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
@@ -805,69 +201,7 @@ function stateSizeKb(obj) {
   } catch { return 0; }
 }
 
-function DiagProbe({ kind, id }) {
-  useEffect(() => {
-    if (!D.on()) return;
-    const n = D.nextSeq();
-    D.push({ k: "mount", kind, n, id: typeof id === "number" ? id : 0 });
-    return () => D.push({ k: "unmount", kind, n });
-  }, [kind, id]);
-  return null;
-}
 
-const NUM_DEBOUNCE_MS = 180;
-function NumField({ value, onCommit, inputMode = "decimal", className, style, ...rest }) {
-  const shown = value === "" || value == null ? "" : String(value);
-  const [text, setText] = useState(shown);
-  const focused = useRef(false);
-  const tRef = useRef(null);
-  const commitRef = useRef(onCommit);
-  commitRef.current = onCommit;
-  const textRef = useRef(text);
-  textRef.current = text;
-  useEffect(() => {
-    if (focused.current) return;
-    setText(shown);
-  }, [shown]);
-  const commit = useCallback((raw) => {
-    const s = raw == null ? textRef.current : raw;
-    commitRef.current(parseNumInput(s));
-  }, []);
-  useEffect(() => {
-    const onHide = () => { if (focused.current) commit(); };
-    const onVis = () => { if (document.visibilityState === "hidden") onHide(); };
-    window.addEventListener("pagehide", onHide);
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      window.removeEventListener("pagehide", onHide);
-      document.removeEventListener("visibilitychange", onVis);
-      if (tRef.current) clearTimeout(tRef.current);
-    };
-  }, [commit]);
-  const schedule = (s) => {
-    setText(s);
-    if (tRef.current) clearTimeout(tRef.current);
-    tRef.current = setTimeout(() => commit(s), NUM_DEBOUNCE_MS);
-  };
-  return (
-    <input
-      {...rest}
-      type="text"
-      inputMode={inputMode}
-      className={className}
-      style={style}
-      value={text}
-      onChange={(e) => schedule(e.target.value)}
-      onFocus={(e) => { focused.current = true; rest.onFocus?.(e); }}
-      onBlur={(e) => {
-        focused.current = false;
-        if (tRef.current) clearTimeout(tRef.current);
-        commit();
-        rest.onBlur?.(e);
-      }}
-    />
-  );
-}
 
 function FoodPickRow({ f, onAdd, onDelete }) {
   return (
@@ -898,13 +232,6 @@ function RankGuideRow({ e, p, bests }) {
   );
 }
 
-function SettingsToggle({ on, onClick, label }) {
-  return (
-    <button role="switch" aria-checked={on} aria-label={label} onClick={onClick} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: on ? C.cyan : C.track, border: `1px solid ${C.border}`, boxShadow: on ? `0 0 12px ${C.glow}` : "none", transition: "background .2s" }}>
-      <span className="absolute top-0.5" style={{ left: on ? 24 : 2, width: 22, height: 22, borderRadius: 999, background: "#fff", transition: "left .2s" }} />
-    </button>
-  );
-}
 
 function IntervalStepper({ label, value, set, step, min, max, fmt, disabled }) {
   return (
@@ -1928,29 +1255,6 @@ export default function App() {
   );
 }
 
-/* ---------- Shared bits ---------- */
-const Bar = ({ pct, color = C.blue }) => (
-  <div className="h-2 overflow-hidden" style={{ background: C.track, borderRadius: 2 }}>
-    <div className="h-full barfill" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color, boxShadow: `0 0 10px ${color}`, transition: "width .5s", borderRadius: 2 }} />
-  </div>
-);
-const Title = ({ children, right }) => (
-  <div className="flex justify-between items-center">
-    <h1 className="text-2xl font-bold tracking-wide glowtext" style={{ color: C.text }}>{children}</h1>{right}
-  </div>
-);
-const Empty = ({ children }) => <div className="panel p-5 body text-sm" style={{ color: C.dim }}>{children}</div>;
-
-function Sheet({ title, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,.7)" }} onClick={onClose}>
-      <div className="w-full max-w-md mx-auto p-4 max-h-[80vh] overflow-y-auto" style={{ background: C.sheet, borderTop: `1px solid ${C.blue}`, boxShadow: `0 -10px 40px ${C.line}` }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-3"><h3 className="text-lg font-bold">{title}</h3><button aria-label="Close" onClick={onClose}><X /></button></div>
-        <div className="space-y-2">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 /* ---------- Status ---------- */
 // One line on Status: the single goal you're closest to finishing, across quests, challenges, and lift ranks
@@ -3379,12 +2683,6 @@ function WeightTracker({ s, setS }) {
     </>
   );
 }
-const Stat = ({ label, value, panel }) => (
-  <div className={panel ? "panel p-3" : ""}>
-    <div className="text-xs" style={{ color: C.dim }}>{label}</div>
-    <div className="text-lg font-bold" style={{ fontFamily: "'Oxanium',sans-serif" }}>{value}</div>
-  </div>
-);
 
 /* ---------- Leaderboard ---------- */
 function Board({ s, setS, openProfile, gainXp }) {
@@ -5906,54 +5204,6 @@ function MusclePage({ s, group, onBack, openExercise }) {
 }
 
 /* ---------- Weekly + monthly challenges ---------- */
-const monthKey = (d = today()) => d.slice(0, 7);
-const rangeStats = (s, from, to = "9999") => {
-  const inRange = s.workouts.filter((w) => w.date >= from && w.date <= to);
-  const ws = inRange.filter(isWorkout);
-  // Reps count from everything, card decks and quest top-ups included
-  let reps = 0;
-  inRange.forEach((w) => w.exercises.forEach((ex) => { if (findEx(s, ex.name).type !== "timed") workSets(ex.sets).forEach((st) => { reps += Math.max(0, Math.round(+st.r || 0)); }); }));
-  const groups = new Set();
-  let volume = 0, prs = 0, miles = 0;
-  ws.forEach((w) => { volume += w.volume || 0; prs += Math.round((w.prBonus || 0) / 40); w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") { if (workSets(ex.sets).length) groups.add(d.group); } else if (d.group === "Cardio") workSets(ex.sets).forEach((st) => { miles += +st.w || 0; }); }); });
-  const quests = Object.entries(s.days || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, day]) => a + (day.list || []).filter((q) => q.claimed).length, 0);
-  const fuel = Object.keys(s.fuelClaimed || {}).filter((d) => d >= from && d <= to).length;
-  const xp = Object.entries(s.xpLog || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, v]) => a + v, 0);
-  const weights = Object.keys(s.weightLog || {}).filter((d) => d >= from && d <= to).length;
-  const days = new Set(ws.map((w) => w.date));
-  let best = 0, run = 0, prev = null;
-  [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; });
-  return { workouts: ws.length, volume, prs, miles, quests, fuel, xp, groups: groups.size, weights, streak: best, reps };
-};
-const WEEKLY_POOL = [
-  { id: "w-train4", title: "Train 4 times this week", target: 4, unit: "workouts", xp: 300, get: (st) => st.workouts, fixed: true },
-  { id: "w-vol", title: "Move 25,000 lb this week", target: 25000, unit: "lb", xp: 350, get: (st) => st.volume },
-  { id: "w-quests", title: "Clear 12 daily quests", target: 12, unit: "quests", xp: 300, get: (st) => st.quests },
-  { id: "w-fuel", title: "Hit your fuel goal 4 days", target: 4, unit: "days", xp: 350, get: (st) => st.fuel },
-  { id: "w-groups", title: "Train 5 different muscle groups", target: 5, unit: "groups", xp: 300, get: (st) => st.groups },
-  { id: "w-prs", title: "Set 3 new PRs", target: 3, unit: "PRs", xp: 400, get: (st) => st.prs },
-  { id: "w-miles", title: "Cover 8 miles of cardio", target: 8, unit: "mi", xp: 350, get: (st) => st.miles },
-  { id: "w-streak", title: "Train 3 days in a row", target: 3, unit: "days", xp: 300, get: (st) => st.streak },
-];
-const MONTHLY_POOL = [
-  { id: "m-train16", title: "16 workouts this month", target: 16, unit: "workouts", xp: 1500, get: (st) => st.workouts, fixed: true },
-  { id: "m-vol", title: "Move 150,000 lb this month", target: 150000, unit: "lb", xp: 2000, get: (st) => st.volume },
-  { id: "m-quests", title: "Clear 50 daily quests", target: 50, unit: "quests", xp: 1500, get: (st) => st.quests },
-  { id: "m-fuel", title: "Hit your fuel goal 15 days", target: 15, unit: "days", xp: 2000, get: (st) => st.fuel },
-  { id: "m-prs", title: "Set 10 new PRs", target: 10, unit: "PRs", xp: 2500, get: (st) => st.prs },
-  { id: "m-miles", title: "Cover 30 miles of cardio", target: 30, unit: "mi", xp: 1800, get: (st) => st.miles },
-  { id: "m-weigh", title: "Log your weight 12 days", target: 12, unit: "days", xp: 1000, get: (st) => st.weights },
-  { id: "m-streak", title: "Train 7 days in a row", target: 7, unit: "days", xp: 2200, get: (st) => st.streak },
-];
-// Rep challenges ride along as a 4th card every week and month. Card flips count toward them.
-const WEEKLY_REPS = { id: "w-reps", title: "Do 600 reps this week", target: 600, unit: "reps", xp: 350, get: (st) => st.reps };
-const MONTHLY_REPS = { id: "m-reps", title: "Do 2,500 reps this month", target: 2500, unit: "reps", xp: 1800, get: (st) => st.reps };
-function pickChallenges(pool, seedStr, n) {
-  let seed = [...seedStr].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) >>> 0;
-  const fixed = pool.filter((c) => c.fixed), rest = pool.filter((c) => !c.fixed), out = [...fixed];
-  while (out.length < n && rest.length) { seed = (seed * 1103515245 + 12345) >>> 0; out.push(rest.splice(seed % rest.length, 1)[0]); }
-  return out;
-}
 function ChallengeCard({ c, value, claimed, onClaim, color }) {
   const done = value >= c.target;
   const fmt = (v) => (c.unit === "lb" ? Math.round(v).toLocaleString() : c.unit === "mi" ? Math.round(v * 10) / 10 : Math.round(v));
