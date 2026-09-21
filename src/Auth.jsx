@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase, configured } from "./supabase.js";
 import { installStorage, installClaudeProxy } from "./shims.js";
 import App from "./App.jsx";
+import { BootScreen } from "./Boot.jsx";
 
 const box = { minHeight: "100dvh", background: "radial-gradient(80% 50% at 50% 0%, rgba(40,90,200,.25), transparent 70%), #000", color: "#F2F8FF", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" };
 const card = { width: "100%", maxWidth: 380, borderRadius: 20, padding: 28, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 20px 60px rgba(0,0,0,.5)" };
@@ -37,7 +38,7 @@ export default function Auth() {
   if (!configured) {
     return <div style={box}><div style={card}><Logo /><p style={{ color: "#A3B6CF", lineHeight: 1.5 }}>Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.</p></div></div>;
   }
-  if (session === undefined) return <div style={box}><img src="/logo.webp" alt="" style={{ width: 90, opacity: 0.8 }} /></div>;
+  if (session === undefined) return <BootScreen />;
 
   const err = (text) => setMsg({ ok: false, text });
   const ok = (text) => setMsg({ ok: true, text });

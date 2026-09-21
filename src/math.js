@@ -1338,6 +1338,16 @@ export function looksLikeDefaultBlob(state) {
   return xp <= 0 && wo === 0 && !name;
 }
 
+export function makeVerifiedCopy(userId, state, { t = Date.now() } = {}) {
+  if (!userId || !state || typeof state !== "object") return null;
+  return {
+    userId,
+    rev: Number.isFinite(+state.rev) ? +state.rev : 0,
+    t,
+    state,
+  };
+}
+
 export function isVerifiedLocalCopy(copy, userId) {
   if (!copy || typeof copy !== "object") return false;
   if (!userId || copy.userId !== userId) return false;

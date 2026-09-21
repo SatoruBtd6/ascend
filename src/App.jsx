@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
+import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 
 /* ---------- Theme ---------- */
 const THEMES = {
@@ -767,16 +768,11 @@ function readVerifiedCopy(userId = deviceUserId()) {
 }
 function writeVerifiedCopy(state) {
   if (typeof window !== "undefined" && window.__ascendNoPersist) return;
-  if (looksLikeDefaultBlob(state)) return;
   const uid = deviceUserId();
-  try {
-    localStorage.setItem(verifiedCopyKey(uid), JSON.stringify({
-      userId: uid,
-      rev: +state?.rev || 0,
-      t: Date.now(),
-      state,
-    }));
-  } catch (e) { /* private mode */ }
+  const copy = makeVerifiedCopy(uid, state);
+  if (!isVerifiedLocalCopy(copy, uid)) return;
+  try { localStorage.setItem(verifiedCopyKey(uid), JSON.stringify(copy)); }
+  catch (e) { /* private mode */ }
 }
 const WIPE_SAVE_NOTE = "Couldn't save: this would wipe your progress. Local copy kept.";
 const URGENT_SAVE = ["meals", "workouts", "weightLog", "presets", "savedFoods", "dayTemplates", "fuelClaimed", "water", "measure"];
@@ -791,9 +787,9 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6z";
+const APP_VERSION = "6z.1";
 const BACKUP_KEY = "ascend-state-backup-6z";
-// Pre-built iPhone Shortcut (text/UI only — do not change api/steps). Replace PUT_HASH_HERE with the iCloud share hash.
+// Pre-built iPhone Shortcut URL only. Ingest rules live in api/steps.js. Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
 const runningBundle = () => { try { return [...document.querySelectorAll('script[src*="/assets/"]')].map((x) => x.getAttribute("src").split("/assets/").pop()).find((n) => /^index-/.test(n)) || null; } catch (e) { return null; } };
@@ -835,6 +831,7 @@ export default function App() {
   const sRef = useRef(s); sRef.current = s;
   const [loaded, setLoaded] = useState(false);
   const [bootError, setBootError] = useState(null);
+  const [bootTick, setBootTick] = useState(0);
   const [tab, setTab] = useState("status");
   const [xpOpen, setXpOpen] = useState(false);
   // New-deploy check: compare the bundle this page runs with the one the server serves now
@@ -934,7 +931,14 @@ export default function App() {
 
   useEffect(() => {
     let stop = false;
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const HYDRATE_MS = 2500;
+    const withTimeout = (p) => {
+      let t;
+      const timeout = new Promise((_, rej) => {
+        t = setTimeout(() => rej(Object.assign(new Error("hydrate-timeout"), { hydrateTimeout: true })), HYDRATE_MS);
+      });
+      return Promise.race([p, timeout]).finally(() => clearTimeout(t));
+    };
     (async () => {
       let st = DEFAULT;
       let crateDirty = false;
@@ -954,42 +958,39 @@ export default function App() {
         setOffline(true);
         return true;
       };
-      for (;;) {
-        if (stop) return;
-        if (!window.storage?.get) {
-          if (tryOfflineBoot()) break;
-          setBootError("load");
-          await sleep(1500);
-          continue;
+      const failBoot = () => { setBootError(OFFLINE_COPY_MSG); };
+      if (!window.storage?.get || !navigator.onLine) {
+        if (!tryOfflineBoot()) { failBoot(); return; }
+      } else {
+        let got;
+        try {
+          got = await withTimeout(readAccountBlob((key) => window.storage.get(key, false, { fresh: true })));
+        } catch {
+          got = { kind: "error" };
         }
-        const got = await readAccountBlob((key) => window.storage.get(key, false, { fresh: true }));
         if (stop) return;
         if (got.kind === "error") {
-          if (tryOfflineBoot()) break;
-          setBootError("load");
-          await sleep(2000);
-          continue;
-        }
-        raw = null;
-        if (got.kind === "ok") {
-          try { raw = JSON.parse(got.value); }
-          catch {
-            if (tryOfflineBoot()) break;
-            setBootError("load");
-            await sleep(2000);
-            continue;
+          if (!tryOfflineBoot()) { failBoot(); return; }
+        } else {
+          raw = null;
+          if (got.kind === "ok") {
+            try { raw = JSON.parse(got.value); }
+            catch {
+              if (!tryOfflineBoot()) { failBoot(); return; }
+            }
+          }
+          if (!offlineBoot) {
+            accountReadRef.current = { kind: got.kind, server: raw };
+            setBootError(null);
+            hadServer = got.kind === "ok";
+            if (hadServer && raw) writeVerifiedCopy(raw);
+            if (raw) {
+              const v = migrateAnimeCrateState(raw);
+              st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } };
+              crateDirty = raw.crateV !== v.crateV || typeof raw.cratePity !== "number";
+            }
           }
         }
-        accountReadRef.current = { kind: got.kind, server: raw };
-        setBootError(null);
-        hadServer = got.kind === "ok";
-        if (hadServer && raw) writeVerifiedCopy(raw);
-        if (raw) {
-          const v = migrateAnimeCrateState(raw);
-          st = { ...DEFAULT, ...v, profile: { ...DEFAULT.profile, ...(v.profile || {}), sex: v.profile?.sex === "f" ? "f" : "m" }, settings: { ...DEFAULT.settings, ...(v.settings || {}) } };
-          crateDirty = !offlineBoot && (raw.crateV !== v.crateV || typeof raw.cratePity !== "number");
-        }
-        break;
       }
       if (stop) return;
       if (offlineBoot && raw) {
@@ -1130,7 +1131,7 @@ export default function App() {
       }
     })();
     return () => { stop = true; };
-  }, []);
+  }, [bootTick]);
 
   // Save state; if it fails (no signal), keep retrying until it lands
   const persistNow = async ({ urgent = false } = {}) => {
@@ -1492,10 +1493,10 @@ export default function App() {
     if (new URLSearchParams(window.location.search).get("watch") === "rest") return <RestWatchPage />;
   } catch (e) { /* stay in the app */ }
   if (!loaded) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ background: C.bg, color: C.dim }}>
-      <Loader2 className="animate-spin" />
-      {bootError ? <div className="body text-sm" role="status">Couldn't load, retrying</div> : null}
-    </div>
+    <BootScreen
+      error={bootError}
+      onRetry={bootError ? () => { setBootError(null); setBootTick((n) => n + 1); } : undefined}
+    />
   );
 
   const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
