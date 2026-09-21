@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useId, useContext, useDeferredValue, useCallback } from "react";
 import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, applyExerciseMerge, exerciseHistoryCounts, accountExerciseNames, rankUpCeremony, levelFromXp, effW, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
-import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff } from "lucide-react";
+import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff, MoreHorizontal } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 
 /* ---------- Theme ---------- */
@@ -787,7 +787,7 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "6z.2";
+const APP_VERSION = "7a";
 const BACKUP_KEY = "ascend-state-backup-6z";
 // Pre-built iPhone Shortcut URL only. Ingest rules live in api/steps.js. Replace PUT_HASH_HERE with the iCloud share hash.
 const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
@@ -1546,7 +1546,10 @@ export default function App() {
         .shake-pr{animation:shake .55s cubic-bezier(.36,.07,.19,.97)} .shake-soft{animation:shakesoft .3s ease-out}
         @keyframes bossidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
         @keyframes bosshit{0%{transform:scale(1)}30%{transform:scale(.85) rotate(-6deg);filter:brightness(2)}100%{transform:scale(1)}}
-        .inp{background:${C.inpBg};border:1px solid ${C.glassLine};border-radius:10px;padding:8px 10px;color:${C.text};width:100%}
+        .inp{background:${C.inpBg};border:1px solid ${C.glassLine};border-radius:10px;padding:8px 10px;color:${C.text};width:100%;min-width:0}
+        .inp[type=number]{-moz-appearance:textfield;appearance:textfield}
+        .inp[type=number]::-webkit-outer-spin-button,.inp[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+        .setgrid .inp{padding:8px 4px}
         .inp:focus,button:focus-visible{outline:2px solid ${C.cyan};outline-offset:1px;box-shadow:0 0 12px ${C.glow}}
         .btn{background:linear-gradient(180deg,${C.cyan},${C.blue});box-shadow:0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);border-radius:12px;color:#001018;font-weight:800;letter-spacing:.02em}
         .ghost{background:${C.glass};border:1px solid ${C.glassLine};border-radius:12px;color:${C.text}}
@@ -1648,7 +1651,7 @@ export default function App() {
         @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}`}</style>
       <div className="bgfx" />
 
-      <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 170px)" }}>
+      <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 220px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <TabErrorBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></TabErrorBoundary>}
         {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} allowWipe={() => { allowWipeRef.current = true; }} /></TabErrorBoundary>}
@@ -1686,7 +1689,7 @@ export default function App() {
       {confetti && <Confetti onDone={() => setConfetti(false)} />}
       {liveRun && <RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onClose={() => { setLiveRun(null); setTab("run"); }} />}
       {saveNote && (
-        <div className="fixed left-1/2 z-50 px-4 py-1.5 text-xs font-bold" style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)", transform: "translateX(-50%)", borderRadius: 999, whiteSpace: "nowrap",
+        <div className="fixed left-1/2 z-50 px-4 py-1.5 text-xs font-bold" style={{ bottom: "calc(env(safe-area-inset-bottom) + 118px)", transform: "translateX(-50%)", borderRadius: 999, whiteSpace: "nowrap", pointerEvents: "none",
           background: C.sheet, color: saveNote.startsWith("Couldn't") ? C.orange : C.green, border: `1px solid ${saveNote.startsWith("Couldn't") ? C.orange : C.green}` }}>{saveNote}</div>
       )}
       {offline && !saveNote && <div className="fixed right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
@@ -2064,6 +2067,25 @@ function Train({ s, setS, gainXp, openRun }) {
   const [naming, setNaming] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [open, setOpen] = useState({});
+  const [exMenu, setExMenu] = useState(null);
+  const [addMenu, setAddMenu] = useState(null);
+  const [pastOpen, setPastOpen] = useState({});
+  const [formResults, setFormResults] = useState({});
+  const [formSheet, setFormSheet] = useState(null);
+  const [wuOpen, setWuOpen] = useState(false);
+  const doneTapRef = useRef({});
+  const setHintKey = () => `ascend-set-type-hint:${typeof window !== "undefined" ? (window.ascendUserId || "anon") : "anon"}`;
+  const [setHint, setSetHint] = useState(() => { try { return localStorage.getItem(setHintKey()) !== "1"; } catch { return true; } });
+  const dismissSetHint = () => { setSetHint(false); try { localStorage.setItem(setHintKey(), "1"); } catch { /* */ } };
+  useEffect(() => {
+    if (exMenu == null && addMenu == null) return;
+    const close = (e) => {
+      if (e.target.closest?.("[data-keep-menu]")) return;
+      setExMenu(null); setAddMenu(null);
+    };
+    const t = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => { clearTimeout(t); document.removeEventListener("click", close); };
+  }, [exMenu, addMenu]);
   const a = s.active;
   const bests = useMemo(
     () => computeBests(a?.editId ? { ...s, workouts: (s.workouts || []).filter((w) => w.id !== a.editId) } : s),
@@ -2227,7 +2249,13 @@ function Train({ s, setS, gainXp, openRun }) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          {a.editId ? <div className="text-xl font-bold glowtext flex items-center gap-2">Editing {fmtDay(a.date)}<SaveMark /></div> : <div className="flex items-center gap-2"><Timer start={a.start} /><SaveMark /></div>}
+          {a.editId ? <div className="text-xl font-bold glowtext flex items-center gap-2 flex-wrap">Editing {fmtDay(a.date)}<SaveMark /></div> : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Timer start={a.start} />
+              <SaveMark />
+              <WarmUp s={s} a={a} setActive={setActive} compact open={wuOpen} onOpenChange={setWuOpen} />
+            </div>
+          )}
           <input className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} placeholder="Workout title" value={a.title || ""} onChange={(e) => setActive((w) => ({ ...w, title: e.target.value }))} aria-label="Workout title" />
           {(s.gyms || []).length > 0 && (
             <select className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} aria-label="Workout gym" value={a.gym || s.currentGym || ""} onChange={(e) => setActive((w) => ({ ...w, gym: e.target.value || null }))}>
@@ -2237,10 +2265,10 @@ function Train({ s, setS, gainXp, openRun }) {
           )}
           <div className="text-sm font-bold" style={{ color: C.gold }}>≈ {live.xp} XP{live.prs ? ` · ${live.prs} PR${live.prs > 1 ? "s" : ""}` : ""}</div>
         </div>
-        <button onClick={finish} className="px-5 py-2.5 text-sm font-bold" style={{ background: C.green, color: "#02040B", borderRadius: 4, boxShadow: "0 0 16px rgba(79,209,139,.5)" }}>{a.editId ? "Save changes" : "Finish"}</button>
+        <button onClick={finish} className="px-5 py-2.5 text-sm font-bold" style={{ background: C.green, color: "#02040B", borderRadius: 4, boxShadow: "0 0 16px rgba(79,209,139,.5)", minHeight: 40 }}>{a.editId ? "Save changes" : "Finish"}</button>
       </div>
 
-      {!a.editId && <WarmUp s={s} a={a} setActive={setActive} />}
+      {!a.editId && wuOpen && <WarmUp s={s} a={a} setActive={setActive} open={wuOpen} onOpenChange={setWuOpen} />}
       {!a.editId && (() => {
         // Overload only makes sense on a preset you've already finished once, so there's a session to beat
         const pl = a.preset ? lastPresetWorkout(s, a.preset) : null;
@@ -2271,108 +2299,161 @@ function Train({ s, setS, gainXp, openRun }) {
         const past = pastSessions(s, ex.name, a.editId, 3);
         const upd = (si, patch) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.map((st, j) => j !== si ? st : { ...st, ...patch }) }) }));
         const delSet = (si) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.filter((_, j) => j !== si) }) }));
-        const cols = showW ? "26px 1fr 1fr 1fr 34px 22px" : "26px 1fr 1fr 34px 22px";
+        const cols = showW ? "40px 1fr 1fr 1fr 40px 40px" : "40px 1fr 1fr 40px 40px";
+        const mode = ex.wMode || (def.perHand ? "hand" : "total");
+        const sg = suggestNext(s, ex.name, a.editId);
+        const lastAssisted = [...ex.sets].reverse().find((st) => def.type === "assisted" && (+st.w > 0 || +st.r > 0));
+        const cycleType = (si, st) => {
+          dismissSetHint();
+          if (st.warm) {
+            if (timed) { upd(si, { warm: false }); return; }
+            upd(si, { warm: false, drop: true, w: +st.w > 0 ? String(Math.round(+st.w * 0.8)) : st.w });
+            return;
+          }
+          if (st.drop) { upd(si, { drop: false }); return; }
+          upd(si, { warm: true, drop: false });
+        };
+        const addWorking = () => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: [...e.sets, { w: e.sets.at(-1)?.w || "", r: "", done: false }] }) }));
+        const addDrop = () => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => {
+          if (i !== ei) return e;
+          const last = [...e.sets].reverse().find((st) => +st.w > 0) || e.sets.at(-1) || { w: "", r: "" };
+          const dropW = +last.w > 0 ? String(Math.round(+last.w * 0.8)) : (last.w || "");
+          return { ...e, sets: [...e.sets, { w: dropW, r: last.r || "", done: false, drop: true }] };
+        }) }));
+        const addWarm = () => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i !== ei ? e : { ...e, sets: [...e.sets, { w: "", r: "", done: false, warm: true }] })) }));
+        const removeEx = () => {
+          const go = () => setActive((w) => ({ ...w, exercises: w.exercises.filter((_, i) => i !== ei) }));
+          if (ex.sets.some((st) => st.done)) ask(`Remove ${ex.name}? Completed sets in this workout will be lost.`, go, "Remove");
+          else go();
+        };
+        const typeLabel = (st, si) => (st.warm ? "Warm-up set, tap to change type" : st.drop ? "Drop set, tap to mark working" : `Set ${si + 1}, tap to mark warm-up`);
         return (
-          <div key={ei} className="panel p-3" style={ex.ss ? { borderColor: C.green, marginBottom: 0 } : a.exercises[ei - 1]?.ss ? { borderColor: C.green, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 } : null}>
+          <div key={ei} className="panel p-3 relative" style={ex.ss ? { borderColor: C.green, marginBottom: 0 } : a.exercises[ei - 1]?.ss ? { borderColor: C.green, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 } : null}>
             {a.exercises[ei - 1]?.ss && <div className="body text-xs font-bold -mt-1 mb-1" style={{ color: C.green }}>⇅ superset with {a.exercises[ei - 1].name}</div>}
-            <div className="flex justify-between items-center mb-1">
-              <div>
+            <div className="flex justify-between items-center mb-1 gap-2">
+              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold glowtext" style={{ color: C.cyan }}>{ex.name}</span>
-                <span className="body text-xs ml-2" style={{ color: C.mute }}>{def.group}</span>
-                {def.type === "weighted" && !def.perHand && <button aria-label="Plate calculator" onClick={() => setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135 })} className="ml-1 px-1.5 py-0.5" style={{ color: C.mute }}><CircleDot size={14} /></button>}
-                {ei < a.exercises.length - 1 && <button aria-label={ex.ss ? "Unlink superset" : "Superset with next"} onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i === ei ? { ...e, ss: !e.ss } : e)) }))} className="ml-1 px-1.5 py-0.5" style={{ color: ex.ss ? C.green : C.mute }}><Link2 size={14} /></button>}
-                {def.type === "weighted" && (() => { const mode = ex.wMode || (def.perHand ? "hand" : "total"); return (
-                  <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) }))} className="ml-2 px-2 py-0.5 text-xs font-semibold" style={{ borderRadius: 999, background: C.accentBg, color: C.cyan, border: `1px solid ${C.border}` }}>{mode === "hand" ? "per hand" : "total lb"}</button>
-                ); })()}
+                <span className="body text-xs" style={{ color: C.mute }}>{def.group}</span>
+                {ex.ss && <span className="body text-xs font-bold" style={{ color: C.green }}>ss</span>}
+                {formResults[ex.name]?.text && (
+                  <button type="button" aria-label={`Form check result for ${ex.name}`} onClick={() => setFormSheet({ name: ex.name, mode: "result" })} className="p-2" style={{ color: C.cyan, minWidth: 40, minHeight: 40 }}><Video size={16} /></button>
+                )}
               </div>
-              <button aria-label="Remove exercise" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.filter((_, i) => i !== ei) }))} style={{ color: C.mute }}><X size={18} /></button>
+              <button type="button" data-keep-menu aria-label={`More actions for ${ex.name}`} aria-haspopup="menu" aria-expanded={exMenu === ei} onClick={(e) => { e.stopPropagation(); setAddMenu(null); setExMenu(exMenu === ei ? null : ei); }} className="flex items-center justify-center shrink-0" style={{ minWidth: 40, minHeight: 40, color: C.mute }}><MoreHorizontal size={18} /></button>
             </div>
-            {(() => { const sg = suggestNext(s, ex.name, a.editId); return sg ? <div className="body text-xs mb-1 font-semibold" style={{ color: C.green }}>Target today: {sg.w}×{sg.r} · {sg.why}</div> : null; })()}
-            {past.length > 0 && (
-              <div className="body text-xs mb-2 space-y-0.5" style={{ color: C.dim }}>
-                {past.map((ps) => <div key={ps.id} className="truncate"><span style={{ color: C.mute }}>{new Date(ps.date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {ps.sets.map((st) => setLabel(def, st)).join(", ")}</div>)}
+            {exMenu === ei && (
+              <div role="menu" data-keep-menu className="absolute right-3 z-20 panel p-1" style={{ top: 44, minWidth: 200, boxShadow: "0 8px 24px rgba(0,0,0,.45)" }} onClick={(e) => e.stopPropagation()}>
+                {def.type === "weighted" && !def.perHand && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40 }} onClick={() => { setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135 }); setExMenu(null); }}><CircleDot size={16} />Plate calculator</button>}
+                {ei < a.exercises.length - 1 && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40, color: ex.ss ? C.green : C.text }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i === ei ? { ...e, ss: !e.ss } : e)) })); setExMenu(null); }}><Link2 size={16} />{ex.ss ? "Unlink superset" : "Superset with next"}</button>}
+                {def.type === "weighted" && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40 }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) })); setExMenu(null); }}>{mode === "hand" ? "Use total lb" : "Use per hand"}</button>}
+                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40 }} onClick={() => { setFormSheet({ name: ex.name, mode: "film" }); setExMenu(null); }}><Video size={16} />Film form check</button>
+                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.red }} onClick={() => { setExMenu(null); removeEx(); }}>Remove exercise</button>
               </div>
             )}
             {prev.length > 0 && !a.editId && (
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: cloneSets(prev) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.cyan }}>
-                  <Repeat size={12} />Same as last
-                </button>
-                {(() => { const sg = suggestNext(s, ex.name, a.editId); if (!sg) return null; return (
-                  <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: applyTargetSets(prev, sg) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.green }}>
-                    <TrendingUp size={12} />{sg.w}×{sg.r}
+              <div className="mb-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: cloneSets(prev) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.cyan, minHeight: 40 }}>
+                    <Repeat size={12} />Same as last
                   </button>
-                ); })()}
+                  {sg ? (
+                    <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: applyTargetSets(prev, sg) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.green, minHeight: 40 }}>
+                      <TrendingUp size={12} />{sg.w}×{sg.r}
+                    </button>
+                  ) : <div />}
+                </div>
+                {sg ? <div className="body text-xs mt-1 px-0.5" style={{ color: C.mute }}>{sg.why}</div> : null}
               </div>
             )}
-            <div className="grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
-              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : (ex.wMode || (def.perHand ? "hand" : "total")) === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
+            {past.length > 0 && (
+              <div className="mb-2">
+                <button type="button" onClick={() => setPastOpen((o) => ({ ...o, [ei]: !o[ei] }))} className="w-full flex items-center gap-1 body text-xs text-left" style={{ color: C.dim, minHeight: 40 }} aria-expanded={!!pastOpen[ei]}>
+                  <ChevronDown size={14} className="shrink-0" style={{ transform: pastOpen[ei] ? "rotate(180deg)" : "none" }} />
+                  <span className="truncate"><span style={{ color: C.mute }}>{new Date(past[0].date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {past[0].sets.map((st) => setLabel(def, st)).join(", ")}</span>
+                </button>
+                {pastOpen[ei] && past.slice(1).map((ps) => (
+                  <div key={ps.id} className="body text-xs pl-5 truncate" style={{ color: C.dim }}><span style={{ color: C.mute }}>{new Date(ps.date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {ps.sets.map((st) => setLabel(def, st)).join(", ")}</div>
+                ))}
+              </div>
+            )}
+            {setHint && ei === 0 && <div className="body text-xs mb-2" style={{ color: C.mute }}>Tap a set number to mark warm-up or drop set</div>}
+            <div className="setgrid grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
+              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : mode === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
             </div>
             {ex.sets.map((st, si) => {
               const pv = prev[si];
               const cmp = st.done && pv && +st.r > 0 ? ((+st.w || 0) * (+st.r || 0) || +st.r) - ((+pv.w || 0) * (+pv.r || 0) || +pv.r) : null;
               return (
-                <React.Fragment key={si}>
-                <div className="grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3, opacity: st.warm ? 0.55 : 1 }}>
-                  <span className="font-semibold text-center" style={{ color: st.warm ? C.mute : st.drop ? C.orange : C.text }}>{st.warm ? "W" : st.drop ? "D" : si + 1}</span>
+                <div key={si} className="setgrid grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3, opacity: st.warm ? 0.55 : 1 }}>
+                  <button type="button" aria-label={typeLabel(st, si)} onClick={() => cycleType(si, st)} className="font-semibold flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, borderRadius: 6, border: `1px solid ${st.warm ? C.cyan : st.drop ? C.orange : C.line}`, color: st.warm ? C.mute : st.drop ? C.orange : C.text, background: "transparent" }}>{st.warm ? "W" : st.drop ? "D" : si + 1}</button>
                   <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
                   {showW && <input type="number" inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onChange={(e) => upd(si, { w: e.target.value })} />}
                   <input type="number" inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onChange={(e) => upd(si, { r: e.target.value })} />
-                  <button aria-label="Mark set done" onClick={() => { const turningOn = !st.done; upd(si, turningOn && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: !st.done }); if (turningOn) { SFX.click(); const secs = s.settings?.rest ?? 90; if (secs > 0 && !a.editId) { Beeper.unlock(); setRest({ end: Date.now() + secs * 1000 }); } } }}
-                    className="h-8 flex items-center justify-center" style={{ background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
-                  <button aria-label="Delete set" onClick={() => delSet(si)} className="h-8 flex items-center justify-center" style={{ color: C.mute }}><X size={14} /></button>
+                  <button aria-label="Mark set done" onClick={() => {
+                    const key = `${ei}:${si}`;
+                    const latest = doneTapRef.current[key] ?? !!st.done;
+                    const turningOn = !latest;
+                    doneTapRef.current[key] = turningOn;
+                    upd(si, turningOn && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: turningOn });
+                    if (turningOn) {
+                      SFX.click();
+                      const secs = s.settings?.rest ?? 90;
+                      if (secs > 0 && !a.editId) { Beeper.unlock(); setRest({ end: Date.now() + secs * 1000 }); }
+                    }
+                  }}
+                    className="flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
+                  <button aria-label="Delete set" onClick={() => delSet(si)} className="flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, color: C.mute }}><X size={14} /></button>
                 </div>
-                <div className="flex gap-4 pl-9 -mt-0.5 mb-1">
-                  <button onClick={() => upd(si, { warm: !st.warm, ...(st.warm ? {} : { drop: false }) })} className="body text-xs text-left" style={{ color: st.warm ? C.cyan : C.mute }}>{st.warm ? "Warm-up · tap to unmark" : "Mark as warm-up"}</button>
-                  {def.type !== "timed" && !st.warm && <button onClick={() => upd(si, { drop: !st.drop, w: !st.drop && +st.w > 0 ? String(Math.round(+st.w * 0.8)) : st.w })} className="body text-xs text-left" style={{ color: st.drop ? C.orange : C.mute }}>{st.drop ? "Drop set · tap to unmark" : "Mark as drop set"}</button>}
-                </div>
-                {def.type === "assisted" && (+st.w > 0 || +st.r > 0) && <div className="body text-xs pl-9 -mt-0.5 mb-1" style={{ color: C.dim }}>You moved <span style={{ color: C.text, fontWeight: 600 }}>{Math.round(movedLb(s.profile, st.w))} lb</span> ({Math.round(Math.max(80, +s.profile.weight || 170))} − {+st.w || 0}){+st.r > 0 ? ` · counts as ${Math.round(assistedReps(s.profile, st) * 10) / 10} ${def.rankAs.toLowerCase()}s` : ""}</div>}
-                </React.Fragment>
               );
             })}
-            <div className="flex gap-2 mt-2">
-              <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: [...e.sets, { w: e.sets.at(-1)?.w || "", r: "", done: false }] }) }))} className="ghost flex-1 py-2 text-sm font-semibold">Add set</button>
-              {def.type !== "timed" && <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => {
-                if (i !== ei) return e;
-                const last = [...e.sets].reverse().find((st) => +st.w > 0) || e.sets.at(-1) || { w: "", r: "" };
-                const dropW = +last.w > 0 ? String(Math.round(+last.w * 0.8)) : (last.w || "");
-                return { ...e, sets: [...e.sets, { w: dropW, r: last.r || "", done: false, drop: true }] };
-              }) }))} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.orange, borderColor: C.orange }}>Drop set</button>}
-              <button onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i !== ei ? e : { ...e, sets: [...e.sets, { w: "", r: "", done: false, warm: true }] })) }))} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Warm-up set</button>
+            {lastAssisted && <div className="body text-xs mt-1 px-1" style={{ color: C.dim }}>You moved <span style={{ color: C.text, fontWeight: 600 }}>{Math.round(movedLb(s.profile, lastAssisted.w))} lb</span> ({Math.round(Math.max(80, +s.profile.weight || 170))} − {+lastAssisted.w || 0}){+lastAssisted.r > 0 ? ` · counts as ${Math.round(assistedReps(s.profile, lastAssisted) * 10) / 10} ${def.rankAs.toLowerCase()}s` : ""}</div>}
+            <div className="flex mt-2">
+              <button type="button" onClick={addWorking} className="ghost flex-1 py-2 text-sm font-semibold" style={{ minHeight: 40, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>Add set</button>
+              <button type="button" data-keep-menu aria-label="Add warm-up or drop set" aria-haspopup="menu" aria-expanded={addMenu === ei} onClick={(e) => { e.stopPropagation(); setExMenu(null); setAddMenu(addMenu === ei ? null : ei); }} className="ghost px-2 flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "none" }}><ChevronDown size={16} /></button>
             </div>
-            <FormCheck exercise={ex.name} compact />
+            {addMenu === ei && (
+              <div role="menu" data-keep-menu className="panel p-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.cyan }} onClick={() => { addWarm(); setAddMenu(null); }}>Add warm-up set</button>
+                {def.type !== "timed" && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.orange }} onClick={() => { addDrop(); setAddMenu(null); }}>Add drop set</button>}
+              </div>
+            )}
           </div>
         );
       })}
 
-      <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4 }}><Plus size={18} />Add exercise</button>
+      <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4, scrollMarginBottom: "calc(env(safe-area-inset-bottom) + 168px)" }}><Plus size={18} />Add exercise</button>
 
       {rest && <RestBubble end={rest.end} onDone={() => setRest(null)} onClose={() => setRest(null)} onChangeEnd={(end) => setRest({ end })} />}
       {plates && <PlateSheet weight={plates.w} onClose={() => setPlates(null)} />}
+      {formSheet && (
+        <Sheet title={`Form check · ${formSheet.name}`} onClose={() => setFormSheet(null)}>
+          <FormCheck exercise={formSheet.name} heading={false} result={formResults[formSheet.name]} onResult={(r) => setFormResults((p) => ({ ...p, [formSheet.name]: r }))} />
+        </Sheet>
+      )}
 
       <TrainCoach s={s} a={a} onAdd={(name, n) => setActive((w) => w.exercises.some((e) => e.name === name)
         ? { ...w, exercises: w.exercises.map((e) => e.name === name ? { ...e, sets: [...e.sets, ...Array.from({ length: n }, () => ({ w: "", r: "", done: false }))] } : e) }
         : { ...w, exercises: [...w.exercises, { name, sets: Array.from({ length: n }, () => ({ w: "", r: "", done: false })) }] })} />
 
-      {a.exercises.length > 0 && !a.editId && (
-        naming ? (
+      {a.exercises.length > 0 && (
+        naming && !a.editId ? (
           <div className="panel p-3 flex gap-2 items-center">
             <input autoFocus className="inp" placeholder="Preset name, e.g. Push day" value={presetName} onChange={(e) => setPresetName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && savePreset()} />
-            <button onClick={savePreset} className="btn px-4 py-2 text-sm">Save</button>
-            <button aria-label="Cancel" onClick={() => setNaming(false)} className="ghost px-3 py-2"><X size={16} /></button>
+            <button onClick={savePreset} className="btn px-4 py-2 text-sm" style={{ minHeight: 40 }}>Save</button>
+            <button aria-label="Cancel" onClick={() => setNaming(false)} className="ghost px-3 py-2" style={{ minHeight: 40 }}><X size={16} /></button>
           </div>
         ) : (
-          <button onClick={() => { setPresetName(a.preset || ""); setNaming(true); }} className="ghost w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Bookmark size={18} />Save as preset</button>
+          <div className="grid grid-cols-2 gap-2" style={{ scrollMarginBottom: "calc(env(safe-area-inset-bottom) + 168px)" }}>
+            {!a.editId && <button onClick={() => { setPresetName(a.preset || ""); setNaming(true); }} className="ghost py-3 font-medium flex items-center justify-center gap-2" style={{ color: C.cyan, minHeight: 40 }}><Bookmark size={16} />Save as preset</button>}
+            <button
+              onClick={() => { const discard = () => setS((p) => ({ ...p, active: null })); if (a.editId || !hasWork) discard(); else ask("Are you sure you want to discard this workout? (Aidan lock in)", discard, "Discard"); }}
+              className={`ghost py-3 font-medium ${a.editId || !a.exercises.length ? "" : ""}`}
+              style={{ color: C.red, minHeight: 40, ...(a.editId ? { gridColumn: "1 / -1" } : {}) }}>
+              {a.editId ? "Cancel editing" : "Discard workout"}
+            </button>
+          </div>
         )
       )}
-
-      <div style={{ height: 40 }} />
-      <button
-        onClick={() => { const discard = () => setS((p) => ({ ...p, active: null })); if (a.editId || !hasWork) discard(); else ask("Are you sure you want to discard this workout? (Aidan lock in)", discard, "Discard"); }}
-        className="w-full py-4 font-extrabold text-lg tracking-wide"
-        style={{ borderRadius: 4, background: "#0A0004", color: "#FF2A55", border: "2px solid #FF2A55", boxShadow: "0 0 24px rgba(255,42,85,.7), inset 0 0 18px rgba(255,42,85,.25)", textShadow: "0 0 10px rgba(255,42,85,.9)" }}>
-        {a.editId ? "Cancel editing" : "Discard workout"}
-      </button>
     </div>
   );
 }
@@ -6141,12 +6222,12 @@ function RestBubble({ end, onDone, onClose, onChangeEnd }) {
     );
   }
   return (
-    <div className="fixed z-40 flex items-center gap-0.5 pl-3 pr-1 py-1 font-bold tabular-nums" style={{ left: 12, bottom: "calc(env(safe-area-inset-bottom) + 90px)", borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}` }}>
-      <button type="button" onClick={() => setBig(true)} aria-label="Open rest watch view" className="flex items-center gap-2 px-1 py-1">
+    <div className="fixed z-[41] flex items-center gap-0.5 pl-2 pr-0.5 py-0.5 font-bold tabular-nums" style={{ left: 10, bottom: "calc(env(safe-area-inset-bottom) + 62px)", maxWidth: "min(200px, calc(100vw - 92px))", borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}`, pointerEvents: "none" }}>
+      <button type="button" onClick={() => setBig(true)} aria-label="Open rest watch view" className="flex items-center gap-1.5 px-1 py-1" style={{ pointerEvents: "auto", minHeight: 40 }}>
         <TimerIcon size={16} />Rest {fmtClock(left)}
       </button>
-      <button type="button" aria-label="Add 30 seconds" onClick={() => bump(30)} className="px-2 py-1 text-xs">+30</button>
-      <button type="button" aria-label="Dismiss rest timer" onClick={onClose} className="px-2 py-1"><X size={14} /></button>
+      <button type="button" aria-label="Add 30 seconds" onClick={() => bump(30)} className="px-2 py-1 text-xs" style={{ pointerEvents: "auto", minWidth: 40, minHeight: 40 }}>+30</button>
+      <button type="button" aria-label="Dismiss rest timer" onClick={onClose} className="px-2 py-1" style={{ pointerEvents: "auto", minWidth: 40, minHeight: 40 }}><X size={14} /></button>
     </div>
   );
 }
@@ -6255,12 +6336,13 @@ async function videoFrames(file, n = 3, size = 240) {
     return frames;
   } finally { URL.revokeObjectURL(url); }
 }
-function FormCheck({ exercise, compact }) {
+function FormCheck({ exercise, compact, result, onResult, heading = true }) {
   const ref = useRef(null);
-  const [state, setState] = useState({ status: "idle", text: "" });
+  const [state, setState] = useState(result || { status: "idle", text: "" });
+  const setBoth = (next) => { setState(next); onResult?.(next); };
   const onFile = async (e) => {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
-    setState({ status: "loading", text: "" });
+    setBoth({ status: "loading", text: "" });
     try {
       const frames = await videoFrames(f);
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -6273,15 +6355,15 @@ function FormCheck({ exercise, compact }) {
       const data = await res.json();
       const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
       if (!text) throw new Error("empty");
-      setState({ status: "done", text });
-    } catch (err) { setState({ status: "error", text: "Couldn't read that video. Try a 5–15 second clip filmed from the side." }); }
+      setBoth({ status: "done", text });
+    } catch (err) { setBoth({ status: "error", text: "Couldn't read that video. Try a 5–15 second clip filmed from the side." }); }
   };
   return (
-    <div className={compact ? "mt-2 space-y-1.5" : "panel p-4 space-y-2"} style={compact ? null : { borderColor: C.cyan }}>
-      <div className={`font-bold flex items-center gap-2 ${compact ? "text-sm" : ""}`}><Video size={compact ? 14 : 18} style={{ color: C.cyan }} />{compact ? `Form check · ${exercise}` : "Form check by video"}</div>
+    <div className={compact ? "mt-2 space-y-1.5" : "space-y-2"}>
+      {heading && !compact && <div className="font-bold flex items-center gap-2"><Video size={18} style={{ color: C.cyan }} />Form check by video</div>}
       {!compact && <div className="body text-xs" style={{ color: C.dim }}>Film one set from the side, 5–15 seconds. Sterling looks at a few frames and gives cues. Videos aren't stored.</div>}
       <input ref={ref} type="file" accept="video/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
-      <button onClick={() => ref.current?.click()} disabled={state.status === "loading"} className={`${compact ? "ghost" : "btn"} w-full py-2 text-sm flex items-center justify-center gap-2`}>{state.status === "loading" ? <><Loader2 size={16} className="animate-spin" />Watching your set…</> : <><Camera size={16} />{compact ? "Film this lift" : "Record or choose a clip"}</>}</button>
+      <button onClick={() => ref.current?.click()} disabled={state.status === "loading"} className={`${compact ? "ghost" : "btn"} w-full py-2 text-sm flex items-center justify-center gap-2`} style={{ minHeight: 40 }}>{state.status === "loading" ? <><Loader2 size={16} className="animate-spin" />Watching your set…</> : <><Camera size={16} />{compact ? "Film this lift" : "Record or choose a clip"}</>}</button>
       {state.text && <div className="body text-sm" style={{ color: state.status === "error" ? C.red : C.text }}>{state.text}</div>}
     </div>
   );
@@ -9106,9 +9188,11 @@ const WARMUP_FALLBACK = {
   lower: [["Leg swings", 30, "Front-to-back, then side-to-side"], ["Bodyweight squats", 40, "Pause at the bottom"], ["Hip 90/90 switches", 40, "Keep chest tall"], ["Glute bridges", 30, "Squeeze at the top"], ["Walking lunges", 40, "Long stride, knee soft"]],
   full: [["Jumping jacks", 30, "Easy pace"], ["World's greatest stretch", 50, "Alternate sides"], ["Bodyweight squats", 30, "Full depth"], ["Arm circles", 30, "Both directions"], ["Inchworms", 40, "Walk hands out and back"]],
 };
-function WarmUp({ s, a, setActive }) {
-  const [open, setOpen] = useState(false);
+function WarmUp({ s, a, setActive, compact = false, open: openProp, onOpenChange }) {
+  const [innerOpen, setInnerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const open = openProp ?? innerOpen;
+  const setOpen = (v) => { onOpenChange?.(v); if (openProp === undefined) setInnerOpen(v); };
   const steps = a.warmup;
   const build = async () => {
     setOpen(true); if (steps) return;
@@ -9130,11 +9214,17 @@ function WarmUp({ s, a, setActive }) {
     setBusy(false);
   };
   const done = a.warmupDone || [];
-  if (!open) return <button onClick={build} className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Activity size={16} />3-minute warm-up</button>;
+  const chip = (
+    <button type="button" onClick={build} className={compact ? "ghost px-2.5 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0" : "ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2"} style={{ color: C.cyan, minHeight: 40 }}>
+      <Activity size={compact ? 14 : 16} />{compact ? "3-min warm-up" : "3-minute warm-up"}
+    </button>
+  );
+  if (compact) return chip;
+  if (!open) return chip;
   return (
     <div className="panel p-4 space-y-2">
-      <div className="flex justify-between items-center"><div className="font-semibold text-sm flex items-center gap-2"><Activity size={16} style={{ color: C.cyan }} />Warm-up</div><button aria-label="Hide warm-up" onClick={() => setOpen(false)} style={{ color: C.mute }}><ChevronDown size={16} style={{ transform: "rotate(180deg)" }} /></button></div>
-      {busy && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is picking your moves…</div>}
+      <div className="flex justify-between items-center"><div className="font-semibold text-sm flex items-center gap-2"><Activity size={16} style={{ color: C.cyan }} />Warm-up</div><button aria-label="Hide warm-up" onClick={() => setOpen(false)} style={{ color: C.mute, minWidth: 40, minHeight: 40 }}><ChevronDown size={16} style={{ transform: "rotate(180deg)" }} /></button></div>
+      {busy || (open && !steps) ? <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is picking your moves…</div> : null}
       {(steps || []).map((x, i) => { const on = done.includes(i); return (
         <button key={i} onClick={() => setActive((w) => ({ ...w, warmupDone: on ? (w.warmupDone || []).filter((j) => j !== i) : [...(w.warmupDone || []), i] }))} className="w-full flex items-center gap-3 text-left py-1">
           <span className="shrink-0 flex items-center justify-center" style={{ width: 22, height: 22, borderRadius: 999, border: `1.5px solid ${on ? C.green : C.border}`, background: on ? C.green : "transparent", color: "#02040B" }}>{on && <Check size={13} />}</span>
