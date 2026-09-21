@@ -392,7 +392,7 @@ async function runAccount(browser, url, label, rate) {
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
-  const out = { at: new Date().toISOString(), base: BASE, version: "7b", noDiag: NO_DIAG, tapsOnly: TAPS_ONLY, chudOnly: CHUD_ONLY, runs: [] };
+  const out = { at: new Date().toISOString(), base: BASE, version: "7c", noDiag: NO_DIAG, tapsOnly: TAPS_ONLY, chudOnly: CHUD_ONLY, runs: [] };
   const accounts = (TAPS_ONLY || CHUD_ONLY) ? [["chud", BASE]] : [["chud", BASE], ["fixture", `${BASE}/?fixture=big`]];
   for (const rate of [6, 4]) {
     for (const [account, url] of accounts) {

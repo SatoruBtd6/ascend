@@ -3,6 +3,11 @@ import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestPro
 import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Weight, Repeat, CalendarCheck, Activity, Zap, Star, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, Cloud, CloudOff, MoreHorizontal } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
+import {
+  MI_M, havM, fmtDur, fmtPace, newRun, runElapsed, addFix, currentPace,
+  switchRunMode, toggleRunPause, ensureSegments, buildSavedRun, openSegment, segmentMovingSecs,
+  runTitle, runXpLabel, runKind, runBreakdown,
+} from "./run.js";
 
 /* ---------- Theme ---------- */
 const THEMES = {
@@ -791,8 +796,14 @@ function SaveMark() {
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-const APP_VERSION = "7b";
+const APP_VERSION = "7c";
 if (typeof window !== "undefined") window.__ASCEND_VERSION = APP_VERSION;
+function stateSizeKb(obj) {
+  try {
+    const n = JSON.stringify(obj || {}).length;
+    return Math.round(n / 1024);
+  } catch { return 0; }
+}
 
 function DiagProbe({ kind, id }) {
   useEffect(() => {
@@ -1280,7 +1291,7 @@ export default function App() {
       D.withSource("hydrate", () => { setS(() => st); setLoaded(true); });
       D.boot(st.playerId);
       if (recoveredPending && !noPersistRef.current) dirtyRef.current = true;
-      setSaveDiag({ kb: 0, ms: null });
+      setSaveDiag({ kb: stateSizeKb(st), ms: null });
       loadCommunity().then((c) => { if (c && !noPersistRef.current) D.withSource("community", () => setS((p) => ({ ...p, community: c }))); }).catch(() => { /* offline */ });
       if (!noPersistRef.current) setTimeout(pullSteps, 800);
       if (!noPersistRef.current) setTimeout(() => XpSync.flush(), 1500);
@@ -1409,7 +1420,7 @@ export default function App() {
       setSaveStatus("saved");
       D.life("ack");
       const ms = Math.round(performance.now() - t0);
-      setSaveDiag((d) => ({ kb: d.kb, ms }));
+      setSaveDiag({ kb: stateSizeKb(toWrite), ms });
       if (import.meta.env.DEV) window.__phase1LastPersist = { ms, mergeMs };
       if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
       if (urgent || persistUrgent.current) {
@@ -3948,7 +3959,7 @@ function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) 
       <div className="body text-xs text-center" style={{ color: C.mute }}>State {saveDiag?.kb ?? 0} KB{saveDiag?.ms != null ? ` · last save ${saveDiag.ms} ms` : ""}</div>
       {diagOn && (
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7b" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
+          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7c" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
           <button type="button" onClick={() => { D.clear(); setDiagCopied(false); }} className="ghost py-3 text-sm font-bold">Clear</button>
         </div>
       )}
@@ -9956,13 +9967,6 @@ function SupportForm({ s, tab = "settings" }) {
 }
 
 /* ---------- Geo helpers ---------- */
-const MI_M = 1609.344;
-function havM(a, b) {
-  const R = 6371000, toR = Math.PI / 180;
-  const dLat = (b[0] - a[0]) * toR, dLng = (b[1] - a[1]) * toR;
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * toR) * Math.cos(b[0] * toR) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
-}
 function encodePoly(pts) {
   let out = "", pLat = 0, pLng = 0;
   const enc = (v) => { v = v < 0 ? ~(v << 1) : v << 1; let s = ""; while (v >= 0x20) { s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } return s + String.fromCharCode(v + 63); };
@@ -9991,101 +9995,6 @@ function thinPts(pts, minGapM = 8, maxPts = 900) {
   for (let i = 0; i < out.length; i += step) res.push(out[Math.floor(i)]);
   res.push(out[out.length - 1]);
   return res;
-}
-const fmtDur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60; return h ? `${h}:${String(m).padStart(2, "0")}:${String(s2).padStart(2, "0")}` : `${m}:${String(s2).padStart(2, "0")}`; };
-const fmtPace = (secPerMi) => (!isFinite(secPerMi) || secPerMi <= 0 || secPerMi > 3600 ? "–:––" : fmtDur(secPerMi));
-
-/* ---------- GPS engine (pure, testable) ---------- */
-const RUN_LIMITS = { run: { max: 7.5 }, walk: { max: 3.2 } };
-const M_LAT = 111320;
-function newRun(mode = "run", guide = null) {
-  return { id: uid(), mode, guide, startedAt: Date.now(), pausedTotal: 0, pausedAt: null, dist: 0, pts: [], last: null, kf: null, anchor: null, rejects: 0, splits: [], gapM: 0, weak: false, fixes: 0, o: null };
-}
-function runElapsed(r, now = Date.now()) {
-  return Math.max(0, (now - r.startedAt - r.pausedTotal - (r.pausedAt ? now - r.pausedAt : 0)) / 1000);
-}
-// Feed one GPS fix; returns a new run state.
-// 1) a small Kalman filter smooths the position, 2) distance only counts when the smoothed position
-// has clearly moved from the last anchor point, 3) teleport glitches are rejected, 4) screen-lock gaps are bridged.
-function addFix(r, fix) {
-  const next = { ...r, fixes: r.fixes + 1 };
-  if (r.pausedAt) { next.kf = null; next.anchor = null; return next; }
-  if (!isFinite(fix.lat) || !isFinite(fix.lng)) return next;
-  if (fix.acc > 35) { next.weak = true; return next; }
-  next.weak = fix.acc > 20;
-  const o = r.o || { lat: fix.lat, lng: fix.lng, k: M_LAT * Math.cos((fix.lat * Math.PI) / 180) };
-  next.o = o;
-  const zx = (fix.lng - o.lng) * o.k, zy = (fix.lat - o.lat) * M_LAT, R = Math.max(9, fix.acc * fix.acc);
-  const toLL = (x, y) => [o.lat + y / M_LAT, o.lng + x / o.k];
-  const max = RUN_LIMITS[r.mode]?.max || 7.5;
-
-  if (!r.kf) {
-    next.kf = { x: zx, y: zy, P: R, t: fix.t };
-    if (!r.anchor) {
-      next.anchor = { x: zx, y: zy, t: fix.t };
-      next.pts = [...r.pts, [...toLL(zx, zy), fix.t, r.pts.length ? 1 : 0]];
-    }
-    next.last = { p: toLL(zx, zy), t: fix.t, acc: fix.acc };
-    return next;
-  }
-  const dt = (fix.t - r.kf.t) / 1000;
-  if (dt <= 0) return next;
-
-  // Screen was off: bridge the gap with a straight line if the speed is believable
-  if (dt > 25) {
-    const a = r.anchor || { x: r.kf.x, y: r.kf.y, t: r.kf.t };
-    const d = Math.hypot(zx - a.x, zy - a.y), sp = d / ((fix.t - a.t) / 1000);
-    next.kf = { x: zx, y: zy, P: R, t: fix.t };
-    next.anchor = { x: zx, y: zy, t: fix.t };
-    if (sp <= max) { next.dist = r.dist + d; next.gapM = r.gapM + d; }
-    next.pts = [...r.pts, [...toLL(zx, zy), fix.t, 1]];
-    next.last = { p: toLL(zx, zy), t: fix.t, acc: fix.acc };
-    return withSplits(r, next, fix.t);
-  }
-
-  // Predict, then reject teleports that don't match where we could possibly be
-  const Q = 2.5 * dt * (1 + dt);
-  const P = r.kf.P + Q;
-  const innov = Math.hypot(zx - r.kf.x, zy - r.kf.y);
-  if (innov > Math.max(45, 3 * Math.sqrt(P + R)) && innov / dt > max * 1.5) {
-    next.rejects = r.rejects + 1;
-    if (next.rejects >= 4) { next.kf = { x: zx, y: zy, P: R, t: fix.t }; next.anchor = { x: zx, y: zy, t: fix.t }; next.rejects = 0; next.pts = [...r.pts, [...toLL(zx, zy), fix.t, 2]]; }
-    return next;
-  }
-  next.rejects = 0;
-  const K = P / (P + R);
-  const kx = r.kf.x + K * (zx - r.kf.x), ky = r.kf.y + K * (zy - r.kf.y);
-  next.kf = { x: kx, y: ky, P: (1 - K) * P, t: fix.t };
-  next.last = { p: toLL(kx, ky), t: fix.t, acc: fix.acc };
-
-  const a = r.anchor || { x: kx, y: ky, t: fix.t };
-  const d = Math.hypot(kx - a.x, ky - a.y);
-  const need = Math.max(11, Math.min(25, fix.acc * 1.1));
-  if (d >= need) {
-    const sp = d / Math.max(1, (fix.t - a.t) / 1000);
-    if (sp <= max * 1.3) next.dist = r.dist + d;
-    next.anchor = { x: kx, y: ky, t: fix.t };
-    next.pts = [...r.pts, [...toLL(kx, ky), fix.t, 0]];
-  }
-  return withSplits(r, next, fix.t);
-}
-function withSplits(prev, next, t) {
-  const miles = Math.floor(next.dist / MI_M);
-  if (miles > prev.splits.length) {
-    const el = runElapsed(next, t);
-    const done = prev.splits.reduce((a, x) => a + x, 0);
-    const add = [];
-    for (let k = prev.splits.length; k < miles; k++) add.push(Math.round((el - done) / (miles - prev.splits.length)));
-    return { ...next, splits: [...prev.splits, ...add] };
-  }
-  return next;
-}
-function currentPace(r, now = Date.now()) {
-  const recent = r.pts.filter((x) => now - x[2] <= 40000 && x[3] !== 2);
-  if (recent.length < 2) return Infinity;
-  let d = 0; for (let i = 1; i < recent.length; i++) d += havM(recent[i - 1], recent[i]);
-  const dt = (recent[recent.length - 1][2] - recent[0][2]) / 1000;
-  return d > 15 ? dt / (d / MI_M) : Infinity;
 }
 
 /* ---------- Map (Leaflet, loaded only when needed) ---------- */
@@ -10133,12 +10042,12 @@ function RouteMap({ lines = [], follow = null, height = 240, fit = true, interac
 /* ---------- Live run tracker (full screen) ---------- */
 const LIVE_KEY = "ascend-live-run";
 const saveLive = (r) => { try { localStorage.setItem(LIVE_KEY, JSON.stringify(r)); } catch (e) { /* storage full */ } };
-const loadLive = () => { try { return JSON.parse(localStorage.getItem(LIVE_KEY) || "null"); } catch { return null; } };
+const loadLive = () => { try { const r = JSON.parse(localStorage.getItem(LIVE_KEY) || "null"); return r ? ensureSegments(r) : null; } catch { return null; } };
 const clearLive = () => { try { localStorage.removeItem(LIVE_KEY); } catch (e) { /* ignore */ } };
 
 function RunTracker({ s, setS, gainXp, initial, onClose }) {
-  const [run, setRun] = useState(initial);
-  const runRef = useRef(initial); runRef.current = run;
+  const [run, setRun] = useState(() => ensureSegments(initial));
+  const runRef = useRef(run); runRef.current = run;
   const [now, setNow] = useState(Date.now());
   const [gps, setGps] = useState({ status: "waiting", msg: "" });
   const [phase, setPhase] = useState(initial.resumed ? "resume" : "live"); // resume | live | summary
@@ -10146,9 +10055,20 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
   const [cues, setCues] = useState(s.settings?.runCues !== false);
   const watchRef = useRef(null), wakeRef = useRef(null), lastSave = useRef(0), cuedMiles = useRef(initial.splits?.length || 0), hiddenAt = useRef(null);
   const [gapNote, setGapNote] = useState("");
+  const [SimDock, setSimDock] = useState(null);
+  const simOn = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("simrun") === "1";
   const guide = useMemo(() => (initial.guide ? decodePoly(initial.guide.poly) : null), [initial.guide]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("simrun") !== "1") return;
+    let alive = true;
+    import("./devSimRun.jsx").then((m) => { if (alive) setSimDock(() => m.SimRunDock); });
+    return () => { alive = false; };
+  }, []);
+
   const startWatch = () => {
+    if (simOn) { setGps({ status: "ok", msg: "sim" }); return; }
     if (!navigator.geolocation) { setGps({ status: "error", msg: "This browser can't use GPS." }); return; }
     if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
     watchRef.current = navigator.geolocation.watchPosition(
@@ -10179,7 +10099,7 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
   // Crash-safe: keep the run on the phone every few seconds
   useEffect(() => { if (phase === "live" && Date.now() - lastSave.current > 4000) { lastSave.current = Date.now(); saveLive({ ...run, resumed: true }); } }, [run, phase]);
   // Tab title + mile cues
-  useEffect(() => { if (phase === "live") document.title = `🏃 ${(run.dist / MI_M).toFixed(2)} mi · ${fmtDur(runElapsed(run, now))}`; return () => { document.title = "Ascend"; }; }, [now, phase]);
+  useEffect(() => { if (phase === "live") document.title = `${run.mode === "walk" ? "🚶" : "🏃"} ${(run.dist / MI_M).toFixed(2)} mi · ${fmtDur(runElapsed(run, now))}`; return () => { document.title = "Ascend"; }; }, [now, phase, run.mode]);
   useEffect(() => {
     if (run.splits.length > cuedMiles.current) {
       cuedMiles.current = run.splits.length;
@@ -10190,28 +10110,47 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
 
   const el = runElapsed(run, now), miles = run.dist / MI_M;
   const avgPace = miles > 0.02 ? el / miles : Infinity, curPace = currentPace(run, now);
+  const curSeg = openSegment(run);
+  const segEl = curSeg ? segmentMovingSecs(curSeg, now, { pausedAt: run.pausedAt, isOpen: true }) : 0;
+  const segMiles = (curSeg?.dist || 0) / MI_M;
+  const segPace = segMiles > 0.02 ? segEl / segMiles : Infinity;
   const path = useMemo(() => run.pts.filter((x) => x[3] !== 2).map((x) => [x[0], x[1]]), [run.pts.length]);
   const me = run.last?.p || null;
   const liveLines = useMemo(() => [...(guide ? [{ pts: guide, color: C.mute, weight: 5, dash: "6 8", opacity: 0.8 }] : []), { pts: path, color: C.cyan }], [path, guide]);
+  const preview = buildSavedRun(run, now);
 
-  const pause = () => setRun((r) => (r.pausedAt ? { ...r, pausedTotal: r.pausedTotal + (Date.now() - r.pausedAt), pausedAt: null, last: null } : { ...r, pausedAt: Date.now() }));
-  const stop = () => { setRun((r) => (r.pausedAt ? { ...r, pausedTotal: r.pausedTotal + (Date.now() - r.pausedAt), pausedAt: null } : r)); setPhase("summary"); saveLive({ ...runRef.current, resumed: true, stopped: true }); };
+  const pause = () => setRun((r) => toggleRunPause(r));
+  const switchMode = (mode) => {
+    setRun((r) => {
+      if (r.mode === mode) return r;
+      const next = switchRunMode(r, mode);
+      SFX.tone(mode === "run" ? 880 : 520, 0.12);
+      if (cues) sterlingSay(s, mode === "walk" ? "Walking" : "Running");
+      return next;
+    });
+  };
+  const stop = () => {
+    setRun((r) => {
+      const n = r.pausedAt ? toggleRunPause(r) : r;
+      saveLive({ ...n, resumed: true, stopped: true });
+      return n;
+    });
+    setPhase("summary");
+  };
   const discard = () => ask("Discard this run? It won't be saved.", () => { clearLive(); onClose(); }, "Discard");
   const save = async () => {
-    const r = runRef.current, secs = runElapsed(r), mi = Math.round((r.dist / MI_M) * 100) / 100;
-    if (mi < 0.05) { ask("That run is under 0.05 miles. Discard it?", () => { clearLive(); onClose(); }, "Discard"); return; }
-    const exName = r.mode === "walk" ? "Walking" : "Running";
-    const exercises = [{ name: exName, sets: [{ w: mi, r: Math.round((secs / 60) * 10) / 10, done: true }] }];
-    const { xp } = workoutXp(s, exercises, null);
-    const runInfo = { id: r.id, mode: r.mode, miles: mi, secs: Math.round(secs), pace: Math.round(secs / Math.max(0.01, mi)), splits: r.splits, gapMi: Math.round((r.gapM / MI_M) * 100) / 100, guideName: r.guide?.name || null, hasMap: path.length > 1 };
-    const workout = { id: r.id, date: today(), title: r.mode === "walk" ? "Walk" : "Run", exercises, xp, volume: 0, minutes: Math.round(secs / 60), run: runInfo, startedAt: r.pts[0]?.[2] || Date.now() - secs * 1000 };
+    const r = runRef.current;
+    const built = buildSavedRun(r);
+    if (built.miles < 0.05) { ask("That run is under 0.05 miles. Discard it?", () => { clearLive(); onClose(); }, "Discard"); return; }
+    const { xp } = workoutXp(s, built.exercises, null);
+    const runInfo = { ...built.runInfo, hasMap: path.length > 1 };
+    const workout = { id: r.id, date: today(), title: built.title, exercises: built.exercises, xp, volume: 0, minutes: Math.round(built.secs / 60), run: runInfo, startedAt: r.pts[0]?.[2] || Date.now() - built.secs * 1000 };
     if (path.length > 1) { try { await window.storage.set(`run:${r.id}`, encodePoly(thinPts(path)), false); } catch (e) { /* map just won't show */ } }
     setS((p) => addWorkout(p, workout));
-    // Weather at the start point (for Stormborn). Fire and forget; the run is already saved.
     if (path[0]) fetchRunWeather(path[0][0], path[0][1]).then((wx) => { if (wx) setS((p) => ({ ...p, workouts: p.workouts.map((w) => (w.id === workout.id ? { ...w, run: { ...w.run, wx } } : w)) })); });
-    gainXp(xp, `${mi} mi ${r.mode === "walk" ? "walk" : "run"}`, `wo_${r.id}`);
-    juice(mi >= 3 ? "pr" : "finish");
-    postFeed(s, "run", `${r.mode === "walk" ? "walked" : "ran"} ${mi} mi · ${fmtPace(runInfo.pace)} /mi`, {}, `run_${r.id}`);
+    gainXp(xp, built.xpLabel, `wo_${r.id}`);
+    juice(built.miles >= 3 ? "pr" : "finish");
+    postFeed(s, "run", built.feed, {}, `run_${r.id}`);
     clearLive(); onClose(workout);
   };
 
@@ -10236,17 +10175,20 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
 
   if (phase === "summary") {
     const secs = runElapsed(run);
+    const sum = preview;
     return (
       <div style={shell} className="px-5">
         <div className="max-w-md mx-auto space-y-4 pt-2">
-          <div className="text-2xl font-bold">{run.mode === "walk" ? "Walk" : "Run"} complete</div>
+          <div className="text-2xl font-bold">{sum.title} complete</div>
           {path.length > 1 ? <RouteMap lines={[...(guide ? [{ pts: guide, color: C.mute, weight: 4, dash: "6 8", opacity: 0.7 }] : []), { pts: path, color: C.cyan, startDot: true }]} height={220} /> : <div className="panel p-4 body text-sm" style={{ color: C.dim }}>No GPS path was recorded.</div>}
           <div className="grid grid-cols-3 gap-2">
             {[["Distance", `${miles.toFixed(2)} mi`], ["Time", fmtDur(secs)], ["Avg pace", `${fmtPace(miles > 0 ? secs / miles : Infinity)}`]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums">{v}</div></div>)}
           </div>
+          {runBreakdown(sum.runInfo) ? <div className="panel p-3 body text-sm font-semibold">{runBreakdown(sum.runInfo)}</div> : null}
+          {sum.slowNote && <div className="body text-sm" style={{ color: C.orange }}>{sum.slowNote}</div>}
           {run.splits.length > 0 && <div className="panel p-4"><div className="font-semibold text-sm mb-2">Splits</div>{run.splits.map((sp, i) => <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Mile {i + 1}</span><span className="tabular-nums font-semibold">{fmtDur(sp)}</span></div>)}</div>}
           {run.gapM > 30 && <div className="body text-xs" style={{ color: C.orange }}>{(run.gapM / MI_M).toFixed(2)} mi was filled in while GPS was paused (screen off).</div>}
-          <button onClick={save} className="btn w-full py-4 text-lg">Save {run.mode === "walk" ? "walk" : "run"}</button>
+          <button onClick={save} className="btn w-full py-4 text-lg">Save {sum.title === "Run/Walk" ? "run/walk" : sum.title.toLowerCase()}</button>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setPhase("live")} className="ghost py-3 font-semibold">Keep going</button>
             <button onClick={discard} className="py-3 font-semibold" style={{ borderRadius: 12, color: "#FF4D6D", border: "1px solid rgba(255,77,109,.4)" }}>Discard</button>
@@ -10264,6 +10206,12 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
           <button onClick={() => setCues(!cues)} className="body text-xs flex items-center gap-1" style={{ color: cues ? C.cyan : C.mute }}>{cues ? <Volume2 size={14} /> : <VolumeX size={14} />}Mile cues</button>
         </div>
         {gps.status === "error" && <div className="body text-xs" style={{ color: C.red }}>{gps.msg}</div>}
+        <div className="grid grid-cols-2 gap-1 p-1" role="tablist" aria-label="Walking or running" style={{ borderRadius: 16, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+          {[["walk", "Walking"], ["run", "Running"]].map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={run.mode === id} onClick={() => switchMode(id)} className="text-base font-bold" style={{ minHeight: 48, borderRadius: 12, touchAction: "manipulation", background: run.mode === id ? (id === "run" ? C.green : C.cyan) : "transparent", color: run.mode === id ? "#021a0c" : C.text }}>{label}</button>
+          ))}
+        </div>
+        {SimDock && <SimDock onFix={(fix) => { setGps({ status: "ok", msg: "sim" }); setRun((r) => addFix(r, fix)); }} origin={me} />}
         <RouteMap lines={liveLines} follow={me} height={Math.min(300, typeof window !== "undefined" ? window.innerHeight * 0.34 : 260)} />
         <div className="text-center pt-1">
           <div className="text-7xl font-black tabular-nums tracking-tight">{miles.toFixed(2)}</div>
@@ -10272,9 +10220,13 @@ function RunTracker({ s, setS, gainXp, initial, onClose }) {
         <div className="grid grid-cols-3 gap-2">
           {[["Time", fmtDur(el)], ["Pace now", fmtPace(curPace)], ["Avg pace", fmtPace(avgPace)]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-xl font-bold tabular-nums">{v}</div></div>)}
         </div>
+        <div className="panel py-3 px-4 flex items-center justify-between gap-3">
+          <div className="body text-xs font-semibold" style={{ color: C.dim }}>{run.mode === "walk" ? "This walk" : "This run"}</div>
+          <div className="text-sm font-bold tabular-nums">{fmtDur(segEl)} · {fmtPace(segPace)} /mi</div>
+        </div>
         {run.pausedAt && <div className="text-center font-bold" style={{ color: C.orange }}>Paused</div>}
         {gapNote && <div className="body text-xs text-center" style={{ color: C.orange }}>{gapNote}</div>}
-        {wake === false && <div className="body text-xs text-center" style={{ color: C.dim }}>Keep Ascend open with the screen on. iPhone pauses GPS for websites when the screen locks.</div>}
+        {wake === false && !simOn && <div className="body text-xs text-center" style={{ color: C.dim }}>Keep Ascend open with the screen on. iPhone pauses GPS for websites when the screen locks.</div>}
         <div className="grid grid-cols-2 gap-3 pt-1">
           <button onClick={pause} className="py-4 text-lg font-bold flex items-center justify-center gap-2" style={{ borderRadius: 16, background: run.pausedAt ? C.green : C.glass, color: run.pausedAt ? "#02040B" : C.text, border: `1px solid ${C.glassLine}` }}>{run.pausedAt ? <><Play size={20} />Resume</> : <><Pause size={20} />Pause</>}</button>
           <button onClick={stop} className="py-4 text-lg font-bold flex items-center justify-center gap-2" style={{ borderRadius: 16, background: "#FF2D55", color: "#fff" }}><X size={20} />Finish</button>
@@ -10486,15 +10438,28 @@ function RunDetail({ s, setS, w, onClose }) {
   const [pts, setPts] = useState(null);
   useEffect(() => { if (!w.run?.hasMap) { setPts([]); return; } window.storage.get(`run:${w.run.id}`, false).then((r) => setPts(decodePoly(r?.value || ""))).catch(() => setPts([])); }, [w.id]);
   const r = w.run;
+  const title = runTitle(r);
+  const breakdown = r.segments?.length ? runBreakdown(r) : "";
   const saveAsRoute = () => { if (!pts?.length) return; setS((p) => ({ ...p, savedRoutes: [{ id: uid(), name: `${r.miles} mi from ${fmtDay(w.date)}`, miles: r.miles, ascentFt: null, poly: encodePoly(thinPts(pts, 15, 400)), streets: [], t: Date.now() }, ...(p.savedRoutes || [])].slice(0, 30) })); };
+  const segs = r.segments || [];
+  const segTotal = segs.reduce((a, x) => a + (x.secs || 0), 0) || 1;
   return (
-    <Sheet title={`${r.mode === "walk" ? "Walk" : "Run"} · ${fmtDay(w.date)}`} onClose={onClose}>
+    <Sheet title={`${title} · ${fmtDay(w.date)}`} onClose={onClose}>
       {pts === null ? <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading map…</div> : pts.length > 1 ? <RouteMap lines={[{ pts, color: C.cyan, startDot: true }]} height={220} /> : <div className="body text-sm" style={{ color: C.dim }}>No map for this one.</div>}
       <div className="grid grid-cols-3 gap-2">{[["Distance", `${r.miles} mi`], ["Time", fmtDur(r.secs)], ["Pace", `${fmtPace(r.pace)} /mi`]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold tabular-nums">{v}</div></div>)}</div>
+      {breakdown ? <div className="panel p-3 body text-sm font-semibold">{breakdown}</div> : null}
+      {segs.length > 1 && (
+        <div className="space-y-1.5">
+          <div className="flex h-3 overflow-hidden" style={{ borderRadius: 999, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+            {segs.map((x, i) => <div key={i} title={`${x.mode === "walk" ? "Walk" : "Run"} ${fmtDur(x.secs)}`} style={{ width: `${Math.max(2, (x.secs / segTotal) * 100)}%`, background: x.mode === "walk" ? C.cyan : C.green }} />)}
+          </div>
+          <div className="body text-xs flex justify-between" style={{ color: C.dim }}><span>Start</span><span>Finish</span></div>
+        </div>
+      )}
       {r.splits?.length > 0 && <div className="panel p-3">{r.splits.map((sp, i) => <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Mile {i + 1}</span><span className="tabular-nums font-semibold">{fmtDur(sp)}</span></div>)}</div>}
       <div className="grid grid-cols-2 gap-2">
         {pts?.length > 1 && <button onClick={saveAsRoute} className="ghost py-2.5 text-sm font-semibold" style={{ color: C.cyan }}>Save as route</button>}
-        <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: r.mode === "walk" ? "Walk" : "Run", headline: `${r.miles} miles`, sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["Time", fmtDur(r.secs)], ["Avg pace", `${fmtPace(r.pace)} /mi`], ["Fastest mile", r.splits?.length ? fmtDur(Math.min(...r.splits)) : "–"], ["XP", `+${w.xp || 0}`]] })} />
+        <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: title, headline: `${r.miles} miles`, sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["Time", fmtDur(r.secs)], ["Avg pace", `${fmtPace(r.pace)} /mi`], ["Fastest mile", r.splits?.length ? fmtDur(Math.min(...r.splits)) : "–"], ["XP", `+${w.xp || 0}`]] })} />
       </div>
       <div className="body text-xs" style={{ color: C.mute }}>Maps stay private to you. Share cards don't include your route.</div>
     </Sheet>
@@ -10536,8 +10501,8 @@ function RunHub({ s, setS, gainXp, onBack, startRun }) {
       {runs.length === 0 && <Empty>No runs yet. Tap Start run and your distance, pace, splits, and route map save here.</Empty>}
       <div className="space-y-2">{runs.map((w) => (
         <button key={w.id} onClick={() => setDetail(w)} className="panel p-3 w-full text-left flex items-center gap-3">
-          <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 40, height: 40, borderRadius: 12, background: `${C.green}22` }}>{w.run.mode === "walk" ? "🚶" : "🏃"}</div>
-          <div className="flex-1 min-w-0"><div className="font-semibold">{w.run.miles} mi <span className="body text-xs font-normal" style={{ color: C.dim }}>· {fmtDay(w.date)}</span></div><div className="body text-xs" style={{ color: C.dim }}>{fmtDur(w.run.secs)} · {fmtPace(w.run.pace)} /mi{w.run.guideName ? ` · ${w.run.guideName}` : ""}</div></div>
+          <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 40, height: 40, borderRadius: 12, background: `${C.green}22` }}>{runKind(w.run) === "runwalk" ? "🏃🚶" : w.run.mode === "walk" ? "🚶" : "🏃"}</div>
+          <div className="flex-1 min-w-0"><div className="font-semibold">{w.run.miles} mi{runKind(w.run) === "runwalk" ? " Run/Walk" : ""} <span className="body text-xs font-normal" style={{ color: C.dim }}>· {fmtDay(w.date)}</span></div><div className="body text-xs" style={{ color: C.dim }}>{fmtDur(w.run.secs)} · {fmtPace(w.run.pace)} /mi{w.run.guideName ? ` · ${w.run.guideName}` : ""}</div></div>
           <ChevronRight size={16} style={{ color: C.mute }} />
         </button>
       ))}</div>
@@ -11087,7 +11052,7 @@ function xpFromRecords(s) {
   const rows = [];
   const add = (e, a, m, d, find = false) => { a = Math.round(+a || 0); if (a && d) rows.push({ e, a, m, d, find }); };
   const t = today();
-  (s.workouts || []).forEach((w) => add(`wo_${w.id}`, w.xp, w.run ? `${w.run.miles} mi ${w.run.mode === "walk" ? "walk" : "run"}` : w.source === "deck" ? "Card deck" : `Workout${w.title ? `: ${w.title}` : ""}`, w.date));
+  (s.workouts || []).forEach((w) => add(`wo_${w.id}`, w.xp, w.run ? runXpLabel(w.run) : w.source === "deck" ? "Card deck" : `Workout${w.title ? `: ${w.title}` : ""}`, w.date));
   Object.entries(s.xpDone || {}).forEach(([e, v]) => {
     if (!v || !e.startsWith("raid_")) return;
     const parts = e.split("_");
