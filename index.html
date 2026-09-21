@@ -15,8 +15,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>Ascend</title>
   </head>
-  <body style="background:#000">
-    <div id="root"></div>
+  <body style="background:#000;margin:0">
+    <div id="root">
+      <div id="ascend-boot" role="status" style="min-height:100dvh;min-height:100vh;width:100%;box-sizing:border-box;background:#000;color:#A3B6CF;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));text-align:center;font-family:system-ui,-apple-system,sans-serif;gap:14px">
+        <img src="/logo.webp" alt="Ascend" width="90" height="86" style="width:90px;height:auto;opacity:0.85;filter:drop-shadow(0 6px 24px rgba(245,210,122,.35))" />
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
