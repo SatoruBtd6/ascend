@@ -346,6 +346,94 @@ export function workSets(sets) {
   return (sets || []).filter((st) => st && !st.warm);
 }
 
+// How much a session counts as "a workout". Tune every number here.
+// Quest and deck sessions stay at 0. Strength is piecewise on effective minutes.
+// Runs and walks use per-mode minutes and cap lower. Mixed sessions add both, then cap.
+export const WORKOUT_CREDIT = {
+  duelRule: 1,
+  strengthCap: 1.25,
+  setCapMinutes: 5,
+  noDurationPerSet: 3.5,
+  curve: [
+    { at: 0, credit: 0 },
+    { at: 20, credit: 0.7 },
+    { at: 60, credit: 1 },
+    { at: 120, credit: 1.25 },
+  ],
+  runDiv: 60,
+  walkDiv: 120,
+  cardioCap: 0.75,
+  mixedCap: 1.25,
+  runNames: ["Running"],
+  walkNames: ["Walking", "Incline Walk"],
+};
+
+export const round1 = (n) => Math.round((+n || 0) * 10) / 10;
+export const round2 = (n) => Math.round((+n || 0) * 100) / 100;
+
+const creditNameIs = (list, name) => list.includes(name);
+
+export function creditFromMinutes(min) {
+  const curve = WORKOUT_CREDIT.curve;
+  const x = Math.max(0, +min || 0);
+  const last = curve[curve.length - 1];
+  if (x >= last.at) return last.credit;
+  for (let i = 1; i < curve.length; i++) {
+    const a = curve[i - 1], b = curve[i];
+    if (x <= b.at) return a.credit + ((x - a.at) / (b.at - a.at)) * (b.credit - a.credit);
+  }
+  return last.credit;
+}
+
+export function cardioMinutesOf(w) {
+  if (!w || w.source === "quest" || w.source === "deck") return { run: 0, walk: 0 };
+  const segs = w.run?.segments;
+  if (Array.isArray(segs) && segs.length) {
+    let run = 0, walk = 0;
+    segs.forEach((seg) => {
+      const mins = (+seg.secs || 0) / 60;
+      if (seg.mode === "walk") walk += mins;
+      else run += mins;
+    });
+    return { run, walk };
+  }
+  let run = 0, walk = 0;
+  (w.exercises || []).forEach((ex) => {
+    const mins = workSets(ex.sets).reduce((a, st) => a + (+st.r || 0), 0);
+    if (creditNameIs(WORKOUT_CREDIT.runNames, ex.name)) run += mins;
+    else if (creditNameIs(WORKOUT_CREDIT.walkNames, ex.name)) walk += mins;
+  });
+  return { run, walk };
+}
+
+function creditDef(s, name, findEx) {
+  if (typeof findEx === "function") {
+    const def = findEx(s, name);
+    if (def) return def;
+  }
+  return { name, type: "weighted", group: "Other" };
+}
+
+export function workoutCredit(s, w, findEx) {
+  if (!w || w.source === "quest" || w.source === "deck") return 0;
+  const { run, walk } = cardioMinutesOf(w);
+  const cardio = Math.min(WORKOUT_CREDIT.cardioCap, run / WORKOUT_CREDIT.runDiv + walk / WORKOUT_CREDIT.walkDiv);
+  let sets = 0;
+  (w.exercises || []).forEach((ex) => {
+    if (creditNameIs(WORKOUT_CREDIT.runNames, ex.name) || creditNameIs(WORKOUT_CREDIT.walkNames, ex.name)) return;
+    if (creditDef(s, ex.name, findEx).type === "timed") return;
+    workSets(ex.sets).forEach((st) => { if (+st.r > 0) sets++; });
+  });
+  let strength = 0;
+  if (sets > 0) {
+    const hasDuration = w.minutes != null && w.minutes !== "" && Number.isFinite(+w.minutes);
+    const duration = hasDuration ? +w.minutes : sets * WORKOUT_CREDIT.noDurationPerSet;
+    const effective = Math.min(duration, sets * WORKOUT_CREDIT.setCapMinutes);
+    strength = Math.min(WORKOUT_CREDIT.strengthCap, creditFromMinutes(effective));
+  }
+  return Math.min(WORKOUT_CREDIT.mixedCap, strength + cardio);
+}
+
 // Your usual training hour, as a median of the hours you've started past workouts.
 // Falls back to 8pm until there's enough history to be meaningful.
 export function usualTrainHour(hours, { fallback = 20, min = 5 } = {}) {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { dkey, fmtDay, today } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
-import { isWorkout, mealTotals } from "../../lib/stats.js";
+import { fmtCredit, mealTotals, workoutCredit } from "../../lib/stats.js";
 import { targets } from "../../math.js";
 import { C } from "../../theme.js";
 import { Stat, Title } from "../../ui/primitives.jsx";
@@ -34,7 +34,7 @@ export function Calendar({ s, setS }) {
   const monthDays = cells.filter(Boolean).map((d) => ({ d, ...info(d) }));
   const logged = monthDays.filter((x) => x.meals.length);
   const sum = {
-    workouts: monthDays.reduce((a, x) => a + x.ws.filter(isWorkout).length, 0),
+    workouts: fmtCredit(monthDays.reduce((a, x) => a + x.ws.reduce((b, w) => b + workoutCredit(s, w), 0), 0)),
     quests: monthDays.reduce((a, x) => a + x.quests, 0),
     xp: monthDays.reduce((a, x) => a + x.xp, 0),
     volume: monthDays.reduce((a, x) => a + x.volume, 0),

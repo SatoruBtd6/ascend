@@ -9,6 +9,7 @@ import { nemesisWins } from "../profile/rivalryStats.js";
 import { fmtShort } from "../train/helpers.js";
 import { readShared } from "../train/social.js";
 import { DUEL_XP } from "../train/xpConstants.js";
+import { WORKOUT_CREDIT } from "../../math.js";
 import { DUEL_CONDS, NEMESIS_REWARDS, duelState, isMutualNemesis, rivalRecord } from "./duels.js";
 export function DuelButton({ s, targetId, targetName, targetUid, nemesis = false, onSent }) {
   const [forfeit, setForfeit] = useState("");
@@ -20,7 +21,7 @@ export function DuelButton({ s, targetId, targetName, targetUid, nemesis = false
     if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
     const id = uid();
     try {
-      await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromUid: window.ascendUserId || null, fromName: s.profile.name, to: targetId, toUid: targetUid || null, toName: targetName, cond, forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true);
+      await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromUid: window.ascendUserId || null, fromName: s.profile.name, to: targetId, toUid: targetUid || null, toName: targetName, cond, rule: WORKOUT_CREDIT.duelRule, forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true);
       setSent(true); onSent?.();
     } catch (e) { setErr("Couldn't send the duel. Check your connection."); }
   };
@@ -135,7 +136,7 @@ export function DuelsPanel({ s, setS, gainXp, rows, openProfile }) {
         const oc = cardOf(otherId), mc = cardOf(s.playerId);
         const saved = (s.duelResults || {})[d.id];
         const st = saved ? { ...duelState(d, s, oc), phase: "done", r: saved.r, mine: saved.mine, theirs: saved.theirs } : duelState(d, s, oc);
-        const c = DUEL_CONDS[st.cond], fmtV = (v) => (v === null || v === undefined ? "?" : Number(v).toLocaleString());
+        const c = DUEL_CONDS[st.cond], fmtV = (v) => (v == null ? "?" : st.cond === "workouts" && (d.rule || 0) >= 1 ? (Math.round(Number(v) * 10) / 10).toFixed(1) : Number(v).toLocaleString());
         const expired = d.status === "pending" && Date.now() - (d.t || 0) > 7 * 86400000;
         return (
           <div key={d.key} className="panel p-3 space-y-1.5" style={d.nemesis ? { borderColor: "rgba(255,45,111,.5)" } : null}>

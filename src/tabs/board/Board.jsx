@@ -73,7 +73,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
   const SORTS = {
     season: ["Season", "season XP", (r) => (r.season?.key === sk ? r.season.xp : 0)],
     points: ["Points", "pts", (r) => r.points || 0], xp: ["XP", "XP", (r) => r.xp || 0], month: ["Month", "XP this month", (r) => (r.month?.key === mk ? r.month.xp : 0)],
-    streak: ["Streak", "days", (r) => r.streak || 0], week: ["Week", "workouts", (r) => (r.weekOf === ws ? r.week : 0)],
+    streak: ["Streak", "days", (r) => r.streak || 0], week: ["Week", "workouts", (r) => (r.weekOf === ws ? r.week : 0), (r) => (Math.round(((r.weekOf === ws ? r.week : 0) || 0) * 10) / 10).toFixed(1)],
     muscle: ["Muscles", "", (r) => r.groups?.[muscle] || 0, (r) => { const sc = r.groups?.[muscle] || 0; return sc ? rankFromScore(sc).label : "–"; }],
   };
   const [, unit, val, fmt] = SORTS[sort];

@@ -3,7 +3,7 @@ import { Camera, ChevronLeft, Hand, Image as ImageIcon, Loader2, MessageCircle, 
 import { TIER_STYLE } from "../../data/achievements.js";
 import { RANKS } from "../../data/ranks.js";
 import { ask } from "../../lib/ask.js";
-import { allAchievements } from "../../lib/stats.js";
+import { allAchievements, fmtCredit } from "../../lib/stats.js";
 import { C } from "../../theme.js";
 import { Bar, Empty } from "../../ui/primitives.jsx";
 import { shrinkPhoto } from "../fuel/shrinkPhoto.js";
@@ -215,7 +215,7 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
 
           {st && (
             <div className="grid grid-cols-3 gap-2">
-              {[["Workouts", st.workouts], ["Lifted", `${st.volume >= 1000000 ? `${(st.volume / 1000000).toFixed(1)}M` : `${Math.round(st.volume / 1000)}k`} lb`], ["Reps", st.reps.toLocaleString()], ["Miles", st.miles], ["Longest streak", `${st.longestStreak}d`], ["Quests", st.quests], ["Bench", st.bench ? `${st.bench} lb` : "–"], ["Squat", st.squat ? `${st.squat} lb` : "–"], ["Deadlift", st.deadlift ? `${st.deadlift} lb` : "–"]].map(([l, v]) => (
+              {[["Workouts", fmtCredit(st.workouts)], ["Lifted", `${st.volume >= 1000000 ? `${(st.volume / 1000000).toFixed(1)}M` : `${Math.round(st.volume / 1000)}k`} lb`], ["Reps", st.reps.toLocaleString()], ["Miles", st.miles], ["Longest streak", `${st.longestStreak}d`], ["Quests", st.quests], ["Bench", st.bench ? `${st.bench} lb` : "–"], ["Squat", st.squat ? `${st.squat} lb` : "–"], ["Deadlift", st.deadlift ? `${st.deadlift} lb` : "–"]].map(([l, v]) => (
                 <div key={l} className="panel py-3 px-2 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold glowtext">{v}</div></div>
               ))}
             </div>

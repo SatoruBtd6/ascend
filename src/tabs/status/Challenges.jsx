@@ -1,16 +1,16 @@
 import { Check, Trophy } from "lucide-react";
 import { MONTHLY_POOL, MONTHLY_REPS, WEEKLY_POOL, WEEKLY_REPS } from "../../data/challenges.js";
 import { monthKey, shift, weekStart } from "../../lib/dates.js";
-import { pickChallenges, rangeStats } from "../../lib/stats.js";
+import { fmtCredit, pickChallenges, rangeStats } from "../../lib/stats.js";
 import { C } from "../../theme.js";
 import { Bar } from "../../ui/primitives.jsx";
 export function ChallengeCard({ c, value, claimed, onClaim, color }) {
   const done = value >= c.target;
-  const fmt = (v) => (c.unit === "lb" ? Math.round(v).toLocaleString() : c.unit === "mi" ? Math.round(v * 10) / 10 : Math.round(v));
+  const fmt = (v) => (c.unit === "workouts" ? fmtCredit(v) : c.unit === "lb" ? Math.round(v).toLocaleString() : c.unit === "mi" ? Math.round(v * 10) / 10 : Math.round(v));
   return (
     <div className="panel p-4" style={claimed ? { borderColor: "rgba(79,209,139,.55)" } : null}>
       <div className="flex justify-between items-start gap-2">
-        <div className="flex gap-3 items-center"><Trophy style={{ color }} /><div><div className="font-bold">{c.title}</div><div className="body text-sm" style={{ color: C.dim }}>{fmt(Math.min(value, c.target))} / {fmt(c.target)} {c.unit}</div></div></div>
+        <div className="flex gap-3 items-center"><Trophy style={{ color }} /><div><div className="font-bold">{c.title}</div><div className="body text-sm" style={{ color: C.dim }}>{fmt(Math.min(value, c.target))} / {c.unit === "workouts" ? c.target : fmt(c.target)} {c.unit}</div></div></div>
         <span className="text-sm font-bold whitespace-nowrap" style={{ color: C.gold }}>+{c.xp.toLocaleString()} XP</span>
       </div>
       <div className="my-3"><Bar pct={(value / c.target) * 100} color={claimed ? C.green : color} /></div>
@@ -30,6 +30,12 @@ export function Challenges({ s, setS, gainXp }) {
   const monthName = new Date(mStart + "T12:00").toLocaleDateString(undefined, { month: "long" });
   return (
     <>
+      {!s.settings?.creditSeen && (
+        <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
+          <div className="body text-sm">Longer sessions count for a bit more. Runs and walks count as part of a workout based on how long they last.</div>
+          <button type="button" onClick={() => setS((p) => ({ ...p, settings: { ...p.settings, creditSeen: true } }))} className="btn w-full py-2 text-sm">Got it</button>
+        </div>
+      )}
       <h2 className="text-lg font-bold pt-2">Weekly challenges <span className="body text-sm font-normal" style={{ color: C.dim }}>resets Sunday</span></h2>
       {weekly.map((c) => <ChallengeCard key={c.id} c={c} value={c.get(wst)} claimed={!!wClaimed[c.id]} onClaim={() => claimW(c)} color={C.orange} />)}
       <h2 className="text-lg font-bold pt-2">{monthName} challenges <span className="body text-sm font-normal" style={{ color: C.dim }}>big XP</span></h2>

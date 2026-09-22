@@ -1,5 +1,6 @@
 import { shift, today } from "../../lib/dates.js";
-import { isWorkout } from "../../lib/stats.js";
+import { isWorkout, workoutCredit } from "../../lib/stats.js";
+import { WORKOUT_CREDIT, round2 } from "../../math.js";
 import { nemesisWins } from "../profile/rivalryStats.js";
 import { postFeed, readShared } from "../train/social.js";
 export const DUEL_DAYS = 7;
@@ -12,14 +13,25 @@ export const duelCond = (d) => (DUEL_CONDS[d?.cond] ? d.cond : "xp");
 // Legacy duels ran the calendar week they were sent in; new ones run 7 days from the day they're accepted
 export const duelWindow = (d) => { const start = d?.start || d?.ws; return start ? { start, end: shift(start, DUEL_DAYS - 1) } : null; };
 // Last 21 days of [xp, steps, workouts] for the board card. Zeros included, so others can tell the card is current.
-export function selfScore(s, cond, start, end) {
+export const duelCreditRule = (d) => (d?.rule || 0) >= WORKOUT_CREDIT.duelRule;
+export function selfScore(s, cond, start, end, duel) {
   if (cond === "steps") return Object.entries(s.steps || {}).filter(([d]) => d >= start && d <= end).reduce((a, [, v]) => a + Math.round(+v || 0), 0);
-  if (cond === "workouts") return (s.workouts || []).filter((w) => w.date >= start && w.date <= end && isWorkout(w)).length;
+  if (cond === "workouts") {
+    const list = (s.workouts || []).filter((w) => w.date >= start && w.date <= end);
+    if (duelCreditRule(duel)) return round2(list.reduce((a, w) => a + workoutCredit(s, w), 0));
+    return list.filter(isWorkout).length;
+  }
   return Object.entries(s.xpLog || {}).filter(([d]) => d >= start && d <= end).reduce((a, [, v]) => a + v, 0);
 }
 // Opponent's score from their board card: { v, final } or null if their card can't tell yet
-export function cardScore(card, cond, start, end) {
+export function cardScore(card, cond, start, end, duel) {
   if (!card) return null;
+  if (card.daily && cond === "workouts" && duelCreditRule(duel)) {
+    const days = Object.entries(card.daily).filter(([d]) => d >= start && d <= end);
+    if (days.some(([, arr]) => !arr || arr.length < 4)) return null;
+    const v = days.reduce((a, [, arr]) => a + (+arr[3] || 0), 0);
+    return { v: round2(v), final: Object.keys(card.daily).some((d) => d > end) };
+  }
   if (card.daily) {
     const idx = DUEL_CONDS[cond].idx;
     const v = Object.entries(card.daily).filter(([d]) => d >= start && d <= end).reduce((a, [, arr]) => a + (+arr?.[idx] || 0), 0);
@@ -34,8 +46,8 @@ export function cardScore(card, cond, start, end) {
 export function duelState(d, s, otherCard) {
   const w = duelWindow(d), cond = duelCond(d), t = today();
   if (!w || d.status !== "on") return { w, cond, phase: d.status === "pending" ? "pending" : "unknown" };
-  const mine = selfScore(s, cond, w.start, w.end);
-  const th = cardScore(otherCard, cond, w.start, w.end);
+  const mine = selfScore(s, cond, w.start, w.end, d);
+  const th = cardScore(otherCard, cond, w.start, w.end, d);
   const over = t > w.end;
   const day = Math.min(DUEL_DAYS, Math.max(1, Math.round((new Date(`${t}T12:00`) - new Date(`${w.start}T12:00`)) / 86400000) + 1));
   if (!over) return { w, cond, phase: "live", mine, theirs: th?.v ?? null, day };

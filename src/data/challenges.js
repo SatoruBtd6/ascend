@@ -1,5 +1,6 @@
 export const WEEKLY_POOL = [
-  { id: "w-train4", title: "Train 4 times this week", target: 4, unit: "workouts", xp: 300, get: (st) => st.workouts, fixed: true },
+  { id: "w-train4", title: "Earn 4 workouts of credit this week", target: 4, unit: "workouts", xp: 300, get: (st) => st.workouts, fixed: true },
+  { id: "w-cardio90", title: "90 minutes of cardio this week", target: 90, unit: "min", xp: 300, get: (st) => st.cardioMin, fixed: true },
   { id: "w-vol", title: "Move 25,000 lb this week", target: 25000, unit: "lb", xp: 350, get: (st) => st.volume },
   { id: "w-quests", title: "Clear 12 daily quests", target: 12, unit: "quests", xp: 300, get: (st) => st.quests },
   { id: "w-fuel", title: "Hit your fuel goal 4 days", target: 4, unit: "days", xp: 350, get: (st) => st.fuel },
@@ -9,7 +10,7 @@ export const WEEKLY_POOL = [
   { id: "w-streak", title: "Train 3 days in a row", target: 3, unit: "days", xp: 300, get: (st) => st.streak },
 ];
 export const MONTHLY_POOL = [
-  { id: "m-train16", title: "16 workouts this month", target: 16, unit: "workouts", xp: 1500, get: (st) => st.workouts, fixed: true },
+  { id: "m-train16", title: "Earn 16 workouts of credit this month", target: 16, unit: "workouts", xp: 1500, get: (st) => st.workouts, fixed: true },
   { id: "m-vol", title: "Move 150,000 lb this month", target: 150000, unit: "lb", xp: 2000, get: (st) => st.volume },
   { id: "m-quests", title: "Clear 50 daily quests", target: 50, unit: "quests", xp: 1500, get: (st) => st.quests },
   { id: "m-fuel", title: "Hit your fuel goal 15 days", target: 15, unit: "days", xp: 2000, get: (st) => st.fuel },

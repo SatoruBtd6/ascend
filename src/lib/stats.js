@@ -1,4 +1,4 @@
-import { workSets, thresholds, inGymBucket, isLegacyAssisted, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, levelFromXp, effW } from "../math.js";
+import { workSets, thresholds, inGymBucket, isLegacyAssisted, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, levelFromXp, effW, workoutCredit as creditOf, cardioMinutesOf, round1, round2 } from "../math.js";
 import { QUEST_POOL, QUEST_EX } from "../data/quests.js";
 import { TIER_STYLE, ACH_SERIES, ROMAN } from "../data/achievements.js";
 import { RANKS, DIVS, GROUP_WEIGHT } from "../data/ranks.js";
@@ -110,8 +110,11 @@ export const overallRank = (s) => overallInfo(s).rank;
 // Leaderboard points: workout XP + lift ranks + hustle XP, then vault aura, then crate spends.
 // A "workout" is a real session. Card-deck flips and quest top-ups still give XP and reps, but don't count as one.
 export const isWorkout = (w) => w.source !== "quest" && w.source !== "deck";
+export const workoutCredit = (s, w) => creditOf(s, w, findEx);
+export const fmtCredit = (n) => round1(n).toFixed(1);
 export function activeDays(s) {
-  const days = new Set(s.workouts.filter((w) => w.source !== "deck").map((w) => w.date));
+  const days = new Set();
+  (s.workouts || []).forEach((w) => { if (workoutCredit(s, w) > 0) days.add(w.date); });
   Object.entries(s.days || {}).forEach(([d, v]) => v.list?.some((q) => q.claimed) && days.add(d));
   return days;
 }
@@ -219,7 +222,7 @@ export function lifetimeStats(s) {
   }));
   const bests = computeBests(s);
   s.workouts.forEach((w) => {
-    if (isWorkout(w)) workouts++;
+    workouts += workoutCredit(s, w);
     w.exercises.forEach((ex) => {
       const def = findEx(s, ex.name);
       workSets(ex.sets).forEach((st) => {
@@ -241,7 +244,7 @@ export function lifetimeStats(s) {
   const overall = overallInfo(s).score;
   const rankTier = overall >= 5 ? 5 : maxScore >= 5 ? 4 : maxScore >= 4 ? 3 : maxScore >= 3 ? 2 : maxScore >= 2 ? 1 : 0;
   return {
-    yogurt: Math.round(yogurt * 10) / 10, steps: Object.values(s.steps || {}).reduce((a, n) => a + (+n || 0), 0), miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts, pushups, pullups, quests, longestStreak: longest,
+    yogurt: Math.round(yogurt * 10) / 10, steps: Object.values(s.steps || {}).reduce((a, n) => a + (+n || 0), 0), miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts: round2(workouts), pushups, pullups, quests, longestStreak: longest,
     bench: Math.round(bests["Bench Press"] || 0), squat: Math.round(bests["Squat"] || 0), deadlift: Math.round(bests["Deadlift"] || 0),
     rankTier, level: levelFromXp(s.xp).lvl, since: s.workouts[0]?.date || null,
   };
@@ -250,7 +253,7 @@ export function lifetimeStats(s) {
 export function reconcileAchievements(s, rankOnly = false) {
   const earned = new Set(earnedAchievements(s).map((a) => a.id));
   const all = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
-  const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && (!rankOnly || id.startsWith("rank-")));
+  const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && !id.startsWith("workouts-") && (!rankOnly || id.startsWith("rank-")));
   if (!lost.length) return { ...s, achV: 3 };
   const refund = lost.reduce((a, id) => a + (all[id]?.xp || 0), 0);
   const ach = { ...s.ach }; lost.forEach((id) => delete ach[id]);
@@ -267,16 +270,24 @@ export const rangeStats = (s, from, to = "9999") => {
   let reps = 0;
   inRange.forEach((w) => w.exercises.forEach((ex) => { if (findEx(s, ex.name).type !== "timed") workSets(ex.sets).forEach((st) => { reps += Math.max(0, Math.round(+st.r || 0)); }); }));
   const groups = new Set();
-  let volume = 0, prs = 0, miles = 0;
-  ws.forEach((w) => { volume += w.volume || 0; prs += Math.round((w.prBonus || 0) / 40); w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") { if (workSets(ex.sets).length) groups.add(d.group); } else if (d.group === "Cardio") workSets(ex.sets).forEach((st) => { miles += +st.w || 0; }); }); });
+  let volume = 0, prs = 0, miles = 0, credit = 0, cardioMin = 0;
+  const creditDays = new Set();
+  ws.forEach((w) => {
+    volume += w.volume || 0; prs += Math.round((w.prBonus || 0) / 40);
+    const creditNow = workoutCredit(s, w);
+    credit += creditNow;
+    if (creditNow > 0) creditDays.add(w.date);
+    const cm = cardioMinutesOf(w);
+    cardioMin += cm.run + cm.walk;
+    w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") { if (workSets(ex.sets).length) groups.add(d.group); } else if (d.group === "Cardio") workSets(ex.sets).forEach((st) => { miles += +st.w || 0; }); });
+  });
   const quests = Object.entries(s.days || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, day]) => a + (day.list || []).filter((q) => q.claimed).length, 0);
   const fuel = Object.keys(s.fuelClaimed || {}).filter((d) => d >= from && d <= to).length;
   const xp = Object.entries(s.xpLog || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, v]) => a + v, 0);
   const weights = Object.keys(s.weightLog || {}).filter((d) => d >= from && d <= to).length;
-  const days = new Set(ws.map((w) => w.date));
   let best = 0, run = 0, prev = null;
-  [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; });
-  return { workouts: ws.length, volume, prs, miles, quests, fuel, xp, groups: groups.size, weights, streak: best, reps };
+  [...creditDays].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; });
+  return { workouts: round1(credit), cardioMin: round1(cardioMin), volume, prs, miles, quests, fuel, xp, groups: groups.size, weights, streak: best, reps };
 };
 export function pickChallenges(pool, seedStr, n) {
   let seed = [...seedStr].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) >>> 0;

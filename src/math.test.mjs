@@ -1166,4 +1166,133 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
   assert.equal(plan.firstRun, false);
 });
 
+import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
+import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements } from "./lib/stats.js";
+import { cardScore, selfScore } from "./tabs/board/duels.js";
+import { WEEKLY_POOL } from "./data/challenges.js";
+
+const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-9, `${label || ""} ${a} vs ${b}`);
+function creditFind(s, name) {
+  if (name === "Running" || name === "Walking" || name === "Incline Walk") return { name, type: "timed", group: "Cardio" };
+  if (name === "Plank") return { name, type: "timed", group: "Core" };
+  return testFindEx(s, name);
+}
+function strengthSession(minutes, sets, extra = {}) {
+  return {
+    minutes,
+    exercises: [{ name: "Bench Press", sets: Array.from({ length: sets }, () => ({ w: 135, r: 5, done: true, ...extra })) }],
+  };
+}
+
+test("workout credit follows the strength, cardio, mixed, and zero table", () => {
+  near(workoutCredit(null, strengthSession(30, 8), creditFind), 0.775, "30 min");
+  near(workoutCredit(null, strengthSession(45, 10), creditFind), 0.8875, "45 min");
+  near(workoutCredit(null, strengthSession(60, 12), creditFind), 1, "60 min");
+  near(workoutCredit(null, strengthSession(90, 20), creditFind), 1.125, "90 min");
+  near(workoutCredit(null, strengthSession(120, 24), creditFind), 1.25, "2 h");
+  near(workoutCredit(null, strengthSession(180, 24), creditFind), 1.25, "cap");
+  near(workoutCredit(null, strengthSession(180, 1), creditFind), 0.175, "set cap");
+  const imported = { exercises: [{ name: "Bench Press", sets: [{ w: 95, r: 5, done: true }, { w: 95, r: 5, done: true }] }] };
+  near(workoutCredit(null, imported, creditFind), 0.245, "no duration");
+  const warm = strengthSession(60, 1, { warm: true });
+  assert.equal(workoutCredit(null, warm, creditFind), 0);
+  near(workoutCredit(null, { run: { segments: [{ mode: "run", secs: 1800 }] } }, creditFind), 0.5, "30 min run");
+  near(workoutCredit(null, { run: { segments: [{ mode: "run", secs: 2700 }] } }, creditFind), 0.75, "45 min run");
+  near(workoutCredit(null, { run: { segments: [{ mode: "run", secs: 3600 }] } }, creditFind), 0.75, "60 min run cap");
+  near(workoutCredit(null, { exercises: [{ name: "Walking", sets: [{ w: 3, r: 60, done: true }] }] }, creditFind), 0.5, "60 min walk");
+  near(workoutCredit(null, { exercises: [{ name: "Incline Walk", sets: [{ w: 1, r: 20, done: true }] }] }, creditFind), 20 / 120, "20 min walk");
+  const mixed = {
+    minutes: 60,
+    run: { segments: [{ mode: "run", secs: 1800 }] },
+    exercises: [
+      { name: "Bench Press", sets: Array.from({ length: 12 }, () => ({ w: 135, r: 5, done: true })) },
+      { name: "Running", sets: [{ w: 3, r: 30, done: true }] },
+    ],
+  };
+  near(workoutCredit(null, mixed, creditFind), 1.25, "mixed cap");
+  assert.equal(workoutCredit(null, { ...strengthSession(60, 12), source: "quest" }, creditFind), 0);
+  assert.equal(workoutCredit(null, { ...strengthSession(60, 12), source: "deck" }, creditFind), 0);
+  assert.equal(workoutCredit(null, { minutes: 20, exercises: [{ name: "Plank", sets: [{ w: "", r: 20, done: true }] }] }, creditFind), 0);
+  assert.equal(WORKOUT_CREDIT.duelRule, 1);
+});
+
+test("a 5-minute walk keeps a streak day and quest or deck sessions do not", () => {
+  const walkDay = "2026-09-20";
+  const questDay = "2026-09-21";
+  const s = {
+    profile: { weight: 170 },
+    meals: {},
+    steps: {},
+    xp: 0,
+    days: { "2026-09-18": { list: [{ claimed: true }] } },
+    workouts: [
+      { date: walkDay, exercises: [{ name: "Walking", sets: [{ w: 0.3, r: 5, done: true }] }] },
+      { date: questDay, source: "quest", minutes: 30, exercises: [{ name: "Running", sets: [{ w: 2, r: 30, done: true }] }] },
+      { date: "2026-09-19", source: "deck", exercises: [{ name: "Push-up", sets: [{ w: "", r: 10, done: true }] }] },
+    ],
+  };
+  const days = activeDays(s);
+  assert.equal(days.has(walkDay), true);
+  assert.equal(days.has(questDay), false);
+  assert.equal(days.has("2026-09-19"), false);
+  assert.equal(days.has("2026-09-18"), true);
+});
+
+test("Show Up uses floored credit and never revokes an earned tier", () => {
+  const one = (date) => ({ date, minutes: 60, exercises: [{ name: "Bench Press", sets: Array.from({ length: 12 }, () => ({ w: 135, r: 5, done: true })) }] });
+  const base = { profile: { weight: 170, sex: "m" }, meals: {}, days: {}, steps: {}, xp: 0 };
+  const ten = { ...base, workouts: Array.from({ length: 10 }, (_, i) => one(`2026-01-${String(i + 1).padStart(2, "0")}`)) };
+  const earned = earnedAchievements(ten).map((a) => a.id);
+  assert.equal(earned.includes("workouts-0"), true);
+  assert.equal(earned.includes("workouts-1"), false);
+  assert.equal(lifetimeStats(ten).workouts, 10);
+  const short = { ...base, workouts: [one("2026-02-01")], ach: { "workouts-0": "2026-01-01", "workouts-1": "2026-01-02", "miles-4": "2026-01-03" } };
+  const next = reconcileAchievements(short);
+  assert.equal(next.ach["workouts-0"], "2026-01-01");
+  assert.equal(next.ach["workouts-1"], "2026-01-02");
+  assert.equal(next.ach["miles-4"], undefined);
+});
+
+test("workout duels created under 7d sum credit and older ones still count sessions", () => {
+  const s = {
+    profile: { weight: 170 },
+    workouts: [
+      { date: "2026-09-01", minutes: 60, exercises: [{ name: "Bench Press", sets: Array.from({ length: 12 }, () => ({ w: 135, r: 5, done: true })) }] },
+      { date: "2026-09-02", exercises: [{ name: "Walking", sets: [{ w: 2, r: 60, done: true }] }] },
+      { date: "2026-09-03", source: "deck", exercises: [{ name: "Push-up", sets: [{ r: 10, done: true }] }] },
+    ],
+  };
+  assert.equal(selfScore(s, "workouts", "2026-09-01", "2026-09-07"), 2);
+  near(selfScore(s, "workouts", "2026-09-01", "2026-09-07", { rule: WORKOUT_CREDIT.duelRule }), 1.5, "duel credit");
+  const legacy = { daily: { "2026-09-01": [0, 0, 1], "2026-09-08": [0, 0, 0] } };
+  assert.equal(cardScore(legacy, "workouts", "2026-09-01", "2026-09-07").v, 1);
+  assert.equal(cardScore(legacy, "workouts", "2026-09-01", "2026-09-07", { rule: 1 }), null);
+  const next = { daily: { "2026-09-01": [0, 0, 1, 0.5], "2026-09-02": [0, 0, 1, 1], "2026-09-08": [0, 0, 0, 0] } };
+  assert.equal(cardScore(next, "workouts", "2026-09-01", "2026-09-07", { rule: 1 }).v, 1.5);
+});
+
+test("miles and volume stay on the session list while workout progress is credit", () => {
+  const claimed = { "2026-09-01": { "w-train4": true } };
+  const s = {
+    profile: { weight: 170 },
+    days: {},
+    xpLog: {},
+    fuelClaimed: {},
+    weightLog: {},
+    weekly: claimed,
+    workouts: [
+      { date: "2026-09-01", minutes: 30, volume: 0, run: { segments: [{ mode: "run", secs: 1800, miles: 3 }] }, exercises: [{ name: "Running", sets: [{ w: 3, r: 30, done: true }] }] },
+      { date: "2026-09-02", minutes: 60, volume: 5000, exercises: [{ name: "Bench Press", sets: Array.from({ length: 12 }, () => ({ w: 100, r: 10, done: true })) }] },
+    ],
+  };
+  const st = rangeStats(s, "2026-09-01", "2026-09-07");
+  assert.equal(st.miles, 3);
+  assert.equal(st.volume, 5000);
+  assert.equal(st.workouts, 1.5);
+  assert.equal(st.cardioMin, 30);
+  assert.equal(s.weekly["2026-09-01"]["w-train4"], true);
+  assert.equal(WEEKLY_POOL.find((c) => c.id === "w-cardio90").xp, 300);
+  assert.equal(WEEKLY_POOL.filter((c) => c.fixed).length, 2);
+});
+
 

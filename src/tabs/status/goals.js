@@ -5,7 +5,7 @@ import { pickNextGoal } from "../../math.js";
 /* ---------- Status ---------- */
 // One line on Status: the single goal you're closest to finishing, across quests, challenges, and lift ranks
 export const goalLeft = (n, unit) => {
-  const v = unit === "mi" ? Math.round(n * 10) / 10 : Math.ceil(n);
+  const v = unit === "mi" || unit === "workouts" ? Math.round(n * 10) / 10 : Math.ceil(n);
   return `${v.toLocaleString()} ${unit}`;
 };
 export function nextGoalFor(s) {
