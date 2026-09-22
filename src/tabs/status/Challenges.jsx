@@ -10,7 +10,7 @@ export function ChallengeCard({ c, value, claimed, onClaim, color }) {
   return (
     <div className="panel p-4" style={claimed ? { borderColor: "rgba(79,209,139,.55)" } : null}>
       <div className="flex justify-between items-start gap-2">
-        <div className="flex gap-3 items-center"><Trophy style={{ color }} /><div><div className="font-bold">{c.title}</div><div className="body text-sm" style={{ color: C.dim }}>{fmt(Math.min(value, c.target))} / {c.unit === "workouts" ? c.target : fmt(c.target)} {c.unit}</div></div></div>
+        <div className="flex gap-3 items-center"><Trophy style={{ color }} /><div><div className="font-bold">{c.title}</div><div className="body text-sm" style={{ color: C.dim }}>{fmt(value)} / {c.unit === "workouts" ? c.target : fmt(c.target)} {c.unit}</div></div></div>
         <span className="text-sm font-bold whitespace-nowrap" style={{ color: C.gold }}>+{c.xp.toLocaleString()} XP</span>
       </div>
       <div className="my-3"><Bar pct={(value / c.target) * 100} color={claimed ? C.green : color} /></div>

@@ -41,6 +41,7 @@ test("crewQuestProgress pools the week and scales targets by member count", () =
   ];
   const { quests, members, done } = crewQuestProgress(cards, "2026-09-13", 2);
   assert.equal(members, 2);
+  assert.equal(quests[0].title, "workout credit");
   assert.deepEqual(quests.map((q) => [q.value, q.target, q.done]), [[9, 8, true], [16.5, 16, true], [8, 8, true]]);
   assert.equal(done, true);
 });

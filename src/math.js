@@ -325,7 +325,7 @@ export function resolveWorldFirst(claims) {
 // Crew weekly quests. Targets scale with the crew, progress is pooled from members' cards.
 // Nothing here touches boss HP or boss damage.
 export const CREW_QUESTS = [
-  { id: "sessions", title: "workouts", per: 4, unit: "workouts", get: (wk) => wk.workouts },
+  { id: "sessions", title: "workout credit", per: 4, unit: "workouts", get: (wk) => wk.workouts },
   { id: "miles", title: "cardio miles", per: 8, unit: "mi", get: (wk) => wk.miles },
   { id: "fuel", title: "fuel goal days", per: 4, unit: "days", get: (wk) => wk.fuel },
 ];
