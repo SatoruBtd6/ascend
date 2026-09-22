@@ -47,15 +47,15 @@ const failures = [];
 const fail = (msg, extra) => { failures.push({ msg, extra }); log("FAIL", msg, extra || ""); };
 
 async function login(page) {
-  await page.waitForTimeout(800);
-  if (await page.getByPlaceholder("Email").count()) {
-    await page.getByPlaceholder("Email").fill(EMAIL);
+  const email = page.getByPlaceholder("Email");
+  const train = page.getByRole("button", { name: "Train", exact: true });
+  await email.or(train).first().waitFor({ timeout: 40000 });
+  if (await email.count()) {
+    await email.fill(EMAIL);
     await page.getByPlaceholder("Password").fill(PASS);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.getByRole("button", { name: "Train", exact: true }).waitFor({ timeout: 40000 });
-  } else {
-    await page.getByRole("button", { name: "Train", exact: true }).waitFor({ timeout: 40000 });
   }
+  await train.waitFor({ timeout: 40000 });
 }
 
 async function dismiss(page) {
@@ -144,30 +144,36 @@ async function startBlank(page) {
   await navClick(page, "Train");
   if (await page.getByRole("button", { name: /Add exercise/ }).count()) return;
   const start = page.getByRole("button", { name: "Start workout" });
-  await start.waitFor({ timeout: 10000 });
-  await start.click();
-  await page.getByRole("button", { name: /Skip, no title/i }).click();
-  await page.getByRole("button", { name: /Add exercise/ }).waitFor({ timeout: 8000 });
+  await start.waitFor({ timeout: 15000 });
+  await start.click({ force: true });
+  const skip = page.getByRole("button", { name: /Skip, no title/i });
+  await skip.waitFor({ timeout: 15000 });
+  await skip.click({ force: true });
+  await page.getByRole("button", { name: /Add exercise/ }).waitFor({ timeout: 15000 });
 }
 
 async function discard(page) {
   await dismiss(page);
+  await navClick(page, "Train");
   const d = page.getByRole("button", { name: /Discard workout|Cancel editing/ });
   if (await d.count()) {
-    await d.first().click();
+    await d.first().click({ force: true });
     await sleep(250);
     const yes = page.getByRole("dialog").getByRole("button", { name: "Discard" });
-    if (await yes.count()) await yes.click();
+    if (await yes.count()) await yes.click({ force: true });
   }
   await sleep(250);
 }
 
 async function addEx(page, name) {
-  await page.getByRole("button", { name: /Add exercise/ }).click();
-  await page.getByPlaceholder(/Search/).fill(name);
+  await page.getByRole("button", { name: /Add exercise/ }).click({ force: true });
+  const search = page.getByPlaceholder(/Search/);
+  await search.waitFor({ timeout: 10000 });
+  await search.fill(name);
   await sleep(300);
-  await page.getByText(name, { exact: true }).first().click();
-  await sleep(350);
+  await page.getByText(name, { exact: true }).first().click({ force: true });
+  await search.waitFor({ state: "hidden", timeout: 15000 });
+  await page.getByRole("button", { name: /Add exercise/ }).waitFor({ timeout: 15000 });
 }
 
 function isDoneColor(bg) {
@@ -176,30 +182,44 @@ function isDoneColor(bg) {
 
 async function setupFourByFour(page) {
   await discard(page);
+  if (await page.getByRole("button", { name: /Add exercise/ }).count() && !(await page.getByRole("button", { name: "Start workout" }).count())) {
+    if (!(await page.getByRole("button", { name: /Discard workout/ }).count())) {
+      await addEx(page, "Bench Press");
+    }
+    await discard(page);
+  }
   await startBlank(page);
   const names = ["Face Pull", "Hip Thrust", "Leg Extension", "Calf Raise"];
-  const checks = page.locator("[data-diag-check]");
   let prev = 0;
   for (const name of names) {
     await addEx(page, name);
     for (let guard = 0; guard < 80; guard++) {
-      const total = await checks.count();
-      const have = total - prev;
+      const have = await page.evaluate((prevN) => document.querySelectorAll("[data-diag-check]").length - prevN, prev);
       if (have === 4) break;
-      if (have > 4) {
-        await page.getByRole("button", { name: "Delete set" }).last().click({ force: true });
-      } else {
-        await page.getByRole("button", { name: "Add set", exact: true }).last().click({ force: true });
-      }
+      const ok = await page.evaluate(({ prevN, wantMore }) => {
+        const checks = document.querySelectorAll("[data-diag-check]").length;
+        const haveNow = checks - prevN;
+        if (haveNow === 4) return true;
+        const btns = [...document.querySelectorAll("button")];
+        const add = btns.filter((b) => (b.textContent || "").trim() === "Add set");
+        const del = btns.filter((b) => (b.getAttribute("aria-label") || "") === "Delete set");
+        const target = wantMore ? add[add.length - 1] : del[del.length - 1];
+        if (!target) return false;
+        target.scrollIntoView({ block: "center", inline: "nearest" });
+        target.click();
+        return true;
+      }, { prevN: prev, wantMore: have < 4 });
+      if (!ok) throw new Error(`setupFourByFour no ${have < 4 ? "Add set" : "Delete set"} for ${name}`);
       await page.waitForFunction(
         ({ prevN, want }) => document.querySelectorAll("[data-diag-check]").length - prevN === want,
-        { prevN: prev, want: 4 },
-        { timeout: 1500 }
+        { prevN: prev, want: have < 4 ? have + 1 : have - 1 },
+        { timeout: 8000 }
       ).catch(() => {});
+      await sleep(40);
     }
-    prev = await checks.count();
+    prev = await page.evaluate(() => document.querySelectorAll("[data-diag-check]").length);
   }
-  const n = await checks.count();
+  const n = await page.evaluate(() => document.querySelectorAll("[data-diag-check]").length);
   if (n !== 16) throw new Error(`setupFourByFour got ${n} checkmarks`);
 }
 
@@ -398,7 +418,7 @@ async function main() {
     for (const [account, url] of accounts) {
       try {
         const run = runAccount(browser, url, account, rate);
-        const timeout = sleep(180000).then(() => { throw new Error("run timeout 180s"); });
+        const timeout = sleep(240000).then(() => { throw new Error("run timeout 240s"); });
         out.runs.push({ account, rate, ...(await Promise.race([run, timeout])) });
       } catch (e) {
         fail(`${account} cpu${rate} crashed`, e.message.split("\n")[0]);
