@@ -12,15 +12,16 @@ export function Avatar({ src, name, size = 48, ring, look }) {
   ) : (
     <div className="flex items-center justify-center font-bold shrink-0" style={{ width: size, height: size, borderRadius: 999, background: C.accentBg, color, border: border ? "none" : `2px solid ${color}`, fontSize: size * 0.42 }}>{((name || "?").trim()[0] || "?").toUpperCase()}</div>
   );
-  if (!border && (!look?.aura || look.aura === "none")) return inner;
+  const auraOn = !!(look?.aura && look.aura !== "none");
+  if (!border && !auraOn) return inner;
   const pad = border ? Math.max(3, Math.round(size / (border.img ? 10 : 22))) : 0;
   const ringScale = look?.aura === "ascended" ? 1.34 : 1.45;
+  const photo = <div className="relative" style={{ borderRadius: 999, overflow: "hidden" }}>{inner}</div>;
   return (
     <div className="relative shrink-0 flex items-center justify-center" style={{ width: size + pad * 2, height: size + pad * 2 }}>
       {border?.img && <img src={border.img} alt="" aria-hidden="true" style={{ position: "absolute", inset: -Math.round(size * 0.08), width: size + pad * 2 + Math.round(size * 0.16), height: size + pad * 2 + Math.round(size * 0.16), objectFit: "contain", pointerEvents: "none", animation: "rkspin 14s linear infinite", filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} />}
       {border?.css && <AnimatedBorder border={border} color={look?.accent || color} />}
-      {look?.aura && look.aura !== "none" && <AuraRing aura={look.aura} size={(size + pad * 2) * ringScale} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }} />}
-      <div className="relative" style={{ borderRadius: 999, overflow: "hidden" }}>{inner}</div>
+      {auraOn ? <AuraRing aura={look.aura} size={(size + pad * 2) * ringScale} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>{photo}</AuraRing> : photo}
     </div>
   );
 }
