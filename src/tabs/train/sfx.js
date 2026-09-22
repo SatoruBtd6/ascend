@@ -1,0 +1,15 @@
+export const SFX = {
+  ctx: null, enabled: true,
+  ctxGet() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; if (!this.ctx) this.ctx = new AC(); this.ctx.resume(); return this.ctx; } catch (e) { return null; } },
+  tone(f, dur, delay = 0, vol = 0.18, type = "sine") { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02); },
+  click() { this.tone(880, 0.05, 0, 0.12, "square"); },
+  pr() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, i * 0.09, 0.2)); },
+  levelUp() { [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.22, i * 0.1, 0.2, "triangle")); this.tone(1568, 0.6, 0.5, 0.15); },
+  rankUp() { [262, 330, 392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.3, i * 0.12, 0.22, "sawtooth")); [1047, 1319, 1568].forEach((f, i) => this.tone(f, 0.9, 0.75 + i * 0.05, 0.16)); },
+  achievement() { [784, 988, 1175].forEach((f, i) => this.tone(f, 0.25, i * 0.08, 0.18, "triangle")); },
+  water() { this.tone(660, 0.08, 0, 0.1); this.tone(990, 0.12, 0.08, 0.1); },
+  noise(dur, vol, cutoff, delay = 0) { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, b = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2); const n = c.createBufferSource(); n.buffer = b; const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = cutoff; const g = c.createGain(); g.gain.value = vol; n.connect(f); f.connect(g); g.connect(c.destination); n.start(t); },
+  sweep(f1, f2, dur, vol, type = "sine", delay = 0) { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02); },
+  slam() { this.sweep(140, 32, 0.9, 0.9); this.noise(0.35, 0.7, 900); [211, 347, 529, 811].forEach((f, i) => this.tone(f, 1.1 - i * 0.15, 0.02, 0.07, "square")); this.sweep(90, 40, 0.5, 0.5, "triangle", 0.12); },
+  thud() { this.sweep(110, 45, 0.45, 0.6); this.noise(0.18, 0.35, 700); },
+};

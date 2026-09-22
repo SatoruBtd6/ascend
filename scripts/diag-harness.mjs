@@ -388,26 +388,29 @@ async function runAccount(browser, url, label, rate) {
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
   });
   const page = await context.newPage();
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await login(page);
-  await sleep(rate >= 6 ? 4000 : 1200);
-  await dismiss(page);
-  if (!NO_DIAG) await enableDiag(page);
-  await throttle(page, rate);
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await login(page);
+    await sleep(rate >= 6 ? 4000 : 1200);
+    await dismiss(page);
+    if (!NO_DIAG) await enableDiag(page);
+    await throttle(page, rate);
 
-  await setupFourByFour(page);
-  await startPerf(page);
-  const taps = await runTaps(page, `${label} cpu${rate} taps`);
-  const perf = await readPerf(page);
-  log("perf", label, "cpu" + rate, perf);
-  let fuel = null;
-  if (!TAPS_ONLY) fuel = await runFuel(page, `${label} cpu${rate}`);
-  const dump = NO_DIAG ? "" : await dumpDiag(page);
-  if (dump) writeFileSync(join(OUT, `${label}-cpu${rate}.json`), dump);
-  const header = (() => { try { return dump ? JSON.parse(dump).header : { diag: false }; } catch { return null; } })();
-  log("diag header", header);
-  await context.close();
-  return { taps, fuel, header, perf };
+    await setupFourByFour(page);
+    await startPerf(page);
+    const taps = await runTaps(page, `${label} cpu${rate} taps`);
+    const perf = await readPerf(page);
+    log("perf", label, "cpu" + rate, perf);
+    let fuel = null;
+    if (!TAPS_ONLY) fuel = await runFuel(page, `${label} cpu${rate}`);
+    const dump = NO_DIAG ? "" : await dumpDiag(page);
+    if (dump) writeFileSync(join(OUT, `${label}-cpu${rate}.json`), dump);
+    const header = (() => { try { return dump ? JSON.parse(dump).header : { diag: false }; } catch { return null; } })();
+    log("diag header", header);
+    return { taps, fuel, header, perf };
+  } finally {
+    await context.close().catch(() => {});
+  }
 }
 
 async function main() {
@@ -416,11 +419,20 @@ async function main() {
   const accounts = (TAPS_ONLY || CHUD_ONLY) ? [["chud", BASE]] : [["chud", BASE], ["fixture", `${BASE}/?fixture=big`]];
   for (const rate of [6, 4]) {
     for (const [account, url] of accounts) {
+      // Fixture + CPU throttle makes each tap multi-second; 4×/6× both need a long wall budget.
+      const budget = account === "fixture" ? 900000 : 300000;
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`run timeout ${budget / 1000}s`)), budget);
+      });
+      const run = runAccount(browser, url, account, rate);
       try {
-        const run = runAccount(browser, url, account, rate);
-        const timeout = sleep(240000).then(() => { throw new Error("run timeout 240s"); });
         out.runs.push({ account, rate, ...(await Promise.race([run, timeout])) });
+        clearTimeout(timer);
       } catch (e) {
+        clearTimeout(timer);
+        // Let the orphaned run finish closing its context before the next account starts.
+        await run.catch(() => {});
         fail(`${account} cpu${rate} crashed`, e.message.split("\n")[0]);
         out.runs.push({ account, rate, crashed: e.message.split("\n")[0] });
       }

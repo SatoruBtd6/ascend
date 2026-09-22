@@ -1,31 +1,54 @@
-﻿import React, { useState, useEffect, useMemo, useRef, useId, useDeferredValue, useCallback } from "react";
-import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, reconcileRaid, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, duplicateExerciseGroups, applyExerciseMerge, accountExerciseNames, rankUpCeremony, levelFromXp, collectPrHistory, recountPrBonuses, dryRunPrRecount, nextXpFloor, unionAchievements, gymSpecificNamesIn, retaggedWorkouts, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, nextPublishBackoff, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
-import { Users, TrendingUp, MapPin, Droplets, Ruler, Video, Link2, CircleDot, Download, Youtube, ChefHat, Music, Image as ImageIcon, Share2, Footprints, Repeat, Activity, Zap, Pencil, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, Store, Globe, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown, BookOpen, MoreHorizontal } from "lucide-react";
+﻿import React, { useState, useEffect, useMemo, useRef, useId, useCallback } from "react";
+import { pickNextGoal, usualTrainHour, workSets, resolveWorldFirst, crewQuestProgress, mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, RAID_NEED, RAID_XP, RAID_COUNTDOWN_MS, GYM_RADIUS_M, PRESENCE_MS, applyRaidAction, tickRaid, raidActive, raidPhase, raidCountdownLeft, canProposeRaid, checkGymPin, presenceActive, prunePresence, pingActive, bodySex, thresholds, targets, applyBodyType, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, workoutGym, tagWorkouts, duplicateExerciseGroups, applyExerciseMerge, accountExerciseNames, rankUpCeremony, levelFromXp, collectPrHistory, dryRunPrRecount, LB_XP_VERSION, settingsKey, pendingKey, verifiedCopyKey, SETTINGS_KEY_LEGACY, PENDING_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, overlayOwnBoardRow, cardNeedsXpUpdate, shouldPublishLbCard, tryPublish, stripGhostCosmeticsState, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { TrendingUp, MapPin, Droplets, Ruler, Download, Youtube, Music, Image as ImageIcon, Share2, Footprints, Zap, Camera, Hand, MessageCircle, Type, Award, Lock, Sparkle, Bookmark, SkipForward, Timer as TimerIcon, Layers, Play, Pause, RotateCcw, Minus, Shield, Settings as Gear, Bot, Mic, Send, Volume2, VolumeX, Copy, Moon, Sun, Palette, Save, Upload, Dumbbell, Swords, Utensils, User, Plus, X, Check, Flame, Sparkles, Trash2, Loader2, ChevronDown, ChevronLeft, ChevronRight, Trophy, RefreshCw, CalendarDays, Crown } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
-import {
-  MI_M, havM, fmtDur, fmtPace, newRun, runElapsed, addFix, currentPace,
-  switchRunMode, toggleRunPause, ensureSegments, buildSavedRun, openSegment, segmentMovingSecs,
-  runTitle, runXpLabel, runKind, runBreakdown,
-} from "./run.js";
-import { C, RAINBOW, applyTheme, hexRgb } from "./theme.js";
+import { newRun } from "./run.js";
+import { C, RAINBOW, applyTheme } from "./theme.js";
 import { RANKS, RANK_INFO, GROUP_WEIGHT, GROUPS } from "./data/ranks.js";
 import { EXERCISES } from "./data/exercises.js";
 import { DAILY_REROLLS, QUEST_EX, questStep, FUEL_XP } from "./data/quests.js";
-import { FOODS, RESTAURANT_FOODS, RESTAURANTS, ACTIVITY, GOALS } from "./data/foods.js";
+import { ACTIVITY, GOALS } from "./data/foods.js";
 import { TIER_STYLE, ACH_ICONS } from "./data/achievements.js";
 import { WEEKLY_POOL, MONTHLY_POOL, WEEKLY_REPS, MONTHLY_REPS } from "./data/challenges.js";
 import { dkey, today, shift, uid, fmtDay, sexLabel, sexLine, weekStart, monthKey } from "./lib/dates.js";
 import { AskRef, ask } from "./lib/ask.js";
 import { allExercises, findEx } from "./lib/exercises.js";
-import { addWorkout, addDeckSet, rankFromScore, rankFor, movedLb, assistedReps, bestValue, computeBests, rankedLifts, groupScores, overallInfo, overallRank, isWorkout, activeDays, streakOf, mealTotals, makeQuest, newDay, prNote, workoutXp, workoutRecap, allAchievements, lifetimeStats, reconcileAchievements, earnedAchievements, rangeStats, pickChallenges } from "./lib/stats.js";
+import { addDeckSet, rankFromScore, rankFor, movedLb, computeBests, rankedLifts, groupScores, overallInfo, overallRank, isWorkout, activeDays, streakOf, mealTotals, makeQuest, newDay, workoutXp, allAchievements, lifetimeStats, reconcileAchievements, earnedAchievements, rangeStats, pickChallenges } from "./lib/stats.js";
 import { SaveCtx } from "./ui/saveCtx.js";
 import { SaveMark } from "./ui/SaveMark.jsx";
-import { DiagProbe } from "./ui/DiagProbe.jsx";
 import { NumField } from "./ui/NumField.jsx";
 import { Bar, Title, Empty, Sheet, Stat, SettingsToggle } from "./ui/primitives.jsx";
 import { AURAS } from "./auras/catalog.js";
 import { AuraCanvas, AuraRing } from "./auras/AuraCanvas.jsx";
+import { MOG_XP, DUEL_XP, WATER_XP, CREW_PER_PLAYER, CREW_XP } from "./tabs/train/xpConstants.js";
+import { SFX } from "./tabs/train/sfx.js";
+import { juice } from "./tabs/train/juice.js";
+import { Beeper, fmtClock } from "./tabs/train/beeper.js";
+import { slug, postFeed, readShared, liveBoard, workoutPayload } from "./tabs/train/social.js";
+import { ytUrl } from "./tabs/train/yt.js";
+import { VOICE_STYLES, pickBritishVoice, askJson, STERLING_SYS, sterlingSay } from "./tabs/train/sterling.js";
+import { gymLabel, setLabel, stalledLifts, rankSnapshot, withSilentRankSnap, fmtShort } from "./tabs/train/helpers.js";
+import { RankBadge } from "./tabs/train/RankBadge.jsx";
+import { ReceiptButton, buildReceipt } from "./tabs/train/receipt.jsx";
+import { RestWatchPage } from "./tabs/train/rest.jsx";
+import { Train } from "./tabs/train/Train.jsx";
+import { ExercisePage } from "./tabs/train/ExercisePage.jsx";
+import { MusclePage } from "./tabs/train/MusclePage.jsx";
+import { TIER_IDS, physiqueSrc, PhysiquePlaceholder } from "./tabs/train/physique.jsx";
+import { LineChart } from "./tabs/train/LineChart.jsx";
+import { BOSSES, BOSS_XP, crewBossHp, globalBossHp } from "./tabs/train/bosses.js";
+import { applyPrXpRecount, commitGymRetag, recountXp, XP_VERSION } from "./tabs/train/xpRecount.js";
+import { XpSync } from "./tabs/train/xpSync.js";
+import { ghostBundle, patchGhost, readPres, casPres, readRaid, casRaid } from "./tabs/train/raidIO.js";
+import { Fuel } from "./tabs/fuel/Fuel.jsx";
+import { shrinkPhoto } from "./tabs/fuel/shrinkPhoto.js";
+import { loadLive, saveLive } from "./tabs/run/live.js";
+import { mergeSteps } from "./tabs/run/mergeSteps.js";
+import { RunTracker } from "./tabs/run/RunTracker.jsx";
+import { StepsPanel } from "./tabs/run/StepsPanel.jsx";
+import { RunHub } from "./tabs/run/RunHub.jsx";
+import { STEP_SHORTCUT_URL } from "./tabs/run/stepSync.js";
 
 
 
@@ -62,8 +85,6 @@ const crateSpentOf = (s) => Math.max(0, Math.round(+s.crateSpent || 0));
 const crateBank = (s) => pointsOf(s);
 
 /* ---------- XP, achievements, community ---------- */
-const publishShared = async (key, obj) => { try { if (window.__ascendNoPersist) return; if (window.storage?.set) await window.storage.set(key, JSON.stringify(obj), true); } catch (e) { /* offline or preview */ } };
-const slug = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 async function loadCommunity() {
   if (!window.storage?.list) return null;
   const read = async (prefix) => {
@@ -75,70 +96,6 @@ async function loadCommunity() {
 }
 
 // XP for one set: effort (how much work relative to your personal S-rank line) × difficulty (which rank the set lands in)
-function WorkoutRecap({ s, setS }) {
-  const sum = s.lastSummary;
-  const recap = sum.recap || { lifts: [], overall: null };
-  const [open, setOpen] = useState(null);
-  const fetched = useRef(false);
-  useEffect(() => {
-    if (fetched.current || sum.sterling) return;
-    fetched.current = true;
-    const lifts = recap.lifts.map((l) => `${l.name}${l.rank ? ` ${l.rank.label}` : ""} ${l.sets.map((st) => setLabel(findEx(s, l.name), st)).join(", ")}`).join(" | ");
-    askJson(STERLING_SYS, `Just finished a workout titled "${sum.title || "untitled"}". Overall session rank: ${recap.overall?.label || "unranked"}. PRs: ${sum.prNames?.join(", ") || "none"}. Volume ${Math.round(sum.volume)} lb in ${sum.minutes || "?"} min. Lifts: ${lifts || "none"}. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)} Give 3 specific tips to improve the next time they do this session. Respond ONLY with JSON: {"quip": "one short funny line", "tips": ["tip 1", "tip 2", "tip 3"]}`)
-      .then((r) => setS((p) => p.lastSummary ? { ...p, lastSummary: { ...p.lastSummary, sterling: { quip: r.quip || "", tips: (r.tips || []).slice(0, 3).map(String) } } } : p))
-      .catch(() => setS((p) => p.lastSummary ? { ...p, lastSummary: { ...p.lastSummary, sterling: { quip: "", tips: [], err: true } } } : p));
-  }, []);
-  const stl = sum.sterling;
-  const overall = recap.overall;
-  return (
-    <div className="panel p-4 space-y-3" style={{ borderColor: overall?.rank.color || C.green }}>
-      <div className="flex justify-between items-start gap-2">
-        <div>
-          <div className="font-bold">{sum.title ? `${sum.title} breakdown` : "Workout breakdown"}</div>
-          <div className="body text-xs" style={{ color: C.dim }}>+{sum.xp} XP · {Math.round(sum.volume).toLocaleString()} lb{sum.minutes ? ` · ${sum.minutes} min` : ""}{sum.sets ? ` · ${sum.sets} sets` : ""}{sum.prs ? ` · ${sum.prs} PR${sum.prs > 1 ? "s" : ""}` : ""}</div>
-        </div>
-        <button aria-label="Dismiss" onClick={() => setS((p) => ({ ...p, lastSummary: null }))} style={{ color: C.mute }}><X size={16} /></button>
-      </div>
-      <div className="flex items-center gap-3">
-        {overall ? <RankBadge rank={overall.rank} size={48} /> : <div className="font-bold" style={{ color: C.mute }}>Unranked</div>}
-        <div>
-          <div className="font-extrabold text-xl" style={{ color: overall?.rank.color || C.mute, textShadow: overall ? `0 0 12px ${overall.rank.glow}` : "none" }}>{overall ? overall.label : "Cardio / timed"}</div>
-          <div className="body text-xs" style={{ color: C.dim }}>Overall session rank from the lifts you logged</div>
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[["XP", `+${sum.xp}`], ["Volume", `${Math.round(sum.volume).toLocaleString()} lb`], ["Time", sum.minutes ? `${sum.minutes} min` : "–"], ["Sets", sum.sets || recap.lifts.reduce((a, l) => a + l.sets.length, 0)], ["PRs", sum.prs || 0], ["Streak", `${streakOf(s)}d`]].map(([l, v]) => (
-          <div key={l} className="ghost py-2 px-1 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="font-bold glowtext">{v}</div></div>
-        ))}
-      </div>
-      <div className="space-y-1">
-        <div className="font-bold text-sm flex items-center gap-2"><Bot size={16} style={{ color: C.cyan }} />Sterling's next-session notes</div>
-        {!stl && <div className="body text-sm flex items-center gap-2" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Reading your session…</div>}
-        {stl?.err && <div className="body text-xs" style={{ color: C.mute }}>Couldn't reach Sterling. Your ranks below still stand.</div>}
-        {stl?.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{stl.quip}"</div>}
-        {(stl?.tips || []).map((t, i) => <div key={i} className="body text-sm" style={{ color: C.text }}>• {t}</div>)}
-      </div>
-      {sum.suggestions?.length > 0 && <div className="body text-xs" style={{ color: C.dim }}>Next time: {sum.suggestions.map((x) => `${x.name} ${x.next.w}×${x.next.r}`).join(" · ")}</div>}
-      <div className="space-y-2">
-        <div className="font-bold text-sm">Exercise ranks</div>
-        {recap.lifts.map((l) => (
-          <button key={l.name} onClick={() => setOpen(open === l.name ? null : l.name)} className="panel p-3 w-full text-left space-y-1">
-            <div className="flex items-center gap-2">
-              {l.rank ? <RankBadge rank={l.rank.rank} size={28} /> : <span className="body text-xs" style={{ color: C.mute }}>–</span>}
-              <div className="flex-1 min-w-0"><div className="font-semibold truncate">{l.name}</div><div className="body text-xs" style={{ color: C.dim }}>{l.rank ? l.rank.label : "Unranked"} · {Math.round(l.vol).toLocaleString()} lb{l.drops ? ` · ${l.drops} drop${l.drops > 1 ? "s" : ""}` : ""}</div></div>
-              <ChevronDown size={14} style={{ transform: open === l.name ? "rotate(180deg)" : "none", color: C.mute }} />
-            </div>
-            {open === l.name && <div className="body text-xs" style={{ color: C.sub }}>{l.sets.map((st) => setLabel(findEx(s, l.name), st)).join(" · ")}</div>}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: sum.prs ? "New PR" : "Workout complete", headline: overall ? `${overall.label} session` : (sum.title ? `${sum.title} day` : "Session done"), sub: recap.lifts.map((l) => `${l.name}${l.rank ? ` ${l.rank.label}` : ""}`).join(" · "), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${sum.xp}`], ["Volume", `${Math.round(sum.volume).toLocaleString()} lb`], ["Time", sum.minutes ? `${sum.minutes} min` : "–"], ["Overall", overall?.label || "–"], ["Streak", `${streakOf(s)} days`]] })} />
-        {s.lb && sum.workoutId && <button onClick={() => { const w = s.workouts.find((x) => x.id === sum.workoutId); if (!w || w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>{s.workouts.find((x) => x.id === sum.workoutId)?.shared ? "Shared" : "Share to feed"}</button>}
-      </div>
-    </div>
-  );
-}
 
 
 
@@ -205,17 +162,6 @@ function stateSizeKb(obj) {
 
 
 
-function FoodPickRow({ f, onAdd, onDelete }) {
-  return (
-    <div className="ghost flex items-center">
-      <button onClick={() => onAdd(f)} className="flex-1 text-left p-3 min-w-0">
-        <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
-        <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
-      </button>
-      {onDelete && <button aria-label={`Remove ${f.name} from saved`} onClick={onDelete} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
-    </div>
-  );
-}
 
 function RankGuideRow({ e, p, bests }) {
   const steps = thresholds(e, p);
@@ -272,27 +218,8 @@ function VersusSide({ c, r }) {
   );
 }
 
-function fireRest(end) {
-  try { window.dispatchEvent(new CustomEvent("ascend-rest", { detail: end ? { end } : null })); } catch { /* */ }
-}
-
-const RestDock = React.memo(function RestDock() {
-  const [rest, setRest] = useState(null);
-  useEffect(() => {
-    const on = (e) => setRest(e.detail && e.detail.end ? { end: e.detail.end } : null);
-    window.addEventListener("ascend-rest", on);
-    return () => window.removeEventListener("ascend-rest", on);
-  }, []);
-  return (
-    <>
-      <div aria-hidden="true" style={{ height: 48, pointerEvents: "none" }} />
-      {rest && <RestBubble end={rest.end} onDone={() => setRest(null)} onClose={() => setRest(null)} onChangeEnd={(end) => setRest({ end })} />}
-    </>
-  );
-});
 const BACKUP_KEY = "ascend-state-backup-6z";
 // Pre-built iPhone Shortcut URL only. Ingest rules live in api/steps.js. Replace PUT_HASH_HERE with the iCloud share hash.
-const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 // Which built bundle this page is running, e.g. "index-Ab12Cd.js"
 const runningBundle = () => { try { return [...document.querySelectorAll('script[src*="/assets/"]')].map((x) => x.getAttribute("src").split("/assets/").pop()).find((n) => /^index-/.test(n)) || null; } catch (e) { return null; } };
 
@@ -1495,623 +1422,9 @@ function Profile({ s, setS, allowWipe }) {
 }
 
 /* ---------- Train ---------- */
-const namesMatch = (a, b) => { const k = exKey(a); return !!k && k === exKey(b); };
-function gymLabel(s, id) {
-  if (id == null || id === "") return "";
-  return (s.gyms || []).find((g) => g.id === id)?.name || "";
-}
-function pastSessions(s, name, excludeId, n = 3) {
-  const def = findEx(s, name);
-  const out = [];
-  for (let i = (s.workouts || []).length - 1; i >= 0 && out.length < n; i--) {
-    const w = s.workouts[i];
-    if (w.id === excludeId || !isWorkout(w)) continue;
-    if (!inGymBucket(s, w, def)) continue;
-    if (isLegacyAssisted(w, def)) continue;
-    const ex = (w.exercises || []).find((e) => namesMatch(e.name, name));
-    if (!ex) continue;
-    const sets = workSets(ex.sets).filter((st) => +st.r > 0 || +st.w > 0);
-    if (!sets.length) continue;
-    out.push({ date: w.date, sets, id: w.id, title: w.title || "", gym: workoutGym(w) });
-  }
-  return out;
-}
-function cloneSets(sets) {
-  return (sets || []).map((st) => ({ w: st.w === 0 || st.w ? String(st.w) : "", r: st.r === 0 || st.r ? String(st.r) : "", done: false, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) }));
-}
-function lastWorkingSets(s, name, excludeId) {
-  for (const ps of pastSessions(s, name, excludeId, 8)) {
-    const sets = (ps.sets || []).filter((st) => +st.r > 0 || +st.w > 0);
-    if (sets.length) return { date: ps.date, sets };
-  }
-  return null;
-}
-function loggedWorkouts(s) {
-  return [...(s.workouts || [])].reverse().filter((w) => isWorkout(w) && (w.exercises || []).some((e) => (e.sets || []).some((st) => +st.r > 0 || +st.w > 0)));
-}
-// strict: only ever return a session with the same title, so Push never offers your last Legs day
-function lastWorkout(s, titleHint, strict = false) {
-  const list = loggedWorkouts(s);
-  if (!list.length) return null;
-  const t = (titleHint || "").trim().toLowerCase();
-  const hit = list.find((w) => (w.title || "").trim().toLowerCase() === t);
-  if (hit) return hit;
-  return strict ? null : list[0];
-}
-// Most recent finished workout that was started from this preset
-function lastPresetWorkout(s, preset) {
-  const p = (preset || "").trim().toLowerCase();
-  if (!p) return null;
-  return loggedWorkouts(s).find((w) => (w.preset || "").trim().toLowerCase() === p) || null;
-}
-function copyWorkoutExercises(w) {
-  return (w.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: cloneSets(e.sets) }));
-}
-function applyTargetSets(lastSets, target) {
-  const base = (lastSets || []).filter((st) => +st.r > 0 || +st.w > 0);
-  if (!target) return cloneSets(base);
-  if (!base.length) return [{ w: target.w != null ? String(target.w) : "", r: target.r != null ? String(target.r) : "", done: false }];
-  return base.map((st) => {
-    if (st.drop) return { w: target.w != null && +target.w > 0 ? String(Math.round(+target.w * 0.8)) : String(st.w ?? ""), r: String(st.r ?? target.r ?? ""), done: false, drop: true };
-    return { w: target.w != null ? String(target.w) : String(st.w ?? ""), r: String(target.r ?? st.r ?? ""), done: false, drop: false };
-  });
-}
-const setLabel = (def, st) => {
-  const core = def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`;
-  return st.warm ? `${core} W` : st.drop ? `${core} drop` : core;
-};
 
-function Train({ s, setS, gainXp, openRun }) {
-  D.noteRender("Train");
-  useEffect(() => {
-    if (!D.on()) return;
-    const n = D.nextSeq();
-    D.push({ k: "mount", kind: "Train", n });
-    return () => D.push({ k: "unmount", kind: "Train", n });
-  }, []);
-  const [picker, setPicker] = useState(false);
-  const [plates, setPlates] = useState(null);
-  const [titling, setTitling] = useState(false);
-  const [filter, setFilter] = useState("All");
-  const [showPresets, setShowPresets] = useState(false);
-  const [naming, setNaming] = useState(false);
-  const [presetName, setPresetName] = useState("");
-  const [open, setOpen] = useState({});
-  const [exMenu, setExMenu] = useState(null);
-  const [addMenu, setAddMenu] = useState(null);
-  const [pastOpen, setPastOpen] = useState({});
-  const [formResults, setFormResults] = useState({});
-  const [formSheet, setFormSheet] = useState(null);
-  const [wuOpen, setWuOpen] = useState(false);
-  const doneTapRef = useRef({});
-  const setHintKey = () => `ascend-set-type-hint:${typeof window !== "undefined" ? (window.ascendUserId || "anon") : "anon"}`;
-  const [setHint, setSetHint] = useState(() => { try { return localStorage.getItem(setHintKey()) !== "1"; } catch { return true; } });
-  const dismissSetHint = () => { setSetHint(false); try { localStorage.setItem(setHintKey(), "1"); } catch { /* */ } };
-  useEffect(() => {
-    if (exMenu == null && addMenu == null) return;
-    const close = (e) => {
-      if (e.target.closest?.("[data-keep-menu]")) return;
-      setExMenu(null); setAddMenu(null);
-    };
-    const t = setTimeout(() => document.addEventListener("click", close), 0);
-    return () => { clearTimeout(t); document.removeEventListener("click", close); };
-  }, [exMenu, addMenu]);
-  const a = s.active;
-  const bests = useMemo(
-    () => computeBests(a?.editId ? { ...s, workouts: (s.workouts || []).filter((w) => w.id !== a.editId) } : s),
-    [s.workouts, s.profile, s.custom, s.community, s.currentGym, s.gymSpecific, a?.editId]
-  );
-  const stalled = useMemo(
-    () => stalledLifts(s),
-    [s.workouts, s.profile, s.custom, s.community, s.currentGym, s.gymSpecific]
-  );
-  const setActive = (fn) => D.withSource("setActive", () => setS((p) => {
-    const next = fn(p.active);
-    if (next == null) return { ...p, active: null };
-    if (!Array.isArray(next.exercises)) return { ...p, active: { ...next, exercises: [] } };
-    return { ...p, active: next };
-  }));
-  const lastSets = (name) => lastWorkingSets(s, name, a?.editId)?.sets || [];
-  const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
-  const sessionGym = () => (a.gym !== undefined ? a.gym : s.currentGym) ?? null;
-  const xpOpts = () => ({ history: collectPrHistory(s, findEx, { excludeId: a?.editId }), workout: { gym: sessionGym(), date: a?.date || today() }, excludeId: a?.editId });
-
-  const finish = () => {
-    const exercises = cleaned(a.exercises);
-    if (!exercises.length) { setS((p) => ({ ...p, active: null })); return; }
-    const opts = xpOpts();
-    if (a.editId) {
-      const old = s.workouts.find((w) => w.id === a.editId);
-      const res = workoutXp(s, exercises, { ...bests }, opts);
-      const delta = res.xp - (old?.xp || 0);
-      const newGym = a.gym !== undefined ? a.gym : old?.gym;
-      const gymChanged = workoutGym({ gym: newGym }) !== workoutGym(old);
-      setS((p) => {
-        let next = { ...p, active: null, workouts: p.workouts.map((w) => w.id === a.editId ? { ...w, title: a.title || "", exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, gym: newGym } : w) };
-        if (gymChanged) {
-          const names = gymSpecificNamesIn(next, [{ ...old, gym: newGym, exercises }], findEx);
-          if (names.length) {
-            const r = applyPrXpRecount(next, { names, banner: false });
-            try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
-            return withSilentRankSnap(r.s);
-          }
-        }
-        return next;
-      });
-      if (!gymChanged) gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
-      return;
-    }
-    const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, { ...bests }, opts);
-    const d = today();
-    const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
-    const after = { ...s, workouts: [...s.workouts, workout] };
-    const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
-    setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
-    noteRaidHitFor(s, setS, workout);
-    juice(prs ? "pr" : "finish");
-    if (prs) { postFeed(s, "pr", `set ${prs} new PR${prs > 1 ? "s" : ""}${workout.title ? ` on ${workout.title} day` : ""}`, { detail: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => `${l.name} ${l.sets.filter((st) => st.pr).map((st) => st.label).join(", ")}`).join(" · ") }, `pr_${workout.id}`); }
-    gainXp(xp, prs ? `Workout · ${prs} new PR${prs > 1 ? "s" : ""}` : "Workout complete", `wo_${workout.id}`);
-    fireRest(null);
-  };
-
-  const addExercise = (name) => {
-    const prev = lastWorkingSets(s, name, a?.editId);
-    setActive((w) => ({ ...w, exercises: [...w.exercises, { name, sets: prev ? cloneSets(prev.sets) : [{ w: "", r: "", done: false }] }] }));
-    setPicker(false);
-    window.scrollTo?.(0, 0);
-  };
-  const startPreset = (pr) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, gym: p.currentGym ?? null, exercises: (pr.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
-    setShowPresets(false); window.scrollTo?.(0, 0);
-  };
-  const savePreset = () => {
-    const name = presetName.trim() || `Preset ${(s.presets || []).length + 1}`;
-    const exercises = a.exercises.map((e) => ({ name: e.name, sets: e.sets.length }));
-    setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== name), { id: uid(), name, exercises }] }));
-    setNaming(false); setPresetName("");
-  };
-  const editWorkout = (w) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", gym: w.gym ?? null, exercises: (w.exercises || []).map((e) => ({ name: e.name, sets: (e.sets || []).map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) })) })) } }));
-    window.scrollTo?.(0, 0);
-  };
-
-  if (a && picker) return <ExercisePicker s={s} setS={setS} onPick={addExercise} onBack={() => setPicker(false)} />;
-  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { start: Date.now(), title, gym: p.currentGym ?? null, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
-
-  if (!a) {
-    const presets = s.presets || [];
-    return (
-      <div className="space-y-4">
-        <Title right={<SaveMark />}>Train</Title>
-        <div className="grid gap-2" style={{ gridTemplateColumns: "1.6fr 1fr 1fr" }}>
-          <button type="button" onClick={() => setTitling(true)} className="btn py-4 text-lg">Start workout</button>
-          <button type="button" onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Run</button>
-          <button type="button" onClick={() => setShowPresets(!showPresets)} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: showPresets ? C.cyan : C.text, borderColor: showPresets ? C.cyan : C.border }}><Layers size={18} />Presets</button>
-        </div>
-        {showPresets && (
-          <div className="panel p-4 space-y-2">
-            <div className="font-bold flex items-center gap-2">Workout presets<SaveMark /></div>
-            {presets.length === 0 && <div className="body text-sm" style={{ color: C.dim }}>None yet. Start a workout, add your exercises, then tap "Save as preset" at the bottom. Next time, load it and just fill in the numbers.</div>}
-            <SharedPresets s={s} setS={setS} />
-            <PlanGenerator s={s} setS={setS} />
-            {presets.map((pr) => (
-              <div key={pr.id} className="ghost flex items-center">
-                <button onClick={() => startPreset(pr)} className="flex-1 text-left p-3 min-w-0">
-                  <div className="font-semibold">{pr.name}</div>
-                  <div className="body text-xs truncate" style={{ color: C.dim }}>{pr.exercises.map((e) => `${e.name} ×${e.sets}`).join(" · ")}</div>
-                </button>
-                <button aria-label={`Delete preset ${pr.name}`} onClick={() => ask(`Delete preset "${pr.name}"?`, () => setS((p) => ({ ...p, presets: p.presets.filter((x) => x.id !== pr.id) })), "Delete")} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {s.lastSummary && <WorkoutRecap s={s} setS={setS} />}
-
-        <h2 className="text-lg font-bold pt-2">History</h2>
-        {(() => { const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))]; return titles.length ? (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {["All", ...titles].map((t) => <button key={t} onClick={() => setFilter(t)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: filter === t ? C.blue : C.soft, color: filter === t ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{t}</button>)}
-          </div>
-        ) : null; })()}
-        {s.workouts.length === 0 && <Empty>No workouts yet. XP comes from how much you lift and how many reps you do, scaled to your body and rank.</Empty>}
-        {[...s.workouts].reverse().filter((w) => filter === "All" || w.title === filter).slice(0, 25).map((w) => {
-          const isOpen = !!open[w.id];
-          return (
-            <div key={w.id} className="panel p-4">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{gymLabel(s, workoutGym(w)) ? <span className="body text-xs ml-2" style={{ color: C.mute }}>{gymLabel(s, workoutGym(w))}</span> : null}{w.source && w.source !== "import" && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}{w.source === "import" && <span className="body text-xs ml-2" style={{ color: C.mute }}>imported</span>}</span>
-                <div className="flex items-center gap-3">
-                  {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
-                  {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
-                  {!w.source && s.lb && <SharePreset s={s} workout={w} />}
-                  {!w.source && <ReceiptButton small label="Share card" make={() => buildReceipt({ s, kind: "Workout", headline: w.title ? `${w.title} day` : "Workout", sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Exercises", w.exercises.length], ["Sets", w.exercises.reduce((a, e) => a + e.sets.length, 0)]] })} />}
-                  <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
-                  <button aria-label="Delete workout" onClick={() => ask(w.xp ? `Delete this workout? Its ${w.xp.toLocaleString()} XP comes off your total.` : "Delete this workout?", () => { setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })); gainXp(-(w.xp || 0), `Deleted workout${w.title ? `: ${w.title}` : ""}`, `wo_${w.id}_del`); }, "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
-                </div>
-              </div>
-              <div className="body text-sm mt-1 space-y-0.5" style={{ color: C.sub }}>
-                {w.exercises.map((ex, i) => {
-                  const def = findEx(s, ex.name);
-                  return <div key={i}>{ex.name}: {ex.sets.map((st) => setLabel(def, st)).join(", ")}{isLegacyAssisted(w, def) ? <span className="body text-xs ml-1" style={{ color: C.mute }}>legacy</span> : null}</div>;
-                })}
-              </div>
-              {isOpen && (
-                <div className="mt-3 pt-3 body text-xs space-y-1" style={{ borderTop: `1px solid ${C.line}`, color: C.dim }}>
-                  <div className="font-bold" style={{ color: C.text }}>XP breakdown</div>
-                  {w.lines ? w.lines.map((l, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between font-semibold" style={{ color: C.sub }}><span>{l.name}</span><span style={{ color: C.gold }}>+{l.xp}</span></div>
-                      {l.sets.map((st, j) => <div key={j} className="flex justify-between pl-3"><span>{st.label} · {st.note}{prNote(st.pr)}</span><span>+{st.xp}</span></div>)}
-                    </div>
-                  )) : <div>Logged before detailed breakdowns existed.</div>}
-                  {w.prBonus ? <div className="flex justify-between font-semibold" style={{ color: C.green }}><span>PR bonus</span><span>+{w.prBonus}</span></div> : null}
-                  {w.volume ? <div className="pt-1">Volume {Math.round(w.volume).toLocaleString()} lb{w.minutes ? ` · ${w.minutes} min` : ""}</div> : null}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  const live = workoutXp(s, cleaned(a.exercises), { ...bests }, xpOpts());
-  const hasWork = a.exercises.some((e) => e.sets.some((st) => st.done));
-
-  return (
-    <div className="space-y-4" data-diag="settable">
-      <div className="flex justify-between items-center">
-        <div>
-          {a.editId ? <div className="text-xl font-bold glowtext flex items-center gap-2 flex-wrap">Editing {fmtDay(a.date)}<SaveMark /></div> : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <Timer start={a.start} />
-              <SaveMark />
-              <WarmUp s={s} a={a} setActive={setActive} compact open={wuOpen} onOpenChange={setWuOpen} />
-            </div>
-          )}
-          <input className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} placeholder="Workout title" value={a.title || ""} onChange={(e) => setActive((w) => ({ ...w, title: e.target.value }))} aria-label="Workout title" />
-          {(s.gyms || []).length > 0 && (
-            <select className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} aria-label="Workout gym" value={a.gym || s.currentGym || ""} onChange={(e) => setActive((w) => ({ ...w, gym: e.target.value || null }))}>
-              <option value="">No gym</option>
-              {(s.gyms || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          )}
-          <div className="text-sm font-bold" style={{ color: C.gold }}>≈ {live.xp} XP{live.prs ? ` · ${live.prs} PR${live.prs > 1 ? "s" : ""}` : ""}</div>
-        </div>
-        <button onClick={finish} className="px-5 py-2.5 text-sm font-bold" style={{ background: C.green, color: "#02040B", borderRadius: 4, boxShadow: "0 0 16px rgba(79,209,139,.5)", minHeight: 40 }}>{a.editId ? "Save changes" : "Finish"}</button>
-      </div>
-
-      {!a.editId && wuOpen && <WarmUp s={s} a={a} setActive={setActive} open={wuOpen} onOpenChange={setWuOpen} />}
-      {!a.editId && (() => {
-        // Overload only makes sense on a preset you've already finished once, so there's a session to beat
-        const pl = a.preset ? lastPresetWorkout(s, a.preset) : null;
-        if (!pl) return null;
-        return (
-          <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: pl.exercises.map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), ss: !!e.ss, sets: applyTargetSets(e.sets, suggestNext(s, e.name, a.editId)) })) }))} className="ghost w-full py-2.5 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.green, borderColor: C.green }}>
-            <TrendingUp size={16} />Overload last session · {a.preset} · {fmtDay(pl.date)}
-          </button>
-        );
-      })()}
-      {a.exercises.length === 0 && !a.editId && (() => {
-        const last = lastWorkout(s, a.title, true);
-        if (!last) return null;
-        return (
-          <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: copyWorkoutExercises(last) }))} className="ghost w-full py-3 font-bold text-sm flex items-center justify-center gap-2" style={{ color: C.cyan, borderColor: C.cyan }}>
-            <Repeat size={16} />Same as last time{last.title ? ` · ${last.title}` : ""} · {fmtDay(last.date)}
-          </button>
-        );
-      })()}
-      {a.exercises.length === 0 && <Empty>Add your first exercise. Check off each set as you finish it, and only checked sets count.</Empty>}
-
-      {a.exercises.map((ex, ei) => {
-        const def = findEx(s, ex.name);
-        const timed = def.type === "timed";
-        const cardio = timed && def.group === "Cardio";
-        const showW = !timed || cardio;
-        const prev = lastSets(ex.name);
-        const past = pastSessions(s, ex.name, a.editId, 3);
-        const upd = (si, patch) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.map((st, j) => j !== si ? st : { ...st, ...patch }) }) }));
-        const delSet = (si) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.filter((_, j) => j !== si) }) }));
-        const cols = showW ? "40px 1fr 1fr 1fr 40px 40px" : "40px 1fr 1fr 40px 40px";
-        const mode = ex.wMode || (def.perHand ? "hand" : "total");
-        const sg = suggestNext(s, ex.name, a.editId, stalled);
-        const lastAssisted = [...ex.sets].reverse().find((st) => def.type === "assisted" && (+st.w > 0 || +st.r > 0));
-        const cycleType = (si, st) => {
-          dismissSetHint();
-          if (st.warm) {
-            if (timed) { upd(si, { warm: false }); return; }
-            upd(si, { warm: false, drop: true, w: +st.w > 0 ? String(Math.round(+st.w * 0.8)) : st.w });
-            return;
-          }
-          if (st.drop) { upd(si, { drop: false }); return; }
-          upd(si, { warm: true, drop: false });
-        };
-        const addWorking = () => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: [...e.sets, { w: e.sets.at(-1)?.w || "", r: "", done: false }] }) }));
-        const addDrop = () => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => {
-          if (i !== ei) return e;
-          const last = [...e.sets].reverse().find((st) => +st.w > 0) || e.sets.at(-1) || { w: "", r: "" };
-          const dropW = +last.w > 0 ? String(Math.round(+last.w * 0.8)) : (last.w || "");
-          return { ...e, sets: [...e.sets, { w: dropW, r: last.r || "", done: false, drop: true }] };
-        }) }));
-        const addWarm = () => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i !== ei ? e : { ...e, sets: [...e.sets, { w: "", r: "", done: false, warm: true }] })) }));
-        const removeEx = () => {
-          const go = () => setActive((w) => ({ ...w, exercises: w.exercises.filter((_, i) => i !== ei) }));
-          if (ex.sets.some((st) => st.done)) ask(`Remove ${ex.name}? Completed sets in this workout will be lost.`, go, "Remove");
-          else go();
-        };
-        const typeLabel = (st, si) => (st.warm ? "Warm-up set, tap to change type" : st.drop ? "Drop set, tap to mark working" : `Set ${si + 1}, tap to mark warm-up`);
-        return (
-          <div key={ei} className="panel p-3 relative" style={ex.ss ? { borderColor: C.green, marginBottom: 0 } : a.exercises[ei - 1]?.ss ? { borderColor: C.green, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 } : null}>
-            {D.on() && <DiagProbe kind="excard" id={ei} />}
-            {a.exercises[ei - 1]?.ss && <div className="body text-xs font-bold -mt-1 mb-1" style={{ color: C.green }}>⇅ superset with {a.exercises[ei - 1].name}</div>}
-            <div className="flex justify-between items-center mb-1 gap-2">
-              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                <span className="font-bold glowtext" style={{ color: C.cyan }}>{ex.name}</span>
-                <span className="body text-xs" style={{ color: C.mute }}>{def.group}</span>
-                {ex.ss && <span className="body text-xs font-bold" style={{ color: C.green }}>ss</span>}
-                {formResults[ex.name]?.text && (
-                  <button type="button" aria-label={`Form check result for ${ex.name}`} onClick={() => setFormSheet({ name: ex.name, mode: "result" })} className="p-2" style={{ color: C.cyan, minWidth: 40, minHeight: 40 }}><Video size={16} /></button>
-                )}
-              </div>
-              <button type="button" data-keep-menu aria-label={`More actions for ${ex.name}`} aria-haspopup="menu" aria-expanded={exMenu === ei} onClick={(e) => { e.stopPropagation(); setAddMenu(null); setExMenu(exMenu === ei ? null : ei); }} className="flex items-center justify-center shrink-0" style={{ minWidth: 40, minHeight: 40, color: C.mute }}><MoreHorizontal size={18} /></button>
-            </div>
-            {exMenu === ei && (
-              <div role="menu" data-keep-menu className="absolute right-3 z-20 panel p-1" style={{ top: 44, minWidth: 200, boxShadow: "0 8px 24px rgba(0,0,0,.45)" }} onClick={(e) => e.stopPropagation()}>
-                {def.type === "weighted" && !def.perHand && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40 }} onClick={() => { setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135 }); setExMenu(null); }}><CircleDot size={16} />Plate calculator</button>}
-                {ei < a.exercises.length - 1 && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40, color: ex.ss ? C.green : C.text }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i === ei ? { ...e, ss: !e.ss } : e)) })); setExMenu(null); }}><Link2 size={16} />{ex.ss ? "Unlink superset" : "Superset with next"}</button>}
-                {def.type === "weighted" && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40 }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) })); setExMenu(null); }}>{mode === "hand" ? "Use total lb" : "Use per hand"}</button>}
-                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40 }} onClick={() => { setFormSheet({ name: ex.name, mode: "film" }); setExMenu(null); }}><Video size={16} />Film form check</button>
-                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.red }} onClick={() => { setExMenu(null); removeEx(); }}>Remove exercise</button>
-              </div>
-            )}
-            {prev.length > 0 && !a.editId && (
-              <div className="mb-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: cloneSets(prev) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.cyan, minHeight: 40 }}>
-                    <Repeat size={12} />Same as last
-                  </button>
-                  {sg ? (
-                    <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: applyTargetSets(prev, sg) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.green, minHeight: 40 }}>
-                      <TrendingUp size={12} />{sg.w}×{sg.r}
-                    </button>
-                  ) : <div />}
-                </div>
-                {sg ? <div className="body text-xs mt-1 px-0.5" style={{ color: C.mute }}>{sg.why}</div> : null}
-              </div>
-            )}
-            {past.length > 0 && (
-              <div className="mb-2">
-                <button type="button" onClick={() => setPastOpen((o) => ({ ...o, [ei]: !o[ei] }))} className="w-full flex items-center gap-1 body text-xs text-left" style={{ color: C.dim, minHeight: 40 }} aria-expanded={!!pastOpen[ei]}>
-                  <ChevronDown size={14} className="shrink-0" style={{ transform: pastOpen[ei] ? "rotate(180deg)" : "none" }} />
-                  <span className="truncate"><span style={{ color: C.mute }}>{new Date(past[0].date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {past[0].sets.map((st) => setLabel(def, st)).join(", ")}</span>
-                </button>
-                {pastOpen[ei] && past.slice(1).map((ps) => (
-                  <div key={ps.id} className="body text-xs pl-5 truncate" style={{ color: C.dim }}><span style={{ color: C.mute }}>{new Date(ps.date + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}:</span> {ps.sets.map((st) => setLabel(def, st)).join(", ")}</div>
-                ))}
-              </div>
-            )}
-            {setHint && ei === 0 && <div className="body text-xs mb-2" style={{ color: C.mute }}>Tap a set number to mark warm-up or drop set</div>}
-            <div className="setgrid grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
-              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : mode === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
-            </div>
-            {ex.sets.map((st, si) => {
-              const pv = prev[si];
-              const cmp = st.done && pv && +st.r > 0 ? ((+st.w || 0) * (+st.r || 0) || +st.r) - ((+pv.w || 0) * (+pv.r || 0) || +pv.r) : null;
-              return (
-                <div key={si} className="setgrid grid gap-2 items-center py-1 px-1" style={{ gridTemplateColumns: cols, background: st.done ? "rgba(79,209,139,.14)" : "transparent", borderRadius: 3, opacity: st.warm ? 0.55 : 1 }}>
-                  {D.on() && <DiagProbe kind="setrow" id={ei * 100 + si} />}
-                  <button type="button" aria-label={typeLabel(st, si)} onClick={() => cycleType(si, st)} className="font-semibold flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, borderRadius: 6, border: `1px solid ${st.warm ? C.cyan : st.drop ? C.orange : C.line}`, color: st.warm ? C.mute : st.drop ? C.orange : C.text, background: "transparent" }}>{st.warm ? "W" : st.drop ? "D" : si + 1}</button>
-                  <span className="body text-xs" style={{ color: cmp === null ? C.dim : cmp >= 0 ? C.green : C.orange }}>{pv ? setLabel(def, pv) : "–"}{cmp !== null && pv ? (cmp > 0 ? " ▲" : cmp < 0 ? " ▼" : " =") : ""}</span>
-                  {showW && <NumField inputMode="decimal" className="inp text-center" value={st.w ?? ""} placeholder={pv?.w || "0"} onCommit={(v) => upd(si, { w: v })} {...D.fuelBind("set-w")} />}
-                  <NumField inputMode="decimal" className="inp text-center" value={st.r ?? ""} placeholder={pv?.r || "0"} onCommit={(v) => upd(si, { r: v })} {...D.fuelBind("set-r")} />
-                  <button type="button" aria-label="Mark set done"
-                    data-diag-check={`${ei}:${si}`}
-                    onPointerDown={(e) => D.check("pd", ei, si, !!st.done, e.pointerType)}
-                    onPointerUp={(e) => D.check("pu", ei, si, !!st.done, e.pointerType)}
-                    onTouchEnd={() => D.check("te", ei, si, !!st.done)}
-                    onClick={() => {
-                    D.check("click", ei, si, !!st.done);
-                    const key = `${ei}:${si}`;
-                    const latest = doneTapRef.current[key] ?? !!st.done;
-                    const turningOn = !latest;
-                    doneTapRef.current[key] = turningOn;
-                    upd(si, turningOn && !st.r && pv ? { done: true, r: pv.r, w: st.w || pv.w } : { done: turningOn });
-                    D.checkAfter(ei, si, turningOn, true);
-                    if (turningOn) {
-                      SFX.click();
-                      const secs = s.settings?.rest ?? 90;
-                      if (secs > 0 && !a.editId) { Beeper.unlock(); fireRest(Date.now() + secs * 1000); }
-                    }
-                  }}
-                    className="flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, background: st.done ? C.green : C.soft, borderRadius: 3, color: st.done ? "#02040B" : C.dim }}><Check size={16} /></button>
-                  <button aria-label="Delete set" onClick={() => delSet(si)} className="flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, color: C.mute }}><X size={14} /></button>
-                </div>
-              );
-            })}
-            {lastAssisted && <div className="body text-xs mt-1 px-1" style={{ color: C.dim }}>You moved <span style={{ color: C.text, fontWeight: 600 }}>{Math.round(movedLb(s.profile, lastAssisted.w))} lb</span> ({Math.round(Math.max(80, +s.profile.weight || 170))} − {+lastAssisted.w || 0}){+lastAssisted.r > 0 ? ` · counts as ${Math.round(assistedReps(s.profile, lastAssisted) * 10) / 10} ${def.rankAs.toLowerCase()}s` : ""}</div>}
-            <div className="flex mt-2">
-              <button type="button" onClick={addWorking} className="ghost flex-1 py-2 text-sm font-semibold" style={{ minHeight: 40, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>Add set</button>
-              <button type="button" data-keep-menu aria-label="Add warm-up or drop set" aria-haspopup="menu" aria-expanded={addMenu === ei} onClick={(e) => { e.stopPropagation(); setExMenu(null); setAddMenu(addMenu === ei ? null : ei); }} className="ghost px-2 flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "none" }}><ChevronDown size={16} /></button>
-            </div>
-            {addMenu === ei && (
-              <div role="menu" data-keep-menu className="panel p-1 mt-1" onClick={(e) => e.stopPropagation()}>
-                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.cyan }} onClick={() => { addWarm(); setAddMenu(null); }}>Add warm-up set</button>
-                {def.type !== "timed" && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.orange }} onClick={() => { addDrop(); setAddMenu(null); }}>Add drop set</button>}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4, scrollMarginBottom: "calc(env(safe-area-inset-bottom) + 168px)" }}><Plus size={18} />Add exercise</button>
-
-      <RestDock />
-      {plates && <PlateSheet weight={plates.w} onClose={() => setPlates(null)} />}
-      {formSheet && (
-        <Sheet title={`Form check · ${formSheet.name}`} onClose={() => setFormSheet(null)}>
-          <FormCheck exercise={formSheet.name} heading={false} result={formResults[formSheet.name]} onResult={(r) => setFormResults((p) => ({ ...p, [formSheet.name]: r }))} />
-        </Sheet>
-      )}
-
-      <TrainCoach s={s} a={a} onAdd={(name, n) => setActive((w) => w.exercises.some((e) => e.name === name)
-        ? { ...w, exercises: w.exercises.map((e) => e.name === name ? { ...e, sets: [...e.sets, ...Array.from({ length: n }, () => ({ w: "", r: "", done: false }))] } : e) }
-        : { ...w, exercises: [...w.exercises, { name, sets: Array.from({ length: n }, () => ({ w: "", r: "", done: false })) }] })} />
-
-      {a.exercises.length > 0 && (
-        naming && !a.editId ? (
-          <div className="panel p-3 flex gap-2 items-center">
-            <input autoFocus className="inp" placeholder="Preset name, e.g. Push day" value={presetName} onChange={(e) => setPresetName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && savePreset()} />
-            <button onClick={savePreset} className="btn px-4 py-2 text-sm" style={{ minHeight: 40 }}>Save</button>
-            <button aria-label="Cancel" onClick={() => setNaming(false)} className="ghost px-3 py-2" style={{ minHeight: 40 }}><X size={16} /></button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2" style={{ scrollMarginBottom: "calc(env(safe-area-inset-bottom) + 168px)" }}>
-            {!a.editId && <button onClick={() => { setPresetName(a.preset || ""); setNaming(true); }} className="ghost py-3 font-medium flex items-center justify-center gap-2" style={{ color: C.cyan, minHeight: 40 }}><Bookmark size={16} />Save as preset</button>}
-            <button
-              onClick={() => { const discard = () => setS((p) => ({ ...p, active: null })); if (a.editId || !hasWork) discard(); else ask("Are you sure you want to discard this workout? (Aidan lock in)", discard, "Discard"); }}
-              className={`ghost py-3 font-medium ${a.editId || !a.exercises.length ? "" : ""}`}
-              style={{ color: C.red, minHeight: 40, ...(a.editId ? { gridColumn: "1 / -1" } : {}) }}>
-              {a.editId ? "Cancel editing" : "Discard workout"}
-            </button>
-          </div>
-        )
-      )}
-    </div>
-  );
-}
 
 // Full page (not a popup) so it scrolls normally on phones
-function ExercisePicker({ s, setS, onPick, onBack }) {
-  const [q, setQ] = useState("");
-  const deferredQ = useDeferredValue(q);
-  const [group, setGroup] = useState("All");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [draft, setDraft] = useState(null);
-
-  const catalog = useMemo(() => allExercises(s).map((e) => ({ e, n: e.name.toLowerCase() })), [s.custom, s.community, s.workouts]);
-  const needle = deferredQ.trim().toLowerCase();
-  const needleKey = exKey(q.trim());
-  const list = useMemo(() => catalog.filter(({ e, n }) =>
-    (group === "All" || (group === "Custom" ? e.custom : group === "Community" ? e.community : e.group === group)) && (!needle || n.includes(needle) || (needleKey && exKey(e.name).includes(needleKey)))).map((x) => x.e), [catalog, group, needle, needleKey]);
-  const exact = !!needle && catalog.some(({ e, n }) => n === needle || (needleKey && exKey(e.name) === needleKey));
-  const onDeleteCustom = useCallback((name) => ask(`Delete custom exercise "${name}"? Past workouts keep it.`, () => setS((p) => ({ ...p, custom: p.custom.filter((c) => c.name !== name) })), "Delete"), [setS]);
-
-  const estimate = async () => {
-    setLoading(true); setErr(""); setDraft(null);
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5",
-          max_tokens: 400,
-          messages: [{ role: "user", content: `A gym app needs details for this exercise: "${q.trim()}".
-Respond ONLY with JSON, no markdown:
-{"name": clean title-case exercise name,
- "group": one of "Chest","Back","Legs","Shoulders","Arms","Core","Cardio",
- "type": "weighted" (tracked as lb x reps), "bodyweight" (tracked as reps), or "timed" (tracked in minutes, e.g. cardio, holds, sports),
- "perHand": true if people normally count the weight per hand (dumbbells, kettlebells, single-arm cables), false for barbells, machines, two-handed cables, and plate-loaded stacks,
- "factor": for weighted only, how an elite lifter's one-rep max on this exercise compares to their bench press max, using the weight as it is entered (per hand if perHand is true). Examples: bench press = 1.0, squat = 1.25, deadlift = 1.45, overhead press = 0.63, barbell curl = 0.45, dumbbell curl per hand = 0.2, lateral raise per hand = 0.1, reverse fly machine = 0.5, rear delt dumbbell fly per hand = 0.09, machine crunch = 1.3, leg press = 2.4, chest press machine = 1.1. Machines with light-feeling stacks should get higher factors. Use 0 if not weighted,
- "xp": XP value. For weighted/bodyweight: XP per set from 5 (small isolation) to 20 (heavy full-body compound). For timed: XP per minute from 3 (easy) to 10 (very intense),
- "why": one short sentence explaining the XP value}` }],
-        }),
-      });
-      const data = await res.json();
-      const text = data.content.map((i) => i.text || "").join("").replace(/```json|```/g, "").trim();
-      const r = JSON.parse(text);
-      const type = ["weighted", "bodyweight", "timed"].includes(r.type) ? r.type : "weighted";
-      setDraft({
-        name: String(r.name || q).slice(0, 40), group: GROUPS.includes(r.group) ? r.group : "Core", type,
-        factor: type === "weighted" ? Math.min(3, Math.max(0.1, +r.factor || 0.5)) : undefined, reps: type === "bodyweight" ? 1 : undefined, perHand: type === "weighted" && !!r.perHand,
-        xp: Math.round(Math.min(type === "timed" ? 10 : 20, Math.max(type === "timed" ? 2 : 4, +r.xp || 8))),
-        why: r.why || "", custom: true,
-      });
-    } catch (e) {
-      setErr("Couldn't estimate that one. Try a clearer name, like \"cable lateral raise\".");
-    }
-    setLoading(false);
-  };
-
-  const saveDraft = () => {
-    const wanted = draft.name.trim();
-    const hit = allExercises(s).find((e) => exKey(e.name) === exKey(wanted));
-    if (hit) {
-      setErr(`That's the same as "${hit.name}". Added that instead of a duplicate.`);
-      onPick(hit.name);
-      return;
-    }
-    const name = wanted;
-    const ex = { ...draft, name };
-    delete ex.why;
-    setS((p) => ({ ...p, custom: [...(p.custom || []), ex] }));
-    publishShared(`ex:${slug(name)}`, { ...ex, custom: false, by: s.profile.name || "a player", t: Date.now() });
-    onPick(name);
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <button aria-label="Back to workout" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold glowtext">Add exercise</h1>
-      </div>
-
-      <input autoFocus className="inp" placeholder="Search, or type any exercise" value={q} onChange={(e) => { setQ(e.target.value); setDraft(null); setErr(""); }} />
-
-      {q.trim().length > 2 && !exact && !draft && (
-        <button onClick={estimate} disabled={loading} className="w-full p-3 flex items-center gap-2 font-semibold text-left" style={{ background: C.accentBg, color: C.cyan, border: `1px solid ${C.blue}`, borderRadius: 4 }}>
-          {loading ? <Loader2 size={18} className="animate-spin shrink-0" /> : <Sparkles size={18} className="shrink-0" />}
-          {loading ? "Rating this exercise…" : `Create "${q.trim()}" and estimate its XP`}
-        </button>
-      )}
-      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
-
-      {draft && (
-        <div className="panel p-4 space-y-3" style={{ borderColor: C.cyan }}>
-          <input className="inp font-bold" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} aria-label="Exercise name" />
-          <div className="grid grid-cols-2 gap-2 body text-sm">
-            <label>Muscle group<select className="inp mt-1" value={draft.group} onChange={(e) => setDraft({ ...draft, group: e.target.value })}>{GROUPS.map((g) => <option key={g}>{g}</option>)}</select></label>
-            <label>Tracked as<select className="inp mt-1" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, factor: e.target.value === "weighted" ? draft.factor || 0.5 : undefined })}>
-              <option value="weighted">Weight × reps</option><option value="bodyweight">Reps</option><option value="timed">Minutes</option></select></label>
-          </div>
-          {draft.type === "weighted" && (
-            <div className="grid grid-cols-2 gap-2">
-              {[[false, "Total weight (bar / machine)"], [true, "Per hand (dumbbells)"]].map(([v, l]) => (
-                <button key={String(v)} onClick={() => setDraft({ ...draft, perHand: v, factor: draft.perHand === v ? draft.factor : (v ? draft.factor / 2 : draft.factor * 2) })} className="py-2 text-xs font-semibold" style={{ borderRadius: 4, background: !!draft.perHand === v ? C.blue : C.soft, color: !!draft.perHand === v ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{l}</button>
-              ))}
-            </div>
-          )}
-          <div className="flex justify-between items-baseline">
-            <span className="body text-sm" style={{ color: C.dim }}>Worth</span>
-            <span className="text-xl font-bold" style={{ color: C.gold }}>{draft.xp} XP per {draft.type === "timed" ? "minute" : "set"}</span>
-          </div>
-          {draft.why && <div className="body text-xs" style={{ color: C.dim }}>{draft.why}</div>}
-          <button onClick={saveDraft} disabled={!draft.name.trim()} className="btn w-full py-3">Save and add to workout</button>
-        </div>
-      )}
-
-      <div className="flex gap-2 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
-        {["All", ...GROUPS, "Custom", "Community"].map((g) => (
-          <button key={g} onClick={() => setGroup(g)} className="px-3 py-1.5 text-sm font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 4, background: group === g ? C.blue : C.soft, color: group === g ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{g}</button>
-        ))}
-      </div>
-
-      {list.length === 0 && <Empty>{group === "Custom" && !q ? "No custom exercises yet. Type any exercise above to create one." : group === "Community" && !q ? "Nothing shared yet. Custom exercises anyone creates show up here for everyone." : "No match. Tap create above to add it as a custom exercise."}</Empty>}
-      {list.length > 0 && (
-        <ExResultList items={list} onPick={onPick} onDeleteCustom={onDeleteCustom} />
-      )}
-    </div>
-  );
-}
-
-function Timer({ start }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-  const sec = Math.floor((now - start) / 1000);
-  const f = (n) => String(n).padStart(2, "0");
-  return <span className="text-3xl font-bold tabular-nums glowtext">{f(Math.floor(sec / 3600))}:{f(Math.floor(sec / 60) % 60)}:{f(sec % 60)}</span>;
-}
 
 /* ---------- Quests ---------- */
 function Quests({ s, setS, gainXp }) {
@@ -2215,329 +1528,8 @@ function Quests({ s, setS, gainXp }) {
 }
 
 /* ---------- Fuel ---------- */
-function Fuel({ s, setS, gainXp }) {
-  D.noteRender("Fuel");
-  useEffect(() => {
-    if (!D.on()) return;
-    const n = D.nextSeq();
-    D.push({ k: "mount", kind: "Fuel", n });
-    return () => D.push({ k: "unmount", kind: "Fuel", n });
-  }, []);
-  const [d, setD] = useState(today());
-  const p = s.profile;
-  const meals = s.meals[d] || [];
-  const [adding, setAdding] = useState(false);
-  const t = targets(p);
-  const tot = mealTotals(meals);
-  const isToday = d === today();
-  const addMeal = (food) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: [...(x.meals[d] || []), { ...food, id: uid(), qty: 1 }] } }));
-  const pct = Math.min(100, (tot.cal / t.cal) * 100);
-  if (adding) return <AddFood s={s} setS={setS} dayLabel={isToday ? "today" : fmtDay(d)} onClose={() => setAdding(false)} onAdd={(f) => { addMeal(f); setAdding(false); window.scrollTo?.(0, 0); }} />;
 
-  return (
-    <div className="space-y-4">
-      <Title right={<SaveMark />}>Fuel</Title>
 
-      <div className="panel p-2 flex items-center justify-between">
-        <button aria-label="Previous day" onClick={() => setD(shift(d, -1))} className="p-2" style={{ color: C.cyan }}><ChevronLeft /></button>
-        <button onClick={() => setD(today())} className="font-semibold">{isToday ? "Today" : fmtDay(d)}</button>
-        <button aria-label="Next day" disabled={isToday} onClick={() => setD(shift(d, 1))} className="p-2" style={{ color: isToday ? C.mute : C.cyan }}><ChevronRight /></button>
-      </div>
-
-      <div className="flex gap-2 overflow-x-auto">
-        {GOALS.map((g) => (
-          <button key={g.id} onClick={() => setS((x) => ({ ...x, profile: { ...x.profile, goal: g.id } }))} className="px-4 py-2 text-sm font-semibold whitespace-nowrap" style={{ borderRadius: 4, background: p.goal === g.id ? C.blue : C.soft, color: p.goal === g.id ? "#fff" : C.text, boxShadow: p.goal === g.id ? "0 0 14px rgba(47,140,255,.55)" : "none", border: `1px solid ${C.border}` }}>{g.label}</button>
-        ))}
-      </div>
-
-      <div className="panel p-5 flex items-center gap-4">
-        {isToday && <HydrationBar s={s} setS={setS} gainXp={gainXp} d={d} />}
-        <svg width="104" height="104" viewBox="0 0 110 110" className="shrink-0">
-          <circle cx="55" cy="55" r="46" fill="none" stroke={C.track} strokeWidth="10" />
-          <circle cx="55" cy="55" r="46" fill="none" stroke={tot.cal > t.cal + 150 ? C.orange : C.cyan} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 289} 289`} transform="rotate(-90 55 55)" style={{ filter: "drop-shadow(0 0 6px rgba(124,211,255,.8))" }} />
-          <text x="55" y="54" textAnchor="middle" fill={C.text} fontSize="22" fontWeight="700">{Math.round(tot.cal)}</text>
-          <text x="55" y="72" textAnchor="middle" fill={C.dim} fontSize="11">of {t.cal}</text>
-        </svg>
-        <div className="flex-1 space-y-2 body text-sm">
-          {[["Protein", tot.p, t.protein, C.cyan], ["Carbs", tot.c, t.carbs, C.green], ["Fat", tot.f, t.fat, C.orange]].map(([n, v, tg, c]) => (
-            <div key={n}>
-              <div className="flex justify-between"><span>{n}</span><span style={{ color: C.dim }}>{Math.round(v)} / {tg}g</span></div>
-              <div className="mt-1"><Bar pct={(v / tg) * 100} color={c} /></div>
-            </div>
-          ))}
-        </div>
-      </div>
-      {isToday && <FuelCoach s={s} setS={setS} t={t} tot={tot} onAdd={addMeal} />}
-      {isToday && (() => {
-        const calHit = meals.length > 0 && Math.abs(tot.cal - t.cal) <= t.cal * 0.1;
-        const pHit = tot.p >= t.protein;
-        const claimed = s.fuelClaimed?.[d];
-        const ready = calHit && pHit && !claimed;
-        return (
-          <div className="panel p-4">
-            <div className="flex justify-between items-center">
-              <span className="font-bold">Daily fuel goal</span>
-              <span className="text-sm font-bold" style={{ color: C.gold }}>+{FUEL_XP} XP</span>
-            </div>
-            <div className="body text-sm mt-2 space-y-1">
-              <div className="flex items-center gap-2" style={{ color: calHit ? C.green : C.dim }}><Check size={15} style={{ opacity: calHit ? 1 : 0.3 }} />Calories within 10% of {t.cal} ({Math.round(tot.cal)} now)</div>
-              <div className="flex items-center gap-2" style={{ color: pHit ? C.green : C.dim }}><Check size={15} style={{ opacity: pHit ? 1 : 0.3 }} />Protein at least {t.protein}g ({Math.round(tot.p)}g now)</div>
-            </div>
-            {claimed ? <div className="text-sm font-semibold mt-3" style={{ color: C.green }}>Claimed for today</div> :
-              <button disabled={!ready} onClick={() => { setS((x) => ({ ...x, fuelClaimed: { ...(x.fuelClaimed || {}), [d]: true } })); gainXp(FUEL_XP, "Fuel goal hit", `fuel_${d}`); }} className="w-full mt-3 py-2 font-bold" style={{ borderRadius: 4, background: ready ? C.gold : C.soft, color: ready ? "#0A1630" : C.mute, border: `1px solid ${C.border}` }}>Claim</button>}
-          </div>
-        );
-      })()}
-      <div className="body text-xs" style={{ color: C.mute }}>Maintenance is about {t.tdee} cal/day from your body stats. Every day's food saves automatically, and you can look back with the arrows or the Log tab.</div>
-
-      <NutritionReport s={s} />
-      <DayTemplates s={s} setS={setS} d={d} meals={meals} />
-
-      <div className="flex justify-between items-center pt-1">
-        <h2 className="text-lg font-bold">{isToday ? "Today's food" : "Food logged"}</h2>
-        <button onClick={() => setAdding(true)} className="btn px-3 py-2 text-sm flex items-center gap-1"><Plus size={16} />Add food</button>
-      </div>
-      {meals.length === 0 && <Empty>Nothing logged {isToday ? "today" : "this day"}. Add food from the list, or type any meal and get an estimate.</Empty>}
-      {meals.map((m) => (
-        <div key={m.id} className="panel p-3 flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold truncate">{m.meal ? "🥤 " : ""}{m.name}</div>
-            <div className="body text-xs" style={{ color: C.dim }}>{Math.round(m.cal * (+m.qty || 0))} cal · P {Math.round(m.p * (+m.qty || 0))} · C {Math.round(m.c * (+m.qty || 0))} · F {Math.round(m.f * (+m.qty || 0))}</div>
-            {m.meal && m.ingredients?.length > 0 && <details className="body text-xs mt-1" style={{ color: C.mute }}><summary style={{ cursor: "pointer" }}>{m.ingredients.length} ingredients</summary>{m.ingredients.map((it, i) => <div key={i} className="pl-2">{it.qty !== 1 ? `${it.qty}× ` : ""}{it.name} · {Math.round(it.cal * it.qty)} cal</div>)}</details>}
-          </div>
-          <NumField inputMode="decimal" aria-label="Servings" data-diag="fuel-servings" className="inp text-center" style={{ width: 58 }} value={m.qty}
-            onCommit={(v) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].map((y) => y.id === m.id ? { ...y, qty: v } : y) } }))} {...D.fuelBind("fuel-qty")} />
-          {D.on() && <DiagProbe kind="fuel-qty" id={String(m.id || "").length} />}
-          <button aria-label="Remove food" onClick={() => setS((x) => ({ ...x, meals: { ...x.meals, [d]: x.meals[d].filter((y) => y.id !== m.id) } }))} style={{ color: C.mute }}><Trash2 size={16} /></button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const SEARCH_CAP = 30;
-const EMPTY_ARR = [];
-const foodNorm = (n) => String(n || "").toLowerCase().replace(/[’']/g, "");
-
-const FoodResultList = React.memo(function FoodResultList({ items, savedNames, onAdd, onRemoveSaved }) {
-  const [more, setMore] = useState(false);
-  useEffect(() => { setMore(false); }, [items]);
-  const cap = more ? items.length : SEARCH_CAP;
-  const shown = items.slice(0, cap);
-  return (
-    <>
-      <div className="space-y-2">
-        {shown.map((f) => (
-          <div key={`${f.r || "b"}-${f.name}`} className="ghost flex items-center">
-            <button onClick={() => onAdd(f)} className="flex-1 text-left p-3 min-w-0">
-              <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
-              <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
-            </button>
-            {savedNames?.has(f.name) && onRemoveSaved && <button aria-label={`Remove ${f.name} from saved`} onClick={() => onRemoveSaved(f.name)} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
-          </div>
-        ))}
-      </div>
-      {items.length > SEARCH_CAP && !more && (
-        <button type="button" className="ghost w-full py-2 text-sm font-bold" onClick={() => setMore(true)}>Show more ({items.length - SEARCH_CAP})</button>
-      )}
-    </>
-  );
-});
-
-const ExResultList = React.memo(function ExResultList({ items, onPick, onDeleteCustom }) {
-  const [more, setMore] = useState(false);
-  useEffect(() => { setMore(false); }, [items]);
-  const cap = more ? items.length : SEARCH_CAP;
-  const shown = items.slice(0, cap);
-  return (
-    <>
-      <div className="space-y-2">
-        {shown.map((e) => (
-          <div key={e.name} className="ghost flex items-center">
-            <button onClick={() => onPick(e.name)} className="flex-1 text-left p-3 flex justify-between items-center gap-2">
-              <span className="font-semibold">{e.name}</span>
-              <span className="body text-xs whitespace-nowrap" style={{ color: C.mute }}>{e.group}{e.perHand ? " · per hand" : ""}{e.community && e.by ? ` · by ${e.by}` : ""}</span>
-            </button>
-            <a href={ytUrl(e.name)} target="_blank" rel="noreferrer" aria-label={`How to do ${e.name} on YouTube`} className="px-2" style={{ color: C.mute }}><Youtube size={16} /></a>
-            {e.custom && onDeleteCustom && (
-              <button aria-label={`Delete ${e.name}`} onClick={() => onDeleteCustom(e.name)} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>
-            )}
-          </div>
-        ))}
-      </div>
-      {items.length > SEARCH_CAP && !more && (
-        <button type="button" className="ghost w-full py-2 text-sm font-bold" onClick={() => setMore(true)}>Show more ({items.length - SEARCH_CAP})</button>
-      )}
-    </>
-  );
-});
-
-function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
-  const [q, setQ] = useState("");
-  const deferredQ = useDeferredValue(q);
-  const [loading, setLoading] = useState(null); // "estimate" | "lookup"
-  const [err, setErr] = useState("");
-  const [src, setSrc] = useState("All");
-  const [found, setFound] = useState(null);
-  const [building, setBuilding] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const barRef = useRef(null);
-  const onBarcode = async (e) => {
-    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
-    setLoading("barcode"); setErr(""); setFound(null);
-    try { const small = await shrinkPhoto(f, 480); const food = await barcodeLookup(small); setFound({ ...food, r: "Scanned" }); }
-    catch (e2) { setErr(e2.message === "notfound" ? "Barcode read, but that product isn't in the database. Try the AI estimate or a photo of the label." : "Couldn't read the barcode. Fill the frame with it, flat and in focus."); }
-    setLoading(null);
-  };
-  const saved = s.savedFoods || EMPTY_ARR;
-
-  // Recent foods from the log, newest first
-  const recent = useMemo(() => {
-    const seen = new Set(), out = [];
-    Object.keys(s.meals || {}).sort().reverse().forEach((d) => [...(s.meals[d] || [])].reverse().forEach((m) => {
-      if (!seen.has(m.name) && out.length < 12) { seen.add(m.name); out.push({ name: m.name, cal: m.cal, p: m.p, c: m.c, f: m.f, r: m.r }); }
-    }));
-    return out;
-  }, [s.meals]);
-
-  const communityFoods = s.community?.foods;
-  const community = useMemo(() => (communityFoods || EMPTY_ARR).map((f) => ({ ...f, r: f.r || "Community", community: true })), [communityFoods]);
-  const indexed = useMemo(() => {
-    const pool = src === "All" ? [...saved, ...community, ...RESTAURANT_FOODS, ...FOODS] : src === "Saved" ? saved : src === "Basics" ? FOODS : src === "Community" ? community : src === "Meals" ? [...saved, ...community].filter((f) => f.meal) : RESTAURANT_FOODS.filter((f) => f.r === src);
-    return pool.map((f) => ({ f, n: foodNorm(f.name) }));
-  }, [src, saved, community]);
-  const needle = foodNorm(deferredQ.trim());
-  const list = useMemo(() => (needle ? indexed.filter((x) => x.n.includes(needle)) : indexed).map((x) => x.f), [indexed, needle]);
-  const savedNames = useMemo(() => new Set(saved.map((f) => f.name)), [saved]);
-  const onRemoveSaved = useCallback((name) => setS((x) => ({ ...x, savedFoods: (x.savedFoods || []).filter((y) => y.name !== name) })), [setS]);
-
-  const callClaude = async (prompt) => {
-    const ck = `food:${q.trim().toLowerCase()}`;
-    try { const hit = sessionStorage.getItem("ascend-ai:" + ck); if (hit) return JSON.parse(hit); } catch (e) { /* */ }
-    const data = await claudeChat({ max_tokens: 280, messages: [{ role: "user", content: prompt }] });
-    const texts = (data.content || []).filter((b) => b.type === "text").map((b) => b.text);
-    const joined = texts.join("\n").replace(/```json|```/g, "");
-    const match = joined.match(/\{[\s\S]*\}/g);
-    if (!match) throw new Error("no json");
-    const parsed = JSON.parse(match[match.length - 1]);
-    try { sessionStorage.setItem("ascend-ai:" + ck, JSON.stringify(parsed)); } catch (e) { /* */ }
-    return parsed;
-  };
-
-  const estimate = async () => {
-    setLoading("estimate"); setErr(""); setFound(null);
-    try {
-      const food = await callClaude(`Estimate nutrition for this food or meal as one serving: "${q}". Use typical US portions if none given. Respond ONLY with JSON, no markdown: {"name": short descriptive name with portion, "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}`);
-      setFound({ name: String(food.name || q).slice(0, 70), cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), source: "ai" });
-    } catch (e) {
-      setErr("Couldn't get an estimate. Try describing it differently, like \"2 slices pepperoni pizza\".");
-    }
-    setLoading(null);
-  };
-
-  const lookup = async () => {
-    setLoading("lookup"); setErr(""); setFound(null);
-    try {
-      const food = await callClaude(`Published-style nutrition for this restaurant menu item: "${q}". User is in Austin, Texas (P. Terry's, Torchy's, Whataburger, Tacodeli, Chuy's, Kerbey Lane, Pluckers, Tumble 22, Taco Cabana are likely). Prefer typical published values for that chain. Respond ONLY with JSON: {"name": "Restaurant item name (portion)", "restaurant": "Restaurant", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat, "source": "official" or "third-party" or "estimate", "note": "under 12 words"}`);
-      setFound({ name: String(food.name || q).slice(0, 70), r: food.restaurant || "", cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), source: food.source, note: food.note });
-    } catch (e) {
-      setErr("Couldn't find that one online. Try adding the restaurant name, like \"Tacodeli Cowboy taco\".");
-    }
-    setLoading(null);
-  };
-
-  const saveAndAdd = (food) => {
-    const clean = { name: food.name, r: food.r, cal: food.cal, p: food.p, c: food.c, f: food.f, approx: food.source !== "official" };
-    setS((x) => ({ ...x, savedFoods: [clean, ...(x.savedFoods || []).filter((y) => y.name !== clean.name)].slice(0, 60) }));
-    publishShared(`food:${slug(clean.name)}`, { ...clean, by: s.profile.name || "a player", t: Date.now() });
-    onAdd(clean);
-  };
-
-  if (building) return <MealBuilder s={s} setS={setS} pool={[...saved, ...community, ...RESTAURANT_FOODS, ...FOODS]} onBack={() => setBuilding(false)} onDone={(meal) => { setBuilding(false); onAdd(meal); }} />;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <button aria-label="Back to Fuel" onClick={onClose} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <div>
-          <h1 className="text-2xl font-bold glowtext">Add food</h1>
-          <div className="body text-xs" style={{ color: C.dim }}>Adding to {dayLabel}</div>
-        </div>
-      </div>
-
-      <input autoFocus className="inp" placeholder="Search, e.g. P. Terry's double" value={q} onChange={(e) => { setQ(e.target.value); setFound(null); setErr(""); }} {...D.fuelBind("fuel-search")} data-diag="fuel-search" />
-      {D.on() && <DiagProbe kind="fuel-search" />}
-
-      <div className="grid grid-cols-3 gap-2">
-        <button onClick={() => setScanning(true)} className="btn py-3 text-xs flex items-center justify-center gap-1"><Camera size={16} />Meal photo</button>
-        <button onClick={() => barRef.current?.click()} disabled={!!loading} className="ghost py-3 text-xs font-bold flex items-center justify-center gap-1" style={{ color: C.cyan }}>{loading === "barcode" ? <Loader2 size={16} className="animate-spin" /> : <Store size={16} />}Barcode</button>
-        <button onClick={() => setBuilding(true)} className="ghost py-3 text-xs font-bold flex items-center justify-center gap-1" style={{ color: C.cyan }}><ChefHat size={16} />Recipe</button>
-      </div>
-      <input ref={barRef} type="file" accept="image/*" capture="environment" onChange={onBarcode} style={{ display: "none" }} />
-      {loading === "barcode" && <div className="body text-xs" style={{ color: C.dim }}>Reading the barcode and looking up the product…</div>}
-      {scanning && <PhotoScan sState={s} onShare onCancel={() => setScanning(false)} onAddAll={(items) => { items.forEach((it) => onAdd({ name: it.name, cal: it.cal, p: it.p, c: it.c, f: it.f })); }} />}
-      {q.trim().length > 2 && !found && (
-        <div className="grid grid-cols-2 gap-2">
-          <button onClick={lookup} disabled={!!loading} className="p-3 flex items-center gap-2 font-semibold text-left text-sm" style={{ background: C.accentBg, color: C.cyan, border: `1px solid ${C.blue}`, borderRadius: 4 }}>
-            {loading === "lookup" ? <Loader2 size={18} className="animate-spin shrink-0" /> : <Globe size={18} className="shrink-0" />}
-            {loading === "lookup" ? "Searching menus…" : "Look up restaurant online"}
-          </button>
-          <button onClick={estimate} disabled={!!loading} className="ghost p-3 flex items-center gap-2 font-semibold text-left text-sm" style={{ color: C.text }}>
-            {loading === "estimate" ? <Loader2 size={18} className="animate-spin shrink-0" /> : <Sparkles size={18} className="shrink-0" />}
-            {loading === "estimate" ? "Estimating…" : "Quick AI estimate"}
-          </button>
-        </div>
-      )}
-      {loading === "lookup" && <div className="body text-xs" style={{ color: C.dim }}>Checking restaurant nutrition pages. This can take 10–20 seconds.</div>}
-      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
-
-      {found && (
-        <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
-          <div className="font-bold">{found.name}</div>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => (
-              <label key={k} className="body text-xs" style={{ color: C.dim }}>{l}
-                <NumField inputMode="decimal" className="inp text-center mt-1 font-bold" value={found[k]} onCommit={(v) => setFound({ ...found, [k]: v })} {...D.fuelBind("fuel-found")} />
-              </label>
-            ))}
-          </div>
-          <div className="body text-xs" style={{ color: found.source === "official" || found.r === "Scanned" ? C.green : found.source === "ai" ? C.dim : C.orange }}>
-            {found.source === "ai" ? "AI estimate. Fix any number that looks off before adding." : found.source === "official" ? "From the restaurant's published nutrition" : found.source === "third-party" ? "From a third-party nutrition site" : found.r === "Scanned" ? "From the product's barcode listing" : "Estimate, since this restaurant doesn't publish nutrition"}{found.note ? ` · ${found.note}` : ""}
-          </div>
-          {found.source === "ai" ? (
-            <div className="grid grid-cols-2 gap-2"><button onClick={() => saveAndAdd(found)} className="ghost py-3 text-sm font-bold">Add and save</button><button onClick={() => onAdd({ name: found.name, cal: found.cal, p: found.p, c: found.c, f: found.f, approx: true })} className="btn py-3">Add to {dayLabel}</button></div>
-          ) : (
-            <button onClick={() => saveAndAdd(found)} className="btn w-full py-3">Add and save</button>
-          )}
-          <PublishMealToggle s={s} food={found} ai={found.source === "ai"} />
-        </div>
-      )}
-
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {["All", "Meals", "Community feed", ...(saved.length ? ["Saved"] : []), "Community", ...RESTAURANTS, "Basics"].map((g) => (
-          <button key={g} onClick={() => setSrc(g)} className="px-3 py-1.5 text-sm font-semibold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 4, background: src === g ? C.blue : C.soft, color: src === g ? "#fff" : C.text, border: `1px solid ${C.border}` }}>
-            {RESTAURANTS.includes(g) && <Store size={13} />}{g}
-          </button>
-        ))}
-      </div>
-
-      {!needle && src === "All" && recent.length > 0 && (
-        <>
-          <div className="body text-xs font-semibold pt-1" style={{ color: C.dim }}>Recent</div>
-          <div className="space-y-2">{recent.map((f) => <FoodPickRow key={`r-${f.name}`} f={f} onAdd={onAdd} />)}</div>
-          <div className="body text-xs font-semibold pt-2" style={{ color: C.dim }}>Everything</div>
-        </>
-      )}
-
-      {src === "Community feed" && <CommunityMeals s={s} setS={setS} onAdd={onAdd} />}
-      {src !== "Community feed" && list.length === 0 && <Empty>No match here. Tap "Look up restaurant online" to search the restaurant's nutrition info.</Empty>}
-      {src !== "Community feed" && list.length > 0 && (
-        <FoodResultList items={list} savedNames={savedNames} onAdd={onAdd} onRemoveSaved={onRemoveSaved} />
-      )}
-      <div className="body text-xs pt-2" style={{ color: C.mute }}>Built-in restaurant numbers come from published nutrition info as of September 2026. Items marked approx. are less certain, and portions vary by location.</div>
-    </div>
-  );
-}
 
 /* ---------- Calendar ---------- */
 function Calendar({ s, setS }) {
@@ -3352,22 +2344,8 @@ Recent workouts:\n${recent || "none yet"}
 Today's check-in: ${s.checkins?.[d]?.sleep ? `${s.checkins[d].sleep}h sleep` : "sleep not logged"}, mood ${s.checkins?.[d]?.mood || "not logged"}.`;
 }
 
-const VOICE_STYLES = {
-  goblin: { name: "Unhinged goblin", seq: [[2, 1.3], [0.3, 0.8], [1.9, 1.5], [0.6, 1.05]] },
-  chipmunk: { name: "Chipmunk", seq: [[2, 1.4]] },
-  deep: { name: "Deep bloke", seq: [[0.15, 0.8]] },
-  pints: { name: "Two pints in", seq: [[0.7, 0.6]] },
-  hyper: { name: "Hyper", seq: [[1.4, 1.9]] },
-  posh: { name: "Posh butler (normal)", seq: [[0.92, 1.02]] },
-};
 const YT_RE = /\[\[yt:([^\]]+)\]\]/g;
-const ytUrl = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(`how to ${q} proper form`)}`;
 const stripYt = (t) => t.replace(YT_RE, "").replace(/\s{2,}/g, " ").trim();
-function pickBritishVoice() {
-  const vs = window.speechSynthesis?.getVoices?.() || [];
-  const gb = vs.filter((v) => /en[-_]GB/i.test(v.lang));
-  return gb.find((v) => /daniel|arthur|oliver|george|uk english male|male/i.test(v.name)) || gb[0] || null;
-}
 
 const STEP_COACH = `The user just asked for help setting up automatic step syncing. Walk them through it like a friendly personal trainer, not tech support: warm, encouraging, plain language, one step at a time, and ask them to say "next" when each step is done. Do not teach them how to build Shortcut actions by hand. The Shortcut is already built. Important background: iPhones lock Health data while the phone is locked, so a nightly timed automation usually sends nothing. That's why the trigger is "when an app is opened", which only runs while the phone is unlocked. The setup: 1) In Ascend, open the Steps card, tap "Sync steps automatically", then "Create my sync code" and copy the code. 2) Tap the iCloud Shortcut link on that same card (${STEP_SHORTCUT_URL}) to install the pre-configured Ascend Steps Shortcut automatically. 3) When the Shortcut asks, paste the sync code. 4) In the Shortcuts app, Automation tab, tap +, choose App, pick 2 or 3 apps they open every day including one right before bed (Messages, Instagram, TikTok or Snapchat), keep "Is Opened" checked, Run Immediately, turn off Notify When Run, then have that automation run the Ascend Steps Shortcut they just installed. 5) Open one of those apps, then come back to Ascend: the Steps card shows "Last sync". If it shows an error, the message says exactly what to fix. Running it many times a day is fine; Ascend keeps the highest count for each day. Troubleshoot patiently, and mention they can always type steps in by hand.`;
 function Assistant({ s, setS, onBack }) {
@@ -3678,31 +2656,6 @@ function DiscoParty() {
 }
 
 /* ---------- Beeps ---------- */
-const Beeper = {
-  ctx: null,
-  unlock() {
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      if (!this.ctx) this.ctx = new AC();
-      this.ctx.resume();
-    } catch (e) { /* no audio */ }
-  },
-  tone(freq, dur = 0.15, delay = 0, vol = 0.5) {
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime + delay;
-    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-    o.type = "square"; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + dur + 0.02);
-  },
-  tick() { this.tone(660, 0.08, 0, 0.3); },
-  work() { this.tone(1046, 0.14); this.tone(1318, 0.22, 0.16); },
-  rest() { this.tone(523, 0.3); },
-  done() { [0, 0.2, 0.4].forEach((d) => this.tone(1318, 0.16, d)); this.tone(1760, 0.5, 0.6); },
-};
-
-const fmtClock = (sec) => `${Math.floor(sec / 60)}:${String(Math.max(0, sec) % 60).padStart(2, "0")}`;
 
 /* ---------- Interval timer ---------- */
 function IntervalTimer({ visible, onBack, onOpen }) {
@@ -3985,24 +2938,6 @@ function lookStyle(look, strength = 0.55) {
   return Object.keys(st).length ? st : null;
 }
 // Keeps a photo's shape but limits its size, for comment pictures
-function shrinkPhoto(file, max = 400) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("decode"));
-      img.onload = () => {
-        const k = Math.min(1, max / Math.max(img.width, img.height));
-        const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        resolve(c.toDataURL("image/jpeg", 0.62));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
 // Turns an uploaded song into a small 20-second mono WAV clip that plays on every phone
 async function makeClip(file, seconds = 20, rate = 11025) {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -4138,7 +3073,6 @@ function WeightChart({ log, target }) {
   );
 }
 
-function liveBoard(rows) { return (rows || []).filter((r) => !r?.ghost); }
 function profileCard(s) {
   const ws = weekStart();
   const st = lifetimeStats(s);
@@ -4680,86 +3614,8 @@ function LookStudio({ s, setS }) {
 }
 
 /* ---------- Rank emblems ---------- */
-const darken = (hex, k = 0.45) => { const c = hexRgb(hex); return c ? `rgb(${c.map((v) => Math.round(v * k)).join(",")})` : hex; };
 /* ---------- Meal builder ---------- */
-function MealBuilder({ s, setS, pool, onDone, onBack }) {
-  const [name, setName] = useState("");
-  const [items, setItems] = useState([]);
-  const [q, setQ] = useState("");
-  const [desc, setDesc] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const matches = q.trim().length > 1 ? pool.filter((f) => !f.meal && f.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8) : [];
-  const tot = items.reduce((a, it) => {
-    const q = +it.qty || 0;
-    return { cal: a.cal + it.cal * q, p: a.p + it.p * q, c: a.c + it.c * q, f: a.f + it.f * q };
-  }, { cal: 0, p: 0, c: 0, f: 0 });
-  const add = (f, qty = 1) => { setItems((x) => [...x, { name: f.name, cal: +f.cal || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0, qty }]); setQ(""); };
-  const build = async () => {
-    setBusy(true); setErr("");
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 700, messages: [{ role: "user", content: `Turn this description into a recipe with per-ingredient nutrition: "${desc}". Use typical US portions and standard nutrition values. Respond ONLY with JSON, no markdown: {"name": short meal name, "ingredients": [{"name": "ingredient with portion, e.g. Whey protein (1 scoop)", "cal": number, "p": grams protein, "c": grams carbs, "f": grams fat}]}` }] }),
-      });
-      const data = await res.json();
-      const text = (data.content || []).map((i) => i.text || "").join("").replace(/```json|```/g, "").trim();
-      const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
-      if (!name.trim() && r.name) setName(String(r.name).slice(0, 50));
-      (r.ingredients || []).forEach((it) => add(it, 1));
-      setDesc("");
-    } catch (e) { setErr("Couldn't build that. Try listing the ingredients, like \"2 scoops whey, banana, cup of milk, tbsp peanut butter\"."); }
-    setBusy(false);
-  };
-  const save = () => {
-    const meal = { name: name.trim() || "My meal", meal: true, ingredients: items, cal: Math.round(tot.cal), p: Math.round(tot.p), c: Math.round(tot.c), f: Math.round(tot.f), r: "Meals" };
-    setS((x) => ({ ...x, savedFoods: [meal, ...(x.savedFoods || []).filter((y) => y.name !== meal.name)].slice(0, 80) }));
-    publishShared(`food:${slug(meal.name)}`, { ...meal, by: s.profile.name || "a player", t: Date.now() });
-    onDone(meal);
-  };
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold glowtext">Create a meal</h1>
-      </div>
-      <div className="body text-sm" style={{ color: C.dim }}>Build a shake or a full meal once, and it saves with all its ingredients. It's shared with everyone, so your cousins can log it in one tap too.</div>
-      <input className="inp font-bold" placeholder="Meal name, e.g. Post-workout shake" value={name} onChange={(e) => setName(e.target.value)} {...D.fuelBind("fuel-meal-name")} data-diag="fuel-meal-name" />
-
-      <div className="panel p-3 space-y-2">
-        <div className="font-bold text-sm">Describe it and let AI fill the ingredients</div>
-        <div className="flex gap-2">
-          <input className="inp" placeholder="e.g. 2 scoops whey, banana, oats, milk" value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={(e) => e.key === "Enter" && desc.trim() && build()} {...D.fuelBind("fuel-desc")} data-diag="fuel-desc" />
-          <button onClick={build} disabled={busy || desc.trim().length < 3} className="btn px-3 text-sm flex items-center gap-1">{busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}Build</button>
-        </div>
-        {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
-      </div>
-
-      <div className="panel p-3 space-y-2">
-        <div className="font-bold text-sm">Or add ingredients from the food list</div>
-        <input className="inp" placeholder="Search ingredients" value={q} onChange={(e) => setQ(e.target.value)} {...D.fuelBind("fuel-ing")} data-diag="fuel-ing" />
-        {matches.map((f) => <button key={f.name} onClick={() => add(f)} className="ghost w-full text-left p-2 text-sm flex justify-between"><span>{f.name}</span><span style={{ color: C.dim }}>{f.cal} cal</span></button>)}
-      </div>
-
-      {items.length > 0 && (
-        <div className="panel p-3 space-y-2">
-          {items.map((it, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
-              <div className="flex-1 min-w-0"><div className="truncate font-semibold">{it.name}</div><div className="body text-xs" style={{ color: C.dim }}>{Math.round(it.cal * (+it.qty || 0))} cal · P {Math.round(it.p * (+it.qty || 0))} · C {Math.round(it.c * (+it.qty || 0))} · F {Math.round(it.f * (+it.qty || 0))}</div></div>
-              <NumField inputMode="decimal" className="inp text-center" style={{ width: 56 }} value={it.qty} aria-label="Quantity" onCommit={(v) => setItems((x) => x.map((y, j) => j === i ? { ...y, qty: v } : y))} {...D.fuelBind("fuel-ing-qty")} />
-              <button aria-label="Remove ingredient" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
-            </div>
-          ))}
-          <div className="flex justify-between font-bold pt-2" style={{ borderTop: `1px solid ${C.line}` }}><span>Total</span><span style={{ color: C.gold }}>{Math.round(tot.cal)} cal · P {Math.round(tot.p)} · C {Math.round(tot.c)} · F {Math.round(tot.f)}</span></div>
-        </div>
-      )}
-      <button onClick={save} disabled={!items.length} className="btn w-full py-3" style={!items.length ? { opacity: 0.5 } : null}>Save meal, share it, and log it</button>
-    </div>
-  );
-}
-
 /* ---------- Mog-off ---------- */
-const MOG_XP = 10;
 async function rateMog(dataUrl) {
   const b64data = dataUrl.split(",")[1];
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -4868,163 +3724,9 @@ function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embe
 }
 
 /* ---------- Sterling coaching cards ---------- */
-async function claudeChat(body) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-haiku-4-5", ...body }),
-  });
-  return res.json();
-}
-function promptKey(s) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h >>> 0).toString(36);
-}
-function exerciseNameList(s, n = 70) {
-  const seen = new Set();
-  const out = [];
-  const add = (nm) => { if (nm && !seen.has(nm)) { seen.add(nm); out.push(nm); } };
-  rankedLifts(s).slice(0, 16).forEach((r) => add(r.e.name));
-  [...(s.workouts || [])].reverse().slice(0, 8).forEach((w) => (w.exercises || []).forEach((e) => add(e.name)));
-  allExercises(s).forEach((e) => add(e.name));
-  return out.slice(0, n).join(", ");
-}
-async function askJson(system, user, maxTokens = 500) {
-  const ck = promptKey(`${system}\n${user}`);
-  try { const hit = sessionStorage.getItem("ascend-ai:" + ck); if (hit) return JSON.parse(hit); } catch (e) { /* */ }
-  const data = await claudeChat({
-    max_tokens: Math.min(maxTokens, 700),
-    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: user }],
-  });
-  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
-  const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
-  try { sessionStorage.setItem("ascend-ai:" + ck, JSON.stringify(parsed)); } catch (e) { /* */ }
-  return parsed;
-}
-const STERLING_SYS = "You are Sterling, the wildly over-the-top but genuinely competent British butler coach inside the Ascend gym app. Be brief and funny in the quip fields, but keep every recommendation accurate and practical. Match advice to the user's body type (male or female) when it affects training or nutrition.";
 
 // Pops up on the Fuel tab once most of the day's calories are in, with foods that finish the macros
-function FuelCoach({ s, setS, t, tot, onAdd }) {
-  const [state, setState] = useState({ status: "idle", picks: [], quip: "" });
-  const [hidden, setHidden] = useState(false);
-  const remCal = Math.round(t.cal - tot.cal), remP = Math.round(t.protein - tot.p), remC = Math.round(t.carbs - tot.c), remF = Math.round(t.fat - tot.f);
-  const close = tot.cal >= t.cal * 0.55 && remCal > 80;
-  const key = `${Math.round(tot.cal / 400)}-${Math.round(tot.p / 30)}`;
-  const fetchedKey = useRef(null);
-  const fetchPicks = async () => {
-    setState((x) => ({ ...x, status: "loading" }));
-    const menu = [...(s.savedFoods || []).slice(0, 20), ...FOODS.slice(0, 25)].map((f) => `${f.name} (${f.cal} cal, P${f.p} C${f.c} F${f.f})`).join("; ");
-    try {
-      const r = await askJson(STERLING_SYS, `The user has ${remCal} calories, ${remP}g protein, ${remC}g carbs and ${remF}g fat left today (negative means over). Goal: ${GOALS.find((g) => g.id === s.profile.goal)?.label}. ${sexLine(s.profile)} Suggest 3 things to eat that land them close to their targets, preferring items from this list when they fit: ${menu}. You may also suggest simple common foods. Respond ONLY with JSON: {"quip": "one short funny line", "picks": [{"name": "food with portion", "cal": n, "p": n, "c": n, "f": n, "why": "under 10 words"}]}`);
-      setState({ status: "done", picks: (r.picks || []).slice(0, 3).map((p) => ({ name: String(p.name).slice(0, 60), cal: Math.round(+p.cal || 0), p: Math.round(+p.p || 0), c: Math.round(+p.c || 0), f: Math.round(+p.f || 0), why: p.why || "" })), quip: r.quip || "" });
-    } catch (e) { setState({ status: "error", picks: [], quip: "" }); }
-  };
-  useEffect(() => { if (close && !hidden && fetchedKey.current !== key) { fetchedKey.current = key; fetchPicks(); } }, [close, key, hidden]);
-  if (!close || hidden) return null;
-  return (
-    <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
-      <div className="flex justify-between items-center">
-        <div className="font-bold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling: finish your macros</div>
-        <button aria-label="Hide" onClick={() => setHidden(true)} style={{ color: C.mute }}><X size={16} /></button>
-      </div>
-      <div className="body text-xs" style={{ color: C.dim }}>Left today: {remCal} cal · P {remP}g · C {remC}g · F {remF}g</div>
-      {state.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is rummaging through the pantry…</div>}
-      {state.status === "error" && <button onClick={fetchPicks} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
-      {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
-      {state.picks.map((p, i) => (
-        <div key={i} className="ghost p-2 flex items-center gap-2">
-          <div className="flex-1 min-w-0"><div className="font-semibold text-sm truncate">{p.name}</div><div className="body text-xs" style={{ color: C.dim }}>{p.cal} cal · P {p.p} · C {p.c} · F {p.f}{p.why ? ` · ${p.why}` : ""}</div></div>
-          <button onClick={() => onAdd(p)} className="btn px-3 py-1.5 text-xs">Log</button>
-        </div>
-      ))}
-      {state.status === "done" && <button onClick={fetchPicks} className="body text-xs underline" style={{ color: C.mute }}>Different ideas</button>}
-    </div>
-  );
-}
-
 // Shows during a workout with what to do next and a form-check video when it matters
-function TrainCoach({ s, a, onAdd }) {
-  const [state, setState] = useState({ status: "idle", next: [], tip: "", form: null, quip: "" });
-  const [hidden, setHidden] = useState(false);
-  const doneEx = a.exercises.filter((e) => e.sets.some((st) => st.done && +st.r > 0));
-  const key = `${a.title || ""}|${doneEx.map((e) => e.name).join(",")}`;
-  const fetchedKey = useRef(null);
-  const fetchNext = async () => {
-    setState((x) => ({ ...x, status: "loading" }));
-    const done = doneEx.map((e) => { const def = findEx(s, e.name); return `${e.name}: ${e.sets.filter((st) => st.done).map((st) => setLabel(def, st)).join(", ")}`; }).join(" | ");
-    const names = exerciseNameList(s);
-    const history = s.workouts.filter(isWorkout).slice(-4).map((w) => `${w.date}${w.title ? ` (${w.title})` : ""}: ${w.exercises.map((e) => e.name).join(", ")}`).join("\n");
-    const ranks = rankedLifts(s).slice(0, 8).map((r) => `${r.e.name} ${r.label}`).join(", ");
-    try {
-      const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Done so far this session: ${done || "nothing yet"}. Recent workouts:\n${history || "none"}\nLift ranks: ${ranks || "none"}. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)}
-Recommend what to do next to make this workout as effective as possible for the stated title (balance muscle groups, sensible order, reasonable volume, don't repeat what's done unless more sets are warranted). Choose exercise names ONLY from this list, spelled exactly: ${names}.
-Respond ONLY with JSON: {"quip": "one short funny line", "tip": "one sentence of practical advice about the session so far", "next": [{"exercise": "exact name from list", "sets": n, "reps": "e.g. 8-10", "why": "under 10 words"}]}`);
-      const valid = new Set(allExercises(s).map((e) => e.name));
-      setState({ status: "done", quip: r.quip || "", tip: r.tip || "", form: null, next: (r.next || []).filter((n) => valid.has(n.exercise)).slice(0, 3) });
-    } catch (e) { setState({ status: "error", next: [], tip: "", form: null, quip: "" }); }
-  };
-  useEffect(() => {
-    if (hidden || doneEx.length === 0 || fetchedKey.current === key) return;
-    const t = setTimeout(() => { fetchedKey.current = key; fetchNext(); }, 2500);
-    return () => clearTimeout(t);
-  }, [key, hidden]);
-  if (hidden || doneEx.length === 0 || a.editId) return null;
-  return (
-    <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
-      <div className="flex justify-between items-center">
-        <div className="font-bold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling: what's next</div>
-        <button aria-label="Hide" onClick={() => setHidden(true)} style={{ color: C.mute }}><X size={16} /></button>
-      </div>
-      {state.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is consulting the ancient scrolls…</div>}
-      {state.status === "error" && <button onClick={fetchNext} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
-      {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
-      {state.tip && <div className="body text-sm" style={{ color: C.text }}>{state.tip}</div>}
-      {state.next.map((n, i) => {
-        const already = a.exercises.some((e) => e.name === n.exercise);
-        return (
-          <div key={i} className="ghost p-2 flex items-center gap-2">
-            <div className="flex-1 min-w-0"><div className="font-semibold text-sm truncate">{n.exercise}</div><div className="body text-xs" style={{ color: C.dim }}>{n.sets} × {n.reps}{n.why ? ` · ${n.why}` : ""}</div></div>
-            <a href={ytUrl(n.exercise)} target="_blank" rel="noreferrer" aria-label={`How to ${n.exercise}`} className="px-2" style={{ color: C.mute }}><Youtube size={16} /></a>
-            <button onClick={() => onAdd(n.exercise, +n.sets || 3)} className="btn px-3 py-1.5 text-xs">{already ? "Add sets" : "Add"}</button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-const WORKOUT_TITLES = ["Push", "Pull", "Legs", "Upper", "Lower", "Full body", "Chest & back", "Arms", "Shoulders", "Core", "Cardio"];
-function TitlePicker({ s, onPick, onBack }) {
-  const [custom, setCustom] = useState("");
-  const mine = [...new Set((s?.workouts || []).map((w) => w.title).filter(Boolean))].filter((t) => !WORKOUT_TITLES.includes(t));
-  const titles = [...WORKOUT_TITLES, ...mine];
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold glowtext">What are you training?</h1>
-      </div>
-      <div className="body text-sm" style={{ color: C.dim }}>The title helps Sterling plan your next moves and keeps your history sorted. Pick one and you can load that same session again on the next screen.</div>
-      <div className="grid grid-cols-3 gap-2">
-        {titles.map((t) => {
-          const prev = lastWorkout(s, t, true);
-          return (
-            <button key={t} onClick={() => onPick(t)} className="ghost py-3 font-bold text-sm flex flex-col items-center gap-0.5">
-              {t}
-              {prev && <span className="body text-xs font-normal" style={{ color: C.mute }}>last {fmtShort(prev.date)}</span>}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex gap-2">
-        <input autoFocus className="inp" placeholder="Or type your own" value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onPick(custom.trim())} />
-        <button onClick={() => onPick(custom.trim())} className="btn px-4 text-sm">Go</button>
-      </div>
-      <button onClick={() => onPick("")} className="body text-sm underline w-full" style={{ color: C.mute }}>Skip, no title</button>
-    </div>
-  );
-}
 
 // Pending mog-off challenges, shown on the Status tab so nobody misses one
 function MogInbox({ s, openProfile }) {
@@ -5053,52 +3755,7 @@ function MogInbox({ s, openProfile }) {
 }
 
 /* ---------- Rank emblems v3 ---------- */
-function RankBadge({ rank, size = 44, still = false }) {
-  const tier = Math.max(0, RANKS.indexOf(rank));
-  const id = `rk${rank.id}`;
-  const hex = (r, cx = 50, cy = 50, rot = 0) => Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i - Math.PI / 2 + rot; return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
-  const anim = !still;
-  const c2 = rank.alt || rank.color;
-  const sparks = tier >= 3 ? 6 + tier * 2 : 0;
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" className="shrink-0" role="img" aria-label={`${rank.id} rank`} style={{ filter: `drop-shadow(0 0 ${5 + tier * 3}px ${rank.glow})`, overflow: "visible" }}>
-      <defs>
-        <radialGradient id={`${id}core`} cx="50%" cy="42%" r="60%"><stop offset="0" stopColor="#fff" stopOpacity={0.35 + tier * 0.08} /><stop offset=".35" stopColor={rank.color} stopOpacity=".55" /><stop offset="1" stopColor="#02040c" /></radialGradient>
-        <linearGradient id={`${id}ring`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff" /><stop offset=".3" stopColor={rank.color} /><stop offset=".65" stopColor={c2} /><stop offset="1" stopColor="#fff" /></linearGradient>
-        <linearGradient id={`${id}m`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset=".4" stopColor={rank.color} /><stop offset=".55" stopColor={darken(rank.color, 0.55)} /><stop offset=".75" stopColor={c2} /><stop offset="1" stopColor="#ffffff" /></linearGradient>
-        <linearGradient id={`${id}s`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".7" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
-        <clipPath id={`${id}c`}><polygon points={hex(42)} /></clipPath>
-      </defs>
-      {tier >= 4 && (
-        <g style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${16 - tier * 2}s linear infinite` } : null} opacity=".7">
-          {Array.from({ length: 16 }, (_, i) => <line key={i} x1="50" y1="50" x2={50 + 66 * Math.cos((Math.PI / 8) * i)} y2={50 + 66 * Math.sin((Math.PI / 8) * i)} stroke={i % 2 ? c2 : rank.color} strokeWidth={i % 4 === 0 ? 3 : 1.2} strokeLinecap="round" opacity={i % 2 ? 0.5 : 0.95} />)}
-        </g>
-      )}
-      {tier >= 5 && <circle cx="50" cy="50" r="58" fill="none" stroke="#fff" strokeWidth="1.5" strokeDasharray="2 14" opacity=".9" style={anim ? { transformOrigin: "50px 50px", animation: "rkspin 4s linear infinite reverse" } : null} />}
-      {tier >= 2 && <polygon points={hex(52, 50, 50, Math.PI / 6)} fill="none" stroke={`url(#${id}ring)`} strokeWidth={tier >= 4 ? 2.5 : 1.5} strokeDasharray={tier >= 4 ? "18 8" : "8 8"} opacity=".9" style={anim ? { transformOrigin: "50px 50px", animation: `rkspin ${12 - tier}s linear infinite reverse` } : null} />}
-      {tier >= 1 && <polygon points={hex(48)} fill="none" stroke={rank.color} strokeWidth="1" opacity=".5" style={anim ? { transformOrigin: "50px 50px", animation: `rkbreathe 2.6s ease-in-out infinite` } : null} />}
-      <polygon points={hex(42)} fill={`url(#${id}core)`} stroke={`url(#${id}ring)`} strokeWidth="3.5" strokeLinejoin="round" />
-      <polygon points={hex(34)} fill="none" stroke="#fff" strokeWidth={0.6 + tier * 0.25} opacity={0.25 + tier * 0.08} strokeDasharray={tier >= 3 ? "4 3" : "0"} style={anim && tier >= 3 ? { transformOrigin: "50px 50px", animation: "rkspin 20s linear infinite" } : null} />
-      {tier >= 2 && <polygon points={hex(38, 50, 50, Math.PI / 6)} fill="none" stroke={c2} strokeWidth="1" opacity=".55" />}
-      <text x="50" y="66" textAnchor="middle" fontSize="48" fontWeight="900" fontFamily="'Cinzel', 'Oxanium', serif" fill={`url(#${id}m)`} stroke={darken(rank.color, 0.3)} strokeWidth="1.4" paintOrder="stroke" style={anim && tier >= 1 ? { animation: `rkpulse ${3.5 - tier * 0.35}s ease-in-out infinite` } : null}>{rank.id}</text>
-      {anim && tier >= 1 && <g clipPath={`url(#${id}c)`}><rect x="-60" y="0" width="34" height="100" fill={`url(#${id}s)`} transform="skewX(-22)" style={{ animation: `rkshine ${4.2 - tier * 0.45}s ease-in-out infinite` }} /></g>}
-      {sparks > 0 && Array.from({ length: sparks }, (_, i) => {
-        const a = (2 * Math.PI * i) / sparks, r = 46 + (i % 3) * 6;
-        return <circle key={i} cx={50 + r * Math.cos(a)} cy={50 + r * Math.sin(a)} r={i % 3 === 0 ? 2.2 : 1.3} fill={i % 2 ? "#fff" : c2} style={anim ? { transformOrigin: "50px 50px", animation: `rkorbit ${7 + (i % 4) * 2}s linear infinite${i % 2 ? " reverse" : ""}, rktwinkle ${1 + (i % 5) * 0.3}s ease-in-out infinite` } : null} />;
-      })}
-      {tier >= 5 && <circle cx="50" cy="50" r="30" fill="none" stroke="#fff" strokeWidth="6" opacity=".18" style={anim ? { transformOrigin: "50px 50px", animation: "rkhalo 2.2s ease-out infinite" } : null} />}
-    </svg>
-  );
-}
 /* ---------- Muscle pages ---------- */
-const MUSCLE_INFO = {
-  Chest: { name: "Chest", key: ["Bench Press", "Incline Bench Press", "Dumbbell Press"], tips: ["Anchor the group on a heavy press (barbell or dumbbell) for 3–5 sets of 5–8, adding weight or a rep every week.", "Add an incline press for the upper chest and a fly or cable crossover for a stretch under load.", "Chest rank uses your best press. Push the estimated max up with heavier low-rep sets, not just more volume."] },
-  Back: { name: "Back", key: ["Deadlift", "Barbell Row", "Pull-up", "Lat Pulldown"], tips: ["Pull twice as much as you push: one vertical pull (pull-ups or pulldowns) and one horizontal pull (rows) every week.", "Deadlift or trap-bar deadlift moves this rank fastest because its factor is the highest of any lift.", "Log weighted pull-ups with the added weight in the +lb column, it counts extra."] },
-  Legs: { name: "Legs", key: ["Squat", "Leg Press", "Romanian Deadlift", "Hack Squat"], tips: ["Squat or hack squat heavy once a week, then a second lighter leg day with leg press, RDLs, and single-leg work.", "Legs count the most toward overall rank, so this is the highest-value muscle group to grind.", "Leg press numbers need to be big to rank: the machine's threshold is 2.4× your bench standard."] },
-  Shoulders: { name: "Shoulders", key: ["Overhead Press", "Dumbbell Shoulder Press", "Lateral Raise"], tips: ["Overhead press is the rank driver here. Press standing, strict, 4–5 sets of 5–8.", "Lateral raises and rear delt work add width but rank slowly; their thresholds are strict on purpose.", "Shoulders are held to a 25% stricter standard, so expect this group to lag your chest by a rank or so."] },
-  Arms: { name: "Arms", key: ["Barbell Curl", "Tricep Pushdown", "Close-Grip Bench Press"], tips: ["Barbell curl and close-grip bench move arm rank fastest, they have the highest factors in the group.", "Two exercises each for biceps and triceps, 3 sets of 8–12, and add a little weight every week.", "Arms only count 8% of overall rank, so treat this as the finisher, not the priority."] },
-  Core: { name: "Core", key: ["Cable Crunch", "Hanging Leg Raise", "Ab Crunch Machine"], tips: ["Weighted core work ranks: cable crunches or the crunch machine with real load, 3 sets of 10–15.", "Hanging leg raises count by reps. Strict, slow reps with no swing.", "Planks and holds earn XP but don't affect rank since they're timed."] },
-};
 function MuscleFigure({ group, score, color }) {
   const k = 1 + Math.min(6, score) * 0.11; // muscles grow with rank
   const def = 0.15 + Math.min(6, score) * 0.12; // definition lines get sharper
@@ -5137,74 +3794,6 @@ function MuscleFigure({ group, score, color }) {
     </svg>
   );
 }
-function MusclePage({ s, group, onBack, openExercise }) {
-  const [preview, setPreview] = useState(null);
-  const info = MUSCLE_INFO[group] || { name: group, key: [], tips: [] };
-  const sc = groupScores(s)[group] || 0;
-  const r = rankFromScore(sc);
-  const lifts = rankedLifts(s).filter((x) => x.e.group === group).sort((a, b) => b.score - a.score);
-  const since30 = shift(today(), -30);
-  let sets30 = 0, vol30 = 0, sessions30 = new Set(), volAll = 0;
-  s.workouts.forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.group !== group || d.type === "timed") return; const v = ex.sets.reduce((a, st) => a + (+st.w || 0) * (+st.r || 0), 0); volAll += v; if (w.date >= since30) { sets30 += ex.sets.length; vol30 += v; sessions30.add(w.date); } }));
-  const [ai, setAi] = useState({ status: "idle", text: "", next: [] });
-  const askAi = async () => {
-    setAi({ status: "loading", text: "", next: [] });
-    try {
-      const rr = await askJson(STERLING_SYS, `Muscle group: ${group}. Current group rank ${sc ? r.label : "untrained"} (score ${sc.toFixed(2)} of 6). Lifts logged: ${lifts.map((x) => `${x.e.name} ${x.label} best ${Math.round(x.best)}${x.e.type === "bodyweight" ? " reps" : " lb est max"}${x.next ? `, next rank at ${x.next}` : ""}`).join("; ") || "none"}. Last 30 days: ${sessions30.size} sessions, ${sets30} sets, ${Math.round(vol30).toLocaleString()} lb volume. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)} Give a specific plan to raise this muscle group's rank. Respond ONLY with JSON: {"quip": "one funny line", "plan": "2-3 sentences of specific advice", "next": [{"exercise": "name", "scheme": "e.g. 4×6", "why": "under 10 words"}]}`);
-      setAi({ status: "done", text: `${rr.quip ? `"${rr.quip}" ` : ""}${rr.plan || ""}`, next: (rr.next || []).slice(0, 3) });
-    } catch (e) { setAi({ status: "error", text: "", next: [] }); }
-  };
-  const steps = [0, 1, 2, 3, 4, 5];
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold glowtext flex-1">{info.name}</h1>
-        <span className="font-extrabold text-xl" style={{ color: sc ? r.rank.color : C.mute, textShadow: `0 0 12px ${r.rank.glow}` }}>{sc ? r.label : "Untrained"}</span>
-      </div>
-      <div className="panel p-3">
-        <MusclePhoto group={group} tier={preview ?? sc} height={300} sex={s.profile.sex} />
-        <div className="body text-xs text-center mb-2" style={{ color: preview !== null ? C.cyan : C.dim }}>{preview !== null ? `Preview: ${RANKS[preview].id}-rank ${info.name.toLowerCase()} · tap again to go back` : `Your ${info.name.toLowerCase()} at ${sc ? r.label : "untrained"} · tap a rank to preview`}</div>
-        <div className="flex justify-between items-center px-1">
-          {[0, 1, 2, 3, 4, 5, 6].map((t) => { const rk = RANKS[t]; const reached = sc >= t; return <button key={t} onClick={() => setPreview(preview === t ? null : t)} className="flex flex-col items-center gap-1" style={{ opacity: reached || preview === t ? 1 : 0.4, transform: preview === t ? "scale(1.15)" : "none", transition: "transform .2s" }}><RankBadge rank={rk} size={26} still /><span className="text-xs body" style={{ color: reached ? rk.color : C.mute }}>{rk.id}</span></button>; })}
-        </div>
-        <div className="mt-2"><Bar pct={(sc / 6) * 100} color={sc ? r.rank.color : C.mute} /></div>
-        <div className="body text-xs mt-1" style={{ color: C.dim }}>The photo grows as your best lift in this group climbs. Group rank = your best-ranked lift here.</div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[["Sessions (30d)", sessions30.size], ["Sets (30d)", sets30], ["Volume (30d)", `${Math.round(vol30 / 1000)}k lb`], ["Lifetime volume", volAll >= 1000000 ? `${(volAll / 1000000).toFixed(1)}M lb` : `${Math.round(volAll / 1000)}k lb`], ["Lifts ranked", lifts.length], ["Counts toward overall", `${Math.round(((GROUP_WEIGHT[group] || 0) / Object.values(GROUP_WEIGHT).reduce((a, b) => a + b, 0)) * 100)}%`]].map(([l, v]) => (
-          <div key={l} className="panel py-3 px-2 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold glowtext">{v}</div></div>
-        ))}
-      </div>
-      <h2 className="text-lg font-bold">Your lifts here</h2>
-      {lifts.length === 0 && <Empty>Nothing logged for {info.name} yet. Start with {info.key.slice(0, 2).join(" or ")}.</Empty>}
-      <div className="space-y-2">
-        {lifts.map((x) => (
-          <button key={x.e.name} onClick={() => openExercise?.(x.e.name)} className="panel p-3 flex items-center gap-3 w-full text-left">
-            <RankBadge rank={x.rank} size={30} />
-            <div className="flex-1 min-w-0"><div className="font-semibold truncate">{x.e.name}</div><div className="body text-xs" style={{ color: C.dim }}>Best {Math.round(x.best)}{x.e.type === "bodyweight" ? " reps" : " lb est. max"}{x.next ? ` · ${x.nextLabel} at ${x.next}` : " · maxed"}</div></div>
-            <span className="font-bold" style={{ color: x.rank.color }}>{x.label}</span>
-          </button>
-        ))}
-      </div>
-      <h2 className="text-lg font-bold">How to rank up</h2>
-      <div className="panel p-4 space-y-2">
-        {info.tips.map((t, i) => <div key={i} className="body text-sm flex gap-2" style={{ color: C.sub }}><span style={{ color: C.cyan }}>▸</span><span>{t}</span></div>)}
-        <div className="body text-xs pt-1" style={{ color: C.mute }}>Rank-driving lifts: {info.key.join(", ")}.</div>
-      </div>
-      <div className="panel p-4 space-y-2" style={{ borderColor: C.cyan }}>
-        <div className="font-bold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling's plan for your {info.name.toLowerCase()}</div>
-        {ai.status === "idle" && <button onClick={askAi} className="btn w-full py-2 text-sm">Build me a plan</button>}
-        {ai.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is measuring your {info.name.toLowerCase()} with a tape…</div>}
-        {ai.status === "error" && <button onClick={askAi} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
-        {ai.text && <div className="body text-sm" style={{ color: C.text }}>{ai.text}</div>}
-        {ai.next.map((n, i) => <div key={i} className="ghost p-2 flex items-center gap-2 text-sm"><div className="flex-1 min-w-0"><span className="font-semibold">{n.exercise}</span> <span style={{ color: C.dim }}>{n.scheme}{n.why ? ` · ${n.why}` : ""}</span></div><a href={ytUrl(n.exercise)} target="_blank" rel="noreferrer" aria-label={`How to ${n.exercise}`} style={{ color: C.mute }}><Youtube size={16} /></a></div>)}
-        {ai.status === "done" && <button onClick={askAi} className="body text-xs underline" style={{ color: C.mute }}>New plan</button>}
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Weekly + monthly challenges ---------- */
 function ChallengeCard({ c, value, claimed, onClaim, color }) {
   const done = value >= c.target;
@@ -5242,84 +3831,6 @@ function Challenges({ s, setS, gainXp }) {
 }
 
 /* ---------- Photo meal scanner ---------- */
-async function scanMealPhoto(dataUrl) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5", max_tokens: 500,
-      messages: [{ role: "user", content: [
-        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
-        { type: "text", text: `Identify the food in this photo and estimate nutrition for what is visible, as one serving each. Use typical US portions and standard nutrition values. Be practical, not cautious. If it's a packaged product with a label, read the label. Respond ONLY with JSON: {"items": [{"name": "food with portion, e.g. Grilled chicken breast (6 oz)", "cal": n, "p": n, "c": n, "f": n}], "note": "under 12 words about confidence or what you assumed"}` },
-      ] }],
-    }),
-  });
-  const data = await res.json();
-  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
-  const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
-  return { note: r.note || "", items: (r.items || []).map((it) => ({ name: String(it.name || "Food").slice(0, 60), cal: Math.round(+it.cal || 0), p: Math.round(+it.p || 0), c: Math.round(+it.c || 0), f: Math.round(+it.f || 0) })) };
-}
-function PhotoScan({ onAddAll, onCancel, sState, onShare }) {
-  const camRef = useRef(null), libRef = useRef(null);
-  const [img, setImg] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [items, setItems] = useState(null);
-  const [note, setNote] = useState("");
-  const [err, setErr] = useState("");
-  const onFile = async (e) => {
-    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
-    setBusy(true); setErr(""); setItems(null);
-    try {
-      const small = await shrinkPhoto(f, 640);
-      setImg(small);
-      const r = await scanMealPhoto(small);
-      if (!r.items.length) throw new Error("nothing");
-      setItems(r.items); setNote(r.note);
-    } catch (e2) { setErr("Couldn't read a meal from that photo. Try a clearer shot from above with good light."); }
-    setBusy(false);
-  };
-  const tot = (items || []).reduce((a, it) => ({ cal: a.cal + (+it.cal || 0), p: a.p + (+it.p || 0), c: a.c + (+it.c || 0), f: a.f + (+it.f || 0) }), { cal: 0, p: 0, c: 0, f: 0 });
-  const upd = (i, k, v) => setItems((x) => x.map((it, j) => (j === i ? { ...it, [k]: v } : it)));
-  return (
-    <div className="panel p-4 space-y-3" style={{ borderColor: C.cyan }}>
-      <div className="flex justify-between items-center"><div className="font-bold flex items-center gap-2"><Camera size={18} style={{ color: C.cyan }} />Scan a meal</div><button aria-label="Close" onClick={onCancel} style={{ color: C.mute }}><X size={18} /></button></div>
-      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
-      <input ref={libRef} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
-      {!items && !busy && (
-        <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => camRef.current?.click()} className="btn py-3 text-sm flex items-center justify-center gap-2"><Camera size={16} />Take photo</button>
-          <button onClick={() => libRef.current?.click()} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><ImageIcon size={16} />Choose photo</button>
-        </div>
-      )}
-      {busy && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={16} className="animate-spin" />Looking at your food…</div>}
-      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
-      {img && <img src={img} alt="Your meal" style={{ width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 6, border: `1px solid ${C.border}` }} />}
-      {items && (
-        <>
-          <div className="body text-sm" style={{ color: C.sub }}>Here's what I think you're eating. Fix anything that's off, then add it.{note ? <span style={{ color: C.dim }}> ({note})</span> : null}</div>
-          {items.map((it, i) => (
-            <div key={i} className="ghost p-2 space-y-1">
-              <div className="flex gap-2 items-center">
-                <input className="inp text-sm font-semibold" value={it.name} onChange={(e) => upd(i, "name", e.target.value)} aria-label="Food name" {...D.fuelBind("fuel-scan-name")} />
-                <button aria-label="Remove item" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} style={{ color: C.mute }}><X size={16} /></button>
-              </div>
-              <div className="grid grid-cols-4 gap-1">
-                {[["cal", "Cal"], ["p", "Protein"], ["c", "Carbs"], ["f", "Fat"]].map(([k, l]) => <label key={k} className="body text-xs text-center" style={{ color: C.dim }}>{l}<NumField inputMode="decimal" className="inp text-center mt-0.5" value={it[k]} onCommit={(v) => upd(i, k, v)} {...D.fuelBind("fuel-scan-n")} /></label>)}
-              </div>
-            </div>
-          ))}
-          <button onClick={() => setItems((x) => [...x, { name: "Something else", cal: 0, p: 0, c: 0, f: 0 }])} className="body text-xs underline" style={{ color: C.cyan }}>+ Add something the scan missed</button>
-          <div className="flex justify-between font-bold pt-2" style={{ borderTop: `1px solid ${C.line}` }}><span>Total</span><span style={{ color: C.gold }}>{tot.cal} cal · P {tot.p} · C {tot.c} · F {tot.f}</span></div>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => { setItems(null); setImg(null); }} className="ghost py-3 text-sm font-bold">Rescan</button>
-            <button onClick={() => onAddAll(items.filter((it) => it.name.trim()))} disabled={!items.length} className="btn py-3 text-sm">Add {items.length} item{items.length === 1 ? "" : "s"} to today</button>
-          {onShare && items.length > 0 && <div className="col-span-2"><PublishMealToggle s={sState} ai food={{ name: items.map((i2) => i2.name).join(" + ").slice(0, 60), cal: tot.cal, p: tot.p, c: tot.c, f: tot.f, ingredients: items.map((i2) => ({ name: i2.name, qty: 1, cal: i2.cal, p: i2.p, c: i2.c, f: i2.f })) }} /></div>}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 /* ---------- Built-in synth themes (original, no licensing) ---------- */
 const THEMES_MUSIC = {
   epic: { name: "Epic entrance", bpm: 92, wave: "sawtooth", bass: [36, 36, 43, 43, 41, 41, 39, 39], lead: [60, 63, 67, 72, 70, 67, 63, 60, 62, 65, 69, 74, 72, 69, 65, 62], drums: "kick" },
@@ -5421,32 +3932,8 @@ function SongPlayer({ playerId, meta, me }) {
 }
 
 /* ---------- Sound effects ---------- */
-const SFX = {
-  ctx: null, enabled: true,
-  ctxGet() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; if (!this.ctx) this.ctx = new AC(); this.ctx.resume(); return this.ctx; } catch (e) { return null; } },
-  tone(f, dur, delay = 0, vol = 0.18, type = "sine") { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02); },
-  click() { this.tone(880, 0.05, 0, 0.12, "square"); },
-  pr() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, i * 0.09, 0.2)); },
-  levelUp() { [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.22, i * 0.1, 0.2, "triangle")); this.tone(1568, 0.6, 0.5, 0.15); },
-  rankUp() { [262, 330, 392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.3, i * 0.12, 0.22, "sawtooth")); [1047, 1319, 1568].forEach((f, i) => this.tone(f, 0.9, 0.75 + i * 0.05, 0.16)); },
-  achievement() { [784, 988, 1175].forEach((f, i) => this.tone(f, 0.25, i * 0.08, 0.18, "triangle")); },
-  water() { this.tone(660, 0.08, 0, 0.1); this.tone(990, 0.12, 0.08, 0.1); },
-  noise(dur, vol, cutoff, delay = 0) { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, b = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2); const n = c.createBufferSource(); n.buffer = b; const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = cutoff; const g = c.createGain(); g.gain.value = vol; n.connect(f); f.connect(g); g.connect(c.destination); n.start(t); },
-  sweep(f1, f2, dur, vol, type = "sine", delay = 0) { const c = this.ctxGet(); if (!c || !this.enabled) return; const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02); },
-  slam() { this.sweep(140, 32, 0.9, 0.9); this.noise(0.35, 0.7, 900); [211, 347, 529, 811].forEach((f, i) => this.tone(f, 1.1 - i * 0.15, 0.02, 0.07, "square")); this.sweep(90, 40, 0.5, 0.5, "triangle", 0.12); },
-  thud() { this.sweep(110, 45, 0.45, 0.6); this.noise(0.18, 0.35, 700); },
-};
 
 /* ---------- Rank-up ceremony ---------- */
-function rankSnapshot(s) {
-  const o = overallInfo(s);
-  const lifts = {};
-  rankedLifts(s).forEach((r) => { lifts[r.e.name] = Math.floor(r.score); });
-  return { overall: Math.floor(o.score), od: Math.min(20, Math.floor(o.score * 3)), lifts };
-}
-function withSilentRankSnap(s) {
-  return { ...s, rankSnap: rankSnapshot(s) };
-}
 function Ceremony({ c, onClose }) {
   const rank = c.rank;
   useEffect(() => { SFX.rankUp(); const t = setTimeout(onClose, 9000); return () => clearTimeout(t); }, []);
@@ -5529,45 +4016,6 @@ function titleEarned(t, s) {
 }
 
 /* ---------- Progression + coaching helpers ---------- */
-function suggestNext(s, name, excludeId, stalled = null) {
-  const def = findEx(s, name);
-  if (def.type === "timed") return null;
-  const last = lastWorkingSets(s, name, excludeId);
-  if (!last) return null;
-  const sets = last.sets.filter((st) => +st.r > 0);
-  if (!sets.length) return null;
-  const stalledList = stalled || stalledLifts(s);
-  const isStalled = stalledList.some((x) => namesMatch(x.name, name));
-  if (def.type === "bodyweight") {
-    const minR = Math.min(...sets.map((st) => +st.r));
-    const w = Math.max(...sets.map((st) => +st.w || 0));
-    if (isStalled) return { w, r: Math.max(1, Math.round(minR * 0.8)), why: "stalled — drop reps, rebuild" };
-    if (minR >= 10) return { w, r: minR + 1, why: "add a rep" };
-    return { w, r: minR, why: "repeat, get every set" };
-  }
-  const w = Math.max(...sets.map((st) => +st.w || 0));
-  const reps = sets.filter((st) => (+st.w || 0) === w).map((st) => +st.r);
-  const minR = Math.min(...reps);
-  const big = (def.group === "Legs" || def.group === "Back") && def.factor >= 1;
-  const step = def.perHand ? 5 : big ? 10 : 5;
-  if (isStalled && def.type === "weighted") {
-    const dw = Math.max(step, Math.round((w * 0.9) / 5) * 5);
-    return { w: dw, r: 5, why: "stalled 3 sessions — deload ~10%" };
-  }
-  if (minR >= 8) return { w: w + step, r: Math.max(5, minR - 2), why: `all sets hit ${minR}+` };
-  if (minR >= 5) return { w, r: minR + 1, why: "add a rep" };
-  return { w, r: minR, why: "repeat, get every set" };
-}
-function stalledLifts(s) {
-  const out = [];
-  rankedLifts(s).forEach((r) => {
-    const sess = pastSessions(s, r.e.name, null, 3);
-    if (sess.length < 3) return;
-    const bests = sess.map((ps) => Math.max(...ps.sets.map((st) => bestValue(r.e, st, s.profile))));
-    if (bests[0] <= bests[1] && bests[1] <= bests[2]) out.push({ name: r.e.name, best: Math.round(bests[0]) });
-  });
-  return out;
-}
 function daysSinceTraining(s) {
   const last = [...s.workouts].reverse().find(isWorkout);
   if (!last) return null;
@@ -5614,278 +4062,8 @@ function WeeklyReport({ s }) {
   );
 }
 
-/* ---------- Rest timer + plates ---------- */
-function restNotify() {
-  try { navigator.vibrate?.([180, 70, 180, 70, 240]); } catch (e) { /* no haptic */ }
-  try {
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification("Rest over", { body: "Next set. Let's go.", tag: "ascend-rest" });
-    }
-  } catch (e) { /* blocked */ }
-}
-function persistRestEnd(end) { try { localStorage.setItem("ascend-rest-end", String(end || 0)); } catch (e) { /* private */ } }
-function readRestEnd() { try { return +localStorage.getItem("ascend-rest-end") || 0; } catch (e) { return 0; } }
-function RestBubble({ end, onDone, onClose, onChangeEnd }) {
-  const [now, setNow] = useState(Date.now());
-  const [big, setBig] = useState(false);
-  const wakeRef = useRef(null);
-  const doneRef = useRef(false);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, []);
-  const left = Math.max(0, Math.ceil((end - now) / 1000));
-  useEffect(() => { persistRestEnd(end); }, [end]);
-  useEffect(() => {
-    (async () => { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* unsupported */ } })();
-    try { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* */ }
-    const onVis = async () => { if (document.visibilityState === "visible") { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } } };
-    document.addEventListener("visibilitychange", onVis);
-    return () => { document.removeEventListener("visibilitychange", onVis); try { wakeRef.current?.release(); } catch (e) { /* */ } };
-  }, []);
-  useEffect(() => {
-    if (left === 0 && !doneRef.current) {
-      doneRef.current = true;
-      Beeper.unlock(); Beeper.work(); restNotify(); onDone();
-    }
-  }, [left]);
-  useEffect(() => { document.title = `⏱ ${fmtClock(left)} rest · Ascend`; }, [left]);
-  useEffect(() => () => { document.title = "Ascend"; persistRestEnd(0); }, []);
-  const bump = (sec) => onChangeEnd?.(end + sec * 1000);
-  const openWatch = () => {
-    persistRestEnd(end);
-    const w = window.open(`${location.pathname}?watch=rest`, "ascend-rest", "width=360,height=420,noopener");
-    if (!w) setBig(true);
-  };
-  if (big) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 px-6" style={{ background: "#02040B" }}>
-        <div className="body text-xs uppercase tracking-widest font-bold" style={{ color: C.mute }}>Rest</div>
-        <div className="font-extrabold tabular-nums" style={{ fontSize: "min(28vw, 140px)", lineHeight: 1, color: left <= 5 ? C.orange : C.cyan, textShadow: `0 0 40px ${left <= 5 ? C.orange : C.cyan}` }}>{fmtClock(left)}</div>
-        <div className="flex gap-2 w-full max-w-sm">
-          <button type="button" onClick={() => bump(30)} className="ghost flex-1 py-3 font-bold">+30s</button>
-          <button type="button" onClick={() => { persistRestEnd(0); onClose(); }} className="ghost flex-1 py-3 font-bold" style={{ color: C.orange }}>Skip</button>
-        </div>
-        <button type="button" onClick={openWatch} className="body text-sm font-bold" style={{ color: C.cyan }}>Open watch window</button>
-        <button type="button" onClick={() => setBig(false)} className="body text-xs" style={{ color: C.mute }}>Shrink</button>
-      </div>
-    );
-  }
-  return (
-    <div className="fixed z-[41] flex items-center gap-0.5 pl-2 pr-0.5 py-0.5 font-bold tabular-nums" style={{ left: 10, bottom: "calc(env(safe-area-inset-bottom) + 62px)", maxWidth: "min(200px, calc(100vw - 92px))", borderRadius: 999, background: C.sheet, color: left <= 5 ? C.orange : C.cyan, border: `1px solid ${left <= 5 ? C.orange : C.cyan}`, boxShadow: `0 0 16px ${C.glow}`, pointerEvents: "none" }}>
-      <button type="button" onClick={() => setBig(true)} aria-label="Open rest watch view" className="flex items-center gap-1.5 px-1 py-1" style={{ pointerEvents: "auto", minHeight: 40 }}>
-        <TimerIcon size={16} />Rest {fmtClock(left)}
-      </button>
-      <button type="button" aria-label="Add 30 seconds" onClick={() => bump(30)} className="px-2 py-1 text-xs" style={{ pointerEvents: "auto", minWidth: 40, minHeight: 40 }}>+30</button>
-      <button type="button" aria-label="Dismiss rest timer" onClick={onClose} className="px-2 py-1" style={{ pointerEvents: "auto", minWidth: 40, minHeight: 40 }}><X size={14} /></button>
-    </div>
-  );
-}
-function RestWatchPage() {
-  const [end, setEnd] = useState(() => readRestEnd());
-  const [now, setNow] = useState(Date.now());
-  const wakeRef = useRef(null);
-  const rang = useRef(false);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, []);
-  useEffect(() => {
-    (async () => { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } })();
-    try { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* */ }
-    const onVis = async () => { if (document.visibilityState === "visible") { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } } };
-    const onStor = (e) => { if (e.key === "ascend-rest-end") setEnd(+e.newValue || 0); };
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("storage", onStor);
-    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("storage", onStor); try { wakeRef.current?.release(); } catch (e) { /* */ } };
-  }, []);
-  const left = Math.max(0, Math.ceil((end - now) / 1000));
-  useEffect(() => {
-    if (left === 0 && end && !rang.current) { rang.current = true; Beeper.unlock(); Beeper.work(); restNotify(); }
-    if (left > 0) rang.current = false;
-  }, [left, end]);
-  useEffect(() => { document.title = left ? `⏱ ${fmtClock(left)} rest` : "Rest over"; }, [left]);
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6" style={{ background: "#02040B", color: C.text }}>
-      <div className="body text-xs uppercase tracking-widest font-bold" style={{ color: C.mute }}>{left ? "Rest" : "Go"}</div>
-      <div className="font-extrabold tabular-nums" style={{ fontSize: "min(28vw, 140px)", lineHeight: 1, color: !left ? C.green : left <= 5 ? C.orange : C.cyan, textShadow: `0 0 40px ${!left ? C.green : left <= 5 ? C.orange : C.cyan}` }}>{fmtClock(left)}</div>
-      <div className="flex gap-2 w-full max-w-sm">
-        <button type="button" onClick={() => { const n = (end || Date.now()) + 30000; persistRestEnd(n); setEnd(n); }} className="ghost flex-1 py-3 font-bold">+30s</button>
-        <button type="button" onClick={() => window.close()} className="ghost flex-1 py-3 font-bold" style={{ color: C.mute }}>Close</button>
-      </div>
-      <div className="body text-xs text-center" style={{ color: C.dim }}>Keep this window on your watch or lock screen. The phone stays awake while rest is running.</div>
-    </div>
-  );
-}
-function platesFor(total, bar = 45) {
-  let side = (total - bar) / 2;
-  if (side < 0) return null;
-  const out = [];
-  [45, 35, 25, 10, 5, 2.5].forEach((p) => { while (side >= p - 1e-9) { out.push(p); side -= p; } });
-  return out;
-}
-function PlateSheet({ weight, onClose }) {
-  const [w, setW] = useState(weight || 135);
-  const [bar, setBar] = useState(45);
-  const plates = platesFor(+w || 0, bar);
-  return (
-    <Sheet title="Plate calculator" onClose={onClose}>
-      <div className="flex gap-2 items-center">
-        <input type="text" inputMode="decimal" className="inp text-center text-xl font-bold" value={w} onChange={(e) => setW(e.target.value)} aria-label="Total weight" />
-        <span className="body text-sm" style={{ color: C.dim }}>lb total</span>
-      </div>
-      <div className="flex gap-2">{[45, 35, 15].map((b) => <button key={b} onClick={() => setBar(b)} className="flex-1 py-2 text-sm font-semibold" style={{ borderRadius: 4, background: bar === b ? C.blue : C.soft, color: bar === b ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{b} lb bar</button>)}</div>
-      {plates === null ? <div className="body text-sm" style={{ color: C.dim }}>Lighter than the bar.</div> : (
-        <div className="panel p-3">
-          <div className="body text-xs mb-2" style={{ color: C.dim }}>Per side</div>
-          <div className="flex items-end gap-1 justify-center" style={{ height: 90 }}>
-            {plates.length === 0 && <span className="body text-sm" style={{ color: C.dim }}>Just the bar</span>}
-            {plates.map((p, i) => <div key={i} className="flex items-end justify-center font-bold text-xs" style={{ width: p >= 25 ? 22 : 16, height: p >= 45 ? 90 : p >= 35 ? 78 : p >= 25 ? 64 : p >= 10 ? 46 : p >= 5 ? 36 : 28, borderRadius: 4, background: p >= 45 ? "#2F6BFF" : p >= 35 ? "#FFD447" : p >= 25 ? "#3DF08A" : p >= 10 ? "#fff" : p >= 5 ? "#FF2D6F" : "#9AA7BD", color: p >= 10 && p < 25 ? "#000" : "#fff", paddingBottom: 4 }}>{p}</div>)}
-          </div>
-          <div className="text-center font-bold mt-2">{plates.join(" + ") || "0"} each side{plates.length ? ` · ${(+w - bar) / 2} lb per side` : ""}</div>
-        </div>
-      )}
-    </Sheet>
-  );
-}
 
 /* ---------- Generic line chart + exercise page ---------- */
-function LineChart({ pts, color, unit = "", fmt = (v) => Math.round(v) }) {
-  if (!pts || pts.length < 2) return <div className="body text-sm" style={{ color: C.dim }}>Log this at least twice to see a trend.</div>;
-  const W = 320, H = 130, padL = 38, padR = 10, padT = 12, padB = 22;
-  const vs = pts.map((p) => p.v), lo = Math.min(...vs), hi = Math.max(...vs), span = hi - lo || 1;
-  const x = (i) => padL + (i / (pts.length - 1)) * (W - padL - padR), y = (v) => padT + (1 - (v - lo) / span) * (H - padT - padB);
-  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
-  const fd = (d) => new Date(d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Trend chart">
-      {[lo, (lo + hi) / 2, hi].map((v, i) => <g key={i}><line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke={C.line} strokeDasharray="3 4" /><text x={padL - 6} y={y(v) + 4} textAnchor="end" fontSize="10" fill={C.dim}>{fmt(v)}</text></g>)}
-      <path d={`${path} L${x(pts.length - 1).toFixed(1)},${H - padB} L${padL},${H - padB} Z`} fill={color} opacity=".12" />
-      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 6px ${color})` }} />
-      {pts.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.v)} r="3" fill={C.bg} stroke={color} strokeWidth="2" />)}
-      <text x={padL} y={H - 6} fontSize="10" fill={C.dim}>{fd(pts[0].d)}</text>
-      <text x={W - padR} y={H - 6} fontSize="10" fill={C.dim} textAnchor="end">{fd(pts[pts.length - 1].d)}{unit ? ` · ${unit}` : ""}</text>
-    </svg>
-  );
-}
-async function videoFrames(file, n = 3, size = 240) {
-  const url = URL.createObjectURL(file);
-  try {
-    const v = document.createElement("video");
-    v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
-    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error("video")); setTimeout(() => rej(new Error("timeout")), 8000); });
-    const dur = Math.min(v.duration || 10, 30);
-    const c = document.createElement("canvas");
-    const k = Math.min(1, size / Math.max(v.videoWidth || size, v.videoHeight || size));
-    c.width = Math.round((v.videoWidth || size) * k); c.height = Math.round((v.videoHeight || size) * k);
-    const ctx = c.getContext("2d");
-    const frames = [];
-    for (let i = 0; i < n; i++) {
-      const t = ((i + 0.5) / n) * dur;
-      await new Promise((res, rej) => { v.onseeked = res; v.onerror = () => rej(new Error("seek")); v.currentTime = t; setTimeout(res, 2500); });
-      ctx.drawImage(v, 0, 0, c.width, c.height);
-      frames.push(c.toDataURL("image/jpeg", 0.5));
-    }
-    return frames;
-  } finally { URL.revokeObjectURL(url); }
-}
-function FormCheck({ exercise, compact, result, onResult, heading = true }) {
-  const ref = useRef(null);
-  const [state, setState] = useState(result || { status: "idle", text: "" });
-  const setBoth = (next) => { setState(next); onResult?.(next); };
-  const onFile = async (e) => {
-    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
-    setBoth({ status: "loading", text: "" });
-    try {
-      const frames = await videoFrames(f);
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 320, system: STERLING_SYS, messages: [{ role: "user", content: [
-          ...frames.map((fr) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: fr.split(",")[1] } })),
-          { type: "text", text: `These are frames from a short video of someone doing ${exercise}, in time order. Give a form check: what looks good, the one or two most important fixes, and a cue to think about next set. Plain text, 3 to 5 short sentences, no markdown. If the frames don't show the lift clearly, say what angle to film from instead.` },
-        ] }] }),
-      });
-      const data = await res.json();
-      const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-      if (!text) throw new Error("empty");
-      setBoth({ status: "done", text });
-    } catch (err) { setBoth({ status: "error", text: "Couldn't read that video. Try a 5–15 second clip filmed from the side." }); }
-  };
-  return (
-    <div className={compact ? "mt-2 space-y-1.5" : "space-y-2"}>
-      {heading && !compact && <div className="font-bold flex items-center gap-2"><Video size={18} style={{ color: C.cyan }} />Form check by video</div>}
-      {!compact && <div className="body text-xs" style={{ color: C.dim }}>Film one set from the side, 5–15 seconds. Sterling looks at a few frames and gives cues. Videos aren't stored.</div>}
-      <input ref={ref} type="file" accept="video/*" capture="environment" onChange={onFile} style={{ display: "none" }} />
-      <button onClick={() => ref.current?.click()} disabled={state.status === "loading"} className={`${compact ? "ghost" : "btn"} w-full py-2 text-sm flex items-center justify-center gap-2`} style={{ minHeight: 40 }}>{state.status === "loading" ? <><Loader2 size={16} className="animate-spin" />Watching your set…</> : <><Camera size={16} />{compact ? "Film this lift" : "Record or choose a clip"}</>}</button>
-      {state.text && <div className="body text-sm" style={{ color: state.status === "error" ? C.red : C.text }}>{state.text}</div>}
-    </div>
-  );
-}
-function ExercisePage({ s, setS, name, onBack, openMuscle }) {
-  const def = findEx(s, name);
-  const p = s.profile;
-  const bw = Math.max(80, +p.weight || 170);
-  const gymSpecific = isGymSpecific(s, def);
-  const [allGyms, setAllGyms] = useState(false);
-  const sessions = [];
-  s.workouts.forEach((w) => {
-    const ex = (w.exercises || []).find((e) => namesMatch(e.name, name));
-    if (!ex) return;
-    const sets = (ex.sets || []).filter((st) => +st.r > 0);
-    if (!sets.length) return;
-    const best = def.type === "timed" ? Math.max(...sets.map((st) => +st.r)) : Math.max(...sets.map((st) => bestValue(def, st, p, ex)));
-    const vol = sets.reduce((a, st) => a + (+st.w || 0) * (+st.r || 0), 0);
-    sessions.push({ d: w.date, best, vol, sets, id: w.id, title: w.title, gym: workoutGym(w), legacy: isLegacyAssisted(w, def) });
-  });
-  const chartSessions = sessions.filter((x) => !x.legacy && (!gymSpecific || allGyms || x.gym === (s.currentGym ?? null)));
-  const byDay = {};
-  chartSessions.forEach((x) => { const cur = byDay[x.d]; byDay[x.d] = cur ? { ...cur, best: Math.max(cur.best, x.best), vol: cur.vol + x.vol } : x; });
-  const pts = Object.values(byDay).sort((a, b) => (a.d < b.d ? -1 : 1));
-  const r = rankedLifts(s).find((x) => namesMatch(x.e.name, name));
-  const sug = suggestNext(s, name);
-  const unit = def.type === "bodyweight" ? "reps" : def.type === "timed" ? "min" : "lb";
-  const curGymName = gymLabel(s, s.currentGym) || "untagged";
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <div className="flex-1 min-w-0"><h1 className="text-2xl font-bold glowtext truncate">{name}</h1><button onClick={() => openMuscle(def.group)} className="body text-xs underline" style={{ color: C.dim }}>{def.group}{def.perHand ? " · per hand" : ""} · muscle page</button></div>
-        {r && <RankBadge rank={r.rank} size={44} />}
-      </div>
-      <div className="panel p-3 flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="font-bold text-sm">Gym-specific history</div>
-          <div className="body text-xs" style={{ color: C.dim }}>{gymSpecific ? "Bests, Previous, ranks, and charts use the current gym. Free weights stay shared unless you override." : "Shared across gyms. Turn on if this machine or cable stack differs by gym."}</div>
-        </div>
-        <button role="switch" aria-checked={gymSpecific} aria-label="Gym-specific history" onClick={() => setS((p) => {
-          const next = { ...p, gymSpecific: { ...(p.gymSpecific || {}), [name]: !isGymSpecific(p, def) } };
-          const r = applyPrXpRecount(next, { names: [name], banner: false });
-          try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
-          return withSilentRankSnap(r.s);
-        })} className="relative shrink-0" style={{ width: 50, height: 28, borderRadius: 999, background: gymSpecific ? C.cyan : C.track, border: `1px solid ${C.border}` }}>
-          <span className="absolute top-0.5" style={{ left: gymSpecific ? 24 : 2, width: 22, height: 22, borderRadius: 999, background: "#fff" }} />
-        </button>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[["Rank", r ? r.label : "–"], [def.type === "bodyweight" ? "Best reps" : def.type === "timed" ? "Longest" : "Est. max", r ? `${Math.round(r.best)} ${unit}` : pts.length ? `${Math.round(pts[pts.length - 1].best)} ${unit}` : "–"], ["× bodyweight", r && def.type === "weighted" ? `${(r.best / bw).toFixed(2)}×` : "–"], ["Sessions", gymSpecific && !allGyms ? chartSessions.length : sessions.length], ["Next rank", r?.next ? `${r.next} ${unit}` : r ? "maxed" : "–"], ["Next time", sug ? `${sug.w}×${sug.r}` : "–"]].map(([l, v]) => (
-          <div key={l} className="panel py-3 px-2 text-center"><div className="text-xs body" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold glowtext">{v}</div></div>
-        ))}
-      </div>
-      {sug && <div className="body text-xs" style={{ color: C.dim }}>Suggested next session: {sug.w}×{sug.r} ({sug.why}).</div>}
-      {gymSpecific && (
-        <div className="flex items-center justify-between body text-xs" style={{ color: C.dim }}>
-          <span>Chart: {allGyms ? "all gyms" : curGymName}</span>
-          <button type="button" onClick={() => setAllGyms((v) => !v)} className="underline" style={{ color: C.cyan }}>{allGyms ? "Show current gym" : "Show all gyms"}</button>
-        </div>
-      )}
-      <div className="panel p-3"><div className="font-bold text-sm mb-1">{def.type === "timed" ? "Minutes per session" : def.type === "bodyweight" ? "Best set (reps)" : "Estimated max"}</div><LineChart pts={pts.map((x) => ({ d: x.d, v: x.best }))} color={C.cyan} unit={unit} /></div>
-      {def.type === "weighted" && <div className="panel p-3"><div className="font-bold text-sm mb-1">Volume per session</div><LineChart pts={pts.map((x) => ({ d: x.d, v: x.vol }))} color={C.green} unit="lb" fmt={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : Math.round(v))} /></div>}
-      <FormCheck exercise={name} />
-      <a href={ytUrl(name)} target="_blank" rel="noreferrer" className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Youtube size={16} />How-to videos</a>
-      <h2 className="text-lg font-bold">History</h2>
-      {[...sessions].reverse().slice(0, 15).map((x) => (
-        <div key={x.id} className="panel p-3 flex items-center gap-3">
-          <div className="flex-1 min-w-0"><div className="font-semibold">{fmtDay(x.d)}{x.title ? <span className="body text-xs ml-2" style={{ color: C.dim }}>{x.title}</span> : null}{gymLabel(s, x.gym) ? <span className="body text-xs ml-2" style={{ color: C.mute }}>{gymLabel(s, x.gym)}</span> : null}{x.legacy ? <span className="body text-xs ml-2" style={{ color: C.mute }}>legacy</span> : null}</div><div className="body text-xs truncate" style={{ color: C.sub }}>{x.sets.map((st) => setLabel(def, st)).join(", ")}</div></div>
-          <div className="text-right"><div className="font-bold">{Math.round(x.best)}</div><div className="body text-xs" style={{ color: C.mute }}>{unit}</div></div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /* ---------- Today dashboard + check-in ---------- */
 const SLEEP_OPTS = [5, 6, 7, 8, 9];
@@ -5962,7 +4140,6 @@ function Dashboard({ s, setS, goTrain, goRun, saveOk, saveAt, storageOk }) {
 
 
 /* ---------- Fuel extras ---------- */
-const WATER_XP = 25;
 function WaterTracker({ s, setS, gainXp, d }) {
   const target = Math.max(8, Math.round((+s.profile.weight || 170) / 2 / 8));
   const w = s.water?.[d] || { n: 0, xp: false };
@@ -5985,85 +4162,6 @@ function WaterTracker({ s, setS, gainXp, d }) {
       <button aria-label="Add a cup" onClick={() => set(w.n + 1)} className="btn w-8 h-8 flex items-center justify-center"><Plus size={14} /></button>
     </div>
   );
-}
-function DayTemplates({ s, setS, d, meals }) {
-  const [open, setOpen] = useState(false);
-  const [naming, setNaming] = useState(false);
-  const [name, setName] = useState("");
-  const tpls = s.dayTemplates || [];
-  const save = () => {
-    const nm = name.trim() || `Day ${tpls.length + 1}`;
-    const items = meals.map(({ id, ...m }) => m);
-    setS((p) => ({ ...p, dayTemplates: [...(p.dayTemplates || []).filter((t) => t.name !== nm), { id: uid(), name: nm, items }] }));
-    setNaming(false); setName("");
-  };
-  const load = (t) => setS((p) => ({ ...p, meals: { ...p.meals, [d]: [...(p.meals[d] || []), ...t.items.map((m) => ({ ...m, id: uid() }))] } }));
-  return (
-    <div className="panel">
-      <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><Layers size={16} style={{ color: C.cyan }} />Day templates{tpls.length ? ` (${tpls.length})` : ""}</span><ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
-      {open && (
-        <div className="px-3 pb-3 space-y-2">
-          {tpls.map((t) => (
-            <div key={t.id} className="ghost flex items-center">
-              <button onClick={() => load(t)} className="flex-1 text-left p-2 min-w-0"><div className="font-semibold text-sm">{t.name}</div><div className="body text-xs truncate" style={{ color: C.dim }}>{t.items.length} items · {Math.round(mealTotals(t.items).cal)} cal · P {Math.round(mealTotals(t.items).p)}</div></button>
-              <button aria-label={`Delete template ${t.name}`} onClick={() => ask(`Delete template "${t.name}"?`, () => setS((p) => ({ ...p, dayTemplates: p.dayTemplates.filter((x) => x.id !== t.id) })), "Delete")} className="px-3" style={{ color: C.mute }}><Trash2 size={14} /></button>
-            </div>
-          ))}
-          {tpls.length === 0 && <div className="body text-xs" style={{ color: C.dim }}>Save a whole day of eating once, then log it in one tap.</div>}
-          {meals.length > 0 && (naming ? (
-            <div className="flex gap-2"><input autoFocus className="inp text-sm" placeholder="Template name, e.g. Work day" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} {...D.fuelBind("fuel-tpl")} data-diag="fuel-tpl" /><button onClick={save} className="btn px-3 text-sm">Save</button></div>
-          ) : <button onClick={() => setNaming(true)} className="ghost w-full py-2 text-sm font-semibold" style={{ color: C.cyan }}>Save this day as a template</button>)}
-        </div>
-      )}
-    </div>
-  );
-}
-function NutritionReport({ s }) {
-  const [open, setOpen] = useState(false);
-  const t = targets(s.profile);
-  const days = [];
-  for (let i = 6; i >= 0; i--) { const d = shift(today(), -i); const m = s.meals?.[d] || []; if (m.length) days.push({ d, ...mealTotals(m) }); }
-  if (days.length < 2) return null;
-  const avg = (k) => Math.round(days.reduce((a, x) => a + x[k], 0) / days.length);
-  const closeness = (x) => Math.abs(x.cal - t.cal) / t.cal + Math.max(0, t.protein - x.p) / t.protein;
-  const best = [...days].sort((a, b) => closeness(a) - closeness(b))[0], worst = [...days].sort((a, b) => closeness(b) - closeness(a))[0];
-  const dp = avg("p") - t.protein, dc = avg("cal") - t.cal;
-  const tip = dp < -15 ? `Protein runs ${-dp}g short per day. Add a shake or an extra 6 oz of chicken.` : dc > t.cal * 0.1 ? `About ${dc} calories over target on average. Trim the biggest snack.` : dc < -t.cal * 0.1 ? `About ${-dc} calories under. Add a carb source to your post-workout meal.` : "Dialed in this week. Keep it steady.";
-  const fd = (d) => new Date(d + "T12:00").toLocaleDateString(undefined, { weekday: "short" });
-  return (
-    <div className="panel">
-      <button onClick={() => setOpen(!open)} className="w-full p-3 flex justify-between items-center font-semibold text-sm"><span className="flex items-center gap-2"><TrendingUp size={16} style={{ color: C.cyan }} />7-day nutrition report</span><ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none" }} /></button>
-      {open && (
-        <div className="px-3 pb-3 body text-sm space-y-1" style={{ color: C.sub }}>
-          <div>Average: {avg("cal")} cal · P {avg("p")} · C {avg("c")} · F {avg("f")} ({days.length} days logged)</div>
-          <div style={{ color: C.green }}>Best day: {fd(best.d)} ({Math.round(best.cal)} cal, {Math.round(best.p)}g protein)</div>
-          <div style={{ color: C.orange }}>Roughest day: {fd(worst.d)} ({Math.round(worst.cal)} cal, {Math.round(worst.p)}g protein)</div>
-          <div style={{ color: C.cyan }}>{tip}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-async function barcodeLookup(dataUrl) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 120, messages: [{ role: "user", content: [
-      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
-      { type: "text", text: `Read the barcode number printed under the bars in this photo (UPC/EAN, 8 to 14 digits). Respond ONLY with JSON: {"code": "digits or empty string", "product": "product name if visible or empty"}` },
-    ] }] }),
-  });
-  const data = await res.json();
-  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
-  const r = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
-  const code = String(r.code || "").replace(/\D/g, "");
-  if (code.length < 8) throw new Error("nocode");
-  const off = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments,serving_size`);
-  const j = await off.json();
-  if (!j.product) throw new Error("notfound");
-  const n = j.product.nutriments || {};
-  const per = n["energy-kcal_serving"] != null ? "serving" : "100g";
-  const val = (k) => Math.round(+(n[`${k}_${per}`] ?? n[`${k}_100g`] ?? 0));
-  return { name: `${j.product.brands ? `${j.product.brands} ` : ""}${j.product.product_name || r.product || "Product"} (${per === "serving" ? j.product.serving_size || "1 serving" : "100 g"})`.slice(0, 70), cal: val("energy-kcal"), p: val("proteins"), c: val("carbohydrates"), f: val("fat"), source: "official", note: `Open Food Facts · barcode ${code}` };
 }
 
 /* ---------- Body tracking ---------- */
@@ -6168,20 +4266,6 @@ function Measurements({ s, setS }) {
 }
 
 /* ---------- Social: feed, crew goal, duels, sharing ---------- */
-function postFeed(s, type, text, extra = {}, eventId = null) {
-  if (!s.lb || !s.profile.name) return;
-  const key = eventId ? `feed:${s.playerId}_${eventId}` : `feed:${Date.now()}_${s.playerId}`;
-  const oi = overallInfo(s);
-  publishShared(key, { type, text, name: s.profile.name, from: s.playerId, look: s.profile.look || null, rank: oi.rank.id, div: oi.div, t: Date.now(), ...extra });
-  return key;
-}
-// Full, shareable copy of a logged workout (exercises, every set's weight and reps)
-function workoutPayload(s, w) {
-  return {
-    id: w.id, title: w.title || "", date: w.date, xp: w.xp || 0, volume: Math.round(w.volume || 0), minutes: w.minutes || null,
-    exercises: w.exercises.slice(0, 20).map((e) => ({ name: e.name, type: findEx(s, e.name).type, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.sets.slice(0, 15).map((st) => ({ w: st.w ?? "", r: st.r ?? "" })) })),
-  };
-}
 // Preset that keeps the exact structure: exercise order, set count, and each set's weight and reps
 function presetFromExercises(name, exercises) {
   return { id: uid(), name, exercises: exercises.map((e) => ({ name: e.name, sets: e.sets.length, plan: e.sets.map((st) => ({ w: st.w ?? "", r: st.r ?? "" })), ...(e.wMode ? { wMode: e.wMode } : {}) })) };
@@ -6190,15 +4274,6 @@ function RankChip({ rank, div, size = "xs" }) {
   const r = RANKS.find((x) => x.id === rank);
   if (!r) return null;
   return <span className={`ranklabel shrink-0 px-1.5 text-${size}`} style={{ borderRadius: 4, color: r.color, background: `${r.color}1F`, border: `1px solid ${r.color}66`, lineHeight: 1.5 }}>{r.id}{div ? ` ${div}` : ""}</span>;
-}
-async function readShared(prefix) {
-  if (!window.storage?.list) return [];
-  try {
-    const res = await window.storage.list(prefix, true);
-    const items = await Promise.all((res?.keys || []).map(async (k) => { try { const r = await window.storage.get(k, true); return r?.value ? { key: k, ...JSON.parse(r.value) } : null; } catch { return null; } }));
-    const got = items.filter(Boolean);
-    return prefix === "lb:" ? liveBoard(got) : got;
-  } catch { return []; }
 }
 function FeedWorkoutSheet({ s, setS, post, onClose }) {
   const [saved, setSaved] = useState(false);
@@ -6352,7 +4427,6 @@ function Feed({ s, setS, openProfile, rows = [] }) {
     </div>
   );
 }
-const CREW_PER_PLAYER = 12, CREW_XP = 500, DUEL_XP = 100;
 const IOS_LOC = "On iPhone: Settings → Privacy & Security → Location Services (on), then Settings → Apps → Safari → Location → Allow. Reload this page in Safari (not an in-app browser) and tap Allow when asked. The site has to be HTTPS.";
 const fmtHMS = (sec) => {
   const s = Math.max(0, Math.floor(+sec || 0));
@@ -6366,22 +4440,6 @@ const fmtAgo = (t, now = Date.now()) => {
   const h = Math.floor(m / 60);
   return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
 };
-function ghostBundle(s) {
-  const pid = s.playerId || "me";
-  if (s.ghost?.crew) return s.ghost;
-  return {
-    crew: { code: "LOCAL", name: "Test crew (this device only)", owner: pid, members: [pid, "g1", "g2", "g3"] },
-    gym: { lat: 41.8827, lng: -87.6233, t: 1 },
-    presence: {},
-    ping: null,
-    onWay: {},
-    raid: null,
-    mocks: { g1: { id: "g1", name: "Mock Rio" }, g2: { id: "g2", name: "Mock Sage" }, g3: { id: "g3", name: "Mock Quinn" } },
-  };
-}
-function patchGhost(setS, fn) {
-  setS((p) => ({ ...p, ghost: fn(ghostBundle(p)) }));
-}
 function getGps(opts = {}) {
   if (opts.test && opts.gym && Number.isFinite(+opts.gym.lat)) return Promise.resolve({ lat: +opts.gym.lat, lng: +opts.gym.lng, mock: true });
   return new Promise((resolve, reject) => {
@@ -6399,73 +4457,6 @@ function locErrorText(err) {
   if (err?.code === 3) return "Location timed out. Try again in a spot with a clearer sky.";
   if (err?.message === "no-geo") return "This browser can't share location.";
   return "Couldn't get your location.";
-}
-async function readPres(code) {
-  try { const r = await window.storage.get(`crewpres:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
-}
-async function writePres(code, rec) {
-  try { await window.storage.set(`crewpres:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
-}
-async function casPres(code, mut) {
-  for (let i = 0; i < 8; i++) {
-    const rec = (await readPres(code)) || { at: {}, ping: null, onWay: {}, rev: 0 };
-    const next = mut({ ...rec, at: { ...(rec.at || {}) }, onWay: { ...(rec.onWay || {}) } });
-    const latest = await readPres(code);
-    if ((latest?.rev || 0) !== (rec.rev || 0)) {
-      const merged = mut({
-        ...latest,
-        at: { ...(latest.at || {}), ...(next.at || {}) },
-        onWay: { ...(latest.onWay || {}), ...(next.onWay || {}) },
-        ping: next.ping !== undefined ? next.ping : latest.ping,
-      });
-      merged.rev = (latest.rev || 0) + 1;
-      if (await writePres(code, merged)) return merged;
-      continue;
-    }
-    next.rev = (rec.rev || 0) + 1;
-    if (await writePres(code, next)) return next;
-  }
-  return null;
-}
-async function readRaid(code) {
-  try { const r = await window.storage.get(`crewraid:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
-}
-async function writeRaid(code, rec) {
-  try { await window.storage.set(`crewraid:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
-}
-async function casRaid(code, action, ctx) {
-  if (ctx.ghostMode) {
-    const { ok, raid, reason } = applyRaidAction(ctx.ghostRaid, action, ctx);
-    return { ok, raid, reason };
-  }
-  for (let i = 0; i < 8; i++) {
-    const remote = await readRaid(code);
-    const { ok, raid, reason } = applyRaidAction(remote, action, ctx);
-    if (!ok) return { ok, raid: remote, reason };
-    const latest = await readRaid(code);
-    if ((latest?.rev || 0) !== (remote?.rev || 0)) {
-      const merged = reconcileRaid(raid, latest);
-      const again = applyRaidAction(merged, action, ctx);
-      const out = again.ok ? again.raid : merged;
-      if (await writeRaid(code, out)) return { ok: true, raid: out };
-      continue;
-    }
-    if (await writeRaid(code, raid)) return { ok: true, raid };
-  }
-  return { ok: false, reason: "busy", raid: null };
-}
-async function noteRaidHitFor(s, setS, workout) {
-  const ctxBase = { playerId: s.playerId, name: s.profile.name, workout, now: Date.now() };
-  if (s.test) {
-    const g = ghostBundle(s);
-    const presence = prunePresence(g.presence, ctxBase.now);
-    const { ok, raid } = applyRaidAction(g.raid, "hit", { ...ctxBase, presence, memberCount: g.crew.members.length, ghostMode: true, ghostRaid: g.raid });
-    if (ok) patchGhost(setS, (prev) => ({ ...prev, raid }));
-    return;
-  }
-  if (!s.crew?.code || !s.playerId) return;
-  const pres = await readPres(s.crew.code);
-  await casRaid(s.crew.code, "hit", { ...ctxBase, presence: prunePresence(pres?.at, ctxBase.now), memberCount: RAID_NEED });
 }
 async function stampPresence(s, setS, t, drop = false) {
   const now = t || Date.now();
@@ -6612,67 +4603,6 @@ function Crew({ s, setS, gainXp, rows, openProfile }) {
       {s.crew?.code && <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="crew" crewId={s.crew.code} />}
       <BossFight s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} scope="global" />
       <DuelsPanel s={s} setS={setS} gainXp={gainXp} rows={rows} openProfile={openProfile} />
-    </div>
-  );
-}
-function SharePreset({ s, workout }) {
-  const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState([]);
-  const [done, setDone] = useState("");
-  useEffect(() => { if (open) readShared("lb:").then((r) => setRows(r.filter((x) => x.id !== s.playerId && x.name))); }, [open]);
-  const send = async (r) => {
-    const exercises = workout.exercises.map((e) => ({ name: e.name, sets: e.sets.length }));
-    try { await window.storage.set(`preset:${uid()}`, JSON.stringify({ to: r.id, toUid: r.uid || null, fromUid: window.ascendUserId || null, from: s.playerId, fromName: s.profile.name, name: workout.title || `${s.profile.name}'s workout`, exercises, t: Date.now() }), true); setDone(r.name); } catch (e) { /* ignore */ }
-  };
-  if (done) return <span className="body text-xs" style={{ color: C.green }}>Sent to {done}</span>;
-  if (!open) return <button aria-label="Send as preset" onClick={() => setOpen(true)} style={{ color: C.cyan }}><Send size={16} /></button>;
-  return <div className="flex gap-1 flex-wrap">{rows.length === 0 ? <span className="body text-xs" style={{ color: C.dim }}>No one else on the board</span> : rows.map((r) => <button key={r.id} onClick={() => send(r)} className="ghost px-2 py-1 text-xs">{r.name}</button>)}<button onClick={() => setOpen(false)} className="body text-xs" style={{ color: C.mute }}>×</button></div>;
-}
-function SharedPresets({ s, setS }) {
-  const [items, setItems] = useState([]);
-  useEffect(() => { readShared("preset:").then((r) => setItems(r.filter((x) => x.to === s.playerId))); }, []);
-  if (!items.length) return null;
-  const save = async (it) => { setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => x.name !== it.name), { id: uid(), name: it.name, exercises: it.exercises }] })); try { await window.storage.delete(it.key, true); } catch (e) { /* ignore */ } setItems((x) => x.filter((y) => y.key !== it.key)); };
-  return (
-    <div className="space-y-1">
-      <div className="body text-xs font-bold" style={{ color: C.cyan }}>Shared with you</div>
-      {items.map((it) => <div key={it.key} className="ghost flex items-center"><div className="flex-1 p-2 min-w-0"><div className="font-semibold text-sm">{it.name} <span className="body text-xs font-normal" style={{ color: C.dim }}>from {it.fromName}</span></div><div className="body text-xs truncate" style={{ color: C.dim }}>{it.exercises.map((e) => `${e.name} ×${e.sets}`).join(" · ")}</div></div><button onClick={() => save(it)} className="btn px-3 py-1.5 text-xs mr-2">Save</button></div>)}
-    </div>
-  );
-}
-
-/* ---------- Sterling weekly plan ---------- */
-function PlanGenerator({ s, setS }) {
-  const [state, setState] = useState({ status: "idle", days: [] });
-  const build = async () => {
-    setState({ status: "loading", days: [] });
-    try {
-      const names = exerciseNameList(s, 80);
-      const ranks = rankedLifts(s).slice(0, 12).map((r) => `${r.e.name} ${r.label}`).join(", ");
-      const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))].join(", ");
-      const g = groupScores(s);
-      const weak = Object.keys(GROUP_WEIGHT).sort((a, b) => (g[a] || 0) - (g[b] || 0)).slice(0, 2).join(" and ");
-      const r = await askJson(STERLING_SYS, `Write a 4-day training week for this lifter. Ranks: ${ranks || "none yet"}. Weakest groups: ${weak}. Titles they usually use: ${titles || "none"}. Bodyweight ${s.profile.weight} lb. ${sexLine(s.profile)} Use exercise names ONLY from this list, spelled exactly: ${names}. 5 to 7 exercises per day, 3 to 4 sets each, sensible splits. Respond ONLY with JSON: {"quip": "one funny line", "days": [{"name": "short day title", "exercises": [{"name": "exact name", "sets": n}]}]}`, 700);
-      const valid = new Set(allExercises(s).map((e) => e.name));
-      const days = (r.days || []).map((d) => ({ name: String(d.name || "Day").slice(0, 24), exercises: (d.exercises || []).filter((e) => valid.has(e.name)).map((e) => ({ name: e.name, sets: Math.max(1, Math.min(6, +e.sets || 3)) })) })).filter((d) => d.exercises.length);
-      if (!days.length) throw new Error("empty");
-      setState({ status: "done", days, quip: r.quip });
-    } catch (e) { setState({ status: "error", days: [] }); }
-  };
-  const save = () => { setS((p) => ({ ...p, presets: [...(p.presets || []).filter((x) => !state.days.some((d) => d.name === x.name)), ...state.days.map((d) => ({ id: uid(), name: d.name, exercises: d.exercises }))] })); setState({ status: "saved", days: [] }); };
-  return (
-    <div className="space-y-2">
-      {state.status === "idle" && <button onClick={build} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}><Bot size={16} />Sterling, build my week</button>}
-      {state.status === "loading" && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Drafting a week that respects your weaknesses…</div>}
-      {state.status === "error" && <button onClick={build} className="ghost w-full py-2 text-sm">Couldn't reach Sterling. Try again</button>}
-      {state.status === "saved" && <div className="body text-sm" style={{ color: C.green }}>Saved as presets. Load one to start.</div>}
-      {state.status === "done" && (
-        <div className="panel p-3 space-y-2">
-          {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
-          {state.days.map((d, i) => <div key={i} className="body text-sm"><span className="font-bold" style={{ color: C.cyan }}>{d.name}:</span> <span style={{ color: C.sub }}>{d.exercises.map((e) => `${e.name} ×${e.sets}`).join(", ")}</span></div>)}
-          <div className="grid grid-cols-2 gap-2"><button onClick={build} className="ghost py-2 text-sm">Redo</button><button onClick={save} className="btn py-2 text-sm">Save all as presets</button></div>
-        </div>
-      )}
     </div>
   );
 }
@@ -6833,23 +4763,6 @@ function QuestAdd({ unit, onAdd }) {
 }
 
 /* ---------- Physique avatars ---------- */
-const TIER_IDS = ["E", "D", "C", "B", "A", "S", "SS"];
-const MUSCLE_SLUG = { Chest: "chest", Back: "back", Legs: "legs", Shoulders: "shoulders", Arms: "arms", Core: "core" };
-const physiqueSrc = (sex, tier) => {
-  const id = TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))];
-  return `/avatars/${id}${bodySex({ sex }) === "f" ? "-f" : ""}.webp`;
-};
-const muscleSrc = (sex, group, tier) => `/muscles/${bodySex({ sex }) === "f" ? "female/" : ""}${MUSCLE_SLUG[group] || "chest"}_${TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))]}.webp`;
-function PhysiquePlaceholder({ female, height, color }) {
-  const w = Math.round(height * 0.42);
-  return (
-    <svg width={w} height={height} viewBox="0 0 80 200" aria-hidden="true" style={{ position: "relative" }}>
-      <ellipse cx="40" cy="22" rx="14" ry="16" fill={color} opacity=".85" />
-      <path d={female ? "M26 42 Q40 48 54 42 L58 88 Q40 96 22 88 Z" : "M24 42 Q40 46 56 42 L62 90 Q40 98 18 90 Z"} fill={color} opacity=".8" />
-      <path d={female ? "M22 86 Q40 100 58 86 L62 188 L50 188 L46 118 L34 118 L30 188 L18 188 Z" : "M18 88 Q40 98 62 88 L66 188 L52 188 L48 118 L32 118 L28 188 L14 188 Z"} fill={color} opacity=".7" />
-    </svg>
-  );
-}
 function Physique({ tier = 0, height = 220, aura, caption, sex }) {
   const id = TIER_IDS[Math.max(0, Math.min(6, Math.floor(tier)))];
   const rank = RANKS[Math.max(0, Math.min(6, Math.floor(tier)))];
@@ -6886,7 +4799,6 @@ const BORDERS = [
 ];
 const bestTier = (s) => Math.floor(Object.values(groupScores(s)).reduce((a, b) => Math.max(a, b), 0));
 const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; }); return best; };
-const wetCode = (c) => (c >= 51 && c <= 67) || (c >= 71 && c <= 77) || (c >= 80 && c <= 86) || c >= 95;
 // Feat auras: each has a check and a progress readout. Once met, the unlock is saved to s.auraUnlocks for good.
 const AURA_TASKS = {
   streak30: (s) => { const v = longestRun(activeDays(s)); return { done: v >= 30, v: Math.min(v, 30), goal: 30, label: `Best streak ${Math.min(v, 30)} / 30 days` }; },
@@ -6923,17 +4835,6 @@ function stripGhostCosmetics(s) {
   };
   const title = equippedTitle(real);
   return stripGhostCosmeticsState(s, { allowAura: auraOk, allowBorder: borderOk, titleId: title?.id || "none" });
-}
-async function fetchRunWeather(lat, lng) {
-  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
-  try {
-    // Rounded to ~1 km so the exact start point never leaves the phone
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(2)}&longitude=${lng.toFixed(2)}&current=temperature_2m,precipitation,weather_code&temperature_unit=fahrenheit`, { signal: ctl.signal });
-    const j = await r.json();
-    const c = j?.current;
-    if (!c) return null;
-    return { t: Math.round(c.temperature_2m), code: c.weather_code, wet: (c.precipitation || 0) > 0 || wetCode(c.weather_code) };
-  } catch (e) { return null; } finally { clearTimeout(t); }
 }
 
 
@@ -7229,11 +5130,6 @@ function CrateVault({ s, setS }) {
   );
 }
 /* ---------- The Juice ---------- */
-function juice(kind = "pr") {
-  try { window.dispatchEvent(new CustomEvent("ascend-juice", { detail: kind })); } catch (e) { /* ignore */ }
-  if (kind === "pr") { SFX.slam(); try { navigator.vibrate?.([70, 40, 140]); } catch (e) { /* unsupported */ } }
-  else { SFX.thud(); try { navigator.vibrate?.(60); } catch (e) { /* unsupported */ } }
-}
 function JuiceBurst({ kind }) {
   const big = kind === "pr";
   const n = big ? 42 : 22;
@@ -7251,87 +5147,8 @@ function JuiceBurst({ kind }) {
 }
 
 /* ---------- Share receipts ---------- */
-const loadImg = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
-async function buildReceipt({ s, kind, headline, sub, rows, tierImg, footer }) {
-  const W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H;
-  const x = c.getContext("2d");
-  const oc = overallRank(s);
-  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0b1430"); g.addColorStop(1, "#000"); x.fillStyle = g; x.fillRect(0, 0, W, H);
-  const rg = x.createRadialGradient(W / 2, 380, 40, W / 2, 380, 620); rg.addColorStop(0, `${oc.color}55`); rg.addColorStop(1, "transparent"); x.fillStyle = rg; x.fillRect(0, 0, W, H);
-  const [logo, phys] = await Promise.all([loadImg("/logo.webp"), tierImg !== undefined ? loadImg(physiqueSrc(s.profile.sex, tierImg)) : Promise.resolve(null)]);
-  if (logo) { const lw = 150, lh = (logo.height / logo.width) * lw; x.drawImage(logo, 70, 60, lw, lh); }
-  x.fillStyle = "#C9B57A"; x.font = "600 28px Inter, system-ui, sans-serif"; x.textAlign = "right"; x.fillText("ASCEND", W - 70, 110);
-  x.fillStyle = "rgba(255,255,255,.55)"; x.font = "500 26px Inter, system-ui, sans-serif"; x.fillText(new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), W - 70, 150);
-  if (phys) { const ph = 620, pw = (phys.width / phys.height) * ph; x.globalAlpha = 0.9; x.drawImage(phys, W - pw - 20, 250, pw, ph); x.globalAlpha = 1; }
-  x.textAlign = "left";
-  x.fillStyle = oc.color; x.font = "700 30px Inter, system-ui, sans-serif"; x.fillText(kind.toUpperCase(), 70, 300);
-  x.fillStyle = "#fff"; x.font = "800 92px Inter, system-ui, sans-serif";
-  const words = String(headline).split(" "); let line = "", y = 400;
-  words.forEach((w) => { const t = line ? `${line} ${w}` : w; if (x.measureText(t).width > 620 && line) { x.fillText(line, 70, y); line = w; y += 100; } else line = t; });
-  x.fillText(line, 70, y);
-  if (sub) { x.fillStyle = "rgba(255,255,255,.7)"; x.font = "500 36px Inter, system-ui, sans-serif"; x.fillText(sub, 70, y + 64); }
-  let ry = 960;
-  (rows || []).slice(0, 4).forEach(([label, value]) => {
-    x.fillStyle = "rgba(255,255,255,.07)"; x.beginPath(); x.roundRect?.(70, ry - 58, W - 140, 84, 20); if (!x.roundRect) x.rect(70, ry - 58, W - 140, 84); x.fill();
-    x.fillStyle = "rgba(255,255,255,.65)"; x.font = "500 32px Inter, system-ui, sans-serif"; x.fillText(label, 100, ry);
-    x.fillStyle = "#fff"; x.font = "700 36px Inter, system-ui, sans-serif"; x.textAlign = "right"; x.fillText(String(value), W - 100, ry); x.textAlign = "left";
-    ry += 100;
-  });
-  x.fillStyle = "#fff"; x.font = "700 40px Inter, system-ui, sans-serif"; x.fillText(s.profile.name || "Ascend lifter", 70, H - 90);
-  x.fillStyle = oc.color; x.font = "600 30px Inter, system-ui, sans-serif"; x.fillText(`${overallInfo(s).label} · Level ${levelFromXp(s.xp).lvl}`, 70, H - 48);
-  x.fillStyle = "rgba(255,255,255,.5)"; x.textAlign = "right"; x.font = "500 28px Inter, system-ui, sans-serif"; x.fillText(footer || "ascendfit.site", W - 70, H - 48);
-  return new Promise((res) => c.toBlob((b) => res(b), "image/png"));
-}
-function ReceiptButton({ make, label = "Share card", small }) {
-  const [img, setImg] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const blobRef = useRef(null);
-  const open = async () => { setBusy(true); try { const b = await make(); blobRef.current = b; setImg(URL.createObjectURL(b)); } catch (e) { /* ignore */ } setBusy(false); };
-  const close = () => { if (img) URL.revokeObjectURL(img); setImg(null); };
-  const share = async () => {
-    const file = new File([blobRef.current], "ascend.png", { type: "image/png" });
-    try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: "Ascend" }); return; } } catch (e) { if (e?.name === "AbortError") return; }
-    const a = document.createElement("a"); a.href = img; a.download = "ascend.png"; document.body.appendChild(a); a.click(); a.remove();
-  };
-  return (
-    <>
-      <button onClick={open} disabled={busy} aria-label={label} className={small ? "" : "ghost px-3 py-2 text-sm font-semibold flex items-center gap-2"} style={{ color: C.cyan }}>
-        {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}{small ? null : label}
-      </button>
-      {img && (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center p-5 gap-3" style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }} onClick={close}>
-          <img src={img} alt="Share card" style={{ maxHeight: "70vh", maxWidth: "100%", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,.6)" }} onClick={(e) => e.stopPropagation()} />
-          <div className="flex gap-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <button onClick={close} className="ghost flex-1 py-3 font-semibold">Close</button>
-            <button onClick={share} className="btn flex-1 py-3">Share or save</button>
-          </div>
-          <div className="body text-xs" style={{ color: "rgba(255,255,255,.6)" }}>On iPhone, choose "Save Image" to post it anywhere.</div>
-        </div>
-      )}
-    </>
-  );
-}
 
 /* ---------- Boss fights ---------- */
-const BOSSES = [
-  { id: "wyrm", name: "The Iron Wyrm", tag: "Coils of cold steel", color: "#3DF08A", icon: "🐉", title: "Wyrmslayer", aura: "wyrm" },
-  { id: "colossus", eye: "#7DF9FF", name: "Frost Colossus", tag: "A glacier that learned to walk", color: "#B3ECFF", icon: "🧊", title: "Icebreaker", aura: "frost" },
-  { id: "gravemaw", name: "Gravemaw", tag: "It eats skipped leg days", color: "#B14BFF", icon: "💀", title: "Gravebane", aura: "abyss" },
-  { id: "chud", name: "The Chud King", tag: "Rules from a throne of double cheeseburgers", color: "#FFB43C", icon: "chud", title: "Chud King", aura: "chud" },
-  { id: "rust", eye: "#FF9A3D", name: "The Rust Titan", tag: "Every rep a grinding gear", color: "#C7743A", icon: "⚙️", title: "Titanbreaker", aura: "rust" },
-  { id: "harpy", eye: "#FFF27A", name: "Stormcaller Harpy", tag: "Screeches at half reps", color: "#7DD3FC", icon: "⚡", title: "Stormbound", aura: "thunder" },
-  { id: "warden", eye: "#7DF9FF", name: "The Hollow Warden", tag: "An empty suit of armor that never skips a set", color: "#9AA7BD", icon: "🗡️", title: "Wardenbane", aura: "hollow" },
-  { id: "leviathan", eye: "#9BF6FF", name: "Leviathan of the Deep", tag: "Drags lifters into the abyss of cardio", color: "#2F6BFF", icon: "🐙", title: "Tidebreaker", aura: "deep" },
-  { id: "behemoth", name: "Molten Behemoth", tag: "Sweats lava, lifts mountains", color: "#FF5A1F", icon: "🌋", title: "Magmaforged", aura: "magma" },
-  { id: "ratlord", eye: "#C6F07A", name: "The Plague Rat Lord", tag: "Hoards chalk and dirty towels", color: "#8BC34A", icon: "🐀", title: "Ratcatcher", aura: "plague" },
-  { id: "pharaoh", eye: "#7DF9FF", name: "Sandstorm Pharaoh", tag: "Buried his gains for 3,000 years", color: "#E8C872", icon: "🏺", title: "Sunbreaker", aura: "sand" },
-  { id: "void", eye: "#C9A8FF", name: "The Void Sovereign", tag: "The end of all excuses", color: "#6A00FF", icon: "🌑", title: "Voidwalker", aura: "void" },
-];
-// Boss HP. Damage: 1 per pound lifted, 5 per rep, 800 per mile.
-// Crew and global bosses share the same HP curve: 150k + 150k per person in that fight.
-const GLOBAL_BOSS_HP_PER_PLAYER = 150000, GLOBAL_BOSS_HP_BASE = 150000, BOSS_XP = 600;
-const crewBossHp = (members) => GLOBAL_BOSS_HP_BASE + GLOBAL_BOSS_HP_PER_PLAYER * Math.max(1, members);
-const globalBossHp = (players) => GLOBAL_BOSS_HP_BASE + GLOBAL_BOSS_HP_PER_PLAYER * Math.max(1, players);
 // Damage dealt each day this month, with that day's sleep/mood buff baked in
 function dayDamageMap(s, mk = monthKey()) {
   const out = {};
@@ -7604,7 +5421,6 @@ const DUEL_CONDS = {
 const duelCond = (d) => (DUEL_CONDS[d?.cond] ? d.cond : "xp");
 // Legacy duels ran the calendar week they were sent in; new ones run 7 days from the day they're accepted
 const duelWindow = (d) => { const start = d?.start || d?.ws; return start ? { start, end: shift(start, DUEL_DAYS - 1) } : null; };
-const fmtShort = (d) => new Date(`${d}T12:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 // Last 21 days of [xp, steps, workouts] for the board card. Zeros included, so others can tell the card is current.
 function dailyStats(s, n = 21) {
   const out = {}, t = today();
@@ -7898,19 +5714,6 @@ function NemesisAlert({ s, setS, openProfile }) {
 }
 
 /* ---------- Proactive Sterling ---------- */
-function sterlingSay(s, text) {
-  if (!window.speechSynthesis || s.settings?.voice === false) return;
-  try {
-    window.speechSynthesis.cancel();
-    const style = VOICE_STYLES[s.settings?.voiceStyle] || VOICE_STYLES.goblin;
-    const v = pickBritishVoice();
-    text.split(/(?<=[.!?])\s+/).filter(Boolean).forEach((part, i) => {
-      const u = new SpeechSynthesisUtterance(part); if (v) u.voice = v;
-      const [pitch, rate] = style.seq[i % style.seq.length]; u.lang = "en-GB"; u.pitch = pitch; u.rate = rate;
-      window.speechSynthesis.speak(u);
-    });
-  } catch (e) { /* ignore */ }
-}
 function brokenStreak(s) {
   const days = [...activeDays(s)].sort();
   if (!days.length) return null;
@@ -7955,73 +5758,8 @@ function RoastCard({ s, setS }) {
 }
 
 /* ---------- Dynamic warm-ups ---------- */
-const WARMUP_FALLBACK = {
-  upper: [["Arm circles", 30, "Big slow circles, both directions"], ["Band pull-aparts", 40, "Squeeze shoulder blades"], ["Cat-cow", 30, "Move through the whole spine"], ["Push-up to downward dog", 40, "Slow and controlled"], ["Light set of first lift", 40, "50% of working weight"]],
-  lower: [["Leg swings", 30, "Front-to-back, then side-to-side"], ["Bodyweight squats", 40, "Pause at the bottom"], ["Hip 90/90 switches", 40, "Keep chest tall"], ["Glute bridges", 30, "Squeeze at the top"], ["Walking lunges", 40, "Long stride, knee soft"]],
-  full: [["Jumping jacks", 30, "Easy pace"], ["World's greatest stretch", 50, "Alternate sides"], ["Bodyweight squats", 30, "Full depth"], ["Arm circles", 30, "Both directions"], ["Inchworms", 40, "Walk hands out and back"]],
-};
-function WarmUp({ s, a, setActive, compact = false, open: openProp, onOpenChange }) {
-  const [innerOpen, setInnerOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const open = openProp ?? innerOpen;
-  const setOpen = (v) => { onOpenChange?.(v); if (openProp === undefined) setInnerOpen(v); };
-  const steps = a.warmup;
-  const build = async () => {
-    setOpen(true); if (steps) return;
-    setBusy(true);
-    const names = a.exercises.map((e) => e.name).join(", ");
-    const lower = /leg|lower|squat|dead/i.test(`${a.title} ${names}`), upper = /push|pull|upper|chest|back|arm|shoulder/i.test(`${a.title} ${names}`);
-    let out = WARMUP_FALLBACK[lower && !upper ? "lower" : upper && !lower ? "upper" : "full"].map(([name, secs, cue]) => ({ name, secs, cue }));
-    const cacheKey = `ascend-warmup:${(a.title || "full").toLowerCase()}`;
-    let cached = false;
-    try { const hit = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (hit?.length >= 3) { out = hit; cached = true; } } catch (e) { /* */ }
-    if (!cached) {
-      try {
-        const r = await askJson(STERLING_SYS, `Workout title: "${a.title || "untitled"}". Exercises planned: ${names || "not chosen yet"}. Give a 3-minute dynamic mobility warm-up of 5 or 6 moves that prepares the joints and muscles used today. Respond ONLY with JSON: {"steps": [{"name": "move", "secs": seconds, "cue": "under 8 words"}]}`, 280);
-        const st = (r.steps || []).slice(0, 7).map((x) => ({ name: String(x.name).slice(0, 40), secs: Math.max(15, Math.min(60, +x.secs || 30)), cue: String(x.cue || "").slice(0, 60) }));
-        if (st.length >= 3) { out = st; try { localStorage.setItem(cacheKey, JSON.stringify(st)); } catch (e) { /* */ } }
-      } catch (e) { /* fallback */ }
-    }
-    setActive((w) => ({ ...w, warmup: out }));
-    setBusy(false);
-  };
-  const done = a.warmupDone || [];
-  const chip = (
-    <button type="button" onClick={build} className={compact ? "ghost px-2.5 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0" : "ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2"} style={{ color: C.cyan, minHeight: 40 }}>
-      <Activity size={compact ? 14 : 16} />{compact ? "3-min warm-up" : "3-minute warm-up"}
-    </button>
-  );
-  if (compact) return chip;
-  if (!open) return chip;
-  return (
-    <div className="panel p-4 space-y-2">
-      <div className="flex justify-between items-center"><div className="font-semibold text-sm flex items-center gap-2"><Activity size={16} style={{ color: C.cyan }} />Warm-up</div><button aria-label="Hide warm-up" onClick={() => setOpen(false)} style={{ color: C.mute, minWidth: 40, minHeight: 40 }}><ChevronDown size={16} style={{ transform: "rotate(180deg)" }} /></button></div>
-      {busy || (open && !steps) ? <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Sterling is picking your moves…</div> : null}
-      {(steps || []).map((x, i) => { const on = done.includes(i); return (
-        <button key={i} onClick={() => setActive((w) => ({ ...w, warmupDone: on ? (w.warmupDone || []).filter((j) => j !== i) : [...(w.warmupDone || []), i] }))} className="w-full flex items-center gap-3 text-left py-1">
-          <span className="shrink-0 flex items-center justify-center" style={{ width: 22, height: 22, borderRadius: 999, border: `1.5px solid ${on ? C.green : C.border}`, background: on ? C.green : "transparent", color: "#02040B" }}>{on && <Check size={13} />}</span>
-          <span className="flex-1 min-w-0"><span className="text-sm font-medium" style={{ color: on ? C.dim : C.text, textDecoration: on ? "line-through" : "none" }}>{x.name}</span><span className="body text-xs block" style={{ color: C.dim }}>{x.cue}</span></span>
-          <span className="body text-xs tabular-nums" style={{ color: C.dim }}>{x.secs}s</span>
-        </button>
-      ); })}
-    </div>
-  );
-}
 
 /* ---------- Muscle photos ---------- */
-function MusclePhoto({ group, tier = 0, height = 300, sex }) {
-  const t = Math.max(0, Math.min(6, Math.floor(tier)));
-  const id = TIER_IDS[t], rank = RANKS[t];
-  const female = bodySex({ sex }) === "f";
-  const [fail, setFail] = useState(false);
-  useEffect(() => { setFail(false); }, [group, id, female]);
-  return (
-    <div className="relative flex items-center justify-center" style={{ height }}>
-      <div className="absolute" style={{ width: "70%", height: "80%", borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(14px)" }} />
-      {fail ? <PhysiquePlaceholder female={female} height={height} color={rank.color} /> : <img key={`${group}-${id}-${female}`} src={muscleSrc(sex, group, t)} alt={`${group} at ${id} rank`} onError={() => setFail(true)} style={{ maxHeight: height, maxWidth: "100%", width: "auto", position: "relative", objectFit: "contain", animation: "musclein .35s ease-out", filter: "drop-shadow(0 10px 28px rgba(0,0,0,.55))" }} />}
-    </div>
-  );
-}
 
 /* ---------- Chud King ---------- */
 /* ---------- Boss illustrations (SVG, animated by CSS classes) ---------- */
@@ -8553,549 +6291,13 @@ function SupportForm({ s, tab = "settings" }) {
 }
 
 /* ---------- Geo helpers ---------- */
-function encodePoly(pts) {
-  let out = "", pLat = 0, pLng = 0;
-  const enc = (v) => { v = v < 0 ? ~(v << 1) : v << 1; let s = ""; while (v >= 0x20) { s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } return s + String.fromCharCode(v + 63); };
-  pts.forEach(([la, ln]) => { const a = Math.round(la * 1e5), b = Math.round(ln * 1e5); out += enc(a - pLat) + enc(b - pLng); pLat = a; pLng = b; });
-  return out;
-}
-function decodePoly(str) {
-  const pts = []; let i = 0, lat = 0, lng = 0;
-  while (i < (str || "").length) {
-    for (const k of [0, 1]) {
-      let b, shift = 0, result = 0;
-      do { b = str.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-      const d = result & 1 ? ~(result >> 1) : result >> 1;
-      if (k === 0) lat += d; else lng += d;
-    }
-    pts.push([lat / 1e5, lng / 1e5]);
-  }
-  return pts;
-}
-function thinPts(pts, minGapM = 8, maxPts = 900) {
-  if (!pts.length) return pts;
-  const out = [pts[0]];
-  for (let i = 1; i < pts.length; i++) if (havM(out[out.length - 1], pts[i]) >= minGapM || i === pts.length - 1) out.push(pts[i]);
-  if (out.length <= maxPts) return out;
-  const step = out.length / maxPts, res = [];
-  for (let i = 0; i < out.length; i += step) res.push(out[Math.floor(i)]);
-  res.push(out[out.length - 1]);
-  return res;
-}
-
-/* ---------- Map (Leaflet, loaded only when needed) ---------- */
-let leafletP = null;
-const loadLeaflet = () => (leafletP ||= Promise.all([import("leaflet"), import("leaflet/dist/leaflet.css")]).then(([m]) => m.default || m));
-function RouteMap({ lines = [], follow = null, height = 240, fit = true, interactive = true }) {
-  const el = useRef(null), mapRef = useRef(null), layerRef = useRef(null), meRef = useRef(null), fitted = useRef(false);
-  const [failed, setFailed] = useState(false);
-  const light = String(C.text || "").startsWith("#07");
-  useEffect(() => {
-    let dead = false;
-    loadLeaflet().then((L) => {
-      if (dead || !el.current || mapRef.current) return;
-      const map = L.map(el.current, { zoomControl: false, attributionControl: true, dragging: interactive, scrollWheelZoom: false, tap: interactive });
-      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${light ? "light_all" : "dark_all"}/{z}/{x}/{y}{r}.png`, { maxZoom: 19, subdomains: "abcd", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>' }).addTo(map);
-      map.setView(follow || lines[0]?.pts?.[0] || [30.2672, -97.7431], 15);
-      layerRef.current = L.layerGroup().addTo(map);
-      mapRef.current = map;
-      setTimeout(() => map.invalidateSize(), 60);
-      draw(L);
-    }).catch(() => setFailed(true));
-    return () => { dead = true; try { mapRef.current?.remove(); } catch (e) { /* ignore */ } mapRef.current = null; };
-  }, []);
-  const draw = (L) => {
-    const map = mapRef.current; if (!map || !layerRef.current) return;
-    layerRef.current.clearLayers();
-    let all = [];
-    lines.forEach((ln) => {
-      if (!ln.pts?.length) return;
-      L.polyline(ln.pts, { color: ln.color || C.cyan, weight: ln.weight || 5, opacity: ln.opacity ?? 0.95, dashArray: ln.dash || null, lineJoin: "round" }).addTo(layerRef.current);
-      if (ln.startDot) L.circleMarker(ln.pts[0], { radius: 6, color: "#fff", weight: 2, fillColor: "#3DF08A", fillOpacity: 1 }).addTo(layerRef.current);
-      all = all.concat(ln.pts);
-    });
-    if (follow) {
-      if (!meRef.current) meRef.current = L.circleMarker(follow, { radius: 8, color: "#fff", weight: 3, fillColor: "#2F8CFF", fillOpacity: 1 });
-      meRef.current.setLatLng(follow).addTo(layerRef.current);
-      map.panTo(follow, { animate: true });
-    } else if (fit && all.length > 1 && !fitted.current) { map.fitBounds(L.latLngBounds(all), { padding: [24, 24] }); fitted.current = true; }
-  };
-  useEffect(() => { if (mapRef.current) loadLeaflet().then(draw); }, [lines, follow?.[0], follow?.[1]]);
-  if (failed) return <div className="panel flex items-center justify-center body text-sm" style={{ height, color: C.dim }}>Map couldn't load. Your run still tracks.</div>;
-  return <div ref={el} style={{ height, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.glassLine}`, background: "#0b1020" }} />;
-}
 
 /* ---------- Live run tracker (full screen) ---------- */
-const LIVE_KEY = "ascend-live-run";
-const saveLive = (r) => { try { localStorage.setItem(LIVE_KEY, JSON.stringify(r)); } catch (e) { /* storage full */ } };
-const loadLive = () => { try { const r = JSON.parse(localStorage.getItem(LIVE_KEY) || "null"); return r ? ensureSegments(r) : null; } catch { return null; } };
-const clearLive = () => { try { localStorage.removeItem(LIVE_KEY); } catch (e) { /* ignore */ } };
 
-function RunTracker({ s, setS, gainXp, initial, onClose }) {
-  const [run, setRun] = useState(() => ensureSegments(initial));
-  const runRef = useRef(run); runRef.current = run;
-  const [now, setNow] = useState(Date.now());
-  const [gps, setGps] = useState({ status: "waiting", msg: "" });
-  const [phase, setPhase] = useState(initial.resumed ? "resume" : "live"); // resume | live | summary
-  const [wake, setWake] = useState(null);
-  const [cues, setCues] = useState(s.settings?.runCues !== false);
-  const watchRef = useRef(null), wakeRef = useRef(null), lastSave = useRef(0), cuedMiles = useRef(initial.splits?.length || 0), hiddenAt = useRef(null);
-  const [gapNote, setGapNote] = useState("");
-  const [SimDock, setSimDock] = useState(null);
-  const simOn = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("simrun") === "1";
-  const guide = useMemo(() => (initial.guide ? decodePoly(initial.guide.poly) : null), [initial.guide]);
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("simrun") !== "1") return;
-    let alive = true;
-    import("./devSimRun.jsx").then((m) => { if (alive) setSimDock(() => m.SimRunDock); });
-    return () => { alive = false; };
-  }, []);
-
-  const startWatch = () => {
-    if (simOn) { setGps({ status: "ok", msg: "sim" }); return; }
-    if (!navigator.geolocation) { setGps({ status: "error", msg: "This browser can't use GPS." }); return; }
-    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy || 50, t: pos.timestamp || Date.now() };
-        setGps({ status: fix.acc > 35 ? "weak" : "ok", msg: `±${Math.round(fix.acc)} m` });
-        setRun((r) => addFix(r, fix));
-      },
-      (err) => setGps({ status: "error", msg: err.code === 1 ? "Location is blocked. Allow it in Settings → Privacy → Location Services → Safari Websites." : "Searching for GPS…" }),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
-    );
-  };
-  const lockScreen = async () => {
-    try { if (navigator.wakeLock) { wakeRef.current = await navigator.wakeLock.request("screen"); setWake(true); wakeRef.current.addEventListener?.("release", () => setWake(false)); } else setWake(false); } catch (e) { setWake(false); }
-  };
-  useEffect(() => {
-    if (phase !== "live") return;
-    startWatch(); lockScreen();
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    const vis = () => {
-      if (document.visibilityState === "hidden") { hiddenAt.current = Date.now(); return; }
-      if (hiddenAt.current && Date.now() - hiddenAt.current > 20000) setGapNote(`GPS paused for ${Math.round((Date.now() - hiddenAt.current) / 1000)}s while the screen was off. The distance gets filled in with a straight line.`);
-      hiddenAt.current = null; startWatch(); lockScreen();
-    };
-    document.addEventListener("visibilitychange", vis);
-    return () => { clearInterval(tick); document.removeEventListener("visibilitychange", vis); if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current); watchRef.current = null; try { wakeRef.current?.release(); } catch (e) { /* ignore */ } };
-  }, [phase]);
-  // Crash-safe: keep the run on the phone every few seconds
-  useEffect(() => { if (phase === "live" && Date.now() - lastSave.current > 4000) { lastSave.current = Date.now(); saveLive({ ...run, resumed: true }); } }, [run, phase]);
-  // Tab title + mile cues
-  useEffect(() => { if (phase === "live") document.title = `${run.mode === "walk" ? "🚶" : "🏃"} ${(run.dist / MI_M).toFixed(2)} mi · ${fmtDur(runElapsed(run, now))}`; return () => { document.title = "Ascend"; }; }, [now, phase, run.mode]);
-  useEffect(() => {
-    if (run.splits.length > cuedMiles.current) {
-      cuedMiles.current = run.splits.length;
-      SFX.tone(880, 0.15); SFX.tone(1320, 0.2, 0.18);
-      if (cues) sterlingSay(s, `Mile ${run.splits.length}. ${Math.floor(run.splits[run.splits.length - 1] / 60)} minutes ${run.splits[run.splits.length - 1] % 60} seconds. Splendid.`);
-    }
-  }, [run.splits.length]);
-
-  const el = runElapsed(run, now), miles = run.dist / MI_M;
-  const avgPace = miles > 0.02 ? el / miles : Infinity, curPace = currentPace(run, now);
-  const curSeg = openSegment(run);
-  const segEl = curSeg ? segmentMovingSecs(curSeg, now, { pausedAt: run.pausedAt, isOpen: true }) : 0;
-  const segMiles = (curSeg?.dist || 0) / MI_M;
-  const segPace = segMiles > 0.02 ? segEl / segMiles : Infinity;
-  const path = useMemo(() => run.pts.filter((x) => x[3] !== 2).map((x) => [x[0], x[1]]), [run.pts.length]);
-  const me = run.last?.p || null;
-  const liveLines = useMemo(() => [...(guide ? [{ pts: guide, color: C.mute, weight: 5, dash: "6 8", opacity: 0.8 }] : []), { pts: path, color: C.cyan }], [path, guide]);
-  const preview = buildSavedRun(run, now);
-
-  const pause = () => setRun((r) => toggleRunPause(r));
-  const switchMode = (mode) => {
-    setRun((r) => {
-      if (r.mode === mode) return r;
-      const next = switchRunMode(r, mode);
-      SFX.tone(mode === "run" ? 880 : 520, 0.12);
-      if (cues) sterlingSay(s, mode === "walk" ? "Walking" : "Running");
-      return next;
-    });
-  };
-  const stop = () => {
-    setRun((r) => {
-      const n = r.pausedAt ? toggleRunPause(r) : r;
-      saveLive({ ...n, resumed: true, stopped: true });
-      return n;
-    });
-    setPhase("summary");
-  };
-  const discard = () => ask("Discard this run? It won't be saved.", () => { clearLive(); onClose(); }, "Discard");
-  const save = async () => {
-    const r = runRef.current;
-    const built = buildSavedRun(r);
-    if (built.miles < 0.05) { ask("That run is under 0.05 miles. Discard it?", () => { clearLive(); onClose(); }, "Discard"); return; }
-    const { xp } = workoutXp(s, built.exercises, null);
-    const runInfo = { ...built.runInfo, hasMap: path.length > 1 };
-    const workout = { id: r.id, date: today(), title: built.title, exercises: built.exercises, xp, volume: 0, minutes: Math.round(built.secs / 60), run: runInfo, startedAt: r.pts[0]?.[2] || Date.now() - built.secs * 1000 };
-    if (path.length > 1) { try { await window.storage.set(`run:${r.id}`, encodePoly(thinPts(path)), false); } catch (e) { /* map just won't show */ } }
-    setS((p) => addWorkout(p, workout));
-    if (path[0]) fetchRunWeather(path[0][0], path[0][1]).then((wx) => { if (wx) setS((p) => ({ ...p, workouts: p.workouts.map((w) => (w.id === workout.id ? { ...w, run: { ...w.run, wx } } : w)) })); });
-    gainXp(xp, built.xpLabel, `wo_${r.id}`);
-    juice(built.miles >= 3 ? "pr" : "finish");
-    postFeed(s, "run", built.feed, {}, `run_${r.id}`);
-    clearLive(); onClose(workout);
-  };
-
-  const gpsColor = gps.status === "ok" ? C.green : gps.status === "weak" ? C.orange : gps.status === "error" ? C.red : C.dim;
-  const shell = { position: "fixed", inset: 0, zIndex: 58, background: C.bg, color: C.text, paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)", overflowY: "auto" };
-
-  if (phase === "resume") {
-    return (
-      <div style={shell} className="px-5 flex flex-col justify-center">
-        <div className="panel p-5 space-y-3 max-w-md mx-auto w-full">
-          <div className="text-xl font-bold">Unfinished {run.mode === "walk" ? "walk" : "run"}</div>
-          <div className="body text-sm" style={{ color: C.dim }}>{(run.dist / MI_M).toFixed(2)} mi so far. The app closed during it. Pick up where you left off, or finish and save it now.</div>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => { setRun((r) => ({ ...r, pausedAt: r.pausedAt || Date.now(), last: null })); setPhase("live"); }} className="btn py-3">Resume</button>
-            <button onClick={() => { setRun((r) => ({ ...r, pausedTotal: r.pausedTotal + Math.max(0, Date.now() - (r.last?.t || r.startedAt)) })); setPhase("summary"); }} className="ghost py-3 font-semibold">Finish & save</button>
-          </div>
-          <button onClick={discard} className="body text-sm w-full" style={{ color: C.dim }}>Discard</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === "summary") {
-    const secs = runElapsed(run);
-    const sum = preview;
-    return (
-      <div style={shell} className="px-5">
-        <div className="max-w-md mx-auto space-y-4 pt-2">
-          <div className="text-2xl font-bold">{sum.title} complete</div>
-          {path.length > 1 ? <RouteMap lines={[...(guide ? [{ pts: guide, color: C.mute, weight: 4, dash: "6 8", opacity: 0.7 }] : []), { pts: path, color: C.cyan, startDot: true }]} height={220} /> : <div className="panel p-4 body text-sm" style={{ color: C.dim }}>No GPS path was recorded.</div>}
-          <div className="grid grid-cols-3 gap-2">
-            {[["Distance", `${miles.toFixed(2)} mi`], ["Time", fmtDur(secs)], ["Avg pace", `${fmtPace(miles > 0 ? secs / miles : Infinity)}`]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums">{v}</div></div>)}
-          </div>
-          {runBreakdown(sum.runInfo) ? <div className="panel p-3 body text-sm font-semibold">{runBreakdown(sum.runInfo)}</div> : null}
-          {sum.slowNote && <div className="body text-sm" style={{ color: C.orange }}>{sum.slowNote}</div>}
-          {run.splits.length > 0 && <div className="panel p-4"><div className="font-semibold text-sm mb-2">Splits</div>{run.splits.map((sp, i) => <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Mile {i + 1}</span><span className="tabular-nums font-semibold">{fmtDur(sp)}</span></div>)}</div>}
-          {run.gapM > 30 && <div className="body text-xs" style={{ color: C.orange }}>{(run.gapM / MI_M).toFixed(2)} mi was filled in while GPS was paused (screen off).</div>}
-          <button onClick={save} className="btn w-full py-4 text-lg">Save {sum.title === "Run/Walk" ? "run/walk" : sum.title.toLowerCase()}</button>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setPhase("live")} className="ghost py-3 font-semibold">Keep going</button>
-            <button onClick={discard} className="py-3 font-semibold" style={{ borderRadius: 12, color: "#FF4D6D", border: "1px solid rgba(255,77,109,.4)" }}>Discard</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={shell} className="px-4">
-      <div className="max-w-md mx-auto space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 body text-xs font-semibold" style={{ color: gpsColor }}><span style={{ width: 8, height: 8, borderRadius: 999, background: gpsColor, boxShadow: `0 0 8px ${gpsColor}` }} />{gps.status === "waiting" ? "Finding GPS…" : gps.status === "weak" ? `Weak GPS ${gps.msg}` : gps.status === "error" ? "GPS problem" : `GPS ${gps.msg}`}</div>
-          <button onClick={() => setCues(!cues)} className="body text-xs flex items-center gap-1" style={{ color: cues ? C.cyan : C.mute }}>{cues ? <Volume2 size={14} /> : <VolumeX size={14} />}Mile cues</button>
-        </div>
-        {gps.status === "error" && <div className="body text-xs" style={{ color: C.red }}>{gps.msg}</div>}
-        <div className="grid grid-cols-2 gap-1 p-1" role="tablist" aria-label="Walking or running" style={{ borderRadius: 16, background: C.glass, border: `1px solid ${C.glassLine}` }}>
-          {[["walk", "Walking"], ["run", "Running"]].map(([id, label]) => (
-            <button key={id} type="button" role="tab" aria-selected={run.mode === id} onClick={() => switchMode(id)} className="text-base font-bold" style={{ minHeight: 48, borderRadius: 12, touchAction: "manipulation", background: run.mode === id ? (id === "run" ? C.green : C.cyan) : "transparent", color: run.mode === id ? "#021a0c" : C.text }}>{label}</button>
-          ))}
-        </div>
-        {SimDock && <SimDock onFix={(fix) => { setGps({ status: "ok", msg: "sim" }); setRun((r) => addFix(r, fix)); }} origin={me} />}
-        <RouteMap lines={liveLines} follow={me} height={Math.min(300, typeof window !== "undefined" ? window.innerHeight * 0.34 : 260)} />
-        <div className="text-center pt-1">
-          <div className="text-7xl font-black tabular-nums tracking-tight">{miles.toFixed(2)}</div>
-          <div className="body text-sm -mt-1" style={{ color: C.dim }}>miles</div>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[["Time", fmtDur(el)], ["Pace now", fmtPace(curPace)], ["Avg pace", fmtPace(avgPace)]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-xl font-bold tabular-nums">{v}</div></div>)}
-        </div>
-        <div className="panel py-3 px-4 flex items-center justify-between gap-3">
-          <div className="body text-xs font-semibold" style={{ color: C.dim }}>{run.mode === "walk" ? "This walk" : "This run"}</div>
-          <div className="text-sm font-bold tabular-nums">{fmtDur(segEl)} · {fmtPace(segPace)} /mi</div>
-        </div>
-        {run.pausedAt && <div className="text-center font-bold" style={{ color: C.orange }}>Paused</div>}
-        {gapNote && <div className="body text-xs text-center" style={{ color: C.orange }}>{gapNote}</div>}
-        {wake === false && !simOn && <div className="body text-xs text-center" style={{ color: C.dim }}>Keep Ascend open with the screen on. iPhone pauses GPS for websites when the screen locks.</div>}
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <button onClick={pause} className="py-4 text-lg font-bold flex items-center justify-center gap-2" style={{ borderRadius: 16, background: run.pausedAt ? C.green : C.glass, color: run.pausedAt ? "#02040B" : C.text, border: `1px solid ${C.glassLine}` }}>{run.pausedAt ? <><Play size={20} />Resume</> : <><Pause size={20} />Pause</>}</button>
-          <button onClick={stop} className="py-4 text-lg font-bold flex items-center justify-center gap-2" style={{ borderRadius: 16, background: "#FF2D55", color: "#fff" }}><X size={20} />Finish</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ---------- Steps ---------- */
-const STEP_GOAL_XP = 40;
-function mergeSteps(s, inbox) {
-  const cur = s.steps || {};
-  let changed = false;
-  const steps = { ...cur };
-  Object.entries(inbox || {}).forEach(([d, n]) => { const v = Math.round(+n || 0); if (v > (steps[d] || 0)) { steps[d] = v; changed = true; } });
-  if (!changed) return null;
-  const d = today();
-  let next = { ...s, steps };
-  const day = next.days?.[d];
-  if (day && steps[d]) next = { ...next, days: { ...next.days, [d]: { ...day, list: day.list.map((q) => (q.qid === "steps" && !q.claimed ? { ...q, progress: Math.max(q.progress, steps[d]) } : q)) } } };
-  return next;
-}
-async function sha256hex(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
-  const d = today();
-  const goal = s.settings?.stepGoal || 10000;
-  const todaySteps = s.steps?.[d] || 0;
-  const [manual, setManual] = useState("");
-  const [setup, setSetup] = useState(false);
-  const [showSteps, setShowSteps] = useState(false);
-  const [sync, setSync] = useState(null);
-  const [fixing, setFixing] = useState(false);
-  const loadSync = async () => { if (!s.stepToken) return; const st = await stepSyncStatus(s.stepTokenHash, s.stepToken).catch(() => null); if (st) setSync(st); };
-  useEffect(() => { loadSync(); const v = () => document.visibilityState === "visible" && loadSync(); document.addEventListener("visibilitychange", v); return () => document.removeEventListener("visibilitychange", v); }, [s.stepToken]);
-  const reRegister = async () => { setFixing(true); try { await window.ascendAuth.registerStepToken(s.stepTokenHash, null); await loadSync(); } catch (e) { setErr("Couldn't register the code. Check your connection."); } setFixing(false); };
-  const last = sync?.log?.[0], lastOk = sync?.log?.find((x) => x.ok && x.steps > 0);
-  const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState("");
-  const [err, setErr] = useState("");
-  const week = Array.from({ length: 7 }, (_, i) => { const k = shift(d, i - 6); return { k, n: s.steps?.[k] || 0 }; });
-  const maxN = Math.max(goal, ...week.map((w) => w.n));
-  useEffect(() => {
-    if (todaySteps >= goal && !s.stepXp?.[d]) { setS((p) => ({ ...p, stepXp: { ...(p.stepXp || {}), [d]: true } })); gainXp(STEP_GOAL_XP, "Step goal", `steps_${d}`); }
-  }, [todaySteps, goal]);
-  const saveManual = () => {
-    const n = Math.round(+manual); if (!(n >= 0) || manual === "") return;
-    setS((p) => { const base = { ...p, steps: { ...(p.steps || {}), [d]: n } }; const day = base.days?.[d]; return day ? { ...base, days: { ...base.days, [d]: { ...day, list: day.list.map((q) => (q.qid === "steps" && !q.claimed ? { ...q, progress: Math.max(q.progress, n) } : q)) } } } : base; });
-    setManual("");
-  };
-  const makeCode = async () => {
-    setBusy(true); setErr("");
-    try {
-      const code = [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, "0")).join("");
-      const hash = await sha256hex(code);
-      await window.ascendAuth.registerStepToken(hash, s.stepTokenHash || null);
-      setS((p) => ({ ...p, stepToken: code, stepTokenHash: hash }));
-    } catch (e) { setErr("Couldn't create a sync code. Check your connection, and make sure the steps SQL was run in Supabase."); }
-    setBusy(false);
-  };
-  const copy = async (text, label) => { try { await navigator.clipboard.writeText(text); setCopied(label); setTimeout(() => setCopied(""), 1800); } catch (e) { /* select manually */ } };
-  // Always the www address: redirects from other addresses can turn the POST into a GET and lose the data
-  const url = typeof window !== "undefined" && !/ascendfit\.site$|vercel\.app$/.test(window.location.hostname) ? `${window.location.origin}/api/steps` : STEP_SYNC_URL;
-  return (
-    <div className="panel p-4 space-y-3">
-      <div className="flex items-end justify-between">
-        <div><div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>Steps today</div><div className="text-3xl font-bold tabular-nums">{todaySteps.toLocaleString()}</div></div>
-        <div className="body text-xs text-right" style={{ color: todaySteps >= goal ? C.green : C.dim }}>{todaySteps >= goal ? `Goal hit · +${STEP_GOAL_XP} XP` : `${(goal - todaySteps).toLocaleString()} to ${goal.toLocaleString()}`}</div>
-      </div>
-      <div className="flex items-end gap-1.5" style={{ height: 70 }} role="img" aria-label="Steps over the last 7 days">
-        {week.map((w) => <div key={w.k} className="flex-1 flex flex-col items-center gap-1"><div style={{ width: "100%", height: `${Math.max(3, (w.n / maxN) * 56)}px`, borderRadius: 6, background: w.n >= goal ? C.green : w.k === d ? C.cyan : C.glassLine }} /><span className="body" style={{ fontSize: 10, color: C.dim }}>{new Date(w.k + "T12:00").toLocaleDateString(undefined, { weekday: "narrow" })}</span></div>)}
-      </div>
-      <div className="flex gap-2">
-        <input type="text" inputMode="numeric" className="inp text-sm" placeholder="Enter today's steps" value={manual} onChange={(e) => setManual(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveManual()} aria-label="Today's steps" />
-        <button onClick={saveManual} disabled={!(+manual >= 0) || manual === ""} className="btn px-4 text-sm">Save</button>
-      </div>
-      <button onClick={() => setSetup(!setup)} aria-expanded={setup} className="body text-sm font-semibold w-full text-left flex items-center justify-between" style={{ color: C.cyan }}><span>{s.stepToken ? "Automatic sync is set up" : "Sync steps automatically"}</span><ChevronDown size={16} style={{ transform: setup ? "rotate(180deg)" : "none" }} /></button>
-      {s.stepToken && sync && (
-        <div className="body text-xs flex items-start gap-1.5" role="status">
-          {sync.registered === false ? (
-            <span style={{ color: C.orange }}>Your sync code isn't registered, so every sync gets rejected. <button onClick={reRegister} disabled={fixing} className="underline font-semibold" style={{ color: C.cyan }}>{fixing ? "Fixing…" : "Fix it"}</button></span>
-          ) : !last ? (
-            sync.unrecognized.length ? <span style={{ color: C.orange }}>Your Shortcut reached Ascend {agoText(sync.unrecognized[0].at)}, but the code in it doesn't match. Copy the code again and paste it into the token field.</span>
-              : <span style={{ color: C.dim }}>No syncs received yet. Open one of your trigger apps, then come back here.</span>
-          ) : last.ok && last.steps > 0 ? (
-            <span style={{ color: C.green }}><Check size={12} className="inline -mt-0.5 mr-0.5" />Last sync {agoText(last.at)} · {Number(last.steps).toLocaleString()} steps for {fmtDay(last.day)}</span>
-          ) : last.ok ? (
-            <span style={{ color: C.orange }}>Last sync {agoText(last.at)} sent 0 steps. That happens when the phone is locked (iOS hides Health data), so use the "app is opened" trigger.{lastOk ? ` Last real sync: ${agoText(lastOk.at)}.` : ""}</span>
-          ) : (
-            <span style={{ color: C.red }}>Last try {agoText(last.at)} failed: {last.reason}</span>
-          )}
-        </div>
-      )}
-      {setup && (
-        <div className="space-y-3 body text-sm" style={{ color: C.sub }}>
-          {!s.stepToken ? (
-            <button onClick={makeCode} disabled={busy} className="btn w-full py-2.5 text-sm">{busy ? "Creating…" : "Create my sync code"}</button>
-          ) : (
-            <div className="space-y-1.5">
-              <div className="text-xs" style={{ color: C.dim }}>Your sync code (keep it private)</div>
-              <button onClick={() => copy(s.stepToken, "code")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{s.stepToken}</button>
-              <div className="text-xs" style={{ color: C.dim }}>Sync URL</div>
-              <button onClick={() => copy(url, "url")} className="ghost w-full p-2.5 text-left font-mono text-xs break-all">{url}</button>
-              {copied && <div className="text-xs" style={{ color: C.green }}>Copied {copied}</div>}
-            </div>
-          )}
-          {s.stepToken && sync?.log?.length > 0 && (
-            <div className="space-y-0.5">
-              <div className="text-xs" style={{ color: C.dim }}>Recent syncs from your iPhone</div>
-              {sync.log.map((x, i) => <div key={i} className="flex justify-between gap-2 text-xs"><span style={{ color: x.ok ? (x.steps > 0 ? C.sub : C.orange) : C.red }}>{x.ok ? "✓" : "✗"} {x.ok ? (x.steps > 0 ? `${Number(x.steps).toLocaleString()} steps · ${x.reason === "saved" ? "saved" : x.reason}` : "0 steps (phone locked?)") : x.reason}</span><span className="shrink-0 tabular-nums" style={{ color: C.mute }}>{agoText(x.at)}</span></div>)}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => { openAssistant?.(); setTimeout(() => window.dispatchEvent(new CustomEvent("ascend-sterling-steps")), 350); }} className="btn py-2.5 text-sm font-bold flex items-center justify-center gap-1.5"><Bot size={16} />Ask Sterling</button>
-            <button onClick={() => setShowSteps((v) => !v)} aria-expanded={showSteps} aria-controls="step-written-guide" className="py-2.5 text-sm font-bold flex items-center justify-center gap-1.5" style={{ borderRadius: 12, color: showSteps ? "#001018" : C.cyan, background: showSteps ? C.cyan : `${C.cyan}14`, border: `1.5px solid ${C.cyan}` }}><BookOpen size={16} />{showSteps ? "Hide instructions" : "View written instructions"}</button>
-          </div>
-          <a href={STEP_SHORTCUT_URL} target="_blank" rel="noreferrer" className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center">Install the 1-click Shortcut</a>
-          {showSteps && (
-            <div id="step-written-guide" className="panel p-3 space-y-2" style={{ borderColor: `${C.cyan}55` }}>
-              <div className="text-sm font-bold" style={{ color: C.text }}>One-tap Shortcut install</div>
-              {!s.stepToken && <div className="text-xs" style={{ color: C.orange }}>Tap "Create my sync code" above first. You'll paste it into the Shortcut.</div>}
-              <a href={STEP_SHORTCUT_URL} target="_blank" rel="noreferrer" className="btn w-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5">Install Ascend Steps Shortcut</a>
-              <div className="text-xs p-2" style={{ borderRadius: 8, background: `${C.orange}14`, color: C.sub }}><b style={{ color: C.text }}>Why not a set time like 11:45 PM?</b> iPhones lock Health data while the phone is locked, so a night-time automation sends nothing. Running it when you open an app means the phone is unlocked.</div>
-              <ol className="space-y-1.5 list-decimal pl-5 text-sm">
-                <li>Tap <b>Install Ascend Steps Shortcut</b> and add it. When it asks, paste your sync code.</li>
-                <li>Open the <b>Shortcuts</b> app → <b>Automation</b> → <b>+</b> → <b>App</b>. Pick 2 or 3 apps you open every day, including one before bed. Keep <b>Is Opened</b>, <b>Run Immediately</b>, Notify off.</li>
-                <li>Set that automation to run the <b>Ascend Steps</b> Shortcut you just installed. No need to add Health or URL actions by hand.</li>
-                <li>Open one of those apps, then come back here. The line under "Automatic sync" shows the result.</li>
-              </ol>
-              <div className="text-xs" style={{ color: C.dim }}>Already made the 11:45 PM one? Swipe left on it in the Automation tab to delete it. Running it many times a day is fine; Ascend keeps the highest count for each day.</div>
-            </div>
-          )}
-          {s.stepToken && <button onClick={() => ask("Make a new sync code? The old one stops working, so you'd need to update your Shortcut.", makeCode, "New code")} className="text-xs underline" style={{ color: C.mute }}>Make a new code</button>}
-          {err && <div className="text-xs" style={{ color: C.red }}>{err}</div>}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ---------- Route planner + run hub ---------- */
-function RoutePlanner({ s, setS, onRun }) {
-  const [miles, setMiles] = useState(3);
-  const [pref, setPref] = useState("");
-  const [state, setState] = useState({ status: "idle", routes: [], pick: 0, notes: [], quip: "" });
-  const [naming, setNaming] = useState("");
-  const plan = async () => {
-    setState({ status: "locating", routes: [], pick: 0, notes: [], quip: "" });
-    let pos;
-    try {
-      pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }));
-    } catch (e) {
-      setState({ status: "error", routes: [], pick: 0, notes: [], quip: "", err: e?.code === 1 ? "Location is blocked. Allow it for Safari in Settings → Privacy → Location Services." : "Couldn't get your location. Try again outside." });
-      return;
-    }
-    setState((x) => ({ ...x, status: "routing" }));
-    try {
-      const token = await window.ascendAuth.token();
-      const r = await fetch("/api/route", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, miles, pref }) });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || "Route service error");
-      const routes = j.routes;
-      let pick = 0, notes = routes.map((rt) => `${(rt.meters / MI_M).toFixed(1)} mi · ${Math.round(rt.ascent * 3.281)} ft climb${rt.streets.length ? ` · ${rt.streets.slice(0, 2).join(", ")}` : ""}`), quip = "";
-      if (/flat|easy|no hill/i.test(pref)) pick = routes.reduce((bi, rt, i, arr) => (rt.ascent < arr[bi].ascent ? i : bi), 0);
-      try {
-        const ai = await askJson(STERLING_SYS, `A runner wants a ${miles}-mile loop${pref ? ` with this preference: "${pref}"` : ""}. Candidate routes: ${routes.map((rt, i) => `#${i}: ${(rt.meters / MI_M).toFixed(2)} mi, ${Math.round(rt.ascent * 3.281)} ft of climbing, main streets/paths: ${rt.streets.join(", ") || "unknown"}`).join(" | ")}. Pick the best one for their preference and write a short description for each (under 16 words, mention the terrain and notable streets or paths; don't invent landmarks that aren't in the street names). Respond ONLY with JSON: {"pick": index, "quip": "one short Sterling line", "notes": ["...", "...", "..."]}`, 500);
-        if (Number.isInteger(ai.pick) && routes[ai.pick]) pick = ai.pick;
-        if (Array.isArray(ai.notes)) notes = routes.map((rt, i) => (ai.notes[i] ? `${(rt.meters / MI_M).toFixed(1)} mi · ${ai.notes[i]}` : notes[i]));
-        quip = ai.quip || "";
-      } catch (e) { /* stats-only notes */ }
-      setState({ status: "done", routes, pick, notes, quip });
-    } catch (e) { setState({ status: "error", routes: [], pick: 0, notes: [], quip: "", err: String(e.message || e) }); }
-  };
-  const cur = state.routes[state.pick];
-  const saveRoute = () => {
-    if (!cur) return;
-    const name = naming.trim() || `${(cur.meters / MI_M).toFixed(1)} mi loop`;
-    setS((p) => ({ ...p, savedRoutes: [{ id: uid(), name, miles: Math.round((cur.meters / MI_M) * 100) / 100, ascentFt: Math.round(cur.ascent * 3.281), poly: encodePoly(cur.coords), streets: cur.streets.slice(0, 3), t: Date.now() }, ...(p.savedRoutes || [])].slice(0, 30) }));
-    setNaming(""); setState((x) => ({ ...x, saved: true }));
-  };
-  return (
-    <div className="panel p-4 space-y-3">
-      <div className="font-semibold flex items-center gap-2"><Bot size={18} style={{ color: C.cyan }} />Sterling, find me a route</div>
-      <div className="flex gap-2 overflow-x-auto pb-1">{[1, 2, 3, 4, 5, 6.2].map((m) => <button key={m} onClick={() => setMiles(m)} className="px-3 py-1.5 text-sm font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: miles === m ? C.blue : C.glass, color: miles === m ? "#fff" : C.text, border: `1px solid ${C.glassLine}` }}>{m === 6.2 ? "10K" : `${m} mi`}</button>)}</div>
-      <input className="inp text-sm" placeholder="Anything special? e.g. flat, through a park, quiet streets" value={pref} onChange={(e) => setPref(e.target.value)} />
-      <button onClick={plan} disabled={state.status === "locating" || state.status === "routing"} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2">{state.status === "locating" ? <><Loader2 size={16} className="animate-spin" />Finding you…</> : state.status === "routing" ? <><Loader2 size={16} className="animate-spin" />Plotting loops…</> : <><MapPin size={16} />Plan a loop from here</>}</button>
-      {state.status === "error" && <div className="body text-sm" style={{ color: C.red }}>{state.err}</div>}
-      {state.status === "done" && cur && (
-        <div className="space-y-2">
-          {state.quip && <div className="body text-sm italic" style={{ color: C.sub }}>"{state.quip}"</div>}
-          <RouteMap key={state.pick} lines={[{ pts: cur.coords, color: C.cyan, startDot: true }]} height={220} />
-          <div className="space-y-1.5">
-            {state.routes.map((rt, i) => <button key={rt.seed} onClick={() => setState((x) => ({ ...x, pick: i, saved: false }))} className="w-full text-left p-2.5 body text-sm" style={{ borderRadius: 12, background: i === state.pick ? `${C.cyan}22` : "transparent", border: `1px solid ${i === state.pick ? C.cyan : C.glassLine}`, color: C.text }}><span className="font-semibold">Option {i + 1}{i === state.pick ? " · selected" : ""}</span><br /><span style={{ color: C.dim }}>{state.notes[i]}</span></button>)}
-          </div>
-          <div className="flex gap-2">
-            <input className="inp text-sm" placeholder="Name it to save (optional)" value={naming} onChange={(e) => setNaming(e.target.value)} />
-            <button onClick={saveRoute} disabled={state.saved} className="ghost px-3 text-sm font-semibold whitespace-nowrap" style={{ color: state.saved ? C.green : C.cyan }}>{state.saved ? "Saved ✓" : "Save"}</button>
-          </div>
-          <button onClick={() => onRun({ name: naming.trim() || "Planned loop", poly: encodePoly(cur.coords) })} className="btn w-full py-3">Run this route</button>
-        </div>
-      )}
-    </div>
-  );
-}
-function RunDetail({ s, setS, w, onClose }) {
-  const [pts, setPts] = useState(null);
-  useEffect(() => { if (!w.run?.hasMap) { setPts([]); return; } window.storage.get(`run:${w.run.id}`, false).then((r) => setPts(decodePoly(r?.value || ""))).catch(() => setPts([])); }, [w.id]);
-  const r = w.run;
-  const title = runTitle(r);
-  const breakdown = r.segments?.length ? runBreakdown(r) : "";
-  const saveAsRoute = () => { if (!pts?.length) return; setS((p) => ({ ...p, savedRoutes: [{ id: uid(), name: `${r.miles} mi from ${fmtDay(w.date)}`, miles: r.miles, ascentFt: null, poly: encodePoly(thinPts(pts, 15, 400)), streets: [], t: Date.now() }, ...(p.savedRoutes || [])].slice(0, 30) })); };
-  const segs = r.segments || [];
-  const segTotal = segs.reduce((a, x) => a + (x.secs || 0), 0) || 1;
-  return (
-    <Sheet title={`${title} · ${fmtDay(w.date)}`} onClose={onClose}>
-      {pts === null ? <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading map…</div> : pts.length > 1 ? <RouteMap lines={[{ pts, color: C.cyan, startDot: true }]} height={220} /> : <div className="body text-sm" style={{ color: C.dim }}>No map for this one.</div>}
-      <div className="grid grid-cols-3 gap-2">{[["Distance", `${r.miles} mi`], ["Time", fmtDur(r.secs)], ["Pace", `${fmtPace(r.pace)} /mi`]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold tabular-nums">{v}</div></div>)}</div>
-      {breakdown ? <div className="panel p-3 body text-sm font-semibold">{breakdown}</div> : null}
-      {segs.length > 1 && (
-        <div className="space-y-1.5">
-          <div className="flex h-3 overflow-hidden" style={{ borderRadius: 999, background: C.glass, border: `1px solid ${C.glassLine}` }}>
-            {segs.map((x, i) => <div key={i} title={`${x.mode === "walk" ? "Walk" : "Run"} ${fmtDur(x.secs)}`} style={{ width: `${Math.max(2, (x.secs / segTotal) * 100)}%`, background: x.mode === "walk" ? C.cyan : C.green }} />)}
-          </div>
-          <div className="body text-xs flex justify-between" style={{ color: C.dim }}><span>Start</span><span>Finish</span></div>
-        </div>
-      )}
-      {r.splits?.length > 0 && <div className="panel p-3">{r.splits.map((sp, i) => <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Mile {i + 1}</span><span className="tabular-nums font-semibold">{fmtDur(sp)}</span></div>)}</div>}
-      <div className="grid grid-cols-2 gap-2">
-        {pts?.length > 1 && <button onClick={saveAsRoute} className="ghost py-2.5 text-sm font-semibold" style={{ color: C.cyan }}>Save as route</button>}
-        <ReceiptButton label="Share card" make={() => buildReceipt({ s, kind: title, headline: `${r.miles} miles`, sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["Time", fmtDur(r.secs)], ["Avg pace", `${fmtPace(r.pace)} /mi`], ["Fastest mile", r.splits?.length ? fmtDur(Math.min(...r.splits)) : "–"], ["XP", `+${w.xp || 0}`]] })} />
-      </div>
-      <div className="body text-xs" style={{ color: C.mute }}>Maps stay private to you. Share cards don't include your route.</div>
-    </Sheet>
-  );
-}
-function RunHub({ s, setS, gainXp, onBack, startRun }) {
-  const [mode, setMode] = useState("run");
-  const [detail, setDetail] = useState(null);
-  const runs = [...s.workouts].reverse().filter((w) => w.run).slice(0, 20);
-  const saved = s.savedRoutes || [];
-  const monthMi = s.workouts.filter((w) => w.date.startsWith(monthKey())).reduce((a, w) => a + (w.run?.miles || 0), 0);
-  const best = runs.reduce((b, w) => (w.run.mode !== "walk" && w.run.miles >= 1 && (!b || w.run.pace < b.run.pace) ? w : b), null);
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold flex-1">Run & steps</h1>
-      </div>
-      <div className="panel p-4 space-y-3">
-        <div className="grid grid-cols-2 gap-2">{[["run", "Run"], ["walk", "Walk"]].map(([id, l]) => <button key={id} onClick={() => setMode(id)} className="py-2 text-sm font-semibold" style={{ borderRadius: 10, background: mode === id ? C.blue : C.glass, color: mode === id ? "#fff" : C.text, border: `1px solid ${C.glassLine}` }}>{l}</button>)}</div>
-        <button onClick={() => startRun(mode, null)} className="w-full py-5 text-xl font-black flex items-center justify-center gap-2" style={{ borderRadius: 18, background: "linear-gradient(180deg,#3DF08A,#12A860)", color: "#021a0c", boxShadow: "0 10px 30px rgba(61,240,138,.25)" }}><Play size={24} />Start {mode === "walk" ? "walk" : "run"}</button>
-        <div className="grid grid-cols-3 gap-2 text-center">{[["This month", `${monthMi.toFixed(1)} mi`], ["Runs logged", runs.length], ["Best pace", best ? fmtPace(best.run.pace) : "–"]].map(([l, v]) => <div key={l}><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="font-bold tabular-nums">{v}</div></div>)}</div>
-        <div className="body text-xs" style={{ color: C.mute }}>Keep Ascend open with the screen on while you run. Phones pause GPS for websites when locked.</div>
-      </div>
-      <RoutePlanner s={s} setS={setS} onRun={(guide) => startRun(mode, guide)} />
-      {saved.length > 0 && (
-        <>
-          <h2 className="text-lg font-bold">Saved routes</h2>
-          <div className="space-y-2">{saved.map((rt) => (
-            <div key={rt.id} className="panel p-3 flex items-center gap-3">
-              <div className="flex-1 min-w-0"><div className="font-semibold truncate">{rt.name}</div><div className="body text-xs" style={{ color: C.dim }}>{rt.miles} mi{rt.ascentFt != null ? ` · ${rt.ascentFt} ft climb` : ""}{rt.streets?.length ? ` · ${rt.streets.join(", ")}` : ""}</div></div>
-              <button onClick={() => startRun(mode, { name: rt.name, poly: rt.poly })} className="btn px-3 py-2 text-sm">Run</button>
-              <button aria-label={`Delete ${rt.name}`} onClick={() => ask(`Delete route "${rt.name}"?`, () => setS((p) => ({ ...p, savedRoutes: (p.savedRoutes || []).filter((x) => x.id !== rt.id) })), "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
-            </div>
-          ))}</div>
-        </>
-      )}
-      <h2 className="text-lg font-bold">Recent runs</h2>
-      {runs.length === 0 && <Empty>No runs yet. Tap Start run and your distance, pace, splits, and route map save here.</Empty>}
-      <div className="space-y-2">{runs.map((w) => (
-        <button key={w.id} onClick={() => setDetail(w)} className="panel p-3 w-full text-left flex items-center gap-3">
-          <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 40, height: 40, borderRadius: 12, background: `${C.green}22` }}>{runKind(w.run) === "runwalk" ? "🏃🚶" : w.run.mode === "walk" ? "🚶" : "🏃"}</div>
-          <div className="flex-1 min-w-0"><div className="font-semibold">{w.run.miles} mi{runKind(w.run) === "runwalk" ? " Run/Walk" : ""} <span className="body text-xs font-normal" style={{ color: C.dim }}>· {fmtDay(w.date)}</span></div><div className="body text-xs" style={{ color: C.dim }}>{fmtDur(w.run.secs)} · {fmtPace(w.run.pace)} /mi{w.run.guideName ? ` · ${w.run.guideName}` : ""}</div></div>
-          <ChevronRight size={16} style={{ color: C.mute }} />
-        </button>
-      ))}</div>
-      {detail && <RunDetail s={s} setS={setS} w={detail} onClose={() => setDetail(null)} />}
-    </div>
-  );
-}
 
 /* ---------- Onboarding ---------- */
 function Confetti({ onDone }) {
@@ -9606,197 +6808,13 @@ function BossArt({ boss, pct, dead, hit, size = 84 }) {
 /* ---------- XP ledger ---------- */
 // Every XP award is one row with a stable event id. The same id can never count twice (enforced by
 // the xp_logs primary key on the server). Totals on the boards are sums of these rows by day.
-const bossFor = (mk, scope) => { const mi = (parseInt(mk.slice(5, 7), 10) - 1) % BOSSES.length; return scope === "crew" ? BOSSES[(mi + 6) % BOSSES.length] : BOSSES[mi]; };
-const monthEnd = (mk) => { const d = new Date(+mk.slice(0, 4), +mk.slice(5, 7), 0); return `${mk}-${String(d.getDate()).padStart(2, "0")}`; };
-const minDay = (a, b) => (a < b ? a : b);
-// Crews shipped in September 2026 with boss damage counted from the 1st of the month.
-// Crew boss kills from that window were the exploit.
-const EXPLOIT_LAST_MONTH = "2026-09";
-
-// Strip crew boss loot that came from the exploit window: Gravemaw only
-function revertBossExploit(s) {
-  const claimed = { ...(s.loot?.claimed || {}) };
-  const bad = Object.keys(claimed).filter((k) => /^\d{4}-\d{2}_crew$/.test(k) && k.slice(0, 7) <= EXPLOIT_LAST_MONTH && bossFor(k.slice(0, 7), "crew").id === "gravemaw");
-  if (!bad.length) return { s, reverted: false };
-  bad.forEach((k) => delete claimed[k]);
-  // Keep Gravemaw only if it was also beaten some other legit way (e.g. as a global boss)
-  const stillEarned = Object.keys(claimed).some((k) => bossFor(k.slice(0, 7), k.endsWith("_crew") ? "crew" : "global").id === "gravemaw");
-  const bosses = stillEarned ? s.loot?.bosses || [] : (s.loot?.bosses || []).filter((b) => b !== "gravemaw");
-  const loot = { ...(s.loot || {}), claimed, bosses };
-  const next = { ...s, loot };
-  const look = { ...(s.profile.look || {}) };
-  if (!stillEarned && look.aura === "abyss") look.aura = "none";
-  if (!bosses.length && look.border === "bone") look.border = "none";
-  const title = !stillEarned && ["boss_gravemaw", "gravebane"].includes(s.profile.title) ? "none" : s.profile.title;
-  next.profile = { ...s.profile, look, title };
-  next.xpDone = Object.fromEntries(Object.entries(s.xpDone || {}).filter(([k]) => !bad.some((b) => k.startsWith(`boss_${b.slice(0, 7)}_gravemaw`))));
-  return { s: next, reverted: true };
-}
-
 // Rebuild every award from the records that prove it happened
-function xpFromRecords(s) {
-  const rows = [];
-  const add = (e, a, m, d, find = false) => { a = Math.round(+a || 0); if (a && d) rows.push({ e, a, m, d, find }); };
-  const t = today();
-  (s.workouts || []).forEach((w) => add(`wo_${w.id}`, w.xp, w.run ? runXpLabel(w.run) : w.source === "deck" ? "Card deck" : `Workout${w.title ? `: ${w.title}` : ""}`, w.date));
-  Object.entries(s.xpDone || {}).forEach(([e, v]) => {
-    if (!v || !e.startsWith("raid_")) return;
-    const parts = e.split("_");
-    const start = +parts[parts.length - 1];
-    add(e, RAID_XP, "Raid night clear", Number.isFinite(start) && start > 0 ? dkey(new Date(start)) : t);
-  });
-  Object.entries(s.days || {}).forEach(([d, day]) => {
-    (day?.list || []).forEach((q) => { if (q.claimed) add(`quest_${d}_${q.id}`, q.xp, `Quest: ${q.title}`, d); });
-    const top = Math.max(0, ...(day?.list || []).map((q) => q.tier || 0));
-    for (let i = 0; i < (day?.bonuses || 0); i++) add(`bonus_${d}_${i}`, 100 * top, "Set cleared", d);
-  });
-  Object.entries(s.fuelClaimed || {}).forEach(([d, v]) => v && add(`fuel_${d}`, FUEL_XP, "Fuel goal hit", d));
-  Object.entries(s.water || {}).forEach(([d, v]) => v?.xp && add(`water_${d}`, WATER_XP, "Water goal", d));
-  Object.entries(s.stepXp || {}).forEach(([d, v]) => v && add(`steps_${d}`, STEP_GOAL_XP, "Step goal", d));
-  Object.entries(s.weekly || {}).forEach(([ws, v]) => {
-    const got = v === true ? { "w-train4": true } : v || {};
-    Object.keys(got).filter((id) => got[id]).forEach((id) => { const c = [...WEEKLY_POOL, WEEKLY_REPS].find((x) => x.id === id); if (c) add(`wk_${ws}_${id}`, c.xp, `Weekly: ${c.title}`, minDay(shift(ws, 6), t), true); });
-  });
-  Object.entries(s.monthly || {}).forEach(([mk, v]) => Object.keys(v || {}).filter((id) => v[id]).forEach((id) => { const c = [...MONTHLY_POOL, MONTHLY_REPS].find((x) => x.id === id); if (c) add(`mo_${mk}_${id}`, c.xp, `Monthly: ${c.title}`, minDay(monthEnd(mk), t), true); }));
-  const achs = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
-  Object.entries(s.ach || {}).forEach(([id, d]) => { const a = achs[id]; if (a) add(`ach_${id}`, a.xp, `Achievement: ${a.title}`, typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : t, typeof d !== "string"); });
-  Object.keys(s.loot?.claimed || {}).forEach((k) => { const mk = k.slice(0, 7); const b = bossFor(mk, k.endsWith("_crew") ? "crew" : "global"); add(`boss_${k}`, BOSS_XP, `Defeated ${b.name}`, minDay(monthEnd(mk), t), true); });
-  Object.entries(s.mogClaimed || {}).forEach(([id, v]) => v && add(`mog_${id}`, MOG_XP, "Mog-off win", t, true));
-  Object.entries(s.duelClaimed || {}).forEach(([id, v]) => v && add(`duel_${id}`, DUEL_XP, "Duel win", t, true));
-  if (s.xpFloor?.amount) add(`floor_v${s.xpFloor.v || XP_VERSION}`, s.xpFloor.amount, "Level floor", s.xpFloor.d || t);
-  // Borrow real timestamps (and real days for undated awards) from the old per-day detail log where they match
-  const pool = Object.entries(s.xpDetail || {}).flatMap(([d, list]) => (list || []).map((x) => ({ ...x, d, used: false })));
-  const byDay = {};
-  pool.forEach((x) => { (byDay[x.d] = byDay[x.d] || []).push(x); });
-  rows.forEach((r) => {
-    const hit = r.find ? pool.find((x) => !x.used && x.m === r.m && x.a === r.a) : (byDay[r.d] || []).find((x) => !x.used && x.a === r.a && (x.m === r.m || (r.e.startsWith("wo_") && /^(Workout|Card deck|[\d.]+ mi)/.test(x.m))));
-    if (hit) { hit.used = true; r.t = hit.t; if (r.find) r.d = hit.d; }
-    if (!r.t) r.t = new Date(`${r.d}T12:00:00`).getTime();
-  });
-  return rows.sort((a, b) => a.t - b.t);
-}
 
 // One-time (per version) rebuild: totals, per-day log and detail all come from the rows above
-const XP_VERSION = 3;
-function grantAchievementsKeep(s) {
-  const earned = earnedAchievements(s).map((a) => a.id);
-  const ach = unionAchievements(s.ach, earned, today());
-  return ach === s.ach ? s : { ...s, ach };
-}
-function applyPrXpRecount(s, { names = null, banner = true } = {}) {
-  return recountXp(recountPrBonuses(s, findEx, names ? { names } : {}), { banner });
-}
-function commitGymRetag(prev, tagged, banner = false) {
-  const names = gymSpecificNamesIn(tagged, retaggedWorkouts(prev, tagged), findEx);
-  if (!names.length) return withSilentRankSnap(tagged);
-  const r = applyPrXpRecount(tagged, { names, banner });
-  try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
-  return withSilentRankSnap(r.s);
-}
-function recountXp(s, { banner = true } = {}) {
-  const before = s.xp || 0;
-  const { s: fixed, reverted } = revertBossExploit(s);
-  const keepFloor = fixed.xpFloor;
-  let st = { ...fixed, xpFloor: null };
-  for (let i = 0; i < 4; i++) {
-    const recomputed = Math.max(0, xpFromRecords({ ...st, xpFloor: null }).reduce((a, r) => a + r.a, 0));
-    const floor = nextXpFloor(recomputed, { xpFloor: keepFloor, beforeXp: before, version: XP_VERSION, day: keepFloor?.d || today() });
-    const next = grantAchievementsKeep({ ...st, xp: recomputed + floor.amount, xpFloor: floor });
-    const same = Object.keys(next.ach || {}).length === Object.keys(st.ach || {}).length;
-    st = next;
-    if (same) break;
-  }
-  const rows = xpFromRecords(st);
-  const xpLog = {}, xpDetail = {};
-  rows.forEach((r) => { xpLog[r.d] = (xpLog[r.d] || 0) + r.a; (xpDetail[r.d] = xpDetail[r.d] || []).push({ m: r.m, a: r.a, t: r.t }); });
-  Object.keys(xpDetail).forEach((d) => { xpDetail[d] = xpDetail[d].slice(-120); });
-  const after = Math.max(0, rows.reduce((a, r) => a + r.a, 0));
-  const xpDone = { ...(st.xpDone || {}) };
-  rows.forEach((r) => { xpDone[r.e] = 1; });
-  const floorAmt = st.xpFloor?.amount || 0;
-  const xpRecount = banner
-    ? { at: Date.now(), before, after, floor: floorAmt, gravemaw: reverted ? BOSS_XP : 0, seen: false }
-    : (s.xpRecount || { at: Date.now(), before, after, floor: floorAmt, gravemaw: reverted ? BOSS_XP : 0, seen: true });
-  const next = { ...st, xp: after, xpLog, xpDetail, xpDone, xpV: XP_VERSION, xpRecount };
-  return { s: next, rows };
-}
 
 // Offline-safe sync to the xp_logs table. Rows wait in localStorage until the server has them.
-const SB_URL = import.meta.env?.VITE_SUPABASE_URL, SB_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
-const toServerRow = (r) => ({ event_id: String(r.e).slice(0, 120), amount: r.a, source: String(r.m || "").slice(0, 120), day: r.d, at: new Date(r.t || Date.now()).toISOString() });
-const XpSync = {
-  busy: false,
-  fail: 0,
-  retryTimer: null,
-  key() { return `ascend-xp-outbox:${(typeof window !== "undefined" && window.ascendUserId) || "me"}`; },
-  read() { try { return JSON.parse(localStorage.getItem(this.key()) || "null") || { replace: null, add: [] }; } catch (e) { return { replace: null, add: [] }; } },
-  write(o) {
-    try { localStorage.setItem(this.key(), JSON.stringify(o)); } catch (e) { /* storage full: rows stay in memory state */ }
-    try { window.dispatchEvent(new CustomEvent("ascend-xp-sync")); } catch (e) { /* UI refresh only */ }
-  },
-  add(row) { if (typeof window !== "undefined" && window.__ascendNoPersist) return; const o = this.read(); o.add = [...o.add.filter((x) => x.e !== row.e), row]; this.write(o); this.flush(); },
-  replace(rows) { if (typeof window !== "undefined" && window.__ascendNoPersist) return; this.write({ replace: rows, add: [] }); this.flush(); },
-  pending() { const o = this.read(); return (o.replace ? o.replace.length : 0) + o.add.length; },
-  async headers() {
-    const token = await window.ascendAuth?.token?.().catch(() => null);
-    return token && SB_URL && SB_KEY ? { apikey: SB_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null;
-  },
-  async flush() {
-    if (typeof window !== "undefined" && window.__ascendNoPersist) return;
-    if (this.busy || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
-    this.busy = true;
-    const retry = () => {
-      if (this.retryTimer) return;
-      this.fail += 1;
-      this.retryTimer = setTimeout(() => { this.retryTimer = null; this.flush(); }, nextPublishBackoff(this.fail));
-    };
-    try {
-      const h = await this.headers();
-      if (!h) return;
-      let o = this.read();
-      if (o.replace) {
-        const r = await fetch(`${SB_URL}/rest/v1/rpc/xp_replace`, { method: "POST", headers: h, body: JSON.stringify({ p_rows: o.replace.map(toServerRow) }) });
-        if (!r.ok) { retry(); return; }
-        o = this.read(); o.replace = null; this.write(o);
-      }
-      while (o.add.length) {
-        const batch = o.add.slice(0, 200);
-        const r = await fetch(`${SB_URL}/rest/v1/xp_logs?on_conflict=user_id,event_id`, { method: "POST", headers: { ...h, Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify(batch.map(toServerRow)) });
-        if (!r.ok) { retry(); return; }
-        o = this.read(); const sent = new Set(batch.map((x) => x.e)); o.add = o.add.filter((x) => !sent.has(x.e)); this.write(o);
-      }
-      this.fail = 0;
-    } catch (e) { retry(); } finally { this.busy = false; }
-  },
-  async page(offset = 0, limit = 50) {
-    const h = await this.headers();
-    if (!h) return null;
-    const r = await fetch(`${SB_URL}/rest/v1/xp_logs?select=event_id,amount,source,day,at&order=at.desc,event_id.desc&offset=${offset}&limit=${limit}`, { headers: h });
-    return r.ok ? r.json() : null;
-  },
-  async summary(seasonFrom, monthFrom) {
-    const h = await this.headers();
-    if (!h) return null;
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/xp_summary`, { method: "POST", headers: h, body: JSON.stringify({ p_season_from: seasonFrom, p_month_from: monthFrom }) });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return Array.isArray(j) ? j[0] : j;
-  },
-};
 
 // What the server saw from this person's Shortcut: last attempts + whether their code is registered
-async function stepSyncStatus(hash, code) {
-  const h = await XpSync.headers();
-  if (!h) return null;
-  const [log, st] = await Promise.all([
-    fetch(`${SB_URL}/rest/v1/step_sync_log?select=at,ok,reason,steps,day&order=at.desc&limit=5`, { headers: h }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    hash ? fetch(`${SB_URL}/rest/v1/rpc/my_step_sync_status`, { method: "POST", headers: h, body: JSON.stringify({ p_hash: hash, p_tail: String(code || "").slice(-6) }) }).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null,
-  ]);
-  if (!log && !st) return null;
-  return { log: log || [], registered: st ? !!st.registered : null, unrecognized: st?.unrecognized || [] };
-}
-const STEP_SYNC_URL = "https://www.ascendfit.site/api/steps";
-const agoText = (iso) => { const d = new Date(iso), days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000); const t = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); return days === 0 ? `Today ${t}` : days === 1 ? `Yesterday ${t}` : `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${t}`; };
 
 // Card flips roll into one session: a flip within 15 minutes of the previous flip extends it.
 const CARD_GAP_MS = 15 * 60000;
@@ -9888,80 +6906,6 @@ function XpLedger({ s, onBack, drawer = false }) {
 
 /* ---------- Community meals ---------- */
 // One-tap publish/unpublish for a meal: goes to the Community meals list (copyable) and the Board feed.
-function PublishMealToggle({ s, food, ai = false }) {
-  const [pub, setPub] = useState(null); // { id, cmeal, feed }
-  const [busy, setBusy] = useState(false);
-  const clean = () => ({ name: String(food.name || "Meal").slice(0, 70), cal: Math.round(+food.cal || 0), p: Math.round(+food.p || 0), c: Math.round(+food.c || 0), f: Math.round(+food.f || 0), ingredients: food.ingredients || null });
-  const write = (id) => {
-    const m = clean();
-    publishShared(`cmeal:${id}`, { ...m, ai, by: s.profile.name || "a player", from: s.playerId, t: Date.now() });
-    return postFeed(s, "meal", `shared a meal: ${m.name}`, { meal: { ...m, ai }, cmeal: `cmeal:${id}` }, `meal_${id}`);
-  };
-  // If they tweak the numbers after publishing, keep the published copy in sync
-  const sig = JSON.stringify(clean());
-  const first = useRef(true);
-  useEffect(() => {
-    if (first.current) { first.current = false; return; }
-    if (!pub) return;
-    const t = setTimeout(() => write(pub.id), 700);
-    return () => clearTimeout(t);
-  }, [sig]);
-  if (!s.lb || !s.profile.name) return <div className="body text-xs text-center" style={{ color: C.mute }}>Join the leaderboard on the Board tab to publish meals to the community feed.</div>;
-  const toggle = async () => {
-    if (busy) return;
-    setBusy(true);
-    if (!pub) {
-      const id = uid(), feed = write(id);
-      setPub({ id, cmeal: `cmeal:${id}`, feed });
-    } else {
-      try { await Promise.all([window.storage.delete(pub.cmeal, true), pub.feed ? window.storage.delete(pub.feed, true) : null]); } catch (e) { /* offline */ }
-      setPub(null);
-    }
-    setBusy(false);
-  };
-  const on = !!pub;
-  return (
-    <button type="button" role="switch" aria-checked={on} onClick={toggle} className="w-full flex items-center gap-3 px-3 py-2.5 text-left" style={{ borderRadius: 12, background: on ? `${C.green}1A` : C.glass, border: `1px solid ${on ? C.green : C.glassLine}`, transition: "background .2s, border-color .2s" }}>
-      <Users size={18} className="shrink-0" style={{ color: on ? C.green : C.cyan }} />
-      <span className="flex-1 min-w-0">
-        <span className="block text-sm font-bold">{on ? "Published to Community Feed" : "Publish to Community Feed"}</span>
-        <span className="block body text-xs" style={{ color: C.dim }}>{on ? "Tap again to take it down" : "The crew can see it and copy it"}</span>
-      </span>
-      <span aria-hidden="true" className="shrink-0 relative" style={{ width: 42, height: 24, borderRadius: 999, background: on ? C.green : C.track, border: `1px solid ${on ? C.green : C.glassLine}`, transition: "background .2s" }}>
-        <span style={{ position: "absolute", top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.35)", transition: "left .2s cubic-bezier(.2,.8,.2,1)" }} />
-      </span>
-    </button>
-  );
-}
-function CommunityMeals({ s, setS, onAdd }) {
-  const [items, setItems] = useState(null);
-  const [scale, setScale] = useState({});
-  useEffect(() => { readShared("cmeal:").then((r) => setItems(r.sort((a, b) => (b.t || 0) - (a.t || 0)).slice(0, 30))); }, []);
-  if (items === null) return <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading community meals…</div>;
-  if (!items.length) return <Empty>No shared meals yet. After a photo scan or AI estimate, flip "Publish to Community Feed" to put it here.</Empty>;
-  return (
-    <div className="space-y-2">
-      {items.map((m) => {
-        const k = scale[m.key] ?? 1;
-        const v = (n) => Math.round((n || 0) * k);
-        return (
-          <div key={m.key} className="panel p-3 space-y-2">
-            <div className="flex justify-between items-start gap-2">
-              <div className="min-w-0"><div className="font-semibold truncate">{m.name}</div><div className="body text-xs" style={{ color: C.dim }}>by {m.by}{m.ingredients?.length ? ` · ${m.ingredients.length} ingredients` : ""}</div></div>
-              {m.from === s.playerId && <button aria-label="Delete" onClick={() => ask("Remove this from the community feed?", async () => { try { await window.storage.delete(m.key, true); window.storage.delete(`feed:${m.from}_meal_${m.key.slice(6)}`, true).catch(() => {}); setItems((x) => x.filter((y) => y.key !== m.key)); } catch (e) { /* ignore */ } }, "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
-            </div>
-            <div className="body text-sm" style={{ color: C.sub }}>{v(m.cal)} cal · P {v(m.p)} · C {v(m.c)} · F {v(m.f)}</div>
-            <div className="flex items-center gap-2">
-              <input type="range" min="0.25" max="2" step="0.25" value={k} onChange={(e) => setScale({ ...scale, [m.key]: +e.target.value })} className="flex-1" style={{ accentColor: C.cyan }} aria-label="Portion size" />
-              <span className="body text-xs tabular-nums w-10 text-right" style={{ color: C.dim }}>{k}×</span>
-              <button onClick={() => onAdd({ name: `${m.name}${k !== 1 ? ` (${k}×)` : ""}`, cal: v(m.cal), p: v(m.p), c: v(m.c), f: v(m.f), ingredients: m.ingredients || undefined, meal: !!m.ingredients })} className="btn px-3 py-1.5 text-xs">Copy meal</button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /* ---------- Log tab: workout detail ---------- */
 function LogWorkoutSheet({ s, setS, w, onClose }) {
@@ -9992,30 +6936,3 @@ function LogWorkoutSheet({ s, setS, w, onClose }) {
 }
 
 /* ---------- Hydration bar (sits beside the macros) ---------- */
-function HydrationBar({ s, setS, gainXp, d }) {
-  const target = Math.max(8, Math.round((+s.profile.weight || 170) / 2 / 8));
-  const w = s.water?.[d] || { n: 0, xp: false };
-  const pct = Math.min(100, (w.n / target) * 100);
-  // Going under the goal after hitting it takes the water XP back; hitting it again gives it back.
-  const set = (n) => {
-    const cur = s.water?.[d] || { n: 0, xp: false };
-    const next = { ...cur, n: Math.max(0, Math.min(40, n)) };
-    const k = cur.k || 0;
-    if (!cur.xp && next.n >= target) { next.xp = true; setTimeout(() => { gainXp(WATER_XP, "Water goal", k ? `water_${d}_${k}` : `water_${d}`); SFX.water(); }, 0); }
-    else if (cur.xp && next.n < target) { next.xp = false; next.k = k + 1; setTimeout(() => gainXp(-WATER_XP, "Water goal undone", `water_${d}_undo${k + 1}`), 0); }
-    setS((p) => ({ ...p, water: { ...(p.water || {}), [d]: next } }));
-  };
-  const btn = { width: 34, height: 30, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${C.glassLine}`, background: C.glass };
-  return (
-    <div className="flex flex-col items-center gap-1.5 shrink-0" style={{ width: 54 }}>
-      <button aria-label="Add a cup of water" onClick={() => set(w.n + 1)} style={{ ...btn, color: C.cyan, borderColor: `${C.cyan}66` }}><Plus size={16} /></button>
-      <button aria-label="Add a cup of water" onClick={() => set(w.n + 1)} className="relative overflow-hidden" style={{ width: 34, height: 84, borderRadius: 10, border: `1px solid ${C.glassLine}`, background: C.track }}>
-        <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${pct}%`, background: `linear-gradient(180deg, ${C.cyan}, #2F6BFF)`, transition: "height .4s cubic-bezier(.2,.8,.2,1)", boxShadow: `0 0 12px ${C.glow}` }} />
-        <span style={{ position: "absolute", left: 0, right: 0, bottom: `calc(${pct}% - 3px)`, height: 3, background: "rgba(255,255,255,.55)", opacity: pct > 0 && pct < 100 ? 1 : 0 }} />
-        <Droplets size={15} style={{ position: "absolute", left: "50%", top: 6, transform: "translateX(-50%)", color: pct > 85 ? "#fff" : C.dim }} />
-      </button>
-      <button aria-label="Remove a cup of water" disabled={w.n <= 0} onClick={() => set(w.n - 1)} style={{ ...btn, color: w.n > 0 ? C.text : C.mute, opacity: w.n > 0 ? 1 : 0.5 }}><Minus size={16} /></button>
-      <div className="body text-xs text-center leading-tight tabular-nums" style={{ color: w.n >= target ? C.green : C.dim }}>{w.n}/{target}<br />cups</div>
-    </div>
-  );
-}
