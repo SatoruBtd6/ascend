@@ -1,4 +1,8 @@
-// Flat config for ESLint 9/10. No plugins so `npx eslint` works without extra installs.
+// Flat config for ESLint 9/10.
+// eslint-plugin-react marks JSX identifiers as used (jsx-uses-vars) so the
+// Foundations 2 split keeps the same 5 unused-vars baseline.
+import react from "eslint-plugin-react";
+
 const browserGlobals = [
   "window", "document", "navigator", "location", "history", "screen", "console", "localStorage", "sessionStorage",
   "fetch", "Request", "Response", "Headers", "FormData", "URL", "URLSearchParams", "Blob", "File", "FileReader",
@@ -17,14 +21,18 @@ export default [
   { ignores: ["dist/**", "node_modules/**", "public/**"] },
   {
     files: ["**/*.{js,jsx,mjs}"],
+    plugins: { react },
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",
       parserOptions: { ecmaFeatures: { jsx: true } },
       globals: { ...readonly(browserGlobals), ...readonly(nodeGlobals) },
     },
+    settings: { react: { version: "detect" } },
     linterOptions: { reportUnusedDisableDirectives: true },
     rules: {
+      "react/jsx-uses-vars": "error",
+      "react/jsx-uses-react": "error",
       "no-undef": "error",
       "no-unused-vars": ["warn", { args: "none", varsIgnorePattern: "^_", caughtErrors: "none" }],
       "no-dupe-keys": "error",

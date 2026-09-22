@@ -1,4 +1,4 @@
-import { XpSync, SB_URL } from "../train/xpSync.js";
+import { XpSync, SB_URL } from "../../lib/xpSync.js";
 export const STEP_SHORTCUT_URL = "https://www.icloud.com/shortcuts/PUT_HASH_HERE";
 export async function sha256hex(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));

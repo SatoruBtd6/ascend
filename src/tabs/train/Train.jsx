@@ -31,7 +31,7 @@ import { SFX } from "./sfx.js";
 import { Beeper } from "./beeper.js";
 import { noteRaidHitFor } from "./raidIO.js";
 import { applyPrXpRecount } from "./xpRecount.js";
-import { XpSync } from "./xpSync.js";
+import { XpSync } from "../../lib/xpSync.js";
 export function Train({ s, setS, gainXp, openRun }) {
   D.noteRender("Train");
   useEffect(() => {

@@ -10,7 +10,7 @@ import { LineChart } from "./LineChart.jsx";
 import { FormCheck } from "./FormCheck.jsx";
 import { namesMatch, gymLabel, setLabel, suggestNext, withSilentRankSnap } from "./helpers.js";
 import { applyPrXpRecount } from "./xpRecount.js";
-import { XpSync } from "./xpSync.js";
+import { XpSync } from "../../lib/xpSync.js";
 import { ytUrl } from "./yt.js";
 export function ExercisePage({ s, setS, name, onBack, openMuscle }) {
   const def = findEx(s, name);

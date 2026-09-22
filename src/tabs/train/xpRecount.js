@@ -8,7 +8,7 @@ import { runXpLabel } from "../../run.js";
 import { WATER_XP, STEP_GOAL_XP, MOG_XP, DUEL_XP } from "./xpConstants.js";
 import { BOSS_XP, bossFor, monthEnd, minDay, revertBossExploit } from "./bosses.js";
 import { withSilentRankSnap } from "./helpers.js";
-import { XpSync } from "./xpSync.js";
+import { XpSync } from "../../lib/xpSync.js";
 export function xpFromRecords(s) {
   const rows = [];
   const add = (e, a, m, d, find = false) => { a = Math.round(+a || 0); if (a && d) rows.push({ e, a, m, d, find }); };

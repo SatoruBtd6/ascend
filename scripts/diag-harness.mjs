@@ -238,10 +238,13 @@ async function runTaps(page, label) {
     await sleep(gap);
     try {
       const want = expected[idx];
+      const loc = checks.nth(idx);
+      // Measured taps must use real pointer/touch + Playwright actionability (not DOM .click()).
+      await loc.scrollIntoViewIfNeeded();
+      await loc.tap({ timeout: 8000 }).catch(() => loc.click({ timeout: 8000 }));
       const bg = await page.evaluate(async ({ i, wantGreen }) => {
         const el = document.querySelectorAll("[data-diag-check]")[i];
         if (!el) return "";
-        el.click();
         const isGreen = (c) => /79,\s*209,\s*139|57,\s*230,\s*143|18,\s*168,\s*96|#39e68f|#12a860/i.test(c || "");
         const tEnd = performance.now() + 1200;
         while (performance.now() < tEnd) {

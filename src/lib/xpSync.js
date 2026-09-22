@@ -1,4 +1,4 @@
-import { nextPublishBackoff } from "../../math.js";
+import { nextPublishBackoff } from "../math.js";
 export const SB_URL = import.meta.env?.VITE_SUPABASE_URL, SB_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 export const toServerRow = (r) => ({ event_id: String(r.e).slice(0, 120), amount: r.a, source: String(r.m || "").slice(0, 120), day: r.d, at: new Date(r.t || Date.now()).toISOString() });
 export const XpSync = {
