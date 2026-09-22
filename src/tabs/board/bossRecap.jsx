@@ -6,6 +6,7 @@ import { BOSSES, BOSS_XP } from "../train/bosses.js";
 import { ReceiptButton, buildReceipt } from "../train/receipt.jsx";
 import { BossArt } from "./bossArt.jsx";
 
+// Everything you earned from a boss you helped kill, in one card you can also share
 export const recapLoot = (bossId) => {
   const b = BOSSES.find((x) => x.id === bossId);
   return b ? [AURAS.find((a) => a.loot === b.id)?.name, b.title, "Bone crown"].filter(Boolean) : [];
@@ -44,6 +45,7 @@ export function PastKills({ s }) {
     </div>
   );
 }
+// First app open after the kill: show the recap once, then it lives under the boss
 export function BossRecapBanner({ s, setS }) {
   const entry = Object.entries(s.bossRecaps || {}).find(([k, v]) => k.endsWith("_global") && !v.seen);
   if (!entry) return null;

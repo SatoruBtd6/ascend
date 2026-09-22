@@ -8,6 +8,7 @@ import { readShared } from "../train/social.js";
 import { STERLING_SYS, askJson, sterlingSay } from "../train/sterling.js";
 import { isMutualNemesis } from "./duels.js";
 
+/* ---------- Nemesis alerts (mutual rivals only) ---------- */
 export function NemesisAlert({ s, setS, openProfile }) {
   const [card, setCard] = useState(null);
   const [incoming, setIncoming] = useState([]);
@@ -49,6 +50,7 @@ export function NemesisAlert({ s, setS, openProfile }) {
   );
 }
 
+/* ---------- Proactive Sterling ---------- */
 export function brokenStreak(s) {
   const days = [...activeDays(s)].sort();
   if (!days.length) return null;

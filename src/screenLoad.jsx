@@ -120,8 +120,19 @@ function whenPrecacheDone() {
 }
 function onIdle(fn) {
   const ric = window.requestIdleCallback;
-  if (typeof ric === "function") ric(() => fn(), { timeout: 1500 });
+  if (typeof ric === "function") ric(() => fn());
   else setTimeout(fn, 200);
+}
+function whenStatusVisible() {
+  return new Promise((resolve) => {
+    const seen = () => {
+      const status = document.querySelector("nav") && [...document.querySelectorAll("nav button")].some((b) => (b.textContent || "").trim() === "Status");
+      if (!status) { requestAnimationFrame(seen); return; }
+      // Let the Status button settle for a click before any screen import starts.
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    };
+    requestAnimationFrame(seen);
+  });
 }
 export function useSwReady() {
   const prodSw = import.meta.env.PROD && typeof navigator !== "undefined" && !!navigator.serviceWorker;
@@ -146,7 +157,11 @@ export function prefetchScreens() {
       loadScreen(key, importer).finally(step);
     });
   };
-  whenPrecacheDone().then(step);
+  // Status is on screen first. The idle callback is queued after that paint, so a warm
+  // launch can accept the Status click before the first screen import starts.
+  Promise.all([whenPrecacheDone(), whenStatusVisible()]).then(() => {
+    setTimeout(() => onIdle(step), 800);
+  });
 }
 
 export function ScreenFallback() {

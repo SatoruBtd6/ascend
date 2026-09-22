@@ -23,7 +23,7 @@ import { applyPrXpRecount, XP_VERSION } from "./tabs/train/xpRecount.js";
 import { XpSync } from "./lib/xpSync.js";
 import { loadLive, saveLive } from "./tabs/run/live.js";
 import { mergeSteps } from "./tabs/run/mergeSteps.js";
-import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHub, Board, ProfilePage, SettingsPage, Assistant, IntervalTimer, CardDeck, Confetti, Onboarding, XpLedger, LazyBoundary, UpdateBanner, prefetchScreens, useSwReady } from "./screenLoad.jsx";
+import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHub, Board, ProfilePage, SettingsPage, Assistant, IntervalTimer, CardDeck, Confetti, Onboarding, XpLedger, LazyBoundary, UpdateBanner, prefetchScreens, useSwReady, useBanner } from "./screenLoad.jsx";
 
 
 
@@ -147,17 +147,14 @@ export default function App() {
     const iv = setInterval(check, 5 * 60000);
     return () => { document.removeEventListener("visibilitychange", v); clearInterval(iv); };
   }, []);
-  const applyUpdate = async () => {
+  const wakeNextWorker = () => {
     try {
-      const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
-      await Promise.all(regs.map(async (r) => {
-        try { await r.update(); } catch { /* ignore */ }
-        try { r.waiting?.postMessage("skipWaiting"); } catch { /* ignore */ }
-      }));
-      const keys = (await window.caches?.keys?.()) || [];
-      await Promise.all(keys.map((k) => window.caches.delete(k)));
-    } catch (e) { /* reload anyway */ }
-    window.location.reload();
+      navigator.serviceWorker?.getRegistrations?.().then((regs) => {
+        for (const r of regs || []) {
+          try { r.waiting?.postMessage("skipWaiting"); } catch { /* ignore */ }
+        }
+      }).catch(() => {});
+    } catch { /* reload still saves */ }
   };
   const [toast, setToast] = useState(null);
   const [storageOk, setStorageOk] = useState(true);
@@ -176,7 +173,9 @@ export default function App() {
   const [confetti, setConfetti] = useState(false);
   const [onboard, setOnboard] = useState(null);
   const [liveRun, setLiveRun] = useState(() => loadLive());
-  const startRun = (mode, guide) => { const r = newRun(mode, guide); saveLive(r); setLiveRun(r); };
+  const liveNow = useRef(liveRun);
+  const noteLive = useCallback((r) => { liveNow.current = r; }, []);
+  const startRun = (mode, guide) => { const r = newRun(mode, guide); saveLive(r); liveNow.current = r; setLiveRun(r); };
   const pullSteps = async () => {
     try { const r = await window.storage.get("steps-inbox", false); const inbox = r?.value ? JSON.parse(r.value) : null; if (inbox) D.withSource("steps", () => setS((p) => mergeSteps(p, inbox) || p)); } catch (e) { /* none yet */ }
   };
@@ -798,10 +797,11 @@ export default function App() {
     D.withSource("rank", () => setS((p) => ({ ...p, rankHist: { ...(p.rankHist || {}), [ws]: { overall: o.score, groups: o.groups, lifts, xp: p.xp } } })));
   }, [loaded, s.workouts]);
 
+  const chunkBanner = useBanner();
   const reloadForUpdate = () => {
     D.push({ k: "banner", st: "tap" });
     try {
-      if (liveRun) saveLive(liveRun);
+      if (liveNow.current) saveLive(liveNow.current);
       localStorage.setItem(pendingKey(deviceUserId()), JSON.stringify({ state: sRef.current, snap: snapRef.current, t: Date.now() }));
     } catch (e) {
       setSaveNote("Couldn't save — try again");
@@ -830,11 +830,11 @@ export default function App() {
     <SaveCtx.Provider value={{ status: saveStatus }}>
     <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <UpdateBanner onReload={reloadForUpdate} />
-      {updateReady && (
+      {updateReady && !chunkBanner && (
         <div role="alert" className="fixed left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
           <div className="max-w-md w-full flex items-center gap-3 px-4 py-3" style={{ borderRadius: 14, background: C.sheet, border: `1px solid ${C.cyan}`, boxShadow: `0 8px 30px rgba(0,0,0,.45), 0 0 18px ${C.glow}` }}>
             <span className="flex-1 text-sm font-semibold">A new version of Ascend is ready</span>
-            <button onClick={applyUpdate} className="btn px-3 py-1.5 text-sm">Update now</button>
+            <button onClick={() => { wakeNextWorker(); reloadForUpdate(); }} className="btn px-3 py-1.5 text-sm">Update now</button>
           </div>
         </div>
       )}
@@ -1013,7 +1013,7 @@ export default function App() {
       {ceremony && <Ceremony c={ceremony} onClose={() => setCeremony(null)} />}
       {burst && <JuiceBurst key={burst.id} kind={burst.kind} />}
       {confetti && <TabErrorBoundary><LazyBoundary active={false}><Confetti onDone={() => setConfetti(false)} /></LazyBoundary></TabErrorBoundary>}
-      {liveRun && <TabErrorBoundary><LazyBoundary><RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onClose={() => { setLiveRun(null); setTab("run"); }} /></LazyBoundary></TabErrorBoundary>}
+      {liveRun && <TabErrorBoundary><LazyBoundary><RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onLive={noteLive} onClose={() => { liveNow.current = null; setLiveRun(null); setTab("run"); }} /></LazyBoundary></TabErrorBoundary>}
       {saveNote && (
         <div className="fixed left-1/2 z-50 px-4 py-1.5 text-xs font-bold" style={{ bottom: "calc(env(safe-area-inset-bottom) + 118px)", transform: "translateX(-50%)", borderRadius: 999, whiteSpace: "nowrap", pointerEvents: "none",
           background: C.sheet, color: saveNote.startsWith("Couldn't") ? C.orange : C.green, border: `1px solid ${saveNote.startsWith("Couldn't") ? C.orange : C.green}` }}>{saveNote}</div>

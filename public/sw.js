@@ -49,14 +49,18 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Same-origin JS/CSS: current cache, then the one previous app cache, then the network
+  // Same-origin JS/CSS: current cache first. The previous cache is only opened on a miss,
+  // so a warm launch does not pay for a cache list on every file.
   if (url.origin === self.location.origin && /\.(js|css)$/.test(url.pathname)) {
     e.respondWith((async () => {
+      const from = async (name) => caches.match(req, { cacheName: name, ignoreVary: true })
+        || caches.match(url.pathname, { cacheName: name, ignoreVary: true });
+      const current = await from(VERSION);
+      if (current) return current;
       const names = await caches.keys();
-      const order = [VERSION, ...names.filter((k) => k.startsWith("ascend-v") && k !== VERSION)];
-      for (const name of order) {
-        const hit = await caches.match(req, { cacheName: name, ignoreVary: true })
-          || await caches.match(url.pathname, { cacheName: name, ignoreVary: true });
+      for (const name of names) {
+        if (!name.startsWith("ascend-v") || name === VERSION) continue;
+        const hit = await from(name);
         if (hit) return hit;
       }
       const res = await fetch(req).catch(() => null);

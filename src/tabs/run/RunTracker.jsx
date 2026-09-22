@@ -12,9 +12,10 @@ import { juice } from "../train/juice.js";
 import { SFX } from "../train/sfx.js";
 import { sterlingSay } from "../train/sterling.js";
 import { postFeed } from "../train/social.js";
-export function RunTracker({ s, setS, gainXp, initial, onClose }) {
+export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
   const [run, setRun] = useState(() => ensureSegments(initial));
   const runRef = useRef(run); runRef.current = run;
+  useEffect(() => { onLive?.(run); }, [run, onLive]);
   const [now, setNow] = useState(Date.now());
   const [gps, setGps] = useState({ status: "waiting", msg: "" });
   const [phase, setPhase] = useState(initial.resumed ? "resume" : "live"); // resume | live | summary
