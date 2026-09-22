@@ -19,7 +19,7 @@ export function Physique({ tier = 0, height = 220, aura, caption, sex }) {
   return (
     <div className="relative flex flex-col items-center" style={{ height: height + (caption ? 24 : 0) }}>
       <div className="absolute" style={{ top: height * 0.08, width: height * 0.62, height: height * 0.8, borderRadius: "50%", background: `radial-gradient(closest-side, ${rank.glow}, transparent)`, filter: "blur(10px)" }} />
-      {aura && aura !== "none" && <AuraCanvas aura={aura} mode="body" w={aw} h={ah} overSlot={overSlot} style={place} />}
+      {aura && aura !== "none" && <AuraCanvas aura={aura} mode="body" w={aw} h={ah} overSlot={overSlot} figure={src} style={place} />}
       {fail && <PhysiquePlaceholder female={female} height={height} color={rank.color} />}
       <img src={src} alt={`${id}-rank physique`} onError={() => setFail(true)} onLoad={() => setFail(false)} style={{ height, width: "auto", position: fail ? "absolute" : "relative", zIndex: 1, opacity: fail ? 0 : 1, pointerEvents: "none", filter: `drop-shadow(0 8px 24px rgba(0,0,0,.6))` }} />
       {showOver && <div ref={setOverSlot} style={{ position: "absolute", ...place, zIndex: 2, pointerEvents: "none" }} />}

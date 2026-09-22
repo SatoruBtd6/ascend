@@ -395,7 +395,7 @@ export const AuraLoop = {
   },
 };
 
-export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas }) {
+export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
   const fx = AURA_FX[aura], base = AURAS.find((a) => a.id === aura);
   const g = canvas.getContext("2d");
   if (!fx || !g) return null;
@@ -416,7 +416,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas }) {
   const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
   const rx = Math.max(10, (mode === "body" ? w * 0.28 : ringR) * fit);
   const ry = Math.max(10, (mode === "body" ? h * 0.36 : ringR) * fit);
-  const anchors = resolveAuraAnchors(mode, { w, h, cx, cy, rx, ry });
+  const anchors = resolveAuraAnchors(mode, { w, h, cx, cy, rx, ry }, figure);
   const gR = Math.min(1.45, (Math.min(cx, w - cx) / rx) * 0.97, (Math.min(cy, h - cy) / ry) * 0.97);
   const scale = Math.max(0.7, Math.min(1.25, (w * h) / (140 * 140)));
   const unit = Math.max(w < 110 ? 1.15 : 0.75, Math.min(rx, ry) / 48);
@@ -832,7 +832,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas }) {
   return api;
 }
 
-export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot }) {
+export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure }) {
   const ref = useRef(null);
   const overRef = useRef(null);
   const needs = auraNeedsOver(aura);
@@ -840,7 +840,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     const cv = ref.current;
     if (!cv || !AURA_FX[aura] || typeof window === "undefined") return;
     let inst = null;
-    try { inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2, overCanvas: needs ? overRef.current : null }); } catch (e) { return; }
+    try { inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2, overCanvas: needs ? overRef.current : null, figure }); } catch (e) { return; }
     if (!inst) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     inst.reduce = !!reduce;
@@ -850,7 +850,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     if (typeof IntersectionObserver !== "undefined") { io = new IntersectionObserver((es) => { inst.visible = es[0]?.isIntersecting ?? true; }, { rootMargin: "80px" }); io.observe(cv); }
     AuraLoop.add(inst);
     return () => { AuraLoop.remove(inst); io?.disconnect(); };
-  }, [aura, w, h, mode, ringR, needs, overSlot]);
+  }, [aura, w, h, mode, ringR, needs, overSlot, figure]);
   if (!AURA_FX[aura]) return null;
   const overCanvas = needs ? (
     <canvas ref={overRef} aria-hidden="true" className="absolute pointer-events-none" style={{ left: 0, top: 0, width: w, height: h, zIndex: 2 }} />
