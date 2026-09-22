@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { hexRgb } from "../theme.js";
 import { AURAS } from "./catalog.js";
 import { noteStrikeFlash } from "./boltClock.js";
+import { resolveAuraAnchors } from "./anchors.js";
+export { FACE_REGION, resolveAuraAnchors } from "./anchors.js";
 /* Particle recipes. Easy unlocks stay simple; rare ones stack more motion. Never shrink the ring so small that studio tiles go blank. */
 export const AURA_FX = {
   ember: { spd: 1, glow: 0.6, layers: [{ k: "rise", n: 22, shape: "spark", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [18, 38], life: [1, 2.2], sz: [1.4, 2.6], sway: 10 }, { k: "rise", n: 8, shape: "dot", c: ["#FF9340", "#FF4D6D"], sp: [10, 20], life: [1.2, 2], sz: [3.2, 6], sway: 6, a: 0.55 }] },
@@ -93,7 +95,7 @@ export const AURA_FX = {
   bonewright: { spd: 0.7, glow: 0.7, overArt: "bonewright", bolts: { burst: [2, 3], burstSpan: 0.36, gap: [3, 5], c: ["#FFF27A"], flash: 1, flashPeak: 0.35, flashLife: 0.09, from: "above", strike: 1, calm: 1 }, rings: [{ r: 1.12, c: "#F4EAD2", spin: 0.06, a: 0.9, w: 5, dash: 1 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#F4EAD2", "#AAB5C4"], sp: [12, 24], life: [1.4, 2.6], sz: [5, 10], sway: 9, blend: "source-over", a: 0.35 }, { k: "orbit", n: 12, shape: "shard", c: ["#FFFFFF", "#DDE6F2"], w: [0.12, 0.28], r: [1.08, 1.2], sz: [2.2, 4.2] }] },
   nullpoint: { spd: 0.62, glow: 0.66, dark: 1, rings: [{ r: 1.15, c: "#38C6FF", spin: -0.03, a: 0.82, w: 2.8 }], layers: [{ k: "inward", n: 64, shape: "dot", c: ["#38C6FF", "#C2001F", "#a855f7"], sp: [0.35, 0.7], life: [2, 4], sz: [1.2, 2.6] }] },
   carve: { spd: 0.85, glow: 0.58, dark: 1, art: "carve", rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }], sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 }, layers: [{ k: "orbit", n: 36, shape: "spark", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.8, 1.8], r: [1.08, 1.35], sz: [0.8, 1.5], tw: 1 }] },
-  brandmark: { spd: 0.58, glow: 0.5, dark: 1, art: "brandmark", artLate: 1, overArt: "brandmark", sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 }, { k: "orbit", n: 1, shape: "img", src: "/aura/pauldron.webp", over: 1, r: [0.748866, 0.748866], w: [0, 0], sz: [0.78, 0.78], even: 1, at: 0.405238, rot: -0.012, a: 1, blend: "source-over" }, { k: "orbit", n: 1, shape: "img", src: "/aura/pauldron.webp", over: 1, flip: 1, r: [0.748866, 0.748866], w: [0, 0], sz: [0.78, 0.78], even: 1, at: 0.094762, rot: 0.012, a: 1, blend: "source-over" }] },
+  brandmark: { spd: 0.58, glow: 0.5, dark: 1, art: "brandmark", artLate: 1, overArt: "brandmark", sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 }] },
   blacksun: { spd: 0.32, glow: 0.96, dark: 1, art: "blacksun", rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4 }], layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.38, rot: 0.04, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
     { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.12, rot: -0.04, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
@@ -187,10 +189,6 @@ export function auraImage(src) {
   return rec;
 }
 
-// Face anchor in avatar radii, +y down. Bonewright eyes use it. A Nullpoint
-// blindfold in the over pass belongs on this same origin so photos match.
-export const FACE_REGION = { x: 0.19, y: -0.16, eyeW: 0.17 };
-
 export function auraNeedsOver(aura) {
   const fx = AURA_FX[aura];
   if (!fx) return false;
@@ -205,17 +203,16 @@ function eyeIdle(time) {
   return 0.75 + 0.25 * (a * 0.62 + b * 0.28 + c * 0.1);
 }
 
-function drawBoneEyes(ctx, { time, cx, cy, rx, ry, strike, mode }) {
-  if (!ctx || mode === "body") return;
-  const R = Math.min(rx, ry);
+function drawBoneEyes(ctx, { time, strike, anchors }) {
+  if (!ctx || !anchors) return;
   const k = Math.min(1, eyeIdle(time) + (1 - eyeIdle(time)) * strike);
-  const ew = FACE_REGION.eyeW * R;
+  const ew = anchors.face.eyeW;
   const eh = ew * 0.42;
   const bloom = ew * 2.5 * (1 + 0.45 * strike);
   ctx.save();
   for (const side of [-1, 1]) {
-    const x = cx + side * FACE_REGION.x * rx;
-    const y = cy + FACE_REGION.y * ry;
+    const x = anchors.face.x + side * anchors.face.eyeX;
+    const y = anchors.face.y;
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = Math.min(1, 0.5 * k + 0.45 * strike);
     const grd = ctx.createRadialGradient(x, y, ew * 0.15, x, y, bloom);
@@ -237,20 +234,39 @@ function drawBoneEyes(ctx, { time, cx, cy, rx, ry, strike, mode }) {
   ctx.restore();
 }
 
-function drawCape(ctx, { cx, cy, rx, ry, clock }) {
+function drawCape(ctx, { clock, anchors }) {
   const rec = auraImage("/aura/cape.webp");
-  if (!rec.ready || rec.failed || !ctx) return;
+  if (!rec.ready || rec.failed || !ctx || !anchors) return;
   const img = rec.img;
-  const R = Math.min(rx, ry);
-  const ih = R * 1.52;
-  const iw = ih * (img.naturalWidth / Math.max(1, img.naturalHeight));
+  const iw = anchors.cape.w;
+  const ih = iw * (img.naturalHeight / Math.max(1, img.naturalWidth));
   const sway = Math.sin((clock || 0) * (Math.PI * 2 / 5)) * 0.07;
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 0.96;
-  ctx.translate(cx, cy + ry * 0.08);
+  ctx.translate(anchors.cape.x, anchors.cape.y);
   ctx.rotate(sway);
   ctx.drawImage(img, -iw / 2, 0, iw, ih);
+  ctx.restore();
+}
+
+function drawPauldrons(ctx, anchors) {
+  const rec = auraImage("/aura/pauldron.webp");
+  if (!rec.ready || rec.failed || !ctx || !anchors) return;
+  const img = rec.img;
+  const ih = anchors.pauldronH;
+  const iw = ih * (img.naturalWidth / Math.max(1, img.naturalHeight));
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(anchors.shoulderX + side * anchors.shoulderHalf, anchors.shoulderY);
+    ctx.rotate(side * -0.08);
+    if (side > 0) ctx.scale(-1, 1);
+    ctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -263,16 +279,15 @@ function sweepHit(time, sweep, ang) {
   return d <= span ? 1 - d / span : 0;
 }
 
-function drawSigil(ctx, { time, clock, cx, cy, rx, ry, unit, sweep }) {
+function drawSigil(ctx, { time, clock, unit, sweep, anchors }) {
   const rec = auraImage("/aura/brand.png");
-  if (!rec.ready || rec.failed || !ctx) return;
+  if (!rec.ready || rec.failed || !ctx || !anchors) return;
   const img = rec.img;
-  const R = Math.min(rx, ry);
   const ang = -0.85;
-  const sx = cx + Math.cos(ang) * rx * 0.55;
-  const sy = cy + Math.sin(ang) * ry * 0.55;
+  const sx = anchors.sigil.x;
+  const sy = anchors.sigil.y;
   const rot = 8 * Math.PI / 180;
-  const ih = 0.42 * R;
+  const ih = anchors.sigil.h;
   const iw = ih * (img.naturalWidth / Math.max(1, img.naturalHeight));
   const beat = 0.85 + Math.sin(time * 4.5) * 0.15;
   const hit = sweepHit(time, sweep, ang);
@@ -290,7 +305,7 @@ function drawSigil(ctx, { time, clock, cx, cy, rx, ry, unit, sweep }) {
   ctx.restore();
   const bx = sx - Math.sin(rot) * (ih / 2);
   const by = sy + Math.cos(rot) * (ih / 2);
-  const len = R * (0.42 + 0.2 * Math.sin((clock || 0) * 0.65));
+  const len = ih * (1 + 0.48 * Math.sin((clock || 0) * 0.65));
   const wob = Math.sin((clock || 0) * 0.9) * (unit || 1) * 3;
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
@@ -360,7 +375,11 @@ export const AURA_ART = {
   bonewright: (opts) => { if (opts.pass === "over") drawBoneEyes(opts.over || opts.g, opts); },
   brandmark: (opts) => {
     if (opts.pass === "late") drawCape(opts.g, opts);
-    else if (opts.pass === "over") drawSigil(opts.over || opts.g, opts);
+    else if (opts.pass === "over") {
+      const ctx = opts.over || opts.g;
+      drawPauldrons(ctx, opts.anchors);
+      drawSigil(ctx, opts);
+    }
   },
 };
 
@@ -391,12 +410,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas }) {
       overG.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
   }
-  if (aura === "brandmark") { auraImage("/aura/cape.webp"); auraImage("/aura/brand.png"); }
+  if (aura === "brandmark") { auraImage("/aura/cape.webp"); auraImage("/aura/brand.png"); auraImage("/aura/pauldron.webp"); }
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
   const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
   const rx = Math.max(10, (mode === "body" ? w * 0.28 : ringR) * fit);
   const ry = Math.max(10, (mode === "body" ? h * 0.36 : ringR) * fit);
+  const anchors = resolveAuraAnchors(mode, { w, h, cx, cy, rx, ry });
   const gR = Math.min(1.45, (Math.min(cx, w - cx) / rx) * 0.97, (Math.min(cy, h - cy) / ry) * 0.97);
   const scale = Math.max(0.7, Math.min(1.25, (w * h) / (140 * 140)));
   const unit = Math.max(w < 110 ? 1.15 : 0.75, Math.min(rx, ry) / 48);
@@ -610,7 +630,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas }) {
       grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
-    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, unit, strike, sweep: fx.sweep, pass, mode });
+    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, unit, strike, sweep: fx.sweep, pass, mode, anchors });
     const artState = AURA_ART[fx.art]?.(artArgs("main")) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";
