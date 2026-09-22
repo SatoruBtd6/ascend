@@ -806,13 +806,27 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const paintWash = (ctx) => {
       if (!(flashLeft > 0) || !fx.bolts?.burst) return;
       const life = fx.bolts.flashLife || 0.09;
-      const a = (fx.bolts.flashPeak ?? 0.35) * Math.max(0, flashLeft / life);
+      const k = Math.max(0, flashLeft / life);
+      // flashPeak is the spec's strength. Drawn softer so a light theme
+      // brightens instead of clipping to white, and only at the ring centre.
+      const a = (fx.bolts.flashPeak ?? 0.35) * 0.5 * k;
       if (a <= 0.01) return;
+      const edge = Math.min(cx, cy, w - cx, h - cy);
+      const outer = Math.max(8, edge * 0.96);
+      const inner = Math.min(rx, ry) * 0.15;
       ctx.save();
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = a;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, w, h);
+      // Adds light onto pixels already on this canvas. Empty pixels only pick
+      // up the gradient's own alpha, which is 0 before the canvas edge.
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 1;
+      const wash = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+      wash.addColorStop(0, `rgba(255,248,220,${a.toFixed(3)})`);
+      wash.addColorStop(0.42, `rgba(255,244,210,${(a * 0.38).toFixed(3)})`);
+      wash.addColorStop(1, "rgba(255,248,220,0)");
+      ctx.fillStyle = wash;
+      ctx.beginPath();
+      ctx.arc(cx, cy, outer, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     };
     paintWash(g);
