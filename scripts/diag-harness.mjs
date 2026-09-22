@@ -227,9 +227,10 @@ async function runTaps(page, label) {
   const checks = page.locator("[data-diag-check]");
   const n = await checks.count();
   log(label, "checkmarks", n);
-  if (n < 16) { fail(`${label} expected 16 checkmarks`, n); return { ok: 0, miss: 100, n }; }
+  if (n < 16) { fail(`${label} expected 16 checkmarks`, n); return { ok: 0, miss: 100, n, fallbackCount: 0, fallbacks: [] }; }
   const expected = Array.from({ length: 16 }, () => false);
   let ok = 0, miss = 0, frozen = 0;
+  const fallbacks = [];
   const t0 = Date.now();
   for (let i = 0; i < 100; i++) {
     const idx = i % 16;
@@ -241,7 +242,14 @@ async function runTaps(page, label) {
       const loc = checks.nth(idx);
       // Measured taps must use real pointer/touch + Playwright actionability (not DOM .click()).
       await loc.scrollIntoViewIfNeeded();
-      await loc.tap({ timeout: 8000 }).catch(() => loc.click({ timeout: 8000 }));
+      try {
+        await loc.tap({ timeout: 8000 });
+      } catch (tapErr) {
+        const error = String(tapErr?.message || tapErr).split("\n")[0];
+        fallbacks.push({ i, error });
+        log(label, "tap fallback", { i, error });
+        await loc.click({ timeout: 8000 });
+      }
       const bg = await page.evaluate(async ({ i, wantGreen }) => {
         const el = document.querySelectorAll("[data-diag-check]")[i];
         if (!el) return "";
@@ -274,9 +282,9 @@ async function runTaps(page, label) {
     }
     if (i % 20 === 19) log(label, "progress", { i: i + 1, ok, miss });
   }
-  log(label, "taps", { ok, miss, ms: Date.now() - t0, n });
+  log(label, "taps", { ok, miss, ms: Date.now() - t0, n, fallbackCount: fallbacks.length });
   if (miss) fail(`${label} lost/wrong taps`, { ok, miss });
-  return { ok, miss, n, ms: Date.now() - t0 };
+  return { ok, miss, n, ms: Date.now() - t0, fallbackCount: fallbacks.length, fallbacks };
 }
 
 const TEXT60 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678";
