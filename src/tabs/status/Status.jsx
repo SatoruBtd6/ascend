@@ -5,11 +5,11 @@ import { overallInfo, rankFromScore, rankedLifts, streakOf } from "../../lib/sta
 import { levelFromXp } from "../../math.js";
 import { C } from "../../theme.js";
 import { Bar, Empty } from "../../ui/primitives.jsx";
-import { BossRecapBanner } from "../board/BossFight.jsx";
-import { NemesisAlert, RoastCard } from "../board/Duels.jsx";
-import { GymSpotBanner } from "../board/Gym.jsx";
+import { BossRecapBanner } from "../board/bossRecap.jsx";
+import { NemesisAlert, RoastCard } from "../board/duelHome.jsx";
+import { GymSpotBanner } from "../board/gymHome.jsx";
 import { Avatar, FancyName } from "../profile/Avatar.jsx";
-import { CrateTeaser } from "../profile/CrateVault.jsx";
+import { CrateTeaser } from "../profile/crateTeaser.jsx";
 import { MogInbox } from "../profile/Mog.jsx";
 import { Physique } from "../profile/Physique.jsx";
 import { crateAuraBest, pointsOf, pointsParts } from "../profile/points.js";

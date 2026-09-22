@@ -5,7 +5,7 @@ import { mealTotals, streakOf } from "../../lib/stats.js";
 import { targets } from "../../math.js";
 import { C } from "../../theme.js";
 import { SaveMark } from "../../ui/SaveMark.jsx";
-import { GymCheckBtn } from "../board/Gym.jsx";
+import { GymCheckBtn } from "../board/gymHome.jsx";
 export const SLEEP_OPTS = [5, 6, 7, 8, 9];
 export const SCALE_COLORS = ["#FF4D6D", "#FF9340", "#FFD447", "#9BE15D", "#3DF08A"];
 export const MOOD_OPTS = ["Wrecked", "Meh", "Good", "Fired up"];

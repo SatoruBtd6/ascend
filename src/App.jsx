@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob } from "./math.js";
+import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, pendingKey } from "./math.js";
 import { Shield, Bot, Copy, Dumbbell, Swords, Utensils, User, CalendarDays, Crown } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
@@ -19,17 +19,11 @@ import { CREW_PER_PLAYER, CREW_XP } from "./tabs/train/xpConstants.js";
 import { SFX } from "./tabs/train/sfx.js";
 import { slug, postFeed, liveBoard } from "./tabs/train/social.js";
 import { rankSnapshot } from "./tabs/train/helpers.js";
-import { RestWatchPage } from "./tabs/train/rest.jsx";
-import { Train } from "./tabs/train/Train.jsx";
-import { ExercisePage } from "./tabs/train/ExercisePage.jsx";
-import { MusclePage } from "./tabs/train/MusclePage.jsx";
 import { applyPrXpRecount, XP_VERSION } from "./tabs/train/xpRecount.js";
 import { XpSync } from "./lib/xpSync.js";
-import { Fuel } from "./tabs/fuel/Fuel.jsx";
 import { loadLive, saveLive } from "./tabs/run/live.js";
 import { mergeSteps } from "./tabs/run/mergeSteps.js";
-import { RunTracker } from "./tabs/run/RunTracker.jsx";
-import { RunHub } from "./tabs/run/RunHub.jsx";
+import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHub, Board, ProfilePage, SettingsPage, Assistant, IntervalTimer, CardDeck, Confetti, Onboarding, XpLedger, LazyBoundary, UpdateBanner, prefetchScreens, useSwReady } from "./screenLoad.jsx";
 
 
 
@@ -56,22 +50,13 @@ import { Ceremony } from "./tabs/status/Ceremony.jsx";
 import { JuiceBurst } from "./tabs/status/JuiceBurst.jsx";
 import { MuscleFigure } from "./tabs/status/MuscleFigure.jsx";
 import { WaterTracker } from "./tabs/status/WaterTracker.jsx";
-import { Board } from "./tabs/board/Board.jsx";
 import { applyReigning } from "./tabs/board/season.jsx";
 import { resolveDuels } from "./tabs/board/duels.js";
-import { ProfilePage } from "./tabs/profile/ProfilePage.jsx";
 import { profileCard } from "./tabs/profile/profileCard.js";
 import { equippedTitle } from "./tabs/profile/titles.js";
 import { AURA_TASKS } from "./tabs/profile/unlock.js";
 import { Groove } from "./tabs/profile/music.js";
-import { SettingsPage } from "./tabs/settings/SettingsPage.jsx";
-import { Assistant } from "./tabs/settings/Assistant.jsx";
 import { DiscoIcon, DiscoParty } from "./tabs/settings/Disco.jsx";
-import { IntervalTimer } from "./tabs/settings/IntervalTimer.jsx";
-import { CardDeck } from "./tabs/settings/CardDeck.jsx";
-import { Confetti } from "./tabs/settings/Confetti.jsx";
-import { Onboarding } from "./tabs/settings/Onboarding.jsx";
-import { XpLedger } from "./tabs/settings/XpLedger.jsx";
 if (typeof window !== "undefined") window.__ASCEND_VERSION = APP_VERSION;
 async function loadCommunity() {
   if (!window.storage?.list) return null;
@@ -138,6 +123,11 @@ export default function App() {
   const [bootError, setBootError] = useState(null);
   const [bootTick, setBootTick] = useState(0);
   const [tab, setTab] = useState("status");
+  const swReady = useSwReady();
+  const timerHeld = useRef(false);
+  const cardsHeld = useRef(false);
+  if (swReady || tab === "timer") timerHeld.current = true;
+  if (swReady || tab === "cards") cardsHeld.current = true;
   const [xpOpen, setXpOpen] = useState(false);
   // New-deploy check: compare the bundle this page runs with the one the server serves now
   const [updateReady, setUpdateReady] = useState(false);
@@ -627,6 +617,9 @@ export default function App() {
       window.removeEventListener("online", onOnline);
     };
   }, [loaded]);
+  useEffect(() => {
+    if (loaded) prefetchScreens();
+  }, [loaded]);
   // Settings also live on this device so colors and fonts survive account or connection hiccups
   useEffect(() => {
     if (loaded) {
@@ -805,10 +798,24 @@ export default function App() {
     D.withSource("rank", () => setS((p) => ({ ...p, rankHist: { ...(p.rankHist || {}), [ws]: { overall: o.score, groups: o.groups, lifts, xp: p.xp } } })));
   }, [loaded, s.workouts]);
 
+  const reloadForUpdate = () => {
+    D.push({ k: "banner", st: "tap" });
+    try {
+      if (liveRun) saveLive(liveRun);
+      localStorage.setItem(pendingKey(deviceUserId()), JSON.stringify({ state: sRef.current, snap: snapRef.current, t: Date.now() }));
+    } catch (e) {
+      setSaveNote("Couldn't save — try again");
+      if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
+      saveNoteTimer.current = setTimeout(() => setSaveNote(null), 2200);
+      return;
+    }
+    persistRef.current({ urgent: true });
+    window.location.reload();
+  };
   applyTheme(s.settings);
   SFX.enabled = s.settings?.sounds !== false;
   try {
-    if (new URLSearchParams(window.location.search).get("watch") === "rest") return <RestWatchPage />;
+    if (new URLSearchParams(window.location.search).get("watch") === "rest") return (<><UpdateBanner onReload={reloadForUpdate} /><TabErrorBoundary><LazyBoundary><RestWatchPage /></LazyBoundary></TabErrorBoundary></>);
   } catch (e) { /* stay in the app */ }
   if (!loaded) return (
     <BootScreen
@@ -822,6 +829,7 @@ export default function App() {
   return (
     <SaveCtx.Provider value={{ status: saveStatus }}>
     <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <UpdateBanner onReload={reloadForUpdate} />
       {updateReady && (
         <div role="alert" className="fixed left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
           <div className="max-w-md w-full flex items-center gap-3 px-4 py-3" style={{ borderRadius: 14, background: C.sheet, border: `1px solid ${C.cyan}`, boxShadow: `0 8px 30px rgba(0,0,0,.45), 0 0 18px ${C.glow}` }}>
@@ -971,28 +979,28 @@ export default function App() {
 
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 220px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
-        {onboard !== null && <TabErrorBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></TabErrorBoundary>}
+        {onboard !== null && <TabErrorBoundary><LazyBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></LazyBoundary></TabErrorBoundary>}
         {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} allowWipe={() => { allowWipeRef.current = true; }} /></TabErrorBoundary>}
-        {onboard === null && tab === "exercise" && <TabErrorBoundary><ExercisePage s={s} setS={setS} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} /></TabErrorBoundary>}
-        {onboard === null && tab === "run" && <TabErrorBoundary><RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} /></TabErrorBoundary>}
-        {onboard === null && tab === "muscle" && <TabErrorBoundary><MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} /></TabErrorBoundary>}
-        {onboard === null && tab === "profile" && <TabErrorBoundary><ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => setXpOpen(true)} /></TabErrorBoundary>}
+        {onboard === null && tab === "exercise" && <TabErrorBoundary><LazyBoundary><ExercisePage s={s} setS={setS} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} /></LazyBoundary></TabErrorBoundary>}
+        {onboard === null && tab === "run" && <TabErrorBoundary><LazyBoundary><RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} /></LazyBoundary></TabErrorBoundary>}
+        {onboard === null && tab === "muscle" && <TabErrorBoundary><LazyBoundary><MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} /></LazyBoundary></TabErrorBoundary>}
+        {onboard === null && tab === "profile" && <TabErrorBoundary><LazyBoundary><ProfilePage s={s} setS={setS} gainXp={gainXp} targetId={profileId} onBack={() => setTab(profileId ? "board" : "status")} openXp={() => setXpOpen(true)} /></LazyBoundary></TabErrorBoundary>}
         {!storageOk && (
           <div className="panel p-3 mb-4 body text-sm" style={{ borderColor: C.orange, color: C.orange }}>
             Progress can't save right now. Check your connection, or sign out and back in from Settings.
           </div>
         )}
-        {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><TabErrorBoundary><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></TabErrorBoundary></Sheet>}
-        {onboard === null && tab === "settings" && <TabErrorBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} saveDiag={saveDiag} /></TabErrorBoundary>}
-        <TabErrorBoundary><IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} /></TabErrorBoundary>
-        <TabErrorBoundary><CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} /></TabErrorBoundary>
-        {onboard === null && tab === "assistant" && <TabErrorBoundary><Assistant s={s} setS={setS} onBack={() => setTab("status")} /></TabErrorBoundary>}
-        {onboard === null && tab === "train" && <TabErrorBoundary><Train s={s} setS={setS} gainXp={gainXp} openRun={() => setTab("run")} /></TabErrorBoundary>}
+        {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><TabErrorBoundary><LazyBoundary><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></LazyBoundary></TabErrorBoundary></Sheet>}
+        {onboard === null && tab === "settings" && <TabErrorBoundary><LazyBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} saveDiag={saveDiag} /></LazyBoundary></TabErrorBoundary>}
+        {(timerHeld.current) && <TabErrorBoundary><LazyBoundary active={tab === "timer"}><IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} /></LazyBoundary></TabErrorBoundary>}
+        {(cardsHeld.current) && <TabErrorBoundary><LazyBoundary active={tab === "cards"}><CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} /></LazyBoundary></TabErrorBoundary>}
+        {onboard === null && tab === "assistant" && <TabErrorBoundary><LazyBoundary><Assistant s={s} setS={setS} onBack={() => setTab("status")} /></LazyBoundary></TabErrorBoundary>}
+        {onboard === null && tab === "train" && <TabErrorBoundary><LazyBoundary><Train s={s} setS={setS} gainXp={gainXp} openRun={() => setTab("run")} /></LazyBoundary></TabErrorBoundary>}
         {onboard === null && tab === "quests" && <TabErrorBoundary><Quests s={s} setS={setS} gainXp={gainXp} /></TabErrorBoundary>}
-        {onboard === null && tab === "fuel" && <TabErrorBoundary><Fuel s={s} setS={setS} gainXp={gainXp} /></TabErrorBoundary>}
+        {onboard === null && tab === "fuel" && <TabErrorBoundary><LazyBoundary><Fuel s={s} setS={setS} gainXp={gainXp} /></LazyBoundary></TabErrorBoundary>}
         {onboard === null && tab === "calendar" && <TabErrorBoundary><Calendar s={s} setS={setS} /></TabErrorBoundary>}
         {onboard === null && tab === "ranks" && <TabErrorBoundary><Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} /></TabErrorBoundary>}
-        {onboard === null && tab === "board" && <TabErrorBoundary><Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} /></TabErrorBoundary>}
+        {onboard === null && tab === "board" && <TabErrorBoundary><LazyBoundary><Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} /></LazyBoundary></TabErrorBoundary>}
       </div>
 
       {toast && (
@@ -1004,8 +1012,8 @@ export default function App() {
       {party && <DiscoParty />}
       {ceremony && <Ceremony c={ceremony} onClose={() => setCeremony(null)} />}
       {burst && <JuiceBurst key={burst.id} kind={burst.kind} />}
-      {confetti && <Confetti onDone={() => setConfetti(false)} />}
-      {liveRun && <RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onClose={() => { setLiveRun(null); setTab("run"); }} />}
+      {confetti && <TabErrorBoundary><LazyBoundary active={false}><Confetti onDone={() => setConfetti(false)} /></LazyBoundary></TabErrorBoundary>}
+      {liveRun && <TabErrorBoundary><LazyBoundary><RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onClose={() => { setLiveRun(null); setTab("run"); }} /></LazyBoundary></TabErrorBoundary>}
       {saveNote && (
         <div className="fixed left-1/2 z-50 px-4 py-1.5 text-xs font-bold" style={{ bottom: "calc(env(safe-area-inset-bottom) + 118px)", transform: "translateX(-50%)", borderRadius: 999, whiteSpace: "nowrap", pointerEvents: "none",
           background: C.sheet, color: saveNote.startsWith("Couldn't") ? C.orange : C.green, border: `1px solid ${saveNote.startsWith("Couldn't") ? C.orange : C.green}` }}>{saveNote}</div>

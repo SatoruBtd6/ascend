@@ -1,5 +1,5 @@
 // Ascend service worker: keeps the app opening with no signal.
-const VERSION = "ascend-v7c.1";
+const VERSION = "ascend-v7c.2";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/apple-touch-icon.png", "/icon-192.png", "/logo.webp", "/logo-sm.webp",
   "/avatars/E.webp", "/avatars/D.webp", "/avatars/C.webp", "/avatars/B.webp", "/avatars/A.webp", "/avatars/S.webp", "/avatars/SS.webp",
   "/avatars/E-f.webp", "/avatars/D-f.webp", "/avatars/C-f.webp", "/avatars/B-f.webp", "/avatars/A-f.webp", "/avatars/S-f.webp", "/avatars/SS-f.webp"];
@@ -20,8 +20,17 @@ self.addEventListener("install", (e) => {
     await self.skipWaiting();
   })());
 });
+function cacheRank(name) {
+  return name.replace(/^ascend-v/, "").replace(/\d+/g, (n) => n.padStart(6, "0"));
+}
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    const older = keys.filter((k) => k.startsWith("ascend-v") && k !== VERSION).sort((a, b) => cacheRank(a) < cacheRank(b) ? -1 : cacheRank(a) > cacheRank(b) ? 1 : 0);
+    const previous = older.length ? older[older.length - 1] : null;
+    await Promise.all(keys.filter((k) => k !== VERSION && k !== previous).map((k) => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 self.addEventListener("message", (e) => {
   if (e.data === "skipWaiting") self.skipWaiting();
@@ -40,15 +49,20 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Same-origin JS/CSS: cache first so a later offline launch has the hashed bundle even if install raced
+  // Same-origin JS/CSS: current cache, then the one previous app cache, then the network
   if (url.origin === self.location.origin && /\.(js|css)$/.test(url.pathname)) {
-    e.respondWith(caches.match(req).then((hit) => {
-      const net = fetch(req).then((res) => {
-        if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
-        return res;
-      }).catch(() => hit);
-      return hit || net;
-    }));
+    e.respondWith((async () => {
+      const names = await caches.keys();
+      const order = [VERSION, ...names.filter((k) => k.startsWith("ascend-v") && k !== VERSION)];
+      for (const name of order) {
+        const hit = await caches.match(req, { cacheName: name, ignoreVary: true })
+          || await caches.match(url.pathname, { cacheName: name, ignoreVary: true });
+        if (hit) return hit;
+      }
+      const res = await fetch(req).catch(() => null);
+      if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
+      return res || new Response("", { status: 504 });
+    })());
     return;
   }
 
