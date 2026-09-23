@@ -40,6 +40,7 @@ const HEAD_FROM_EYE = 22.5 / 9;
 function sliderRange(path, value) {
   const key = String(path[path.length - 1]);
   if (key === "n" || key === "filigree") return { min: 0, max: Math.max(80, Math.ceil(Math.abs(value) * 2)), step: 1 };
+  if (key === "jit") return { min: 0, max: 1, step: 0.01 };
   if (FLAG_KEYS.has(key)) return { min: 0, max: 1, step: 1 };
   if (key === "spd") return { min: 0, max: 8, step: 0.01 };
   if (key === "glow" || key === "a" || key === "flashPeak") return { min: 0, max: 1.5, step: 0.01 };
@@ -131,10 +132,89 @@ function chip(on) {
   };
 }
 
+const SHAPE_NAMES = {
+  dot: "Dots", ember: "Embers", smoke: "Smoke", flake: "Snowflakes", shard: "Shards",
+  leaf: "Leaves", square: "Squares", star: "Stars", drop: "Droplets", glyph: "Glyphs",
+  gem: "Gems", petal: "Petals", eye: "Eyes", spark: "Sparks", ash: "Ash motes",
+  feather: "Feathers", bonechip: "Bone chips", coin: "Coins", crescent: "Crescents",
+  pulse: "Pulses", sandgrain: "Sand grains", chainlink: "Chain links",
+  emoji: "Icons", img: "Image art", flame: "Flames",
+};
+const KIND_NAMES = { rise: "Rising", fall: "Falling", orbit: "Orbiting", inward: "Drifting inward", bubble: "Bubbling up" };
+const KIND_SHORT = { rise: "rising", fall: "falling", orbit: "orbiting", inward: "inward-drifting", bubble: "bubbling" };
+
+function titleCase(key) {
+  return String(key).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, (ch) => ch.toUpperCase());
+}
+
+// Plain-English labels per spec section. Anything missing falls back to a
+// prettified key — raw spec paths must never reach the owner.
+const TOP_LABELS = { spd: "Speed", glow: "Glow strength", dark: "Dark backdrop", artLate: "Draw art last" };
+const RAY_LABELS = { n: "Count", c: "Colour", spin: "Spin speed", len: "Length", a: "Opacity", fan: "Fan out" };
+const BOLT_LABELS = { every: "Seconds between strikes", burst: "Strikes per burst", burstSpan: "Burst spacing (s)", gap: "Rest between bursts (s)", c: "Colour", flash: "Flash on strike", flashPeak: "Flash brightness", flashLife: "Flash length (s)", from: "Strike direction", strike: "Strike marker", calm: "Calmer under reduced motion" };
+const SWEEP_LABELS = { c: "Colour", a: "Opacity", spd: "Speed", r: "Distance from centre", w: "Thickness", span: "Arc width" };
+const RING_LABELS = { r: "Distance from centre", c: "Colour", spin: "Spin speed", a: "Opacity", w: "Thickness", ink: "Ink outline", dash: "Dashed", filigree: "Filigree marks" };
+const CORONA_LABELS = { inner: "Inner colour", outer: "Outer colour" };
+const LAYER_LABELS = {
+  n: "Count", sz: "Size", sp: "Speed range", a: "Opacity", w: "Orbit speed",
+  r: "Distance from centre", jit: "Randomness", c: "Colour", life: "Lifetime (s)",
+  sway: "Sway", drift: "Sideways drift", wave: "Wave strength", spin: "Spin speed",
+  at: "Start angle (0–1)", x: "Shift sideways", y: "Shift up/down", rot: "Rotation",
+  tw: "Twinkle", glint: "Glint", flick: "Flicker", bob: "Bobbing", wobble: "Wobble",
+  breathe: "Breathing", even: "Evenly spaced", flip: "Mirror", behind: "Behind figure",
+  over: "Over figure", top: "On top", placed: "Placement", e: "Icons",
+  rate: "Wisps per second", max: "Most at once", anchors: "Edge samples",
+};
+const SECTION_LABELS = { rays: RAY_LABELS, bolts: BOLT_LABELS, sweep: SWEEP_LABELS, rings: RING_LABELS, corona: CORONA_LABELS };
+const SECTION_TITLES = { rays: "Rays", bolts: "Lightning", sweep: "Sweep", corona: "Corona glow" };
+const RANGE_SUFFIX = [" — min", " — max"];
+
+function fieldLabel(field, section) {
+  const last = field.path[field.path.length - 1];
+  const isIndex = typeof last === "number";
+  const name = isIndex ? field.path[field.path.length - 2] : last;
+  const map = section === "layer" ? LAYER_LABELS : section === "overall" ? TOP_LABELS : SECTION_LABELS[section];
+  const base = map?.[name] ?? titleCase(name);
+  if (!isIndex) return base;
+  if (name === "c" || name === "e") return `${base} ${last + 1}`;
+  return `${base}${RANGE_SUFFIX[Math.min(last, 1)] || ` ${last + 1}`}`;
+}
+
+// Layer fields grouped under plain headings.
+const LAYER_GROUPS = [
+  ["motion", "Motion", new Set(["w", "sp", "drift", "sway", "wave", "spin", "at", "x", "y", "even", "bob", "wobble", "breathe", "rot", "flip", "r"])],
+  ["particles", "Particles", new Set(["n", "sz", "jit", "e"])],
+  ["appearance", "Appearance", new Set(["c", "a", "tw", "glint", "flick", "behind", "over", "top", "blend"])],
+  ["timing", "Timing", new Set(["life"])],
+];
+function layerGroupOf(key) {
+  for (const [id, , keys] of LAYER_GROUPS) if (keys.has(key)) return id;
+  return "other";
+}
+const LAYER_GROUP_TITLES = Object.fromEntries(LAYER_GROUPS.map(([id, title]) => [id, title]));
+LAYER_GROUP_TITLES.other = "Other";
+
+function describeLayer(layer) {
+  if (layer.shape === "img") return layer.placed === "shoulders" ? "pauldron art" : "image art";
+  if (layer.shape === "flame") return "flames";
+  const kind = KIND_SHORT[layer.k] || "floating";
+  const shape = (SHAPE_NAMES[layer.shape] || "particles").toLowerCase();
+  return `${kind} ${shape}`;
+}
+
+function FlagField({ label, checked, onChange }) {
+  return (
+    <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked ? 1 : 0)} />
+      {label}
+    </label>
+  );
+}
+
 function NumSlider({ label, value, min, max, step, onChange }) {
   const shown = Math.min(max, Math.max(min, value));
   return (
-    <label style={{ display: "grid", gridTemplateColumns: "118px 1fr 72px", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+    <label style={{ display: "grid", gridTemplateColumns: "140px 1fr 72px", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
       <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       <input type="range" min={min} max={max} step={step} value={shown} onChange={(e) => onChange(quantize(Number(e.target.value), step))} />
       <input type="number" value={value} step={step} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange(quantize(n, step)); }} style={{ width: 72, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }} />
@@ -240,7 +320,7 @@ function numberAt(value, fallback) {
 
 function ColorField({ label, value, onChange }) {
   return (
-    <label style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+    <label style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
       <span>{label}</span>
       <input type="color" value={colorInputValue(value)} onChange={(e) => onChange(e.target.value)} style={{ width: 48, height: 28, padding: 0, border: "none", background: "transparent" }} />
     </label>
@@ -303,25 +383,25 @@ function ImagePlacement({ layer, index, onLayer }) {
   return (
     <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{shoulders ? "Pauldrons" : `Image layer ${index + 1}`}</div>
-      <NumSlider label="x" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} />
-      <NumSlider label="y" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} />
-      {!shoulders && <NumSlider label="scale" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} />}
-      {!shoulders && <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />}
-      {!shoulders && <NumSlider label="flip" value={layer.flip ? 1 : 0} min={0} max={1} step={1} onChange={(v) => setLayer("flip", v)} />}
-      {!single && <div style={{ fontSize: 10, color: C.mute }}>x and y shift every image in this layer. 1 is one ring radius.</div>}
+      <NumSlider label="Shift sideways" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} />
+      <NumSlider label="Shift up/down" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} />
+      {!shoulders && <NumSlider label="Size" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} />}
+      {!shoulders && <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />}
+      {!shoulders && <FlagField label="Mirror image" checked={layer.flip} onChange={(v) => setLayer("flip", v)} />}
+      {!single && <div style={{ fontSize: 10, color: C.mute }}>Sideways/up-down shifts every image in this layer. 1 is one ring radius.</div>}
 
       <div data-control-group="frame-animation" style={{ display: "grid", gap: 4 }}>
         <ControlTitle>Frame animation</ControlTitle>
         <button type="button" onClick={() => setFrames(!isFrameAnim)} style={{ ...chip(!!isFrameAnim), justifySelf: "start", fontSize: 11 }}>{isFrameAnim ? "Disable frame cycle" : "Enable frame cycle"}</button>
         {isFrameAnim && (
           <>
-            <NumSlider label="frameDuration" value={layer.frameDuration || 0.12} min={0.01} max={1} step={0.01} onChange={(v) => setLayer("frameDuration", v)} />
-            <NumSlider label="fadeLen" value={layer.fadeLen || 0.12} min={0} max={0.5} step={0.01} onChange={(v) => setLayer("fadeLen", v)} />
+            <NumSlider label="Seconds per frame" value={layer.frameDuration || 0.12} min={0.01} max={1} step={0.01} onChange={(v) => setLayer("frameDuration", v)} />
+            <NumSlider label="Crossfade (s)" value={layer.fadeLen || 0.12} min={0} max={0.5} step={0.01} onChange={(v) => setLayer("fadeLen", v)} />
             <div style={{ fontSize: 10, color: C.mute }}>
               <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                Mode: <select value={layer.frameMode || "loop"} onChange={(e) => setLayer("frameMode", e.target.value)} style={{ fontSize: 10 }}>
-                  <option value="loop">loop</option>
-                  <option value="pingpong">pingpong</option>
+                Cycle: <select value={layer.frameMode || "loop"} onChange={(e) => setLayer("frameMode", e.target.value)} style={{ fontSize: 10 }}>
+                  <option value="loop">Looping</option>
+                  <option value="pingpong">Back and forth</option>
                 </select>
               </label>
             </div>
@@ -346,10 +426,10 @@ function ImagePlacement({ layer, index, onLayer }) {
                       onLayer(next);
                     }} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>}
                   </label>
-                  <NumSlider label="offset x" value={offset.x || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("x", v)} />
-                  <NumSlider label="offset y" value={offset.y || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("y", v)} />
-                  <NumSlider label="offset scale" value={offset.scale ?? 1} min={0.02} max={4} step={0.01} onChange={(v) => updateOffset("scale", v)} />
-                  <NumSlider label="offset rotation" value={offset.rotation || 0} min={-1} max={1} step={0.01} onChange={(v) => updateOffset("rotation", v)} />
+                  <NumSlider label="Nudge sideways" value={offset.x || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("x", v)} />
+                  <NumSlider label="Nudge up/down" value={offset.y || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("y", v)} />
+                  <NumSlider label="Size multiplier" value={offset.scale ?? 1} min={0.02} max={4} step={0.01} onChange={(v) => updateOffset("scale", v)} />
+                  <NumSlider label="Extra rotation" value={offset.rotation || 0} min={-1} max={1} step={0.01} onChange={(v) => updateOffset("rotation", v)} />
                 </div>
               );
             })}
@@ -370,25 +450,25 @@ function ImagePlacement({ layer, index, onLayer }) {
         </label>
         {shadow && (
           <>
-            <NumSlider label="shadow max" value={shadow.max ?? 24} min={0} max={64} step={1} onChange={(v) => setShadow("max", v)} />
-            <NumSlider label="shadow rate" value={shadow.rate ?? 10} min={0} max={60} step={0.1} onChange={(v) => setShadow("rate", v)} />
-            <NumSlider label="shadow anchors" value={shadow.anchors ?? 48} min={1} max={48} step={1} onChange={(v) => setShadow("anchors", v)} />
-            <NumSlider label="life min" value={rangePair(shadow.life, 0.8)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 0, v, 0.8)} />
-            <NumSlider label="life max" value={rangePair(shadow.life, 1.6)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 1, v, 1.6)} />
-            <NumSlider label="speed min" value={rangePair(shadow.sp, 4)[0]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 0, v, 4)} />
-            <NumSlider label="speed max" value={rangePair(shadow.sp, 12)[1]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 1, v, 12)} />
-            <NumSlider label="size min" value={rangePair(shadow.sz, 3)[0]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 0, v, 3)} />
-            <NumSlider label="size max" value={rangePair(shadow.sz, 8)[1]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 1, v, 8)} />
-            <NumSlider label="shadow alpha" value={shadow.a ?? 0.38} min={0} max={1} step={0.01} onChange={(v) => setShadow("a", v)} />
-            <NumSlider label="edge jitter" value={shadow.jit ?? 0.35} min={0} max={1} step={0.01} onChange={(v) => setShadow("jit", v)} />
-            {shadowColors.map((color, i) => <ColorField key={i} label={`shadow colour ${i + 1}`} value={color} onChange={(v) => setShadowColor(i, v)} />)}
-            <label style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
-              <span>blend</span>
+            <NumSlider label="Most wisps at once" value={shadow.max ?? 24} min={0} max={64} step={1} onChange={(v) => setShadow("max", v)} />
+            <NumSlider label="Wisps per second" value={shadow.rate ?? 10} min={0} max={60} step={0.1} onChange={(v) => setShadow("rate", v)} />
+            <NumSlider label="Edge sample points" value={shadow.anchors ?? 48} min={1} max={48} step={1} onChange={(v) => setShadow("anchors", v)} />
+            <NumSlider label="Wisp lifetime — min (s)" value={rangePair(shadow.life, 0.8)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 0, v, 0.8)} />
+            <NumSlider label="Wisp lifetime — max (s)" value={rangePair(shadow.life, 1.6)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 1, v, 1.6)} />
+            <NumSlider label="Drift speed — min" value={rangePair(shadow.sp, 4)[0]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 0, v, 4)} />
+            <NumSlider label="Drift speed — max" value={rangePair(shadow.sp, 12)[1]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 1, v, 12)} />
+            <NumSlider label="Wisp size — min" value={rangePair(shadow.sz, 3)[0]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 0, v, 3)} />
+            <NumSlider label="Wisp size — max" value={rangePair(shadow.sz, 8)[1]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 1, v, 8)} />
+            <NumSlider label="Wisp opacity" value={shadow.a ?? 0.38} min={0} max={1} step={0.01} onChange={(v) => setShadow("a", v)} />
+            <NumSlider label="Edge randomness" value={shadow.jit ?? 0.35} min={0} max={1} step={0.01} onChange={(v) => setShadow("jit", v)} />
+            {shadowColors.map((color, i) => <ColorField key={i} label={`Wisp colour ${i + 1}`} value={color} onChange={(v) => setShadowColor(i, v)} />)}
+            <label style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+              <span>Blend style</span>
               <select value={shadow.blend || "source-over"} onChange={(e) => setShadow("blend", e.target.value)} style={{ fontSize: 10 }}>
-                <option value="source-over">source-over</option>
-                <option value="lighter">lighter</option>
-                <option value="screen">screen</option>
-                <option value="multiply">multiply</option>
+                <option value="source-over">Normal</option>
+                <option value="lighter">Additive glow</option>
+                <option value="screen">Screen</option>
+                <option value="multiply">Multiply</option>
               </select>
             </label>
           </>
@@ -426,28 +506,28 @@ function RingCycleControls({ ring, index, onRing }) {
   };
   return (
     <div data-control-group={`ring-cycle-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1} colour cycle</div>
+      <ControlTitle>Ring colour cycle</ControlTitle>
       <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-        Animated colours
+        Animate this ring's colours
       </label>
       {active && (
         <>
-          <NumSlider label="cyclePeriod" value={ring.cyclePeriod ?? 3} min={0.5} max={10} step={0.1} onChange={(v) => setRing("cyclePeriod", v)} />
-          <label style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
-            <span>cycleEasing</span>
+          <NumSlider label="Seconds per cycle" value={ring.cyclePeriod ?? 3} min={0.5} max={10} step={0.1} onChange={(v) => setRing("cyclePeriod", v)} />
+          <label style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+            <span>Colour change</span>
             <select value={ring.cycleEasing || "linear"} onChange={(e) => setRing("cycleEasing", e.target.value)} style={{ fontSize: 10 }}>
-              <option value="linear">linear</option>
-              <option value="step">step</option>
+              <option value="linear">Smooth fade</option>
+              <option value="step">Sharp steps</option>
             </select>
           </label>
           {colors.map((color, i) => (
             <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, alignItems: "center" }}>
-              <ColorField label={`cycle colour ${i + 1}`} value={color} onChange={(v) => setColor(i, v)} />
+              <ColorField label={`Colour ${i + 1}`} value={color} onChange={(v) => setColor(i, v)} />
               {colors.length > 2 && <button type="button" onClick={() => setRing("colorCycle", colors.filter((_, j) => j !== i))} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>}
             </div>
           ))}
-          <button type="button" onClick={() => setRing("colorCycle", [...colors, colors.at(-1) || "#FFFFFF"])} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add cycle colour</button>
+          <button type="button" onClick={() => setRing("colorCycle", [...colors, colors.at(-1) || "#FFFFFF"])} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add colour</button>
         </>
       )}
     </div>
@@ -488,36 +568,36 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Flame layer {index + 1}</div>
         <button type="button" onClick={onRemoveLayer} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>
       </div>
-      <NumSlider label="count" value={layer.n ?? 1} min={1} max={12} step={1} onChange={(v) => setLayer("n", v)} />
-      <NumSlider label="size" value={layerScale(layer)} min={1} max={30} step={0.1} onChange={(v) => onLayer(withScale(layer, v))} />
-      <NumSlider label="alpha" value={layer.a ?? 1} min={0} max={1} step={0.01} onChange={(v) => setLayer("a", v)} />
-      <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />
-      <NumSlider label="spin" value={layer.spin || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("spin", v)} />
-      <NumSlider label="tongues" value={numberAt(layer.tongues, 6)} min={5} max={7} step={1} onChange={(v) => setLayer("tongues", v)} />
-      <NumSlider label="flicker" value={layer.flicker ?? 0.22} min={0} max={1} step={0.01} onChange={(v) => setLayer("flicker", v)} />
+      <NumSlider label="Count" value={layer.n ?? 1} min={1} max={12} step={1} onChange={(v) => setLayer("n", v)} />
+      <NumSlider label="Flame size" value={layerScale(layer)} min={1} max={30} step={0.1} onChange={(v) => onLayer(withScale(layer, v))} />
+      <NumSlider label="Opacity" value={layer.a ?? 1} min={0} max={1} step={0.01} onChange={(v) => setLayer("a", v)} />
+      <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />
+      <NumSlider label="Spin speed" value={layer.spin || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("spin", v)} />
+      <NumSlider label="Tongues per flame" value={numberAt(layer.tongues, 6)} min={5} max={7} step={1} onChange={(v) => setLayer("tongues", v)} />
+      <NumSlider label="Flicker" value={layer.flicker ?? 0.22} min={0} max={1} step={0.01} onChange={(v) => setLayer("flicker", v)} />
       <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
         <input type="checkbox" checked={layer.shimmer !== false} onChange={(e) => setLayer("shimmer", e.target.checked)} />
-        Base shimmer
+        Sparkle shimmer
       </label>
-      {layer.shimmer !== false && <NumSlider label="shimmer arcs" value={layer.shimmerN ?? 3} min={0} max={6} step={1} onChange={(v) => setLayer("shimmerN", v)} />}
-      {["outer", "mid", "inner"].map((name, i) => <ColorField key={name} label={`${name} flame`} value={palette[i] || "#FFF6C9"} onChange={(v) => setPalette(i, v)} />)}
-      <ControlTitle>Embers</ControlTitle>
+      {layer.shimmer !== false && <NumSlider label="Shimmer arcs" value={layer.shimmerN ?? 3} min={0} max={6} step={1} onChange={(v) => setLayer("shimmerN", v)} />}
+      {["Outer", "Middle", "Inner"].map((name, i) => <ColorField key={name} label={`${name} flame colour`} value={palette[i] || "#FFF6C9"} onChange={(v) => setPalette(i, v)} />)}
+      <ControlTitle>Ember sparks</ControlTitle>
       <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
         <input type="checkbox" checked={!!layer.embers} onChange={(e) => setLayer("embers", e.target.checked ? emberDefaults : false)} />
-        Reuse rise particles
+        Rising embers
       </label>
       {embers && (
         <>
-          <NumSlider label="ember count" value={embers.n ?? 8} min={0} max={40} step={1} onChange={(v) => setEmber("n", v)} />
-          <NumSlider label="ember speed min" value={rangePair(embers.sp, 18)[0]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 0, v, 18)} />
-          <NumSlider label="ember speed max" value={rangePair(embers.sp, 42)[1]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 1, v, 42)} />
-          <NumSlider label="ember life min" value={rangePair(embers.life, 0.5)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 0, v, 0.5)} />
-          <NumSlider label="ember life max" value={rangePair(embers.life, 1.1)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 1, v, 1.1)} />
-          <NumSlider label="ember size min" value={rangePair(embers.sz, 0.8)[0]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 0, v, 0.8)} />
-          <NumSlider label="ember size max" value={rangePair(embers.sz, 1.6)[1]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 1, v, 1.6)} />
-          <NumSlider label="ember sway" value={embers.sway ?? 10} min={0} max={40} step={0.5} onChange={(v) => setEmber("sway", v)} />
-          <NumSlider label="ember alpha" value={embers.a ?? 0.8} min={0} max={1} step={0.01} onChange={(v) => setEmber("a", v)} />
-          {emberColors.map((color, i) => <ColorField key={i} label={`ember colour ${i + 1}`} value={color} onChange={(v) => setEmberColor(i, v)} />)}
+          <NumSlider label="Count" value={embers.n ?? 8} min={0} max={40} step={1} onChange={(v) => setEmber("n", v)} />
+          <NumSlider label="Speed — min" value={rangePair(embers.sp, 18)[0]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 0, v, 18)} />
+          <NumSlider label="Speed — max" value={rangePair(embers.sp, 42)[1]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 1, v, 42)} />
+          <NumSlider label="Lifetime — min (s)" value={rangePair(embers.life, 0.5)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 0, v, 0.5)} />
+          <NumSlider label="Lifetime — max (s)" value={rangePair(embers.life, 1.1)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 1, v, 1.1)} />
+          <NumSlider label="Size — min" value={rangePair(embers.sz, 0.8)[0]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 0, v, 0.8)} />
+          <NumSlider label="Size — max" value={rangePair(embers.sz, 1.6)[1]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 1, v, 1.6)} />
+          <NumSlider label="Sway" value={embers.sway ?? 10} min={0} max={40} step={0.5} onChange={(v) => setEmber("sway", v)} />
+          <NumSlider label="Opacity" value={embers.a ?? 0.8} min={0} max={1} step={0.01} onChange={(v) => setEmber("a", v)} />
+          {emberColors.map((color, i) => <ColorField key={i} label={`Colour ${i + 1}`} value={color} onChange={(v) => setEmberColor(i, v)} />)}
         </>
       )}
     </div>
@@ -525,42 +605,137 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
 }
 
 const DEDICATED_LAYER_FIELDS = new Set(["frames", "frameDuration", "fadeLen", "frameMode", "frameOffsets", "shadow", "tongues", "flicker", "shimmer", "shimmerN", "embers"]);
+const IMG_PLACEMENT_FIELDS = new Set(["x", "y", "sz", "rot", "flip"]);
+const FLAME_PANEL_FIELDS = new Set(["n", "sz", "a", "rot", "spin"]);
 const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
+const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink"];
+const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
+
+function SelectRow({ label, value, options, onChange }) {
+  return (
+    <label style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={{ fontSize: 11, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }}>
+        {options.map(([v, text]) => <option key={v} value={v}>{text}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function SpecField({ field, section, onPath }) {
+  const label = fieldLabel(field, section);
+  const key = field.path[field.path.length - 1];
+  if (field.kind === "color") {
+    return <ColorField label={label} value={field.value} onChange={(v) => onPath(field.path, v)} />;
+  }
+  if (typeof key === "string" && key !== "jit" && FLAG_KEYS.has(key)) {
+    return <FlagField label={label} checked={field.value} onChange={(v) => onPath(field.path, v)} />;
+  }
+  const range = sliderRange(field.path, field.value);
+  return <NumSlider label={label} value={field.value} min={range.min} max={range.max} step={range.step} onChange={(v) => onPath(field.path, v)} />;
+}
+
+function SpecSection({ title, children }) {
+  return (
+    <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{title}</div>
+      {children}
+    </div>
+  );
+}
 
 function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
   if (!spec) return <p style={{ color: C.dim, fontSize: 13 }}>This aura has no particle spec.</p>;
   const rows = (spec.layers || []).map((layer, index) => ({ layer, index }));
-  const images = rows.filter((row) => row.layer?.shape === "img");
-  const flames = rows.filter((row) => row.layer?.shape === "flame");
-  const dedicatedIndexes = new Set(rows.filter((row) => ["img", "flame"].includes(row.layer?.shape)).map((row) => row.index));
+  const imgIndexes = new Set(rows.filter((row) => row.layer?.shape === "img").map((row) => row.index));
+  const flameIndexes = new Set(rows.filter((row) => row.layer?.shape === "flame").map((row) => row.index));
   const fields = specFields(spec).filter((field) => {
-    if (field.path[0] === "layers" && dedicatedIndexes.has(field.path[1]) && DEDICATED_LAYER_FIELDS.has(field.path[2])) return false;
-    if (field.path[0] === "layers" && flames.some((row) => row.index === field.path[1]) && field.path[2] === "c") return false;
+    if (field.path[0] === "layers") {
+      const i = field.path[1], key = field.path[2];
+      if (imgIndexes.has(i)) {
+        if (DEDICATED_LAYER_FIELDS.has(key) || IMG_PLACEMENT_FIELDS.has(key)) return false;
+        if (rows[i].layer.n === 1 && (key === "at" || key === "r")) return false;
+      }
+      if (flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
+    }
     if (field.path[0] === "rings" && DEDICATED_RING_FIELDS.has(field.path[2])) return false;
     return true;
   });
+  const overall = fields.filter((f) => f.path.length === 1);
+  const layerFields = new Map();
+  const ringFields = new Map();
+  const sectioned = { rays: [], bolts: [], sweep: [], corona: [] };
+  for (const f of fields) {
+    if (f.path.length === 1) continue;
+    if (f.path[0] === "layers") {
+      if (!layerFields.has(f.path[1])) layerFields.set(f.path[1], []);
+      layerFields.get(f.path[1]).push(f);
+    } else if (f.path[0] === "rings") {
+      if (!ringFields.has(f.path[1])) ringFields.set(f.path[1], []);
+      ringFields.get(f.path[1]).push(f);
+    } else if (sectioned[f.path[0]]) sectioned[f.path[0]].push(f);
+  }
+  const setLayerKey = (index, key, value) => {
+    const next = cloneSpec(rows[index].layer);
+    next[key] = value;
+    onLayer(index, next);
+  };
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      {images.map(({ layer, index }) => (
-        <ImagePlacement key={index} layer={layer} index={index} onLayer={(next) => onLayer(index, next)} />
-      ))}
-      {flames.map(({ layer, index }) => (
-        <FlameControls key={index} layer={layer} index={index} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />
-      ))}
-      {(spec.rings || []).map((ring, index) => (
-        <RingCycleControls key={index} ring={ring} index={index} onRing={(next) => onPath(["rings", index], next)} />
-      ))}
-      <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>
-      {fields.map((field) => {
-        const label = field.path.join(".");
-        if (field.kind === "color") {
-          return <ColorField key={label} label={label} value={field.value} onChange={(v) => onPath(field.path, v)} />;
+      {overall.length > 0 && (
+        <SpecSection title="Overall">
+          {overall.map((field) => <SpecField key={field.path.join(".")} field={field} section="overall" onPath={onPath} />)}
+        </SpecSection>
+      )}
+      {rows.map(({ layer, index }) => {
+        const own = layerFields.get(index) || [];
+        const groups = new Map();
+        for (const f of own) {
+          const key = typeof f.path[f.path.length - 1] === "number" ? f.path[f.path.length - 2] : f.path[f.path.length - 1];
+          const g = layerGroupOf(key);
+          if (!groups.has(g)) groups.set(g, []);
+          groups.get(g).push(f);
         }
-        const range = sliderRange(field.path, field.value);
+        const isParticles = !imgIndexes.has(index) && !flameIndexes.has(index);
         return (
-          <NumSlider key={label} label={label} value={field.value} min={range.min} max={range.max} step={range.step} onChange={(v) => onPath(field.path, v)} />
+          <div key={index} data-control-group={`layer-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Layer {index + 1} — {describeLayer(layer)}</div>
+            {imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} onLayer={(next) => onLayer(index, next)} />}
+            {flameIndexes.has(index) && <FlameControls layer={layer} index={index} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
+            {isParticles && (
+              <>
+                <SelectRow label="Motion" value={layer.k || "orbit"} options={LAYER_KIND_OPTIONS.map((k) => [k, KIND_NAMES[k] || titleCase(k)])} onChange={(v) => setLayerKey(index, "k", v)} />
+                <SelectRow label="Shape" value={layer.shape || "dot"} options={(LAYER_SHAPE_OPTIONS.includes(layer.shape) ? LAYER_SHAPE_OPTIONS : [layer.shape, ...LAYER_SHAPE_OPTIONS]).map((s) => [s, SHAPE_NAMES[s] || titleCase(s)])} onChange={(v) => setLayerKey(index, "shape", v)} />
+              </>
+            )}
+            {LAYER_GROUPS.map(([gid]) => groups.has(gid) && (
+              <div key={gid}>
+                <ControlTitle>{LAYER_GROUP_TITLES[gid]}</ControlTitle>
+                {groups.get(gid).map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={onPath} />)}
+              </div>
+            ))}
+            {groups.has("other") && (
+              <div>
+                <ControlTitle>{LAYER_GROUP_TITLES.other}</ControlTitle>
+                {groups.get("other").map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={onPath} />)}
+              </div>
+            )}
+          </div>
         );
       })}
+      <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>
+      {Object.entries(sectioned).map(([id, list]) => list.length > 0 && (
+        <SpecSection key={id} title={SECTION_TITLES[id]}>
+          {list.map((field) => <SpecField key={field.path.join(".")} field={field} section={id} onPath={onPath} />)}
+        </SpecSection>
+      ))}
+      {(spec.rings || []).map((ring, index) => (
+        <div key={index} data-control-group={`ring-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1}</div>
+          {(ringFields.get(index) || []).map((field) => <SpecField key={field.path.join(".")} field={field} section="rings" onPath={onPath} />)}
+          <RingCycleControls ring={ring} index={index} onRing={(next) => onPath(["rings", index], next)} />
+        </div>
+      ))}
     </div>
   );
 }
