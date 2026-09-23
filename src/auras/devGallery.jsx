@@ -5,6 +5,7 @@ import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewP
 import { AURAS } from "./catalog.js";
 import { cloneSpec, formatAuraEntry, setPath, specFields } from "./specFormat.js";
 import { C, applyTheme } from "../theme.js";
+import { Avatar } from "../tabs/profile/Avatar.jsx";
 import { TIER_IDS, physiqueSrc } from "../tabs/train/physique.js";
 
 const SIZES = [
@@ -37,15 +38,68 @@ const SHAPE_SHEET = {
 const FLAG_KEYS = new Set(["flip", "even", "behind", "tw", "bob", "dash", "ink", "dark", "flash", "strike", "calm", "breathe", "glint", "over", "top", "flick", "fan", "artLate"]);
 
 
+// Semantic ranges per field — keyed by spec path so overloaded keys get the
+// range the renderer actually expects in that section. For pair fields
+// (w[0], sp[1], ...) the last path element is the array index, so the key is
+// the second-to-last element.
+const FIELD_RANGES = {
+  spd: { min: 0, max: 8, step: 0.01 },
+  glow: { min: 0, max: 1.5, step: 0.01 },
+  jit: { min: 0, max: 1, step: 0.01 },
+  a: { min: 0, max: 1, step: 0.01 },
+  n: { min: 0, max: 120, step: 1 },
+  sp: { min: 0, max: 160, step: 0.5 },
+  life: { min: 0.05, max: 8, step: 0.05 },
+  r: { min: 0, max: 2.2, step: 0.01 },
+  at: { min: -1, max: 1, step: 0.005 },
+  x: { min: -2, max: 2, step: 0.01 },
+  y: { min: -2, max: 2, step: 0.01 },
+  hover: { min: -0.5, max: 0.8, step: 0.005 },
+  rot: { min: -1, max: 1, step: 0.005 },
+  spin: { min: -1, max: 1, step: 0.005 },
+  flicker: { min: 0, max: 1, step: 0.01 },
+  wave: { min: 0, max: 0.6, step: 0.005 },
+  wobble: { min: 0, max: 0.4, step: 0.005 },
+  sway: { min: 0, max: 60, step: 0.5 },
+  drift: { min: -60, max: 60, step: 0.5 },
+  sz: { min: 0.02, max: 30, step: 0.02 },
+  tongues: { min: 3, max: 10, step: 1 },
+  shimmerN: { min: 0, max: 8, step: 1 },
+  frameDuration: { min: 0.01, max: 2, step: 0.01 },
+  fadeLen: { min: 0, max: 0.5, step: 0.01 },
+  cyclePeriod: { min: 0.5, max: 15, step: 0.1 },
+  filigree: { min: 0, max: 40, step: 1 },
+  every: { min: 0.05, max: 6, step: 0.05 },
+  burst: { min: 1, max: 8, step: 1 },
+  burstSpan: { min: 0.05, max: 2, step: 0.01 },
+  gap: { min: 0.1, max: 10, step: 0.1 },
+  flashPeak: { min: 0, max: 1.5, step: 0.01 },
+  flashLife: { min: 0.02, max: 1, step: 0.01 },
+  span: { min: 0, max: 3, step: 0.01 },
+  len: { min: 0, max: 3, step: 0.01 },
+  scale: { min: 0.02, max: 6, step: 0.01 },
+};
+// Section-aware overrides: `w` is ring/sweep thickness there but orbit speed
+// in layers; `spd` can run backwards in a sweep; rays have far fewer items.
+const SECTION_RANGES = {
+  rings: { w: { min: 0.2, max: 12, step: 0.1 } },
+  rays: { n: { min: 0, max: 32, step: 1 } },
+  sweep: { w: { min: 0.2, max: 6, step: 0.05 }, spd: { min: -5, max: 5, step: 0.01 } },
+  layers: { w: { min: -3, max: 3, step: 0.01 } },
+};
+
 function sliderRange(path, value) {
-  const key = String(path[path.length - 1]);
-  if (key === "n" || key === "filigree") return { min: 0, max: Math.max(80, Math.ceil(Math.abs(value) * 2)), step: 1 };
-  if (key === "jit") return { min: 0, max: 1, step: 0.01 };
+  const last = path[path.length - 1];
+  const key = String(typeof last === "number" ? path[path.length - 2] : last);
   if (FLAG_KEYS.has(key)) return { min: 0, max: 1, step: 1 };
-  if (key === "spd") return { min: 0, max: 8, step: 0.01 };
-  if (key === "glow" || key === "a" || key === "flashPeak") return { min: 0, max: 1.5, step: 0.01 };
-  if (key === "frameDuration" || key === "fadeLen") return { min: 0, max: 1, step: 0.01 };
-  if (key === "cyclePeriod") return { min: 0.5, max: 10, step: 0.1 };
+  const named = SECTION_RANGES[String(path[0])]?.[key] || FIELD_RANGES[key];
+  if (named) {
+    // Never pin the current value outside the track — extend to fit it.
+    const range = { ...named };
+    if (value < range.min) range.min = Math.floor(value * 100) / 100;
+    if (value > range.max) range.max = Math.ceil(value * 100) / 100;
+    return range;
+  }
   const abs = Math.abs(value);
   const neg = value < 0;
   if (Number.isInteger(value) && abs >= 2) return { min: neg ? -Math.ceil(abs * 3) : 0, max: Math.max(4, Math.ceil(abs * 3)), step: 1 };
@@ -251,7 +305,12 @@ function NumSlider({ label, value, min, max, step, onChange }) {
   return (
     <label style={{ display: "grid", gridTemplateColumns: "140px 1fr 72px", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
       <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={shown} onChange={(e) => drag(e.target.value)} onPointerUp={flush} onKeyUp={flush} onBlur={flush} />
+      <span style={{ position: "relative", display: "block" }}>
+        <input type="range" min={min} max={max} step={step} value={shown} onChange={(e) => drag(e.target.value)} onPointerUp={flush} onKeyUp={flush} onBlur={flush} style={{ width: "100%" }} />
+        <span style={{ position: "absolute", left: 0, right: 0, top: 12, display: "flex", justifyContent: "space-between", fontSize: 8, color: C.mute, pointerEvents: "none" }}>
+          <span>{min}</span><span>{max}</span>
+        </span>
+      </span>
       <input type="number" value={live ?? value} step={step} onChange={(e) => drag(e.target.value)} onBlur={flush} style={{ width: 72, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }} />
     </label>
   );
@@ -451,9 +510,11 @@ function ImagePlacement({ layer, index, onLayer }) {
               const offset = layer.frameOffsets?.[frameIndex] || {};
               const updateOffset = (key, value) => {
                 const next = cloneSpec(layer);
-                next.frameOffsets = [...(next.frameOffsets || [])];
-                while (next.frameOffsets.length < next.frames.length) next.frameOffsets.push({});
-                next.frameOffsets[frameIndex] = { ...next.frameOffsets[frameIndex], [key]: value };
+                // frameOffsets is stored as an object keyed by frame index —
+                // object-spread keeps both object and legacy array forms working.
+                const offsets = { ...(next.frameOffsets || {}) };
+                offsets[frameIndex] = { ...offsets[frameIndex], [key]: value };
+                next.frameOffsets = offsets;
                 onLayer(next);
               };
               return (
@@ -464,7 +525,13 @@ function ImagePlacement({ layer, index, onLayer }) {
                     {layer.frames.length > 1 && <button type="button" onClick={() => {
                       const next = cloneSpec(layer);
                       next.frames.splice(frameIndex, 1);
-                      next.frameOffsets?.splice(frameIndex, 1);
+                      if (next.frameOffsets) {
+                        const offsets = { ...next.frameOffsets };
+                        delete offsets[frameIndex];
+                        // renumber keys above the removed frame down by one
+                        for (const k of Object.keys(offsets)) if (+k > frameIndex) { offsets[k - 1] = offsets[k]; delete offsets[k]; }
+                        next.frameOffsets = offsets;
+                      }
                       onLayer(next);
                     }} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>}
                   </label>
@@ -610,12 +677,12 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Flame layer {index + 1}</div>
         <button type="button" onClick={onRemoveLayer} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>
       </div>
-      <NumSlider label="Count" value={layer.n ?? 1} min={1} max={12} step={1} onChange={(v) => setLayer("n", v)} />
-      <NumSlider label="Flame size" value={layerScale(layer)} min={1} max={30} step={0.1} onChange={(v) => onLayer(withScale(layer, v))} />
+      <NumSlider label="Count" value={layer.n ?? 1} min={1} max={40} step={1} onChange={(v) => setLayer("n", v)} />
+      <NumSlider label="Flame size" value={layerScale(layer)} min={1} max={150} step={0.1} onChange={(v) => onLayer(withScale(layer, v))} />
       <NumSlider label="Opacity" value={layer.a ?? 1} min={0} max={1} step={0.01} onChange={(v) => setLayer("a", v)} />
       <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />
       <NumSlider label="Spin speed" value={layer.spin || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("spin", v)} />
-      <NumSlider label="Tongues per flame" value={numberAt(layer.tongues, 6)} min={5} max={7} step={1} onChange={(v) => setLayer("tongues", v)} />
+      <NumSlider label="Tongues per flame" value={numberAt(layer.tongues, 6)} min={3} max={10} step={1} onChange={(v) => setLayer("tongues", v)} />
       <NumSlider label="Flicker" value={layer.flicker ?? 0.22} min={0} max={1} step={0.01} onChange={(v) => setLayer("flicker", v)} />
       {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayer("blend", v)} />}
       <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
@@ -650,6 +717,16 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
 const DEDICATED_LAYER_FIELDS = new Set(["frames", "frameDuration", "fadeLen", "frameMode", "frameOffsets", "shadow", "tongues", "flicker", "shimmer", "shimmerN", "embers"]);
 const IMG_PLACEMENT_FIELDS = new Set(["x", "y", "sz", "rot", "flip"]);
 const FLAME_PANEL_FIELDS = new Set(["n", "sz", "a", "rot", "spin"]);
+
+// Fields that do nothing in this layer's context — hidden to keep the editor focused.
+function isDeadField(layer, key) {
+  if (key === "even" && (layer.n ?? 1) === 1) return true; // spacing a single particle
+  if (key === "jit" && (!layer.even || layer.at != null || layer.placed)) return true; // jitter only applies to even spacing without a fixed angle
+  if (key === "hover" && !layer.placed) return true; // hover gap only applies to placed layers
+  if (layer.k === "orbit" && (key === "sp" || key === "life" || key === "sway" || key === "drift")) return true; // rise/fall fields unused by orbit
+  if (key === "w" && (layer.at != null || layer.placed) && (Array.isArray(layer.w) ? layer.w : [layer.w]).every((v) => !v)) return true; // anchored — orbit speed would un-anchor it
+  return false;
+}
 const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
 const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink"];
 const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
@@ -716,6 +793,7 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
         if (rows[i].layer.n === 1 && (key === "at" || key === "r")) return false;
       }
       if (flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
+      if (isDeadField(rows[i].layer, key)) return false;
     }
     if (field.path[0] === "rings" && DEDICATED_RING_FIELDS.has(field.path[2])) return false;
     return true;
@@ -1018,6 +1096,24 @@ export function DevAuraGallery() {
 
   const selectedAura = AURAS.find((a) => a.id === selected);
 
+  // Real 76px profile path — Avatar wraps the photo in AuraRing with the
+  // production ringScale/k, so this is exactly what the app renders.
+  const profilePreview = selected && selectedAura ? (
+    <div style={{ marginTop: 12, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
+      <div style={{ fontSize: 10, color: C.mute, marginBottom: 10 }}>Profile avatar (76px, real chrome)</div>
+      <div style={{ padding: 14, display: "inline-block" }}>
+        <Avatar
+          key={`pv-${selected}-${revs[selected] || 0}-${reduce ? 1 : 0}`}
+          src={photo || "/avatars/E.webp"}
+          name="Preview"
+          size={76}
+          ring={selectedAura.colors?.[0]}
+          look={{ aura: selected }}
+        />
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div style={{ minHeight: "100dvh", background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div ref={barRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 30, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: 10, background: C.navBg, borderBottom: `1px solid ${C.border}` }}>
@@ -1069,6 +1165,7 @@ export function DevAuraGallery() {
             {stageFor(selected)}
             <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700 }}>{selectedAura.name}</div>
             <div style={{ fontSize: 11, color: C.dim }}>{selectedAura.rarity || selectedAura.group} · {selectedAura.id}</div>
+            {profilePreview}
           </div>
           <div style={{ flex: "1 1 340px", minWidth: 280, maxHeight: "calc(100dvh - 120px)", overflow: "auto", paddingBottom: 24 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>

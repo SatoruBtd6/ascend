@@ -18,7 +18,8 @@ const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } })
 const page = await ctx.newPage();
 const cdp = await ctx.newCDPSession(page);
 await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
-await page.goto("http://localhost:5180/?auras=1&auraProbe=1", { waitUntil: "networkidle" });
+const base = process.argv.find((a, i) => i > 1 && process.argv[i - 1] === "--base") || "http://localhost:5173";
+await page.goto(`${base}/?auras=1&auraProbe=1`, { waitUntil: "networkidle" });
 await page.waitForSelector("canvas");
 await new Promise(r => setTimeout(r, 1200));
 await page.evaluate(() => [...document.querySelectorAll("button")].find(b => b.textContent.trim().startsWith("88"))?.click());
