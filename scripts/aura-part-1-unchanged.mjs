@@ -16,7 +16,9 @@ async function loadChromium() {
 }
 
 const [beforeBase = "http://localhost:5181", afterBase = "http://localhost:5180"] = process.argv.slice(2);
-const CHANGED = new Set(["inferno", "halo", "godray", "blacksun", "champion"]);
+// 7h Part 1 reworked the first five; Part 2 swapped the particle shape on the
+// next seventeen (shape field only — colours, counts, motion identical).
+const CHANGED = new Set(["inferno", "halo", "godray", "blacksun", "champion", "ember", "smolder", "wyrm", "magma", "sand", "rust", "vendetta", "void", "abyss", "bonewright", "hollow", "iaidraw", "carve", "crownfall", "ascended", "steadybreath"]);
 const AURAS = "ember tide storm smolder stormborn dawn wanderer wyrm frost abyss chud rust thunder hollow deep magma plague sand void yogurt vendetta champion ascended soon_throne soon_seraphim huntersmoon wheel sigil glassfire crownfall eclipseheart steadybreath iaidraw stormstep zeropoint ninetail ledger bonewright nullpoint carve brandmark".split(" ").filter((a) => !CHANGED.has(a));
 
 const chromium = await loadChromium();
