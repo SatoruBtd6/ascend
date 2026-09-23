@@ -11,7 +11,7 @@ async function loadRenderer() {
   const outfile = join(dir, "renderer.mjs");
   await esbuild.build({
     stdin: {
-      contents: `export { AURA_FX, _auraImageCache, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura } from "./AuraCanvas.jsx";\n`,
+      contents: `export { AURA_FX, _auraImageCache, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura, makeFlameTongues } from "./AuraCanvas.jsx";\n`,
       resolveDir: fileURLToPath(new URL(".", import.meta.url)),
       sourcefile: "renderer-entry.js",
       loader: "js",
@@ -269,6 +269,22 @@ test("shadow wisps use a separate default and configured budget", () => {
   renderer._auraImageCache.delete("shadow-budget.png");
 });
 
+test("reduced motion keeps shadow wisps with a smaller cap", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  installAlphaDocument();
+  const rec = { img: alphaImage("shadow-reduced.png"), ready: true, failed: false };
+  renderer._auraImageCache.set("shadow-reduced.png", rec);
+  renderer.AURA_FX.__shadowReduced = { glow: 0, layers: [{ k: "orbit", n: 1, shape: "img", src: "shadow-reduced.png", r: [0, 0], w: [0, 0], sz: [0.25, 0.25], a: 1, shadow: { rate: 1000, max: 24 } }] };
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "__shadowReduced", w: 200, h: 200, mode: "circle", ringR: 80 });
+  inst.reduce = true;
+  inst.frame(1);
+  assert.equal(inst.shadowWisps, 9);
+  inst.frame(1);
+  assert.equal(inst.shadowWisps, 9);
+  delete renderer.AURA_FX.__shadowReduced;
+  renderer._auraImageCache.delete("shadow-reduced.png");
+});
+
 test("animated image shadows compute and cache anchors per frame lazily", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   const calls = installAlphaDocument();
@@ -322,4 +338,54 @@ test("per-frame shadow anchor cache is capped", () => {
   assert.equal(cache.size, FRAME_ANCHOR_CACHE_LIMIT);
   assert.equal(cache.has(records[0]), false);
   assert.equal(cache.has(records.at(-1)), true);
+});
+
+test("procedural flame draws multiple tapered tongues and base shimmer", () => {
+  const particle = { sz: 12, c: "#FF5A1F", rot: 0, ph: 0.4, flameTongues: renderer.makeFlameTongues(6) };
+  const { ctx, output } = stubCanvas();
+  assert.doesNotThrow(() => renderer.drawNewParticleShape(ctx, "flame", particle, 40, 60, 0.35, false, { c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], shimmerN: 3 }));
+  assert.equal(particle.flameTongues.length, 6);
+  assert.ok(output.filter(([op]) => op === "bezierCurveTo").length >= 36);
+  assert.ok(output.filter(([op]) => op === "fill").length >= 19);
+  assert.equal(output.filter(([op]) => op === "stroke").length, 3);
+});
+
+test("flame tongue phases are randomized and reduced motion lowers flicker without shimmer", () => {
+  const first = renderer.makeFlameTongues(6);
+  const second = renderer.makeFlameTongues(6);
+  assert.notDeepEqual(first.map((t) => [t.f1, t.f2, t.f3, t.p1, t.p2, t.p3]), second.map((t) => [t.f1, t.f2, t.f3, t.p1, t.p2, t.p3]));
+  const particle = { sz: 12, c: "#FF5A1F", rot: 0, ph: 0.4, flameTongues: first };
+  const delta = (reduced) => {
+    const a = stubCanvas();
+    const b = stubCanvas();
+    const layer = { c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], shimmerN: 3 };
+    renderer.drawNewParticleShape(a.ctx, "flame", particle, 40, 60, 0.2, reduced, layer);
+    renderer.drawNewParticleShape(b.ctx, "flame", particle, 40, 60, 0.65, reduced, layer);
+    const ac = a.output.filter(([op]) => op === "bezierCurveTo");
+    const bc = b.output.filter(([op]) => op === "bezierCurveTo");
+    return {
+      strokes: a.output.filter(([op]) => op === "stroke").length,
+      motion: ac.reduce((sum, args, i) => sum + args.slice(1).reduce((inner, n, j) => inner + Math.abs(n - bc[i][j + 1]), 0), 0),
+    };
+  };
+  const normal = delta(false);
+  const reduced = delta(true);
+  assert.ok(normal.motion > reduced.motion);
+  assert.equal(normal.strokes, 3);
+  assert.equal(reduced.strokes, 0);
+});
+
+test("flame embers expand into the existing rise particle layer", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  installAlphaDocument();
+  renderer.AURA_FX.__flameEmbers = {
+    glow: 0,
+    layers: [{ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [10, 10], a: 1, embers: { n: 8, sp: [10, 10], life: [100, 100], sz: [1, 1], c: "#FFB43C" } }],
+  };
+  const canvas = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "__flameEmbers", w: 200, h: 200, mode: "circle", ringR: 80 });
+  inst.frame(0.1);
+  assert.ok(canvas.output.filter(([op]) => op === "bezierCurveTo").length >= 30);
+  assert.ok(canvas.output.filter(([op]) => op === "drawImage").length >= 8);
+  delete renderer.AURA_FX.__flameEmbers;
 });

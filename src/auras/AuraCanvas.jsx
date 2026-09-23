@@ -510,9 +510,89 @@ export function ringColorAt(ring, elapsed, reduced = false, fallback = "#00D9FF"
   return `#${hexChannel(a[0] + (b[0] - a[0]) * t)}${hexChannel(a[1] + (b[1] - a[1]) * t)}${hexChannel(a[2] + (b[2] - a[2]) * t)}`;
 }
 
-export function drawNewParticleShape(g, shape, p, x, y, time = 0) {
+export function makeFlameTongues(spec = [5, 7]) {
+  const range = Array.isArray(spec) ? spec : [spec, spec];
+  const lo = Math.max(5, Math.round(range[0] ?? 5));
+  const hi = Math.min(7, Math.round(range[1] ?? 7));
+  const count = Math.min(lo, hi) + Math.floor(Math.random() * (Math.abs(hi - lo) + 1));
+  return Array.from({ length: count }, (_, i) => ({
+    u: (i + 0.5) / count,
+    h: rnd(0.86, 1.18),
+    w: rnd(0.62, 1),
+    f1: rnd(3.1, 5.7),
+    f2: rnd(7.3, 11.9),
+    f3: rnd(13.7, 19.1),
+    p1: rnd(0, Math.PI * 2),
+    p2: rnd(0, Math.PI * 2),
+    p3: rnd(0, Math.PI * 2),
+  }));
+}
+
+function flameFill(hex, alpha) {
+  const rgb = hexRgb(hex) || [255, 90, 31];
+  return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.max(0, Math.min(1, alpha))})`;
+}
+
+function drawFlameTongue(g, baseX, baseY, width, height, tipX, color, alpha) {
+  g.fillStyle = flameFill(color, alpha);
+  g.beginPath();
+  g.moveTo(baseX - width, baseY);
+  g.bezierCurveTo(baseX - width * 0.88, baseY - height * 0.34, tipX - width * 0.28, baseY - height * 0.68, tipX, baseY - height);
+  g.bezierCurveTo(tipX + width * 0.28, baseY - height * 0.68, baseX + width * 0.88, baseY - height * 0.34, baseX + width, baseY);
+  g.closePath();
+  g.fill();
+}
+
+function drawProceduralFlame(g, p, x, y, time, reduced, L = {}) {
   const s = p.sz;
-  if (shape === "ash") {
+  const palette = Array.isArray(L.c) && L.c.length ? L.c : [L.c || "#FF5A1F", "#FFB43C", "#FFF6C9"];
+  const outer = palette[0], mid = palette[1] || outer, inner = palette[2] || "#FFF6C9";
+  const tongues = p.flameTongues || (p.flameTongues = makeFlameTongues(L.tongues));
+  const flicker = Math.max(0, L.flicker ?? 0.22) * (reduced ? 0.35 : 1);
+  g.save();
+  g.translate(x, y);
+  g.rotate(p.rot || 0);
+  g.globalCompositeOperation = "lighter";
+  g.save();
+  g.globalAlpha *= 0.28;
+  g.fillStyle = flameFill(outer, 0.55);
+  g.beginPath();
+  g.ellipse(0, -s * 0.08, s * 0.86, s * 0.36, 0, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+  for (const tongue of tongues) {
+    const wave = Math.sin(time * tongue.f1 + tongue.p1) + Math.sin(time * tongue.f2 + tongue.p2) * 0.55 + Math.sin(time * tongue.f3 + tongue.p3) * 0.25;
+    const stretch = 1 + (Math.sin(time * tongue.f2 + tongue.p2) * 0.07 + Math.sin(time * tongue.f3 + tongue.p3) * 0.04) * (reduced ? 0.35 : 1);
+    const baseX = (tongue.u - 0.5) * s * 1.35;
+    const height = s * 1.85 * tongue.h * stretch;
+    const width = s * 0.42 * tongue.w;
+    const tipX = baseX + wave * s * flicker;
+    drawFlameTongue(g, baseX, 0, width, height, tipX, outer, 0.72);
+    drawFlameTongue(g, baseX, 0, width * 0.58, height * 0.76, baseX + (tipX - baseX) * 0.62, mid, 0.76);
+    drawFlameTongue(g, baseX, 0, width * 0.3, height * 0.48, baseX + (tipX - baseX) * 0.35, inner, 0.8);
+  }
+  if (!reduced && L.shimmer !== false) {
+    const shimmerCount = Math.max(0, Math.round(L.shimmerN ?? 3));
+    for (let i = 0; i < shimmerCount; i += 1) {
+      const phase = time * (1.7 + i * 0.61) + p.ph + i * 1.9;
+      g.save();
+      g.globalAlpha *= 0.09 + 0.08 * (0.5 + 0.5 * Math.sin(phase));
+      g.strokeStyle = flameFill(inner, 0.9);
+      g.lineWidth = Math.max(0.6, s * (0.035 + i * 0.012));
+      g.beginPath();
+      g.arc((i - (shimmerCount - 1) / 2) * s * 0.22, -s * 0.05, s * (0.58 + i * 0.18), Math.PI * 1.1, Math.PI * 1.9);
+      g.stroke();
+      g.restore();
+    }
+  }
+  g.restore();
+}
+
+export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = false, L = {}) {
+  const s = p.sz;
+  if (shape === "flame") {
+    drawProceduralFlame(g, p, x, y, time, reduced, L);
+  } else if (shape === "ash") {
     g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c; g.globalAlpha *= 0.38; g.shadowColor = p.c; g.shadowBlur = s * 0.35;
     for (const blob of p.ashBlobs || [[0, 0, 0.4]]) { g.beginPath(); g.arc(blob[0] * s, blob[1] * s, blob[2] * s, 0, Math.PI * 2); g.fill(); }
     g.restore();
@@ -577,8 +657,19 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const rgba = (hex, a) => { const c = hexRgb(hex) || [0, 217, 255]; return `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`; };
 
   let particleBudget = 120;
-  const layers = fx.layers.filter((L) => L.placed !== "shoulders").map((L) => {
-    const n = Math.min(particleBudget, Math.max(L.even ? L.n : 3, Math.round(L.n * (L.even ? 1 : scale))));
+  const layerSpecs = [];
+  fx.layers.filter((L) => L.placed !== "shoulders").forEach((L) => {
+    layerSpecs.push(L);
+    if (L.shape === "flame" && L.embers) {
+      const embers = L.embers === true ? {} : L.embers;
+      layerSpecs.push({
+        k: "rise", shape: "ember", n: 8, c: ["#FFB43C", "#FFF6C9"], sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8,
+        ...embers, over: L.over, behind: L.behind,
+      });
+    }
+  });
+  const layers = layerSpecs.map((L) => {
+    const n = Math.min(particleBudget, Math.max(L.even ? L.n : L.shape === "flame" ? 1 : 3, Math.round(L.n * (L.even ? 1 : scale))));
     particleBudget -= n;
     const srcList = L.shape === "img" ? [].concat(L.src || []).filter(Boolean) : [];
     const frameList = L.frames ? [].concat(L.frames).filter(Boolean) : [];
@@ -595,10 +686,11 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       const raw = rnd(...range(L.sz, L.shape === "img" ? 0.8 : 2.5));
       p.sz = L.shape === "emoji" ? raw : L.shape === "img" ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
       p.age = 0;
-      p.rot = L.shape === "img" ? (L.rot || 0) * Math.PI * 2 : rnd(0, Math.PI * 2);
-      p.vr = L.shape === "img" ? (L.spin || 0) * Math.PI * 2 : L.spin ? rnd(-3, 3) : rnd(-1, 1);
+      p.rot = L.shape === "img" || L.shape === "flame" ? (L.rot || 0) * Math.PI * 2 : rnd(0, Math.PI * 2);
+      p.vr = L.shape === "img" || L.shape === "flame" ? (L.spin || 0) * Math.PI * 2 : L.spin ? rnd(-3, 3) : rnd(-1, 1);
       p.ph = rnd(0, Math.PI * 2);
       if (L.shape === "ash") p.ashBlobs = Array.from({ length: 3 }, () => [rnd(-0.28, 0.28), rnd(-0.28, 0.28), rnd(0.24, 0.42)]);
+      if (L.shape === "flame") p.flameTongues = makeFlameTongues(L.tongues);
       if (isFrameAnim) {
         p.frameImages = frameList.map((src) => auraImage(src));
         if (wantsShadow) p.shadowAnchorCache = new Map();
@@ -701,26 +793,29 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const updateShadowWisps = (state, dt) => {
     const S = shadowSpec(state.L);
     if (!S || !state.wantsShadow) return;
+    const max = api.reduce ? Math.ceil(S.max * 0.35) : S.max;
+    const motionDt = dt * (api.reduce ? 0.35 : 1);
     state.wisps = state.wisps.filter((w) => {
-      w.age += dt;
-      w.x += w.vx * dt;
-      w.y += w.vy * dt;
-      w.rot += w.vr * dt;
+      w.age += motionDt;
+      w.x += w.vx * motionDt;
+      w.y += w.vy * motionDt;
+      w.rot += w.vr * motionDt;
       return w.age < w.life;
     });
-    if (!api.reduce && S.max > 0 && S.rate > 0) {
-      state.wispAcc += dt * S.rate;
+    if (state.wisps.length > max) state.wisps.splice(0, state.wisps.length - max);
+    if (max > 0 && S.rate > 0) {
+      state.wispAcc += dt * S.rate * (api.reduce ? 0.25 : 1);
       let toSpawn = Math.floor(state.wispAcc);
       state.wispAcc -= toSpawn;
       let spawned = false;
       for (const p of state.ps) {
-        while (toSpawn > 0 && state.wisps.length < S.max && spawnShadowWisp(state, p, S)) {
+        while (toSpawn > 0 && state.wisps.length < max && spawnShadowWisp(state, p, S)) {
           toSpawn -= 1;
           spawned = true;
         }
-        if (!toSpawn || state.wisps.length >= S.max) break;
+        if (!toSpawn || state.wisps.length >= max) break;
       }
-      if (toSpawn > 0 && (!spawned || state.wisps.length >= S.max)) state.wispAcc = 0;
+      if (toSpawn > 0 && (!spawned || state.wisps.length >= max)) state.wispAcc = 0;
     }
     api.shadowWisps += state.wisps.length;
     api.shadowAnchorCache += state.ps.reduce((sum, p) => sum + (p.shadowAnchorCache?.size || 0), 0);
@@ -866,6 +961,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.4);
         g.fillStyle = p.c; g.beginPath(); g.ellipse(0, 0, s * 0.42, s * 1.55, 0, 0, Math.PI * 2); g.fill();
         g.restore(); break;
+      }
+      case "flame": {
+        drawNewParticleShape(g, L.shape, p, x, y, time, api.reduce, L); break;
       }
       case "ash": case "feather": case "bonechip": case "coin": case "crescent": case "pulse": case "sandgrain": case "chainlink": {
         drawNewParticleShape(g, L.shape, p, x, y, time); break;
