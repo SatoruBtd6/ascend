@@ -143,7 +143,7 @@ export function loadOphanimSrc() {
 export function OphanimWings({ w, h }) {
   const [src, setSrc] = useState(ophanimSrc);
   useEffect(() => { loadOphanimSrc().then(setSrc); }, []);
-  const box = { position: "absolute", left: "50%", top: "50%", objectFit: "contain", pointerEvents: "none", mixBlendMode: "normal" };
+  const box = { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", objectFit: "contain", pointerEvents: "none", mixBlendMode: "normal" };
   return (
     <>
       <img src={src} alt="" style={{ ...box, width: w * 1.02, height: h * 1.02, opacity: 0.42, animation: "ophspin 20s linear infinite, ophpulse 2.2s ease-in-out infinite" }} />

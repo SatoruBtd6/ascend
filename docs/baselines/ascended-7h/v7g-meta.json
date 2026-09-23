@@ -1,0 +1,32 @@
+{
+  "base": "http://127.0.0.1:5180",
+  "setRes": {
+    "aura": "ascended",
+    "test": true,
+    "lb": false
+  },
+  "avatarBox": {
+    "x": 5.5,
+    "y": 41.5,
+    "width": 79,
+    "height": 79
+  },
+  "geo": [
+    {
+      "w": 158,
+      "h": 158,
+      "cssW": 79,
+      "cssH": 79,
+      "x": 6,
+      "y": 42
+    },
+    {
+      "w": 144,
+      "h": 198,
+      "cssW": 72,
+      "cssH": 99,
+      "x": 297,
+      "y": 142
+    }
+  ]
+}
