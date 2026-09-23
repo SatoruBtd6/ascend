@@ -1,0 +1,2720 @@
+{
+ "leafCoverage": {
+  "none": {
+   "error": "no spec"
+  },
+  "ember": {
+   "emitted": 24,
+   "fields": 24,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "tide": {
+   "emitted": 21,
+   "fields": 21,
+   "panel": 2,
+   "structural": 1,
+   "gaps": []
+  },
+  "storm": {
+   "emitted": 27,
+   "fields": 27,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "inferno": {
+   "emitted": 25,
+   "fields": 25,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "halo": {
+   "emitted": 27,
+   "fields": 27,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "godray": {
+   "emitted": 27,
+   "fields": 27,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "smolder": {
+   "emitted": 35,
+   "fields": 35,
+   "panel": 3,
+   "structural": 3,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "stormborn": {
+   "emitted": 26,
+   "fields": 26,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "dawn": {
+   "emitted": 20,
+   "fields": 20,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "wanderer": {
+   "emitted": 24,
+   "fields": 24,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "wyrm": {
+   "emitted": 22,
+   "fields": 22,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "frost": {
+   "emitted": 20,
+   "fields": 20,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "abyss": {
+   "emitted": 22,
+   "fields": 22,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "chud": {
+   "emitted": 22,
+   "fields": 22,
+   "panel": 2,
+   "structural": 2,
+   "gaps": [
+    {
+     "path": "layers.0.e.0",
+     "where": "gap:unhandled-leaf",
+     "value": "🍔"
+    },
+    {
+     "path": "layers.0.e.1",
+     "where": "gap:unhandled-leaf",
+     "value": "🍟"
+    },
+    {
+     "path": "layers.0.e.2",
+     "where": "gap:unhandled-leaf",
+     "value": "🍔"
+    },
+    {
+     "path": "layers.0.e.3",
+     "where": "gap:unhandled-leaf",
+     "value": "🥤"
+    },
+    {
+     "path": "layers.0.e.4",
+     "where": "gap:unhandled-leaf",
+     "value": "🍔"
+    },
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "rust": {
+   "emitted": 22,
+   "fields": 22,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "thunder": {
+   "emitted": 17,
+   "fields": 17,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "hollow": {
+   "emitted": 23,
+   "fields": 23,
+   "panel": 2,
+   "structural": 2,
+   "gaps": [
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "deep": {
+   "emitted": 61,
+   "fields": 42,
+   "panel": 24,
+   "structural": 7,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.2.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "magma": {
+   "emitted": 24,
+   "fields": 24,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "plague": {
+   "emitted": 22,
+   "fields": 22,
+   "panel": 2,
+   "structural": 1,
+   "gaps": []
+  },
+  "sand": {
+   "emitted": 23,
+   "fields": 23,
+   "panel": 2,
+   "structural": 2,
+   "gaps": []
+  },
+  "void": {
+   "emitted": 25,
+   "fields": 25,
+   "panel": 2,
+   "structural": 2,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "yogurt": {
+   "emitted": 20,
+   "fields": 20,
+   "panel": 2,
+   "structural": 1,
+   "gaps": [
+    {
+     "path": "layers.0.e.0",
+     "where": "gap:unhandled-leaf",
+     "value": "🥣"
+    },
+    {
+     "path": "layers.0.e.1",
+     "where": "gap:unhandled-leaf",
+     "value": "🥛"
+    },
+    {
+     "path": "layers.0.e.2",
+     "where": "gap:unhandled-leaf",
+     "value": "🥣"
+    }
+   ]
+  },
+  "champion": {
+   "emitted": 47,
+   "fields": 42,
+   "panel": 8,
+   "structural": 4,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "vendetta": {
+   "emitted": 37,
+   "fields": 37,
+   "panel": 3,
+   "structural": 3,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "ascended": {
+   "emitted": 52,
+   "fields": 52,
+   "panel": 4,
+   "structural": 5,
+   "gaps": []
+  },
+  "huntersmoon": {
+   "emitted": 78,
+   "fields": 78,
+   "panel": 5,
+   "structural": 5,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.3.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "wheel": {
+   "emitted": 73,
+   "fields": 73,
+   "panel": 4,
+   "structural": 4,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "soon_throne": {
+   "emitted": 17,
+   "fields": 17,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "soon_seraphim": {
+   "emitted": 17,
+   "fields": 17,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "sigil": {
+   "emitted": 14,
+   "fields": 14,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "steadybreath": {
+   "emitted": 17,
+   "fields": 17,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "iaidraw": {
+   "emitted": 18,
+   "fields": 18,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "glassfire": {
+   "emitted": 14,
+   "fields": 14,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "stormstep": {
+   "emitted": 16,
+   "fields": 16,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "zeropoint": {
+   "emitted": 18,
+   "fields": 18,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "ninetail": {
+   "emitted": 19,
+   "fields": 19,
+   "panel": 1,
+   "structural": 2,
+   "gaps": []
+  },
+  "crownfall": {
+   "emitted": 32,
+   "fields": 32,
+   "panel": 2,
+   "structural": 2,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "ledger": {
+   "emitted": 27,
+   "fields": 27,
+   "panel": 2,
+   "structural": 3,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "bonewright": {
+   "emitted": 39,
+   "fields": 39,
+   "panel": 2,
+   "structural": 3,
+   "gaps": [
+    {
+     "path": "bolts.from",
+     "where": "gap:bolt-from",
+     "value": "above"
+    },
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "nullpoint": {
+   "emitted": 18,
+   "fields": 18,
+   "panel": 1,
+   "structural": 1,
+   "gaps": []
+  },
+  "carve": {
+   "emitted": 26,
+   "fields": 26,
+   "panel": 1,
+   "structural": 2,
+   "gaps": []
+  },
+  "brandmark": {
+   "emitted": 27,
+   "fields": 27,
+   "panel": 3,
+   "structural": 5,
+   "gaps": [
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "eclipseheart": {
+   "emitted": 85,
+   "fields": 81,
+   "panel": 7,
+   "structural": 7,
+   "gaps": [
+    {
+     "path": "layers.0.src.0",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.0.src.1",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.0.src.2",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.0.src.3",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.0.src.4",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.0.src.5",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-clear.png"
+    },
+    {
+     "path": "layers.0.src.6",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-clear.png"
+    },
+    {
+     "path": "layers.0.src.7",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-ruby.png"
+    },
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.1.src.0",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.1.src.1",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.1.src.2",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amber.png"
+    },
+    {
+     "path": "layers.1.src.3",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-clear.png"
+    },
+    {
+     "path": "layers.1.src.4",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-clear.png"
+    },
+    {
+     "path": "layers.1.src.5",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-sapphire.png"
+    },
+    {
+     "path": "layers.1.src.6",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-amethyst.png"
+    },
+    {
+     "path": "layers.1.src.7",
+     "where": "gap:unhandled-leaf",
+     "value": "/aura/gem-aqua.png"
+    },
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.2.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.3.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.4.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  },
+  "blacksun": {
+   "emitted": 66,
+   "fields": 49,
+   "panel": 22,
+   "structural": 9,
+   "gaps": [
+    {
+     "path": "layers.0.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.1.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.2.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    },
+    {
+     "path": "layers.3.blend",
+     "where": "gap:blend",
+     "value": "source-over"
+    }
+   ]
+  }
+ },
+ "dom": {
+  "none": null,
+  "ember": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 47,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "tide": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 42,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Wave strength",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "storm": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 51,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Seconds between strikes — min",
+    "Seconds between strikes — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "inferno": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 48,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "halo": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 51,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity"
+   ],
+   "checks": [
+    "Twinkle",
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "godray": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 52,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity"
+   ],
+   "checks": [
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "smolder": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "layer-2"
+   ],
+   "inputs": 67,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [
+    "Flicker",
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "stormborn": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 48,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Seconds between strikes — min",
+    "Seconds between strikes — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [
+    "Flash on strike"
+   ],
+   "rawSuspect": []
+  },
+  "dawn": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 36,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity"
+   ],
+   "checks": [
+    "Twinkle",
+    "Fan out"
+   ],
+   "rawSuspect": []
+  },
+  "wanderer": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 47,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Wave strength",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "wyrm": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 43,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "frost": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 39,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "abyss": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 42,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "chud": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 44,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [
+    "Bobbing",
+    "Evenly spaced"
+   ],
+   "rawSuspect": []
+  },
+  "rust": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 43,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Spin speed",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "thunder": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 30,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Seconds between strikes — min",
+    "Seconds between strikes — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "hollow": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 45,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "deep": {
+   "groups": [
+    "layer-0",
+    "frame-animation",
+    "shadow-emission",
+    "layer-1",
+    "frame-animation",
+    "shadow-emission",
+    "layer-2",
+    "frame-animation",
+    "shadow-emission",
+    "layer-3",
+    "layer-4"
+   ],
+   "inputs": 107,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Wobble",
+    "Count",
+    "Opacity",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Wobble",
+    "Count",
+    "Opacity",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Wobble",
+    "Count",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Behind figure",
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Behind figure",
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Behind figure"
+   ],
+   "rawSuspect": []
+  },
+  "magma": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 47,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "plague": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 44,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "sand": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 45,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Wave strength",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Spin speed",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "void": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 46,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3"
+   ],
+   "checks": [
+    "Dark backdrop",
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "yogurt": {
+   "groups": [
+    "layer-0",
+    "layer-1"
+   ],
+   "inputs": 40,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [
+    "Bobbing",
+    "Evenly spaced"
+   ],
+   "rawSuspect": []
+  },
+  "champion": {
+   "groups": [
+    "layer-0",
+    "frame-animation",
+    "shadow-emission",
+    "layer-1",
+    "layer-2"
+   ],
+   "inputs": 88,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Wobble",
+    "Count",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Spin speed",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity",
+    "Colour",
+    "Opacity",
+    "Speed",
+    "Distance from centre",
+    "Thickness",
+    "Arc width"
+   ],
+   "checks": [
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Bobbing",
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "vendetta": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "layer-2"
+   ],
+   "inputs": 70,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Seconds between strikes — min",
+    "Seconds between strikes — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [],
+   "rawSuspect": []
+  },
+  "ascended": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "layer-2",
+    "layer-3"
+   ],
+   "inputs": 97,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity",
+    "Seconds between strikes — min",
+    "Seconds between strikes — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3"
+   ],
+   "checks": [
+    "Evenly spaced",
+    "Evenly spaced",
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "huntersmoon": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "layer-2",
+    "layer-3",
+    "layer-4",
+    "ring-0",
+    "ring-cycle-0",
+    "ring-1",
+    "ring-cycle-1"
+   ],
+   "inputs": 149,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity",
+    "Colour",
+    "Opacity",
+    "Speed",
+    "Distance from centre",
+    "Thickness",
+    "Arc width",
+    "Inner colour",
+    "Outer colour",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness",
+    "Filigree marks"
+   ],
+   "checks": [
+    "Evenly spaced",
+    "Ink outline",
+    "Animate this ring's colours",
+    "Ink outline",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "wheel": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "layer-2",
+    "layer-3",
+    "ring-0",
+    "ring-cycle-0",
+    "ring-1",
+    "ring-cycle-1",
+    "ring-2",
+    "ring-cycle-2"
+   ],
+   "inputs": 138,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity",
+    "Colour",
+    "Opacity",
+    "Speed",
+    "Distance from centre",
+    "Thickness",
+    "Arc width",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness",
+    "Filigree marks",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Evenly spaced",
+    "Evenly spaced",
+    "Twinkle",
+    "Dashed",
+    "Ink outline",
+    "Animate this ring's colours",
+    "Ink outline",
+    "Animate this ring's colours",
+    "Ink outline",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "soon_throne": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 32,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity"
+   ],
+   "checks": [
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "soon_seraphim": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 32,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity"
+   ],
+   "checks": [
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "sigil": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 26,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "steadybreath": {
+   "groups": [
+    "layer-0",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 33,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Twinkle",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "iaidraw": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 34,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour",
+    "Opacity",
+    "Speed",
+    "Distance from centre",
+    "Thickness",
+    "Arc width"
+   ],
+   "checks": [
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "glassfire": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 26,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max"
+   ],
+   "checks": [
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "stormstep": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 29,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Seconds between strikes — min",
+    "Seconds between strikes — max",
+    "Colour 1",
+    "Colour 2"
+   ],
+   "checks": [
+    "Flash on strike"
+   ],
+   "rawSuspect": []
+  },
+  "zeropoint": {
+   "groups": [
+    "layer-0",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 34,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Evenly spaced",
+    "Dashed",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "ninetail": {
+   "groups": [
+    "layer-0"
+   ],
+   "inputs": 34,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity"
+   ],
+   "checks": [
+    "Evenly spaced",
+    "Twinkle"
+   ],
+   "rawSuspect": []
+  },
+  "crownfall": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 61,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Seconds between strikes — min",
+    "Seconds between strikes — max",
+    "Colour 1",
+    "Colour 2",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "ledger": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 52,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Spin speed",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Dark backdrop",
+    "Evenly spaced",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "bonewright": {
+   "groups": [
+    "layer-0",
+    "layer-1",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 73,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Strikes per burst — min",
+    "Strikes per burst — max",
+    "Burst spacing (s)",
+    "Rest between bursts (s) — min",
+    "Rest between bursts (s) — max",
+    "Colour 1",
+    "Flash brightness",
+    "Flash length (s)",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Flash on strike",
+    "Strike marker",
+    "Calmer under reduced motion",
+    "Dashed",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "nullpoint": {
+   "groups": [
+    "layer-0",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 34,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Dark backdrop",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "carve": {
+   "groups": [
+    "layer-0",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 47,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Colour",
+    "Opacity",
+    "Speed",
+    "Distance from centre",
+    "Thickness",
+    "Arc width",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Dark backdrop",
+    "Twinkle",
+    "Dashed",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "brandmark": {
+   "groups": [
+    "layer-0",
+    "frame-animation",
+    "shadow-emission",
+    "layer-1",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 56,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Shift sideways",
+    "Shift up/down",
+    "Count",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Colour",
+    "Opacity",
+    "Speed",
+    "Distance from centre",
+    "Thickness",
+    "Arc width",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Dark backdrop",
+    "Draw art last",
+    "Shadow wisps",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "eclipseheart": {
+   "groups": [
+    "layer-0",
+    "frame-animation",
+    "shadow-emission",
+    "layer-1",
+    "frame-animation",
+    "shadow-emission",
+    "layer-2",
+    "layer-3",
+    "layer-4",
+    "ring-0",
+    "ring-cycle-0",
+    "ring-1",
+    "ring-cycle-1"
+   ],
+   "inputs": 171,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Spin speed",
+    "Count",
+    "Randomness",
+    "Opacity",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Spin speed",
+    "Count",
+    "Randomness",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Colour 3",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sway",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Opacity",
+    "Lifetime (s) — min",
+    "Lifetime (s) — max",
+    "Count",
+    "Colour",
+    "Spin speed",
+    "Length",
+    "Opacity",
+    "Colour",
+    "Opacity",
+    "Speed",
+    "Distance from centre",
+    "Thickness",
+    "Arc width",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness",
+    "Filigree marks"
+   ],
+   "checks": [
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Glint",
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Glint",
+    "Twinkle",
+    "Twinkle",
+    "Ink outline",
+    "Animate this ring's colours",
+    "Ink outline",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  },
+  "blacksun": {
+   "groups": [
+    "layer-0",
+    "frame-animation",
+    "shadow-emission",
+    "layer-1",
+    "frame-animation",
+    "shadow-emission",
+    "layer-2",
+    "frame-animation",
+    "shadow-emission",
+    "layer-3",
+    "layer-4",
+    "ring-0",
+    "ring-cycle-0"
+   ],
+   "inputs": 119,
+   "labels": [
+    "Speed",
+    "Glow strength",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Wobble",
+    "Count",
+    "Opacity",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Wobble",
+    "Count",
+    "Opacity",
+    "Shift sideways",
+    "Shift up/down",
+    "Size",
+    "Rotation",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Spin speed",
+    "Count",
+    "Opacity",
+    "Motion",
+    "Shape",
+    "Speed range — min",
+    "Speed range — max",
+    "Sideways drift",
+    "Spin speed",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Colour 2",
+    "Motion",
+    "Shape",
+    "Orbit speed — min",
+    "Orbit speed — max",
+    "Distance from centre — min",
+    "Distance from centre — max",
+    "Count",
+    "Size — min",
+    "Size — max",
+    "Colour 1",
+    "Distance from centre",
+    "Colour",
+    "Spin speed",
+    "Opacity",
+    "Thickness"
+   ],
+   "checks": [
+    "Dark backdrop",
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Breathing",
+    "Behind figure",
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Breathing",
+    "Behind figure",
+    "Mirror image",
+    "Shadow wisps",
+    "Evenly spaced",
+    "Bobbing",
+    "Evenly spaced",
+    "Animate this ring's colours"
+   ],
+   "rawSuspect": []
+  }
+ }
+}

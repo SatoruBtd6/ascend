@@ -1,5 +1,5 @@
 // Dev-only aura tuning gallery. Loaded from a DEV branch in Auth so production builds drop this module.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { resolveAuraAnchors } from "./anchors.js";
 import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape } from "./AuraCanvas.jsx";
 import { AURAS } from "./catalog.js";
@@ -211,13 +211,47 @@ function FlagField({ label, checked, onChange }) {
   );
 }
 
+// Slider/color drags fire `input` at pointer rate — committing each one used to
+// remount the live canvas and re-render the whole editor ~60x/sec. Local state
+// keeps the thumb smooth; the parent sees at most one commit per COMMIT_MS.
+const COMMIT_MS = 120;
+function useLiveCommit(value, onChange) {
+  const [live, setLive] = useState(null);
+  const refs = useRef({ timer: 0, pending: null, lastAt: 0, value, onChange });
+  refs.current.value = value;
+  refs.current.onChange = onChange;
+  useEffect(() => () => clearTimeout(refs.current.timer), []);
+  const flush = () => {
+    clearTimeout(refs.current.timer);
+    refs.current.timer = 0;
+    const v = refs.current.pending;
+    refs.current.pending = null;
+    setLive(null);
+    if (v == null || v === refs.current.value) return;
+    refs.current.lastAt = performance.now();
+    refs.current.onChange(v);
+  };
+  const push = (v) => {
+    setLive(v);
+    refs.current.pending = v;
+    const wait = Math.max(0, COMMIT_MS - (performance.now() - refs.current.lastAt));
+    if (!refs.current.timer) refs.current.timer = setTimeout(flush, wait);
+  };
+  return [live, push, flush];
+}
+
 function NumSlider({ label, value, min, max, step, onChange }) {
-  const shown = Math.min(max, Math.max(min, value));
+  const [live, push, flush] = useLiveCommit(value, onChange);
+  const shown = Math.min(max, Math.max(min, live ?? value));
+  const drag = (raw) => {
+    const n = Number(raw);
+    if (Number.isFinite(n)) push(quantize(n, step));
+  };
   return (
     <label style={{ display: "grid", gridTemplateColumns: "140px 1fr 72px", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
       <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={shown} onChange={(e) => onChange(quantize(Number(e.target.value), step))} />
-      <input type="number" value={value} step={step} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange(quantize(n, step)); }} style={{ width: 72, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }} />
+      <input type="range" min={min} max={max} step={step} value={shown} onChange={(e) => drag(e.target.value)} onPointerUp={flush} onKeyUp={flush} onBlur={flush} />
+      <input type="number" value={live ?? value} step={step} onChange={(e) => drag(e.target.value)} onBlur={flush} style={{ width: 72, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }} />
     </label>
   );
 }
@@ -319,10 +353,11 @@ function numberAt(value, fallback) {
 }
 
 function ColorField({ label, value, onChange }) {
+  const [live, push, flush] = useLiveCommit(value, onChange);
   return (
     <label style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
       <span>{label}</span>
-      <input type="color" value={colorInputValue(value)} onChange={(e) => onChange(e.target.value)} style={{ width: 48, height: 28, padding: 0, border: "none", background: "transparent" }} />
+      <input type="color" value={colorInputValue(live ?? value)} onChange={(e) => push(e.target.value)} onBlur={flush} style={{ width: 48, height: 28, padding: 0, border: "none", background: "transparent" }} />
     </label>
   );
 }
@@ -622,7 +657,8 @@ function SelectRow({ label, value, options, onChange }) {
   );
 }
 
-function SpecField({ field, section, onPath }) {
+// specFields() rebuilds field objects every render, so compare by value.
+const SpecField = memo(function SpecField({ field, section, onPath }) {
   const label = fieldLabel(field, section);
   const key = field.path[field.path.length - 1];
   if (field.kind === "color") {
@@ -633,7 +669,11 @@ function SpecField({ field, section, onPath }) {
   }
   const range = sliderRange(field.path, field.value);
   return <NumSlider label={label} value={field.value} min={range.min} max={range.max} step={range.step} onChange={(v) => onPath(field.path, v)} />;
-}
+}, (prev, next) =>
+  prev.section === next.section && prev.onPath === next.onPath &&
+  prev.field.kind === next.field.kind && prev.field.value === next.field.value &&
+  prev.field.path.length === next.field.path.length &&
+  prev.field.path.every((part, i) => part === next.field.path[i]));
 
 function SpecSection({ title, children }) {
   return (
@@ -680,11 +720,15 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
     next[key] = value;
     onLayer(index, next);
   };
+  // Stable callback so memoized SpecField rows skip unchanged controls.
+  const onPathRef = useRef(onPath);
+  onPathRef.current = onPath;
+  const stablePath = useCallback((p, v) => onPathRef.current(p, v), []);
   return (
     <div style={{ display: "grid", gap: 6 }}>
       {overall.length > 0 && (
         <SpecSection title="Overall">
-          {overall.map((field) => <SpecField key={field.path.join(".")} field={field} section="overall" onPath={onPath} />)}
+          {overall.map((field) => <SpecField key={field.path.join(".")} field={field} section="overall" onPath={stablePath} />)}
         </SpecSection>
       )}
       {rows.map(({ layer, index }) => {
@@ -711,13 +755,13 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
             {LAYER_GROUPS.map(([gid]) => groups.has(gid) && (
               <div key={gid}>
                 <ControlTitle>{LAYER_GROUP_TITLES[gid]}</ControlTitle>
-                {groups.get(gid).map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={onPath} />)}
+                {groups.get(gid).map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={stablePath} />)}
               </div>
             ))}
             {groups.has("other") && (
               <div>
                 <ControlTitle>{LAYER_GROUP_TITLES.other}</ControlTitle>
-                {groups.get("other").map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={onPath} />)}
+                {groups.get("other").map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={stablePath} />)}
               </div>
             )}
           </div>
@@ -726,13 +770,13 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
       <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>
       {Object.entries(sectioned).map(([id, list]) => list.length > 0 && (
         <SpecSection key={id} title={SECTION_TITLES[id]}>
-          {list.map((field) => <SpecField key={field.path.join(".")} field={field} section={id} onPath={onPath} />)}
+          {list.map((field) => <SpecField key={field.path.join(".")} field={field} section={id} onPath={stablePath} />)}
         </SpecSection>
       ))}
       {(spec.rings || []).map((ring, index) => (
         <div key={index} data-control-group={`ring-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1}</div>
-          {(ringFields.get(index) || []).map((field) => <SpecField key={field.path.join(".")} field={field} section="rings" onPath={onPath} />)}
+          {(ringFields.get(index) || []).map((field) => <SpecField key={field.path.join(".")} field={field} section="rings" onPath={stablePath} />)}
           <RingCycleControls ring={ring} index={index} onRing={(next) => onPath(["rings", index], next)} />
         </div>
       ))}
