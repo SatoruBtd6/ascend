@@ -400,6 +400,74 @@ export const AuraLoop = {
   },
 };
 
+export function frameBlendAt(elapsed, count, duration = 0.12, mode = "loop", fadeLength = 0.12, reduced = false) {
+  if (count <= 1 || reduced) return { from: 0, to: 0, alpha: 0 };
+  const sequence = mode === "pingpong"
+    ? [...Array(count).keys(), ...Array.from({ length: count - 2 }, (_, i) => count - i - 2)]
+    : [...Array(count).keys()];
+  const frameDuration = Math.max(0.001, duration);
+  const position = Math.max(0, elapsed) / frameDuration;
+  const step = Math.floor(position) % sequence.length;
+  const progress = position - Math.floor(position);
+  const fadeStart = Math.max(0, 1 - Math.min(frameDuration, Math.max(0, fadeLength)) / frameDuration);
+  const alpha = fadeLength <= 0 || progress < fadeStart ? 0 : (progress - fadeStart) / Math.max(0.000001, 1 - fadeStart);
+  return { from: sequence[step], to: sequence[(step + 1) % sequence.length], alpha };
+}
+
+export function readyFrameBlend(images, elapsed, duration, mode, fadeLength, reduced) {
+  if (!images.every((frame) => frame.ready || frame.failed)) return null;
+  const available = images.map((frame, index) => ({ frame, index })).filter(({ frame }) => frame.ready && !frame.failed);
+  if (!available.length) return null;
+  return { available, ...frameBlendAt(elapsed, available.length, duration, mode, fadeLength, reduced) };
+}
+
+function hexChannel(n) { return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0"); }
+
+export function ringColorAt(ring, elapsed, reduced = false, fallback = "#00D9FF") {
+  const colors = ring.colorCycle?.filter((color) => hexRgb(color));
+  if (!colors?.length) return ring.c || fallback;
+  if (colors.length === 1 || reduced) return colors[0];
+  const period = Math.max(0.001, ring.cyclePeriod || 3);
+  const position = ((elapsed % period) + period) % period / period * colors.length;
+  const index = Math.floor(position) % colors.length;
+  if ((ring.cycleEasing || "linear") === "step") return colors[index];
+  const a = hexRgb(colors[index]), b = hexRgb(colors[(index + 1) % colors.length]);
+  const t = position - Math.floor(position);
+  return `#${hexChannel(a[0] + (b[0] - a[0]) * t)}${hexChannel(a[1] + (b[1] - a[1]) * t)}${hexChannel(a[2] + (b[2] - a[2]) * t)}`;
+}
+
+export function drawNewParticleShape(g, shape, p, x, y, time = 0) {
+  const s = p.sz;
+  if (shape === "ash") {
+    g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c; g.globalAlpha *= 0.38; g.shadowColor = p.c; g.shadowBlur = s * 0.35;
+    for (const blob of p.ashBlobs || [[0, 0, 0.4]]) { g.beginPath(); g.arc(blob[0] * s, blob[1] * s, blob[2] * s, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+  } else if (shape === "feather") {
+    g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
+    g.beginPath(); g.moveTo(0, -s * 1.7); g.bezierCurveTo(s * 0.9, -s * 0.7, s * 0.45, s * 0.75, -s * 0.1, s * 1.25); g.bezierCurveTo(-s * 0.35, s * 0.35, -s * 0.45, -s * 0.8, 0, -s * 1.7); g.fill();
+    g.strokeStyle = "rgba(15,23,42,0.42)"; g.lineWidth = Math.max(0.5, s * 0.14); g.beginPath(); g.moveTo(0, -s * 1.45); g.quadraticCurveTo(s * 0.12, 0, -s * 0.15, s * 1.45); g.stroke(); g.restore();
+  } else if (shape === "bonechip") {
+    g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
+    g.beginPath(); g.moveTo(0, -s); g.lineTo(s * 0.48, -s * 0.18); g.lineTo(s * 0.24, s * 0.62); g.lineTo(-s * 0.3, s * 0.48); g.lineTo(-s * 0.42, -s * 0.12); g.closePath(); g.fill();
+    g.globalAlpha *= 0.35; g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(0, -s); g.lineTo(s * 0.48, -s * 0.18); g.lineTo(0, 0); g.closePath(); g.fill(); g.restore();
+  } else if (shape === "coin") {
+    g.save(); g.translate(x, y); g.rotate(p.rot); const flip = Math.sin(time * 8 + p.ph); const width = Math.max(s * 0.08, s * 0.75 * Math.abs(flip));
+    g.fillStyle = p.c; g.beginPath(); g.ellipse(0, 0, width, s * 0.7, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = Math.max(0.5, s * 0.1); g.stroke(); g.restore();
+  } else if (shape === "crescent") {
+    g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
+    g.beginPath(); g.arc(-s * 0.18, 0, s, -1.05, 1.05); g.arc(s * 0.28, 0, s * 0.82, 1.05, -1.05, true); g.closePath(); g.fill(); g.restore();
+  } else if (shape === "pulse") {
+    const period = 1.35;
+    const progress = (((time + p.ph) % period) + period) % period / period;
+    g.save(); g.translate(x, y); g.globalAlpha *= 1 - progress; g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.beginPath(); g.arc(0, 0, s * (0.35 + progress * 1.4), 0, Math.PI * 2); g.stroke(); g.restore();
+  } else if (shape === "sandgrain") {
+    const vx = p.vx || (p.w ? -Math.sin(p.ang || 0) * p.w : 0), vy = p.vy || (p.w ? Math.cos(p.ang || 0) * p.w : 1);
+    g.save(); g.translate(x, y); g.rotate(Math.atan2(vy, vx)); g.fillStyle = p.c; g.globalAlpha *= 0.32; g.beginPath(); g.ellipse(0, 0, s * 0.75, s * 0.35, 0, 0, Math.PI * 2); g.fill(); g.restore();
+  } else if (shape === "chainlink") {
+    g.save(); g.translate(x, y); g.rotate(p.rot); g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.beginPath(); g.ellipse(0, 0, s * 0.8, s * 0.4, 0, 0, Math.PI * 2); g.stroke(); g.restore();
+  }
+}
+
 export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
   const fx = AURA_FX[aura], base = AURAS.find((a) => a.id === aura);
   const g = canvas.getContext("2d");
@@ -439,7 +507,11 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const n = Math.min(particleBudget, Math.max(L.even ? L.n : 3, Math.round(L.n * (L.even ? 1 : scale))));
     particleBudget -= n;
     const srcList = L.shape === "img" ? [].concat(L.src || []).filter(Boolean) : [];
-    srcList.forEach(auraImage);
+    const frameList = L.frames ? [].concat(L.frames).filter(Boolean) : [];
+    const isFrameAnim = L.shape === "img" && frameList.length > 0;
+    const singleSrcList = isFrameAnim ? [] : srcList;
+    if (isFrameAnim) frameList.forEach(auraImage);
+    else singleSrcList.forEach(auraImage);
     // `behind` stays on this under-photo canvas. `over` layers paint later,
     // on the second canvas above the photo.
     const range = (v, fallback) => Array.isArray(v) ? v : [v ?? fallback, v ?? fallback];
@@ -451,7 +523,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       p.rot = L.shape === "img" ? (L.rot || 0) * Math.PI * 2 : rnd(0, Math.PI * 2);
       p.vr = L.shape === "img" ? (L.spin || 0) * Math.PI * 2 : L.spin ? rnd(-3, 3) : rnd(-1, 1);
       p.ph = rnd(0, Math.PI * 2);
-      if (L.shape === "img" && srcList.length) { p.src = srcList[p.i % srcList.length]; p.image = auraImage(p.src); }
+      if (L.shape === "ash") p.ashBlobs = Array.from({ length: 3 }, () => [rnd(-0.28, 0.28), rnd(-0.28, 0.28), rnd(0.24, 0.42)]);
+      if (isFrameAnim) {
+        p.frameImages = frameList.map((src) => auraImage(src));
+      } else if (L.shape === "img" && singleSrcList.length) {
+        p.src = singleSrcList[p.i % singleSrcList.length];
+        p.image = auraImage(p.src);
+      }
       if (L.k === "rise" || L.k === "bubble") {
         const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
         [p.x, p.y] = onRing(ang, rnd(1.05, 1.18)); p.vy = -rnd(...L.sp) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
@@ -480,30 +558,47 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const s = p.sz;
     switch (L.shape) {
       case "img": {
-        const rec = p.image;
-        if (!rec?.ready || rec.failed) break;
-        const img = rec.img, aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+        const isFrameAnim = L.frames && L.frames.length > 0;
+        const rec = isFrameAnim ? null : p.image;
+        if (!isFrameAnim && (!rec?.ready || rec.failed)) break;
         const breathe = L.breathe ? 1 + 0.03 * Math.sin(time * (Math.PI * 2 / 4) + p.ph) : 1;
-        const iw0 = aspect >= 1 ? s : s * aspect, ih0 = aspect >= 1 ? s / aspect : s;
-        const iw = iw0 * breathe, ih = ih0 * breathe;
         const wob = L.wobble ? Math.sin(time * (Math.PI * 2 / (6.8 + (p.ph % 2.2))) + p.ph) * L.wobble : 0;
         const bob = L.bob ? Math.sin(time * (Math.PI * 2 / 2.5) + p.ph) * s * 0.1 : 0;
         const ox = (L.x || 0) * rx;
         const oy = (L.y || 0) * ry;
         g.save(); g.translate(x + ox, y + bob + oy); g.rotate(p.rot + wob); if (L.flip) g.scale(-1, 1);
-        g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
-        if (L.glint) {
-          const period = 3.4 + (p.ph % 2.4);
-          const cycle = (time + p.ph * 1.7) % period;
-          if (cycle < 0.28) {
-            const k = cycle / 0.28;
-            g.beginPath(); g.rect(-iw / 2, -ih / 2, iw, ih); g.clip();
-            g.globalCompositeOperation = "lighter";
-            g.globalAlpha = Math.min(1, alpha * (L.a ?? 1)) * Math.sin(k * Math.PI);
-            g.strokeStyle = "#ffffff"; g.lineWidth = Math.max(1.1, s * 0.07);
-            g.beginPath(); g.moveTo(-iw / 2, -ih / 2 + ih * k); g.lineTo(iw / 2, -ih / 2 + ih * k + ih * 0.18); g.stroke();
-            const hs = Math.max(4, s * 0.28);
-            g.drawImage(glowSprite("#ffffff"), -hs, -ih / 2 + ih * k - hs, hs * 2, hs * 2);
+        if (isFrameAnim) {
+          if (p.frameStarted == null && p.frameImages.every((frame) => frame.ready || frame.failed)) p.frameStarted = time;
+          const blend = p.frameStarted == null ? null : readyFrameBlend(p.frameImages, time - p.frameStarted, L.frameDuration ?? 0.12, L.frameMode || "loop", L.fadeLen ?? 0.12, api.reduce);
+          if (!blend) { g.restore(); break; }
+          const drawFrame = ({ frame, index }, opacity) => {
+            const img = frame.img;
+            const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+            const iw0 = aspect >= 1 ? s : s * aspect, ih0 = aspect >= 1 ? s / aspect : s;
+            const off = L.frameOffsets?.[index] || {};
+            g.save(); g.globalAlpha *= opacity; g.translate((off.x || 0) * rx, (off.y || 0) * ry); g.rotate(((off.rotation ?? off.rot) || 0) * Math.PI * 2); g.scale(off.scale ?? 1, off.scale ?? 1);
+            g.drawImage(img, -iw0 * breathe / 2, -ih0 * breathe / 2, iw0 * breathe, ih0 * breathe); g.restore();
+          };
+          drawFrame(blend.available[blend.from], 1 - blend.alpha);
+          if (blend.alpha > 0 && blend.to !== blend.from) drawFrame(blend.available[blend.to], blend.alpha);
+        } else {
+          const img = rec.img, aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+          const iw0 = aspect >= 1 ? s : s * aspect, ih0 = aspect >= 1 ? s / aspect : s;
+          const iw = iw0 * breathe, ih = ih0 * breathe;
+          g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+          if (L.glint) {
+            const period = 3.4 + (p.ph % 2.4);
+            const cycle = (time + p.ph * 1.7) % period;
+            if (cycle < 0.28) {
+              const k = cycle / 0.28;
+              g.beginPath(); g.rect(-iw / 2, -ih / 2, iw, ih); g.clip();
+              g.globalCompositeOperation = "lighter";
+              g.globalAlpha = Math.min(1, alpha * (L.a ?? 1)) * Math.sin(k * Math.PI);
+              g.strokeStyle = "#ffffff"; g.lineWidth = Math.max(1.1, s * 0.07);
+              g.beginPath(); g.moveTo(-iw / 2, -ih / 2 + ih * k); g.lineTo(iw / 2, -ih / 2 + ih * k + ih * 0.18); g.stroke();
+              const hs = Math.max(4, s * 0.28);
+              g.drawImage(glowSprite("#ffffff"), -hs, -ih / 2 + ih * k - hs, hs * 2, hs * 2);
+            }
           }
         }
         g.restore(); break;
@@ -575,6 +670,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.4);
         g.fillStyle = p.c; g.beginPath(); g.ellipse(0, 0, s * 0.42, s * 1.55, 0, 0, Math.PI * 2); g.fill();
         g.restore(); break;
+      }
+      case "ash": case "feather": case "bonechip": case "coin": case "crescent": case "pulse": case "sandgrain": case "chainlink": {
+        drawNewParticleShape(g, L.shape, p, x, y, time); break;
       }
       default: { // bubble ring
         g.strokeStyle = p.c; g.lineWidth = Math.max(0.7, s * 0.3); g.beginPath(); g.arc(x, y, s, 0, Math.PI * 2); g.stroke();
@@ -648,13 +746,14 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const rot = time * (R.spin || 0.3);
         const lw = Math.max(w < 80 ? (R.w >= 3 ? 3.6 : 1.85) : 1.2, (R.w || 1.3) * unit);
         const a = Math.min(1, (R.a || 0.35) * breathe);
+        const ringColor = ringColorAt(R, time, api.reduce, c1);
         if (R.dash) g.setLineDash([5 * unit, 7 * unit]);
         if (R.ink) {
           g.strokeStyle = "rgba(18,10,4,0.62)";
           g.lineWidth = lw + Math.max(1.4, unit * 1.15);
           g.beginPath(); g.ellipse(0, 0, rr, rr, rot, 0, Math.PI * 2); g.stroke();
         }
-        g.strokeStyle = rgba(R.c || c1, a);
+        g.strokeStyle = rgba(ringColor, a);
         g.lineWidth = lw;
         g.beginPath(); g.ellipse(0, 0, rr, rr, rot, 0, Math.PI * 2); g.stroke();
         g.setLineDash([]);
@@ -668,7 +767,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
               g.strokeStyle = "rgba(18,10,4,0.55)"; g.lineWidth = Math.max(1.3, unit * 1.05);
               g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
             }
-            g.strokeStyle = rgba(R.c || c1, a);
+            g.strokeStyle = rgba(ringColor, a);
             g.lineWidth = Math.max(0.85, unit * 0.85);
             g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
           }

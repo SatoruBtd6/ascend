@@ -51,7 +51,7 @@ export const URGENT_SAVE = ["meals", "workouts", "weightLog", "presets", "savedF
 
 /* ---------- App ---------- */
 // Bump with every update so it's easy to confirm which version is live (Settings shows it)
-export const APP_VERSION = "7f.2";
+export const APP_VERSION = "7g";
 export function stateSizeKb(obj) {
   try {
     const n = JSON.stringify(obj || {}).length;

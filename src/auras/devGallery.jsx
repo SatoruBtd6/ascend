@@ -1,7 +1,7 @@
 // Dev-only aura tuning gallery. Loaded from a DEV branch in Auth so production builds drop this module.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { resolveAuraAnchors } from "./anchors.js";
-import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver } from "./AuraCanvas.jsx";
+import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape } from "./AuraCanvas.jsx";
 import { AURAS } from "./catalog.js";
 import { cloneSpec, formatAuraEntry, setPath, specFields } from "./specFormat.js";
 import { C, applyTheme } from "../theme.js";
@@ -23,6 +23,17 @@ for (let tier = 0; tier < TIER_IDS.length; tier++) {
   }
 }
 
+const SHAPE_SHEET = {
+  ash: "#9CA3AF",
+  feather: "#F8FAFC",
+  bonechip: "#F0EAD2",
+  coin: "#FFD447",
+  crescent: "#FFF1B8",
+  pulse: "#7DF9FF",
+  sandgrain: "#E8C872",
+  chainlink: "#CBD5E1",
+};
+
 const FLAG_KEYS = new Set(["flip", "even", "behind", "tw", "bob", "dash", "ink", "dark", "flash", "strike", "calm", "breathe", "glint", "over", "top", "flick", "fan", "artLate"]);
 const HEAD_FROM_EYE = 22.5 / 9;
 
@@ -32,6 +43,8 @@ function sliderRange(path, value) {
   if (FLAG_KEYS.has(key)) return { min: 0, max: 1, step: 1 };
   if (key === "spd") return { min: 0, max: 8, step: 0.01 };
   if (key === "glow" || key === "a" || key === "flashPeak") return { min: 0, max: 1.5, step: 0.01 };
+  if (key === "frameDuration" || key === "fadeLen") return { min: 0, max: 1, step: 0.01 };
+  if (key === "cyclePeriod") return { min: 0.5, max: 10, step: 0.1 };
   const abs = Math.abs(value);
   const neg = value < 0;
   if (Number.isInteger(value) && abs >= 2) return { min: neg ? -Math.ceil(abs * 3) : 0, max: Math.max(4, Math.ceil(abs * 3)), step: 1 };
@@ -213,6 +226,7 @@ function ImagePlacement({ layer, index, onLayer }) {
   const scale = layerScale(layer);
   const single = layer.n === 1;
   const xy = single ? orbitXY(layer) : { x: layer.x || 0, y: layer.y || 0 };
+  const isFrameAnim = layer.frames && layer.frames.length > 0;
   return (
     <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{shoulders ? "Pauldrons" : `Image layer ${index + 1}`}</div>
@@ -222,6 +236,40 @@ function ImagePlacement({ layer, index, onLayer }) {
       {!shoulders && <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => onLayer(withOptional(layer, "rot", v))} />}
       {!shoulders && <NumSlider label="flip" value={layer.flip ? 1 : 0} min={0} max={1} step={1} onChange={(v) => onLayer(withOptional(layer, "flip", v))} />}
       {!single && <div style={{ fontSize: 10, color: C.mute }}>x and y shift every image in this layer. 1 is one ring radius.</div>}
+      {isFrameAnim && (
+        <>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>Frame animation</div>
+          <NumSlider label="frameDuration" value={layer.frameDuration || 0.12} min={0.01} max={1} step={0.01} onChange={(v) => onLayer(withOptional(layer, "frameDuration", v))} />
+          <NumSlider label="fadeLen" value={layer.fadeLen || 0.12} min={0} max={0.5} step={0.01} onChange={(v) => onLayer(withOptional(layer, "fadeLen", v))} />
+          <div style={{ fontSize: 10, color: C.mute }}>
+            <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              Mode: <select value={layer.frameMode || "loop"} onChange={(e) => onLayer(withOptional(layer, "frameMode", e.target.value))} style={{ fontSize: 10 }}>
+                <option value="loop">loop</option>
+                <option value="pingpong">pingpong</option>
+              </select>
+            </label>
+          </div>
+          {layer.frames.map((src, frameIndex) => {
+            const offset = layer.frameOffsets?.[frameIndex] || {};
+            const updateOffset = (key, value) => {
+              const next = cloneSpec(layer);
+              next.frameOffsets = [...(next.frameOffsets || [])];
+              while (next.frameOffsets.length < next.frames.length) next.frameOffsets.push({});
+              next.frameOffsets[frameIndex] = { ...next.frameOffsets[frameIndex], [key]: value };
+              onLayer(next);
+            };
+            return (
+              <div key={`${src}:${frameIndex}`} style={{ display: "grid", gap: 3, paddingTop: 4, borderTop: `1px dashed ${C.border}` }}>
+                <div title={src} style={{ fontSize: 10, color: C.mute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Frame {frameIndex + 1}: {src}</div>
+                <NumSlider label="offset x" value={offset.x || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("x", v)} />
+                <NumSlider label="offset y" value={offset.y || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("y", v)} />
+                <NumSlider label="offset scale" value={offset.scale ?? 1} min={0.02} max={4} step={0.01} onChange={(v) => updateOffset("scale", v)} />
+                <NumSlider label="offset rotation" value={offset.rotation || 0} min={-1} max={1} step={0.01} onChange={(v) => updateOffset("rotation", v)} />
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
@@ -250,6 +298,26 @@ function SpecEditor({ spec, onPath, onLayer }) {
           <NumSlider key={label} label={label} value={field.value} min={range.min} max={range.max} step={range.step} onChange={(v) => onPath(field.path, v)} />
         );
       })}
+    </div>
+  );
+}
+
+function ShapeCell({ shape, color }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const g = canvas?.getContext("2d");
+    if (!g) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = 160 * dpr; canvas.height = 160 * dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const particle = { sz: 17, c: color, rot: -0.35, ph: 0.8, age: 0.45, life: 1, ang: 0.4, w: 0.3, ashBlobs: [[-0.22, -0.08, 0.34], [0.18, 0.12, 0.28], [0.02, 0.28, 0.22]] };
+    drawNewParticleShape(g, shape, particle, 80, 80, 0.8);
+  }, [shape, color]);
+  return (
+    <div style={{ textAlign: "center" }}>
+      <canvas ref={ref} width={160} height={160} style={{ width: 160, height: 160, margin: "0 auto", background: "rgba(0,0,0,0.3)", borderRadius: 12 }} />
+      <div style={{ marginTop: 6, fontSize: 11, color: C.text }}>{shape}</div>
     </div>
   );
 }
@@ -324,6 +392,7 @@ export function DevAuraGallery() {
   const [drafts, setDrafts] = useState({});
   const [revs, setRevs] = useState({});
   const [copied, setCopied] = useState("");
+  const [showShapes, setShowShapes] = useState(false);
   const barRef = useRef(null);
   const [barH, setBarH] = useState(64);
 
@@ -475,6 +544,7 @@ export function DevAuraGallery() {
           <input id="aura-anchors" type="checkbox" checked={showAnchors} onChange={(e) => setShowAnchors(e.target.checked)} />
           Anchors
         </label>
+        <button type="button" onClick={() => setShowShapes(!showShapes)} style={{ ...chip(showShapes), fontSize: 12 }}>{showShapes ? "Hide shapes" : "Show shapes"}</button>
         {showAnchors && <span style={{ fontSize: 11, color: C.mute }}>Head circle, shoulder line, torso cross</span>}
         <span style={{ fontSize: 11, color: C.mute }}>Preview only. Nothing is saved.</span>
       </div>
@@ -529,6 +599,27 @@ export function DevAuraGallery() {
               <div style={{ fontSize: 10, color: C.dim }}>{aura.rarity || aura.group} · {aura.id}</div>
             </button>
           ))}
+        </div>
+      )}
+      {showShapes && (
+        <div style={{
+          position: "fixed",
+          top: barH + 12,
+          left: 12,
+          right: 12,
+          bottom: 88,
+          background: C.bg,
+          zIndex: 40,
+          padding: 16,
+          overflow: "auto",
+          border: `1px solid ${C.border}`,
+          borderRadius: 12,
+        }}>
+          <button type="button" onClick={() => setShowShapes(false)} style={{ ...chip(false), marginBottom: 12 }}>Close</button>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>New particle shapes</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12 }}>
+            {Object.entries(SHAPE_SHEET).map(([shape, color]) => <ShapeCell key={shape} shape={shape} color={color} />)}
+          </div>
         </div>
       )}
       <PerfHud />
