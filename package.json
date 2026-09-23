@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/math.test.mjs src/diag.test.mjs src/run.test.mjs tests/steps.test.mjs src/auras/boltClock.test.mjs src/auras/anchors.test.mjs src/auras/specFormat.test.mjs src/tabs/settings/onboardingWeight.test.mjs"
+    "test": "node --test src/math.test.mjs src/diag.test.mjs src/run.test.mjs tests/steps.test.mjs src/auras/boltClock.test.mjs src/auras/anchors.test.mjs src/auras/specFormat.test.mjs src/tabs/settings/onboardingWeight.test.mjs src/tabs/train/setUndo.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

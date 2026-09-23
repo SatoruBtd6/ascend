@@ -206,7 +206,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
       <div className="body text-xs text-center" style={{ color: C.mute }}>State {saveDiag?.kb ?? 0} KB{saveDiag?.ms != null ? ` · last save ${saveDiag.ms} ms` : ""}</div>
       {diagOn && (
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7f.1" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
+          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7f.2" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
           <button type="button" onClick={() => { D.clear(); setDiagCopied(false); }} className="ghost py-3 text-sm font-bold">Clear</button>
         </div>
       )}

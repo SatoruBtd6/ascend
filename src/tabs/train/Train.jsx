@@ -8,6 +8,7 @@ import { computeBests, workoutXp, workoutRecap, addWorkout, prNote, overallInfo,
 import { today, fmtDay, uid } from "../../lib/dates.js";
 import { ask } from "../../lib/ask.js";
 import { Title, Empty, Sheet } from "../../ui/primitives.jsx";
+import { UndoToast } from "../../ui/UndoToast.jsx";
 import { SaveMark } from "../../ui/SaveMark.jsx";
 import { NumField } from "../../ui/NumField.jsx";
 import { DiagProbe } from "../../ui/DiagProbe.jsx";
@@ -30,6 +31,7 @@ import { juice } from "./juice.js";
 import { SFX } from "./sfx.js";
 import { Beeper } from "./beeper.js";
 import { noteRaidHitFor } from "./raidIO.js";
+import { deleteSetAt, restoreSetAt } from "./setUndo.js";
 import { applyPrXpRecount } from "./xpRecount.js";
 import { XpSync } from "../../lib/xpSync.js";
 export function Train({ s, setS, gainXp, openRun }) {
@@ -54,6 +56,8 @@ export function Train({ s, setS, gainXp, openRun }) {
   const [formResults, setFormResults] = useState({});
   const [formSheet, setFormSheet] = useState(null);
   const [wuOpen, setWuOpen] = useState(false);
+  const [setUndo, setSetUndo] = useState(null);
+  const undoSeq = useRef(0);
   const doneTapRef = useRef({});
   const setHintKey = () => `ascend-set-type-hint:${typeof window !== "undefined" ? (window.ascendUserId || "anon") : "anon"}`;
   const [setHint, setSetHint] = useState(() => { try { return localStorage.getItem(setHintKey()) !== "1"; } catch { return true; } });
@@ -283,7 +287,16 @@ export function Train({ s, setS, gainXp, openRun }) {
         const prev = lastSets(ex.name);
         const past = pastSessions(s, ex.name, a.editId, 3);
         const upd = (si, patch) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.map((st, j) => j !== si ? st : { ...st, ...patch }) }) }));
-        const delSet = (si) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.filter((_, j) => j !== si) }) }));
+        const delSet = (si) => {
+          const st = ex.sets[si];
+          if (!st) return;
+          const snapshot = { ...st };
+          setActive((w) => {
+            const cut = deleteSetAt(w.exercises, ei, si);
+            return cut ? { ...w, exercises: cut.exercises } : w;
+          });
+          setSetUndo({ id: ++undoSeq.current, session: a.editId || a.start, label: `Deleted ${ex.name} · ${setLabel(def, snapshot)}`, ei, si, set: snapshot });
+        };
         const cols = showW ? "40px 1fr 1fr 1fr 40px 40px" : "40px 1fr 1fr 40px 40px";
         const mode = ex.wMode || (def.perHand ? "hand" : "total");
         const sg = suggestNext(s, ex.name, a.editId, stalled);
@@ -417,6 +430,19 @@ export function Train({ s, setS, gainXp, openRun }) {
 
       <button onClick={() => setPicker(true)} className="w-full py-3 font-semibold flex items-center justify-center gap-2" style={{ border: `1px dashed ${C.blue}`, color: C.cyan, borderRadius: 4, scrollMarginBottom: "calc(env(safe-area-inset-bottom) + 168px)" }}><Plus size={18} />Add exercise</button>
 
+      <UndoToast
+        notice={setUndo && setUndo.session === (a.editId || a.start) ? setUndo : null}
+        onUndo={() => {
+          const cur = setUndo;
+          if (!cur) return;
+          setSetUndo(null);
+          setActive((w) => {
+            if (!w || (w.editId || w.start) !== cur.session) return w;
+            return { ...w, exercises: restoreSetAt(w.exercises, cur) };
+          });
+        }}
+        onDismiss={() => setSetUndo(null)}
+      />
       <RestDock />
       {plates && <PlateSheet weight={plates.w} onClose={() => setPlates(null)} />}
       {formSheet && (
