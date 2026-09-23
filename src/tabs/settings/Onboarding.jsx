@@ -6,6 +6,7 @@ import { C } from "../../theme.js";
 import { NumField } from "../../ui/NumField.jsx";
 import { Avatar } from "../profile/Avatar.jsx";
 import { seasonKey } from "../profile/season.js";
+import { logTutorialWeight } from "./onboardingWeight.js";
 export function Onboarding({ s, setS, step, onNext }) {
   const p = s.profile;
   const set = (k, v) => setS((x) => ({ ...x, profile: { ...x.profile, [k]: v } }));
@@ -55,7 +56,7 @@ export function Onboarding({ s, setS, step, onNext }) {
           <label className="col-span-2">Training now<select className="inp mt-1" value={p.activity} onChange={(e) => set("activity", +e.target.value)}>{ACTIVITY.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
           <label className="col-span-2">Goal<select className="inp mt-1" value={p.goal} onChange={(e) => set("goal", e.target.value)}>{GOALS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>
         </div>
-        <button onClick={() => { setS((x) => ({ ...x, weightLog: { ...(x.weightLog || {}), [today()]: +x.profile.weight || 170 } })); onNext(); }} className="btn w-full py-3">Save stats</button>
+        <button onClick={() => { setS((x) => { const next = logTutorialWeight(x.weightLog, today(), x.profile.weight); return next === x.weightLog ? x : { ...x, weightLog: next }; }); onNext(); }} className="btn w-full py-3">Save stats</button>
       </div>,
     );
   }
