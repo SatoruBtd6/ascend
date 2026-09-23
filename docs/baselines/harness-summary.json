@@ -1,0 +1,253 @@
+{
+  "at": "2026-09-23T00:50:59.259Z",
+  "base": "http://127.0.0.1:5174",
+  "version": "7c",
+  "noDiag": false,
+  "tapsOnly": false,
+  "chudOnly": true,
+  "runs": [
+    {
+      "account": "chud",
+      "rate": 6,
+      "taps": {
+        "ok": 100,
+        "miss": 0,
+        "n": 16,
+        "ms": 45116,
+        "fallbackCount": 0,
+        "fallbacks": []
+      },
+      "fuel": [
+        {
+          "label": "chud cpu6 food-search",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 2927,
+          "worstFrameGap": 84,
+          "ms": 5590
+        },
+        {
+          "label": "chud cpu6 servings",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "123456789012345678901234567890123456789012345678901234567890",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 2070,
+          "worstFrameGap": 83,
+          "ms": 3796
+        },
+        {
+          "label": "chud cpu6 meal-name",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1905,
+          "worstFrameGap": 17,
+          "ms": 3684
+        },
+        {
+          "label": "chud cpu6 meal-desc",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1943,
+          "worstFrameGap": 17,
+          "ms": 3738
+        },
+        {
+          "label": "chud cpu6 ing-search",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1933,
+          "worstFrameGap": 33,
+          "ms": 3759
+        },
+        {
+          "label": "chud cpu6 ing-qty",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "123456789012345678901234567890123456789012345678901234567890",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1773,
+          "worstFrameGap": 17,
+          "ms": 3434
+        },
+        {
+          "label": "chud cpu6 tpl-name",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1931,
+          "worstFrameGap": 50,
+          "ms": 3987
+        }
+      ],
+      "header": {
+        "k": "header",
+        "v": "7e.1",
+        "sw": "",
+        "uid": 36,
+        "n": 2662,
+        "t": 1790124757996
+      },
+      "perf": {
+        "frames": 2326,
+        "stallN": 72,
+        "stallMax": 283,
+        "rps": {
+          "App": 5,
+          "Train": 5,
+          "Fuel": 0
+        },
+        "counts": {
+          "App": 224,
+          "Train": 218,
+          "Fuel": 0
+        }
+      }
+    },
+    {
+      "account": "chud",
+      "rate": 4,
+      "taps": {
+        "ok": 100,
+        "miss": 0,
+        "n": 16,
+        "ms": 39175,
+        "fallbackCount": 0,
+        "fallbacks": []
+      },
+      "fuel": [
+        {
+          "label": "chud cpu4 food-search",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 2046,
+          "worstFrameGap": 50,
+          "ms": 4130
+        },
+        {
+          "label": "chud cpu4 servings",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "123456789012345678901234567890123456789012345678901234567890",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1556,
+          "worstFrameGap": 67,
+          "ms": 2970
+        },
+        {
+          "label": "chud cpu4 meal-name",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1479,
+          "worstFrameGap": 17,
+          "ms": 2911
+        },
+        {
+          "label": "chud cpu4 meal-desc",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1541,
+          "worstFrameGap": 17,
+          "ms": 2964
+        },
+        {
+          "label": "chud cpu4 ing-search",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1563,
+          "worstFrameGap": 17,
+          "ms": 3046
+        },
+        {
+          "label": "chud cpu4 ing-qty",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "123456789012345678901234567890123456789012345678901234567890",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1401,
+          "worstFrameGap": 17,
+          "ms": 2664
+        },
+        {
+          "label": "chud cpu4 tpl-name",
+          "typedLen": 60,
+          "afterTypeLen": 60,
+          "afterType": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12345678",
+          "afterDel": "",
+          "typeOk": true,
+          "delOk": true,
+          "worstKeyGap": 1636,
+          "worstFrameGap": 33,
+          "ms": 3153
+        }
+      ],
+      "header": {
+        "k": "header",
+        "v": "7e.1",
+        "sw": "",
+        "uid": 36,
+        "n": 2631,
+        "t": 1790124834846
+      },
+      "perf": {
+        "frames": 2225,
+        "stallN": 4,
+        "stallMax": 133,
+        "rps": {
+          "App": 6,
+          "Train": 6,
+          "Fuel": 0
+        },
+        "counts": {
+          "App": 230,
+          "Train": 218,
+          "Fuel": 0
+        }
+      }
+    }
+  ],
+  "failures": []
+}

@@ -5,4 +5,7 @@ dist
 .env*
 !.env.example
 tmp-diag/
+# Checked-in harness summary and screenshots. tmp-diag/ stays ignored.
+!/docs/baselines/
+!/docs/baselines/**
 .vercel
