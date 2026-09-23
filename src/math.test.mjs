@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -478,6 +478,46 @@ test("raid hits only count at the gym; 3 at-gym logs clear", () => {
   assert.equal(r.cleared, false);
   r = applyRaidAction(r, "hit", { playerId: "c", presence: pres, now: 13 + RAID_COUNTDOWN_MS, workout: { volume: 9 } }).raid;
   assert.equal(r.cleared, true);
+});
+
+test("cleared raids archive once per start and misses reconcile for contributors only", () => {
+  let r = propose();
+  const pres = at(["a", "b", "c", "d"]);
+  ["a", "b", "c"].forEach((id, i) => { r = applyRaidAction(r, "ready", { playerId: id, presence: pres, now: i + 1 }).raid; });
+  r = tickRaid(r, { now: 10 + RAID_COUNTDOWN_MS, presence: pres });
+  ["a", "b", "c"].forEach((id, i) => { r = applyRaidAction(r, "hit", { playerId: id, presence: pres, now: 11 + i + RAID_COUNTDOWN_MS, workout: { volume: 9 } }).raid; });
+  assert.equal(r.cleared, true);
+
+  let hist = archiveRaidClear(null, r);
+  assert.equal(hist.clears.length, 1);
+  assert.deepEqual(Object.keys(hist.clears[0].hits).sort(), ["a", "b", "c"]);
+  assert.equal(archiveRaidClear(hist, r).clears.length, 1); // deduped by start
+  assert.equal(archiveRaidClear(hist, { ...r, cleared: false }), hist); // nothing to archive
+
+  // "d" never hit this raid -> no credit; "b" hit it but has no xpDone yet -> missed
+  const dState = { playerId: "d", xpDone: {} };
+  assert.equal(missedRaidClears(dState, "ABC", hist).length, 0);
+  const bState = { playerId: "b", xpDone: {} };
+  const missed = missedRaidClears(bState, "ABC", hist);
+  assert.equal(missed.length, 1);
+  assert.equal(missed[0].start, r.start);
+  const credited = { playerId: "b", xpDone: { [`raid_ABC_${r.start}`]: 1 } };
+  assert.equal(missedRaidClears(credited, "ABC", hist).length, 0);
+});
+
+test("countRaidClears counts real crew clears and skips ghost LOCAL raids", () => {
+  const s = { xpDone: { "raid_ABC_1": 1, "raid_DEF_2": 1, "raid_LOCAL_3": 1, "x_other": 1 } };
+  assert.equal(countRaidClears(s), 2);
+  assert.equal(countRaidClears({}), 0);
+});
+
+test("raids10 feat task unlocks Standard-Bearer at 10 clears and reports progress", () => {
+  const xpDone = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`raid_CREW_${i}`, 1]));
+  assert.equal(AURA_TASKS.raids10({ xpDone }).done, true);
+  const partial = AURA_TASKS.raids10({ xpDone: { raid_CREW_1: 1, raid_CREW_2: 1 } });
+  assert.equal(partial.done, false);
+  assert.equal(partial.v, 2);
+  assert.equal(partial.label, "Crew raids cleared 2 / 10");
 });
 
 const REF = { weight: 170, height: 70, age: 25, sex: "m", activity: 1.55, goal: "lean" };
@@ -1181,6 +1221,7 @@ import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
 import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements } from "./lib/stats.js";
 import { cardScore, selfScore } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
+import { AURA_TASKS } from "./tabs/profile/unlock.js";
 
 const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-9, `${label || ""} ${a} vs ${b}`);
 function creditFind(s, name) {

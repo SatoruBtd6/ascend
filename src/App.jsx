@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, pendingKey } from "./math.js";
+import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, pendingKey, missedRaidClears, RAID_XP } from "./math.js";
 import { Shield, Bot, Copy, Dumbbell, Swords, Utensils, User, CalendarDays, Crown } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
@@ -23,6 +23,7 @@ import { applyPrXpRecount, XP_VERSION } from "./tabs/train/xpRecount.js";
 import { XpSync } from "./lib/xpSync.js";
 import { loadLive, saveLive } from "./tabs/run/live.js";
 import { mergeSteps } from "./tabs/run/mergeSteps.js";
+import { readRaidHist } from "./tabs/train/raidIO.js";
 import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHub, Board, ProfilePage, SettingsPage, Assistant, IntervalTimer, CardDeck, Confetti, Onboarding, XpLedger, LazyBoundary, UpdateBanner, prefetchScreens, useSwReady, useBanner } from "./screenLoad.jsx";
 
 
@@ -770,7 +771,25 @@ export default function App() {
     fresh.forEach((a) => postFeed(s, "ach", `unlocked the ${a.name} aura`, {}, `aura_${a.id}`));
     const t = setTimeout(() => setToast(null), 3200);
     return () => clearTimeout(t);
-  }, [loaded, s.workouts, s.steps]);
+  }, [loaded, s.workouts, s.days, s.steps, s.auraUnlocks, s.xpDone]);
+
+  // Raid clears are archived per crew; reconcile ones this account missed while
+  // away so they count toward XP and the Standard-Bearer feat aura.
+  useEffect(() => {
+    if (!loaded || !s.crew?.code || s.test) return;
+    let stop = false;
+    const go = async () => {
+      try {
+        const hist = await readRaidHist(s.crew.code);
+        if (stop) return;
+        missedRaidClears(sRef.current, s.crew.code, hist).forEach((c) => gainXp(RAID_XP, "Raid night clear", `raid_${s.crew.code}_${c.start}`));
+      } catch { /* offline */ }
+    };
+    const t = setTimeout(go, 2600);
+    const v = () => document.visibilityState === "visible" && go();
+    document.addEventListener("visibilitychange", v);
+    return () => { stop = true; clearTimeout(t); document.removeEventListener("visibilitychange", v); };
+  }, [loaded, s.crew?.code]);
 
   // Rank-up ceremony: compare current tiers to the last snapshot
   useEffect(() => {

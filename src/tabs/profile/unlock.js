@@ -1,7 +1,7 @@
 import { AURAS } from "../../auras/catalog.js";
 import { shift } from "../../lib/dates.js";
 import { activeDays, groupScores } from "../../lib/stats.js";
-import { stripGhostCosmeticsState } from "../../math.js";
+import { stripGhostCosmeticsState, countRaidClears } from "../../math.js";
 import { nemesisWins } from "./rivalryStats.js";
 import { backToBackSeasonFirsts, equippedTitle } from "./titles.js";
 export const BORDERS = [
@@ -27,6 +27,7 @@ export const AURA_TASKS = {
   weatherRun: (s) => { const hit = (s.workouts || []).some((w) => w.run?.wx && (w.run.wx.wet || w.run.wx.t <= 40)); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Braved the weather" : "Runs record the weather where you start" }; },
   dawn: (s) => { const hit = (s.workouts || []).some((w) => { if (!w.startedAt) return false; const h = new Date(w.startedAt).getHours(); return h >= 4 && h < 6; }); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Up before the sun" : "Counts from when you tap Start" }; },
   steps7: (s) => { const v = longestRun(Object.keys(s.steps || {}).filter((d) => (+s.steps[d] || 0) >= 10000)); return { done: v >= 7, v: Math.min(v, 7), goal: 7, label: `Best run ${Math.min(v, 7)} / 7 days at 10k` }; },
+  raids10: (s) => { const v = countRaidClears(s); return { done: v >= 10, v: Math.min(v, 10), goal: 10, label: `Crew raids cleared ${Math.min(v, 10)} / 10` }; },
 };
 export function unlocked(item, s) {
   if (item.id === "none") return true;

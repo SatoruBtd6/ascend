@@ -8,12 +8,16 @@ import { C, applyTheme } from "../theme.js";
 import { Avatar } from "../tabs/profile/Avatar.jsx";
 import { TIER_IDS, physiqueSrc } from "../tabs/train/physique.js";
 
+// Circle stages use production Avatar -> AuraRing geometry so tuned values
+// clip exactly like the real app: canvas = round(avatar*1.45*1.28), ring
+// radius = avatar*1.45/2.7 (canvas/ring = 3.456), face = avatar (~0.54 canvas).
+const ringGeom = (avatar) => ({ avatar, cpx: Math.round(avatar * 1.45 * 1.28), ring: (avatar * 1.45) / 2.7 });
 const SIZES = [
-  { id: "32", label: "32 board", px: 32, ring: 32 / 2.7 },
-  { id: "76", label: "76 profile", px: 76, ring: 76 / 2.7 },
-  { id: "88", label: "88 studio", px: 88, ring: 28 },
-  { id: "160", label: "160 crate", px: 160, ring: 52 },
-  { id: "inspect", label: "inspect", px: 320, ring: 104 },
+  { id: "32", label: "32 board", px: 32, ...ringGeom(32) },
+  { id: "76", label: "76 profile", px: 76, ...ringGeom(76) },
+  { id: "88", label: "88 studio", px: 88, ...ringGeom(88) },
+  { id: "160", label: "160 crate", px: 160, ...ringGeom(160) },
+  { id: "inspect", label: "inspect", px: 320, ...ringGeom(172) },
 ];
 
 const FIGURES = [];
@@ -375,7 +379,7 @@ function AnchorOverlay({ w, h, mode, aura, ringR, figure, style }) {
 }
 
 function Face({ px, photo, letter }) {
-  const box = Math.max(16, Math.round(px * 0.62));
+  const box = Math.max(16, Math.round(px));
   if (photo) return <img src={photo} alt="" style={{ width: box, height: box, borderRadius: 999, objectFit: "cover", display: "block" }} />;
   return (
     <div style={{ width: box, height: box, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: C.accentBg, color: C.cyan, fontWeight: 700, fontSize: box * 0.42 }}>
@@ -384,8 +388,8 @@ function Face({ px, photo, letter }) {
   );
 }
 
-function CircleStage({ aura, px, ring, canvasKey, photo, letter, showAnchors }) {
-  const face = <Face px={px} photo={photo} letter={letter} />;
+function CircleStage({ aura, px, ring, facePx, canvasKey, photo, letter, showAnchors }) {
+  const face = <Face px={facePx} photo={photo} letter={letter} />;
   return (
     <div className="relative" style={{ width: px, height: px, margin: "0 auto" }}>
       {aura && aura !== "none" ? (
@@ -426,8 +430,9 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors }) {
   return (
     <CircleStage
       aura={aura}
-      px={size.px}
+      px={size.cpx}
       ring={size.ring}
+      facePx={size.avatar}
       canvasKey={canvasKey}
       photo={backdrop.kind === "photo" ? photo : null}
       letter="A"
@@ -1363,7 +1368,7 @@ export function DevAuraGallery() {
       ) : (
         <div style={{
           display: "grid",
-          gridTemplateColumns: `repeat(auto-fill, minmax(${Math.max(112, size.px + (backdrop.kind === "figure" ? 36 : 16))}px, 1fr))`,
+          gridTemplateColumns: `repeat(auto-fill, minmax(${Math.max(112, (backdrop.kind === "figure" ? size.px : size.cpx) + (backdrop.kind === "figure" ? 36 : 16))}px, 1fr))`,
           gap: 12,
           paddingTop: barH + 12,
           paddingRight: 12,

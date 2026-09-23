@@ -416,3 +416,17 @@ test("flame embers expand into the existing rise particle layer", () => {
   assert.ok(canvas.output.filter(([op]) => op === "drawImage").length >= 8);
   delete renderer.AURA_FX.__flameEmbers;
 });
+
+test("ironbound and standardbearer render without throwing in circle and body modes", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  for (const id of ["ironbound", "standardbearer"]) {
+    for (const mode of ["circle", "body"]) {
+      const canvas = stubRendererCanvas();
+      const inst = renderer.makeAura(canvas, { aura: id, w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40 });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `${id} ${mode}`);
+      assert.ok(canvas.output.some(([op]) => op === "drawImage"), `${id} ${mode} drew nothing`);
+    }
+  }
+});

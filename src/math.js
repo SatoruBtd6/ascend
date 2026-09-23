@@ -687,6 +687,28 @@ export function reconcileRaid(a, b) {
   };
 }
 
+// A cleared raid lives on `crewraid:<code>` only until the next proposal
+// replaces it, so contributors who weren't watching lose the clear. Cleared
+// raids are archived to `crewraidhist:<code>` (raidIO.casRaid) and reconciled
+// into xpDone on load / Crew visits.
+export function archiveRaidClear(hist, raid) {
+  if (!raid?.cleared || !raid.start || !Object.keys(raid.hits || {}).length) return hist || null;
+  const clears = [...(hist?.clears || [])];
+  if (clears.some((c) => c.start === raid.start)) return hist;
+  clears.push({ start: raid.start, hits: { ...(raid.hits || {}) } });
+  return { ...(hist || {}), clears: clears.slice(-200) };
+}
+// Clears this player contributed to but never got credit for.
+export function missedRaidClears(s, code, hist) {
+  if (!s?.playerId) return [];
+  return (hist?.clears || []).filter((c) => c.hits?.[s.playerId] && !s.xpDone?.[`raid_${code}_${c.start}`]);
+}
+// Standard-Bearer feat: crew raid clears the player helped finish. Ghost-crew
+// (LOCAL) clears are tester-only and don't count.
+export function countRaidClears(s) {
+  return Object.keys(s?.xpDone || {}).filter((k) => k.startsWith("raid_") && !k.startsWith("raid_LOCAL_")).length;
+}
+
 // Rank / calorie math. Male lines stay the original allometric curve; female lines use
 // group multipliers from FitnessCalcs male vs female elite bodyweight ratios
 // (https://fitnesscalcs.com/reference/strength-standards-table/).

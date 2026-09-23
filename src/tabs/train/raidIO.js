@@ -1,4 +1,4 @@
-import { applyRaidAction, reconcileRaid, prunePresence, RAID_NEED } from "../../math.js";
+import { applyRaidAction, reconcileRaid, archiveRaidClear, prunePresence, RAID_NEED } from "../../math.js";
 export function ghostBundle(s) {
   const pid = s.playerId || "me";
   if (s.ghost?.crew) return s.ghost;
@@ -48,6 +48,23 @@ export async function readRaid(code) {
 export async function writeRaid(code, rec) {
   try { await window.storage.set(`crewraid:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
 }
+export async function readRaidHist(code) {
+  try { const r = await window.storage.get(`crewraidhist:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
+}
+export async function writeRaidHist(code, rec) {
+  try { await window.storage.set(`crewraidhist:${code}`, JSON.stringify(rec), true); return true; } catch { return false; }
+}
+// Cleared raids get replaced by the next proposal, so each clear is archived
+// for contributors who weren't watching. Idempotent on raid.start.
+export async function archiveClearedRaid(code, raid) {
+  for (let i = 0; i < 6; i++) {
+    const hist = await readRaidHist(code);
+    const next = archiveRaidClear(hist, raid);
+    if (!next || next === hist) return;
+    next.rev = (hist?.rev || 0) + 1;
+    if (await writeRaidHist(code, next)) return;
+  }
+}
 export async function casRaid(code, action, ctx) {
   if (ctx.ghostMode) {
     const { ok, raid, reason } = applyRaidAction(ctx.ghostRaid, action, ctx);
@@ -62,10 +79,16 @@ export async function casRaid(code, action, ctx) {
       const merged = reconcileRaid(raid, latest);
       const again = applyRaidAction(merged, action, ctx);
       const out = again.ok ? again.raid : merged;
-      if (await writeRaid(code, out)) return { ok: true, raid: out };
+      if (await writeRaid(code, out)) {
+        [remote, latest, out].forEach((r) => { if (r?.cleared) archiveClearedRaid(code, r).catch(() => {}); });
+        return { ok: true, raid: out };
+      }
       continue;
     }
-    if (await writeRaid(code, raid)) return { ok: true, raid };
+    if (await writeRaid(code, raid)) {
+      [remote, raid].forEach((r) => { if (r?.cleared) archiveClearedRaid(code, r).catch(() => {}); });
+      return { ok: true, raid };
+    }
   }
   return { ok: false, reason: "busy", raid: null };
 }

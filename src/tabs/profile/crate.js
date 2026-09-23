@@ -44,6 +44,7 @@ export const CRATES = [
       { rarity: "epic", type: "aura", id: "stormstep", name: "Stormstep", flavor: "Thunder without warning." },
       { rarity: "epic", type: "aura", id: "zeropoint", name: "Zero Point", flavor: "The air freezes first." },
       { rarity: "epic", type: "aura", id: "ninetail", name: "Ninetail", flavor: "Nine flames answer as one." },
+      { rarity: "epic", type: "aura", id: "ironbound", name: "Ironbound", flavor: "The chains remember every rep." },
       { rarity: "legendary", type: "aura", id: "crownfall", name: "Redline", flavor: "Power beyond the gauge." },
       { rarity: "legendary", type: "aura", id: "ledger", name: "The Ledger", flavor: "Every debt is written." },
       { rarity: "legendary", type: "aura", id: "bonewright", name: "Bonewright", flavor: "Pressure makes armour." },

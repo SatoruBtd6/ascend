@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { ask } from "../../lib/ask.js";
 import { today, weekStart } from "../../lib/dates.js";
-import { RAID_COUNTDOWN_MS, RAID_NEED, RAID_XP, applyRaidAction, canProposeRaid, crewQuestProgress, presenceActive, prunePresence, raidActive, raidCountdownLeft, raidPhase, tickRaid } from "../../math.js";
+import { RAID_COUNTDOWN_MS, RAID_NEED, RAID_XP, applyRaidAction, canProposeRaid, crewQuestProgress, missedRaidClears, presenceActive, prunePresence, raidActive, raidCountdownLeft, raidPhase, tickRaid } from "../../math.js";
 import { C } from "../../theme.js";
 import { Bar } from "../../ui/primitives.jsx";
 import { Avatar, FancyName } from "../profile/Avatar.jsx";
 import { profileCard } from "../profile/profileCard.js";
 import { CrewBanner } from "../profile/profileWidgets.jsx";
-import { casPres, casRaid, ghostBundle, patchGhost, readPres, readRaid } from "../train/raidIO.js";
+import { casPres, casRaid, ghostBundle, patchGhost, readPres, readRaid, readRaidHist } from "../train/raidIO.js";
 import { liveBoard } from "../train/social.js";
 import { crewCode, loadCrewRoster, readCrew, writeCrewMembership } from "./crewIO.js";
 import { fmtAgo, fmtHMS, getGps, locErrorText } from "./gymPresence.js";
@@ -277,10 +277,12 @@ export function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     let stop = false;
     const pull = async () => {
       try {
-        const [r, p] = await Promise.all([readRaid(mine.code), readPres(mine.code)]);
+        const [r, p, h] = await Promise.all([readRaid(mine.code), readPres(mine.code), readRaidHist(mine.code)]);
         if (stop) return;
         setRaid(r);
         setPres(p || { at: {} });
+        // Archived clears this account missed while away (deduped by gainXp's once-id)
+        missedRaidClears(s, mine.code, h).forEach((c) => gainXp?.(RAID_XP, "Raid night clear", `raid_${mine.code}_${c.start}`));
       } catch { /* */ }
     };
     pull();
