@@ -66,7 +66,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
   };
 
   const liveMine = profileCard(s);
-  const displayRows = overlayOwnBoardRow(rows, liveMine, s.playerId);
+  const displayRows = overlayOwnBoardRow(rows, liveMine, s.playerId, { lb: s.lb, test: s.test });
   const ws = weekStart();
   const mk = monthKey();
   const sk = seasonKey();

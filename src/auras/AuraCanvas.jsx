@@ -11,7 +11,7 @@ export const AURA_FX = {
   tide: { spd: 1, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2.4, 5.2] }, { k: "orbit", n: 16, shape: "dot", c: ["#38C6FF", "#2F6BFF"], w: [0.7, 1.2], r: [0.95, 1.18], sz: [1.8, 3.2], wave: 0.08 }] },
   storm: { spd: 1.35, glow: 0.58, bolts: { every: [0.8, 1.8], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 28, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.8, 2.8], r: [0.9, 1.22], sz: [1.3, 2.4] }, { k: "rise", n: 10, shape: "dot", c: ["#B14BFF", "#38C6FF"], sp: [16, 30], life: [0.8, 1.5], sz: [2, 4], sway: 8, a: 0.6 }] },
   inferno: { spd: 1.55, glow: 0.72, layers: [
-    { k: "orbit", n: 1, shape: "flame", c: ["#2F7BFF", "#7DD3FC", "#FFFFFF"], w: [0, 0], r: [1.05, 1.05], even: 1, at: 0.25, sz: [29.4, 29.4], tongues: [7, 7], flicker: 0.3, a: 0.68, behind: 1, circle: { sz: [62, 62] } },
+    { k: "orbit", n: 1, shape: "flame", c: ["#2F7BFF", "#7DD3FC", "#FFFFFF"], w: [0, 0], r: [1.05, 1.05], even: 1, at: 0.25, sz: [29.4, 29.4], tongues: [7, 7], flicker: 0.3, a: 0.68, behind: 1, circle: { sz: [1.05, 1.05] } },
     { k: "rise", n: 32, shape: "dot", c: ["#BFE9FF", "#7DD3FC", "#FFFFFF"], sp: [28, 54], life: [0.55, 1.15], sz: [3.2, 7.5], sway: 5, a: 0.85 },
     { k: "rise", n: 18, shape: "spark", c: ["#FFFFFF", "#7DD3FC", "#38BDF8"], sp: [42, 78], life: [0.5, 1.1], sz: [1.1, 2], sway: 16 },
   ] },
@@ -699,7 +699,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const spawn = (p, fresh) => {
       p.c = L.c ? pick(L.c) : "#ffffff";
       const raw = rnd(...range(L.sz, L.shape === "img" ? 0.8 : 2.5));
-      p.sz = L.shape === "emoji" ? raw : L.shape === "img" ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
+      p.sz = L.shape === "emoji" ? raw : L.shape === "img" || (L.shape === "flame" && mode !== "body" && L.circle) ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
       p.age = 0;
       p.rot = L.shape === "img" || L.shape === "flame" ? (L.rot || 0) * Math.PI * 2 : rnd(0, Math.PI * 2);
       p.vr = L.shape === "img" || L.shape === "flame" ? (L.spin || 0) * Math.PI * 2 : L.spin ? rnd(-3, 3) : rnd(-1, 1);

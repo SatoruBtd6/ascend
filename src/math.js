@@ -1392,8 +1392,8 @@ export function claimUnscopedPending(pending, playerId) {
   return pending.state.playerId === playerId;
 }
 
-export function overlayOwnBoardRow(rows, live, playerId) {
-  if (!playerId || !live) return rows || [];
+export function overlayOwnBoardRow(rows, live, playerId, flags = {}) {
+  if (!playerId || !live || !flags.lb || flags.test) return rows || [];
   const key = `lb:${playerId}`;
   const mine = { ...live, id: playerId, key };
   const others = (rows || []).filter((r) => r && r.key !== key && r.id !== playerId);

@@ -932,12 +932,22 @@ test("own Board row uses live s.xp and re-ranks against others", () => {
     { key: "lb:a", id: "a", name: "A", xp: 500 },
   ];
   const live = { name: "Me", xp: 100, xpV: 3 };
-  const got = overlayOwnBoardRow(rows, live, "me");
+  const got = overlayOwnBoardRow(rows, live, "me", { lb: true });
   assert.equal(got.find((r) => r.id === "me").xp, 100);
   assert.equal(got.find((r) => r.id === "a").xp, 500);
   const ranked = [...got].sort((a, b) => (b.xp || 0) - (a.xp || 0));
   assert.equal(ranked[0].id, "a");
   assert.equal(ranked[1].id, "me");
+});
+
+test("own Board row overlays only when joined and not in ghost mode", () => {
+  const rows = [{ key: "lb:a", id: "a", name: "A", xp: 500 }];
+  const live = { name: "Me", xp: 100, xpV: 3 };
+  const joined = overlayOwnBoardRow(rows, live, "me", { lb: true });
+  assert.equal(joined[0].id, "me");
+  assert.equal(joined.length, 2);
+  assert.deepEqual(overlayOwnBoardRow(rows, live, "me", { lb: false }), rows);
+  assert.deepEqual(overlayOwnBoardRow(rows, live, "me", { lb: true, test: true }), rows);
 });
 
 test("a card with xpV < 3 is marked, current cards are not", () => {
