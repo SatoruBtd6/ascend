@@ -11,7 +11,7 @@ export const AURA_FX = {
   tide: { spd: 1, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2.4, 5.2] }, { k: "orbit", n: 16, shape: "dot", c: ["#38C6FF", "#2F6BFF"], w: [0.7, 1.2], r: [0.95, 1.18], sz: [1.8, 3.2], wave: 0.08 }] },
   storm: { spd: 1.35, glow: 0.58, bolts: { every: [0.8, 1.8], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 28, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.8, 2.8], r: [0.9, 1.22], sz: [1.3, 2.4] }, { k: "rise", n: 10, shape: "dot", c: ["#B14BFF", "#38C6FF"], sp: [16, 30], life: [0.8, 1.5], sz: [2, 4], sway: 8, a: 0.6 }] },
   inferno: { spd: 1.55, glow: 0.72, layers: [
-    { k: "orbit", n: 1, shape: "flame", c: ["#2F7BFF", "#7DD3FC", "#FFFFFF"], w: [0, 0], r: [1.05, 1.05], even: 1, at: 0.25, sz: [29.4, 29.4], tongues: [7, 7], flicker: 0.3, a: 0.68, behind: 1 },
+    { k: "orbit", n: 1, shape: "flame", c: ["#2F7BFF", "#7DD3FC", "#FFFFFF"], w: [0, 0], r: [1.05, 1.05], even: 1, at: 0.25, sz: [29.4, 29.4], tongues: [7, 7], flicker: 0.3, a: 0.68, behind: 1, circle: { sz: [62, 62] } },
     { k: "rise", n: 32, shape: "dot", c: ["#BFE9FF", "#7DD3FC", "#FFFFFF"], sp: [28, 54], life: [0.55, 1.15], sz: [3.2, 7.5], sway: 5, a: 0.85 },
     { k: "rise", n: 18, shape: "spark", c: ["#FFFFFF", "#7DD3FC", "#38BDF8"], sp: [42, 78], life: [0.5, 1.1], sz: [1.1, 2], sway: 16 },
   ] },
@@ -672,12 +672,14 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   let particleBudget = 120;
   const layerSpecs = [];
   fx.layers.filter((L) => L.placed !== "shoulders").forEach((L) => {
-    layerSpecs.push(L);
-    if (L.shape === "flame" && L.embers) {
-      const embers = L.embers === true ? {} : L.embers;
+    // Per-mode override: `circle:` fields win everywhere except body/figure mode.
+    const eff = mode !== "body" && L.circle ? { ...L, ...L.circle } : L;
+    layerSpecs.push(eff);
+    if (eff.shape === "flame" && eff.embers) {
+      const embers = eff.embers === true ? {} : eff.embers;
       layerSpecs.push({
         k: "rise", shape: "ember", n: 8, c: ["#FFB43C", "#FFF6C9"], sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8,
-        ...embers, over: L.over, behind: L.behind,
+        ...embers, over: eff.over, behind: eff.behind,
       });
     }
   });

@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape } from "./AuraCanvas.jsx";
 import { AURAS } from "./catalog.js";
-import { cloneSpec, formatAuraEntry, setPath, specFields } from "./specFormat.js";
+import { cloneSpec, formatAuraEntry, specFields } from "./specFormat.js";
 import { C, applyTheme } from "../theme.js";
 import { Avatar } from "../tabs/profile/Avatar.jsx";
 import { TIER_IDS, physiqueSrc } from "../tabs/train/physique.js";
@@ -88,11 +88,16 @@ const SECTION_RANGES = {
   layers: { w: { min: -3, max: 3, step: 0.01 } },
 };
 
-function sliderRange(path, value) {
+// Shape-aware overrides: `sz` on a flame is silhouette px (up to ~150), on an
+// img layer it's a multiplier of the ring size (same range ImagePlacement uses).
+const SHAPE_SZ_RANGES = { flame: { min: 1, max: 150, step: 0.1 }, img: { min: 0.02, max: 4, step: 0.02 } };
+
+function sliderRange(path, value, shape) {
   const last = path[path.length - 1];
   const key = String(typeof last === "number" ? path[path.length - 2] : last);
   if (FLAG_KEYS.has(key)) return { min: 0, max: 1, step: 1 };
-  const named = SECTION_RANGES[String(path[0])]?.[key] || FIELD_RANGES[key];
+  let named = SECTION_RANGES[String(path[0])]?.[key] || FIELD_RANGES[key];
+  if (key === "sz" && SHAPE_SZ_RANGES[shape]) named = SHAPE_SZ_RANGES[shape];
   if (named) {
     // Never pin the current value outside the track — extend to fit it.
     const range = { ...named };
@@ -268,29 +273,65 @@ function FlagField({ label, checked, onChange }) {
 
 // Slider/color drags fire `input` at pointer rate — committing each one used to
 // remount the live canvas and re-render the whole editor ~60x/sec. Local state
-// keeps the thumb smooth; the parent sees at most one commit per COMMIT_MS.
+// keeps the thumb smooth; the parent sees at most one commit per COMMIT_MS, and
+// one per DRAG_MS while a drag is continuously in flight.
 const COMMIT_MS = 120;
+const DRAG_MS = 300;
+// Count of sliders currently mid-drag — the gallery renders a reduced-count
+// preview spec while >0 and restores the real spec on release.
+let liveDrags = 0;
+const PREVIEW_N_CAP = 24;
+function clampForPreview(spec) {
+  if (!spec || !Array.isArray(spec.layers)) return spec;
+  const next = cloneSpec(spec);
+  for (const L of next.layers) {
+    if (typeof L.n === "number" && L.n > PREVIEW_N_CAP) L.n = PREVIEW_N_CAP;
+    if (L.embers && typeof L.embers === "object" && typeof L.embers.n === "number" && L.embers.n > PREVIEW_N_CAP) L.embers.n = PREVIEW_N_CAP;
+    if (L.shadow && typeof L.shadow === "object" && typeof L.shadow.max === "number" && L.shadow.max > 8) L.shadow.max = 8;
+  }
+  return next;
+}
 function useLiveCommit(value, onChange) {
   const [live, setLive] = useState(null);
-  const refs = useRef({ timer: 0, pending: null, lastAt: 0, value, onChange });
+  const refs = useRef({ timer: 0, pending: null, lastAt: 0, active: false, value, onChange });
   refs.current.value = value;
   refs.current.onChange = onChange;
-  useEffect(() => () => clearTimeout(refs.current.timer), []);
-  const flush = () => {
+  useEffect(() => () => {
     clearTimeout(refs.current.timer);
+    if (refs.current.active) { refs.current.active = false; liveDrags = Math.max(0, liveDrags - 1); }
+  }, []);
+  // Timer path — commits the pending value but the drag is still in flight.
+  const commit = () => {
     refs.current.timer = 0;
     const v = refs.current.pending;
     refs.current.pending = null;
-    setLive(null);
     if (v == null || v === refs.current.value) return;
     refs.current.lastAt = performance.now();
     refs.current.onChange(v);
   };
+  // Release/blur path — ends the drag, then commits. The drag flag clears first
+  // so the release render restores the unclamped spec. If nothing new is pending
+  // we still ping onChange to force that restore remount.
+  const flush = () => {
+    clearTimeout(refs.current.timer);
+    refs.current.timer = 0;
+    const wasActive = refs.current.active;
+    if (wasActive) { refs.current.active = false; liveDrags = Math.max(0, liveDrags - 1); }
+    setLive(null);
+    const v = refs.current.pending;
+    if (v == null || v === refs.current.value) {
+      refs.current.pending = null;
+      if (wasActive) refs.current.onChange(refs.current.value);
+      return;
+    }
+    commit();
+  };
   const push = (v) => {
+    if (!refs.current.active) { refs.current.active = true; liveDrags += 1; }
     setLive(v);
     refs.current.pending = v;
-    const wait = Math.max(0, COMMIT_MS - (performance.now() - refs.current.lastAt));
-    if (!refs.current.timer) refs.current.timer = setTimeout(flush, wait);
+    const wait = Math.max(0, (refs.current.active ? DRAG_MS : COMMIT_MS) - (performance.now() - refs.current.lastAt));
+    if (!refs.current.timer) refs.current.timer = setTimeout(commit, wait);
   };
   return [live, push, flush];
 }
@@ -393,6 +434,38 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors }) {
       showAnchors={showAnchors}
     />
   );
+}
+
+// setPath can't create missing intermediate objects — circle override blocks
+// don't exist until first written.
+function setDeep(root, path, value) {
+  const next = cloneSpec(root);
+  let cur = next;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (cur[path[i]] == null) cur[path[i]] = typeof path[i + 1] === "number" ? [] : {};
+    cur = cur[path[i]];
+  }
+  cur[path[path.length - 1]] = value;
+  return next;
+}
+
+// Removes a key and prunes empty parents (e.g. deleting the last circle override).
+function deleteDeep(root, path) {
+  const next = cloneSpec(root);
+  const stack = [];
+  let cur = next;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (cur[path[i]] == null) return next;
+    stack.push([cur, path[i]]);
+    cur = cur[path[i]];
+  }
+  delete cur[path[path.length - 1]];
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const [parent, key] = stack[i];
+    if (parent[key] && typeof parent[key] === "object" && !Array.isArray(parent[key]) && Object.keys(parent[key]).length === 0) delete parent[key];
+    else break;
+  }
+  return next;
 }
 
 function rangePair(value, fallback) {
@@ -754,7 +827,7 @@ function BlendSelect({ label = "Blend mode", value, onChange }) {
 }
 
 // specFields() rebuilds field objects every render, so compare by value.
-const SpecField = memo(function SpecField({ field, section, onPath }) {
+const SpecField = memo(function SpecField({ field, section, onPath, shape }) {
   const label = fieldLabel(field, section);
   const key = field.path[field.path.length - 1];
   if (field.kind === "color") {
@@ -763,10 +836,10 @@ const SpecField = memo(function SpecField({ field, section, onPath }) {
   if (typeof key === "string" && key !== "jit" && FLAG_KEYS.has(key)) {
     return <FlagField label={label} checked={field.value} onChange={(v) => onPath(field.path, v)} />;
   }
-  const range = sliderRange(field.path, field.value);
+  const range = sliderRange(field.path, field.value, shape);
   return <NumSlider label={label} value={field.value} min={range.min} max={range.max} step={range.step} onChange={(v) => onPath(field.path, v)} />;
 }, (prev, next) =>
-  prev.section === next.section && prev.onPath === next.onPath &&
+  prev.section === next.section && prev.onPath === next.onPath && prev.shape === next.shape &&
   prev.field.kind === next.field.kind && prev.field.value === next.field.value &&
   prev.field.path.length === next.field.path.length &&
   prev.field.path.every((part, i) => part === next.field.path[i]));
@@ -780,19 +853,32 @@ function SpecSection({ title, children }) {
   );
 }
 
-function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
+// Layer keys that stay structural/shared — not overridable per render mode.
+const CIRCLE_LOCKED_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "circle"]);
+
+function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMode, onDelete }) {
   if (!spec) return <p style={{ color: C.dim, fontSize: 13 }}>This aura has no particle spec.</p>;
-  const rows = (spec.layers || []).map((layer, index) => ({ layer, index }));
+  // Circle mode edits against a merged view (base + layer.circle) so sliders
+  // show effective values; writes are redirected into the circle block.
+  const viewLayers = circleMode
+    ? (spec.layers || []).map((l) => { const v = { ...l, ...(l.circle || {}) }; delete v.circle; return v; })
+    : spec.layers || [];
+  const rows = viewLayers.map((layer, index) => ({ layer, index }));
+  const baseLayers = spec.layers || [];
+  const isOverridden = (i, key) => !!(baseLayers[i]?.circle && Object.prototype.hasOwnProperty.call(baseLayers[i].circle, key));
   const imgIndexes = new Set(rows.filter((row) => row.layer?.shape === "img").map((row) => row.index));
   const flameIndexes = new Set(rows.filter((row) => row.layer?.shape === "flame").map((row) => row.index));
-  const fields = specFields(spec).filter((field) => {
+  const fields = specFields(circleMode ? { layers: viewLayers } : spec).filter((field) => {
+    if (circleMode && field.path[0] !== "layers") return false; // only layer fields are per-mode
     if (field.path[0] === "layers") {
       const i = field.path[1], key = field.path[2];
-      if (imgIndexes.has(i)) {
+      if (key === "circle") return false; // managed via the Avatar-ring mode toggle
+      if (circleMode && CIRCLE_LOCKED_KEYS.has(key)) return false;
+      if (!circleMode && imgIndexes.has(i)) {
         if (DEDICATED_LAYER_FIELDS.has(key) || IMG_PLACEMENT_FIELDS.has(key)) return false;
         if (rows[i].layer.n === 1 && (key === "at" || key === "r")) return false;
       }
-      if (flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
+      if (!circleMode && flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
       if (isDeadField(rows[i].layer, key)) return false;
     }
     if (field.path[0] === "rings" && DEDICATED_RING_FIELDS.has(field.path[2])) return false;
@@ -818,11 +904,48 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
     onLayer(index, next);
   };
   // Stable callback so memoized SpecField rows skip unchanged controls.
+  // In circle mode, layer paths are rewritten into the layer's circle block.
   const onPathRef = useRef(onPath);
   onPathRef.current = onPath;
-  const stablePath = useCallback((p, v) => onPathRef.current(p, v), []);
+  const circleRef = useRef(circleMode);
+  circleRef.current = circleMode;
+  const baseRef = useRef(baseLayers);
+  baseRef.current = baseLayers;
+  const stablePath = useCallback((p, v) => {
+    if (circleRef.current && p[0] === "layers") {
+      const i = p[1], key = p[2];
+      // First write into a pair field seeds circle[key] with the base pair, so
+      // editing one end never produces a half-overridden [v] array.
+      if (p.length > 3 && baseRef.current?.[i]?.circle?.[key] == null && baseRef.current?.[i]?.[key] != null) {
+        onPathRef.current([p[0], i, "circle", key], cloneSpec(baseRef.current[i][key]));
+      }
+      onPathRef.current([p[0], i, "circle", ...p.slice(2)], v);
+      return;
+    }
+    onPathRef.current(p, v);
+  }, []);
+  const CircleField = ({ field }) => {
+    const key = field.path[2];
+    const over = isOverridden(field.path[1], key);
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><SpecField field={field} section="layer" onPath={stablePath} shape={layerShape(field)} /></div>
+        <span title={over ? "Overridden for avatar ring" : "Inherits base value"} style={{ fontSize: 11, width: 14, textAlign: "center", color: over ? C.cyan : C.mute }}>{over ? "●" : "○"}</span>
+        {over && <button type="button" title="Revert to base value" onClick={() => onDelete(["layers", field.path[1], "circle", key])} style={{ ...chip(false), padding: "0 6px", fontSize: 10 }}>×</button>}
+      </div>
+    );
+  };
+  const layerShape = (field) => field.path[0] === "layers" ? rows[field.path[1]]?.layer?.shape : undefined;
+  const layerFieldRow = (field) => circleMode
+    ? <CircleField key={field.path.join(".")} field={field} />
+    : <SpecField key={field.path.join(".")} field={field} section="layer" onPath={stablePath} shape={layerShape(field)} />;
   return (
     <div style={{ display: "grid", gap: 6 }}>
+      {circleMode && (
+        <div style={{ fontSize: 11, color: C.cyan, background: C.accentBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px" }}>
+          Editing <b>avatar-ring overrides</b> — these values apply only to the profile/ring view. ● = overridden, ○ = inherits base. The figure stage still shows the base spec.
+        </div>
+      )}
       {overall.length > 0 && (
         <SpecSection title="Overall">
           {overall.map((field) => <SpecField key={field.path.join(".")} field={field} section="overall" onPath={stablePath} />)}
@@ -843,38 +966,42 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
           groups.get(g).push(f);
         }
         const isParticles = !imgIndexes.has(index) && !flameIndexes.has(index);
+        const overrideCount = baseLayers[index]?.circle ? Object.keys(baseLayers[index].circle).length : 0;
         return (
           <div key={index} data-control-group={`layer-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Layer {index + 1} — {describeLayer(layer)}</div>
-            {imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} onLayer={(next) => onLayer(index, next)} />}
-            {flameIndexes.has(index) && <FlameControls layer={layer} index={index} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
-            {isParticles && (
+            {!circleMode && overrideCount > 0 && (
+              <FixedNote>{overrideCount} avatar-ring override{overrideCount === 1 ? "" : "s"} — switch to “Avatar ring” mode to edit.</FixedNote>
+            )}
+            {!circleMode && imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} onLayer={(next) => onLayer(index, next)} />}
+            {!circleMode && flameIndexes.has(index) && <FlameControls layer={layer} index={index} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
+            {!circleMode && isParticles && (
               <>
                 <SelectRow label="Motion" value={layer.k || "orbit"} options={LAYER_KIND_OPTIONS.map((k) => [k, KIND_NAMES[k] || titleCase(k)])} onChange={(v) => setLayerKey(index, "k", v)} />
                 <SelectRow label="Shape" value={layer.shape || "dot"} options={(LAYER_SHAPE_OPTIONS.includes(layer.shape) ? LAYER_SHAPE_OPTIONS : [layer.shape, ...LAYER_SHAPE_OPTIONS]).map((s) => [s, SHAPE_NAMES[s] || titleCase(s)])} onChange={(v) => setLayerKey(index, "shape", v)} />
                 {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayerKey(index, "blend", v)} />}
               </>
             )}
-            {Array.isArray(layer.e) && layer.e.length > 0 && (
+            {!circleMode && Array.isArray(layer.e) && layer.e.length > 0 && (
               <FixedNote>Icons — {layer.e.join(" ")} — set in the spec, not editable here.</FixedNote>
             )}
             {LAYER_GROUPS.map(([gid]) => groups.has(gid) && (
               <div key={gid}>
                 <ControlTitle>{LAYER_GROUP_TITLES[gid]}</ControlTitle>
-                {groups.get(gid).map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={stablePath} />)}
+                {groups.get(gid).map(layerFieldRow)}
               </div>
             ))}
             {groups.has("other") && (
               <div>
                 <ControlTitle>{LAYER_GROUP_TITLES.other}</ControlTitle>
-                {groups.get("other").map((field) => <SpecField key={field.path.join(".")} field={field} section="layer" onPath={stablePath} />)}
+                {groups.get("other").map(layerFieldRow)}
               </div>
             )}
           </div>
         );
       })}
-      <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>
-      {Object.entries(sectioned).map(([id, list]) => (list.length > 0 || (id === "bolts" && spec.bolts?.from)) && (
+      {!circleMode && <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>}
+      {!circleMode && Object.entries(sectioned).map(([id, list]) => (list.length > 0 || (id === "bolts" && spec.bolts?.from)) && (
         <SpecSection key={id} title={SECTION_TITLES[id]}>
           {list.map((field) => <SpecField key={field.path.join(".")} field={field} section={id} onPath={stablePath} />)}
           {id === "bolts" && spec.bolts?.from && (
@@ -882,7 +1009,7 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
           )}
         </SpecSection>
       ))}
-      {(spec.rings || []).map((ring, index) => (
+      {!circleMode && (spec.rings || []).map((ring, index) => (
         <div key={index} data-control-group={`ring-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1}</div>
           {(ringFields.get(index) || []).map((field) => <SpecField key={field.path.join(".")} field={field} section="rings" onPath={stablePath} />)}
@@ -980,6 +1107,7 @@ export function DevAuraGallery() {
   const [reduce, setReduce] = useState(false);
   const [showAnchors, setShowAnchors] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [editMode, setEditMode] = useState("base");
   const [drafts, setDrafts] = useState({});
   const [revs, setRevs] = useState({});
   const [copied, setCopied] = useState("");
@@ -1005,7 +1133,9 @@ export function DevAuraGallery() {
 
   useLayoutEffect(() => {
     const ids = Object.keys(drafts);
-    for (const id of ids) AURA_FX[id] = drafts[id];
+    // Mid-drag the stage renders a particle-capped preview spec; the committed
+    // draft itself is untouched and restored in full on release.
+    for (const id of ids) AURA_FX[id] = liveDrags > 0 ? clampForPreview(drafts[id]) : drafts[id];
     return () => {
       for (const id of ids) AURA_FX[id] = originals.current[id];
     };
@@ -1104,7 +1234,7 @@ export function DevAuraGallery() {
       <div style={{ padding: 14, display: "inline-block" }}>
         <Avatar
           key={`pv-${selected}-${revs[selected] || 0}-${reduce ? 1 : 0}`}
-          src={photo || "/avatars/E.webp"}
+          src={photo || undefined}
           name="Preview"
           size={76}
           ring={selectedAura.colors?.[0]}
@@ -1179,10 +1309,17 @@ export function DevAuraGallery() {
                 });
                 setRevs((r) => ({ ...r, [selected]: (r[selected] || 0) + 1 }));
               }} style={chip(false)}>Reset</button>
+              <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11, color: C.mute }}>
+                Editing:
+                {barBtn(editMode === "base", "Base (all modes)", () => setEditMode("base"))}
+                {barBtn(editMode === "circle", "Avatar ring", () => setEditMode("circle"))}
+              </span>
             </div>
             <SpecEditor
               spec={specFor(selected)}
-              onPath={(path, value) => bump(selected, (base) => setPath(base, path, value))}
+              circleMode={editMode === "circle"}
+              onPath={(path, value) => bump(selected, (base) => setDeep(base, path, value))}
+              onDelete={(path) => bump(selected, (base) => deleteDeep(base, path))}
               onLayer={(index, layer) => bump(selected, (base) => {
                 const next = cloneSpec(base);
                 if (layer == null) next.layers.splice(index, 1);
