@@ -1108,6 +1108,7 @@ export function DevAuraGallery() {
   const [showAnchors, setShowAnchors] = useState(false);
   const [selected, setSelected] = useState(null);
   const [editMode, setEditMode] = useState("base");
+  const lastFig = useRef(FIGURES[0].id);
   const [drafts, setDrafts] = useState({});
   const [revs, setRevs] = useState({});
   const [copied, setCopied] = useState("");
@@ -1248,17 +1249,37 @@ export function DevAuraGallery() {
     <div style={{ minHeight: "100dvh", background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div ref={barRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 30, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: 10, background: C.navBg, borderBottom: `1px solid ${C.border}` }}>
         <strong style={{ fontSize: 13 }}>Aura gallery</strong>
-        <label style={{ fontSize: 12, color: C.dim }}>
-          Backdrop{" "}
-          <select id="aura-backdrop" value={backdropId} onChange={(e) => setBackdropId(e.target.value)} style={{ background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 6px" }}>
+        <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 12, color: C.dim }}>
+          Backdrop
+          {barBtn(backdrop.kind === "figure", "Figure", () => setBackdropId(lastFig.current))}
+          {barBtn(backdrop.kind === "letter", "Default avatar", () => setBackdropId("letter"))}
+          {barBtn(backdrop.kind === "photo", "My photo", () => setBackdropId("photo"))}
+          <input id="aura-photo" type="file" accept="image/*" onChange={onPhoto} title="Load your own photo" style={{ fontSize: 10, maxWidth: 140, color: C.mute }} />
+          {/* hidden select kept so automated shot scripts can drive the backdrop */}
+          <select id="aura-backdrop" value={backdropId} onChange={(e) => setBackdropId(e.target.value)} aria-hidden="true" tabIndex={-1} style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}>
             {FIGURES.map((fig) => <option key={fig.id} value={fig.id}>{fig.label}</option>)}
             <option value="letter">Letter</option>
             <option value="photo">Photo</option>
           </select>
-        </label>
-        <label style={{ fontSize: 12, color: C.dim }}>
-          Photo <input id="aura-photo" type="file" accept="image/*" onChange={onPhoto} />
-        </label>
+        </span>
+        {backdrop.kind === "figure" && (() => {
+          const idx = Math.max(0, FIGURES.findIndex((f) => f.id === backdropId));
+          const tier = Math.floor(idx / 2), sex = idx % 2 ? "f" : "m";
+          const pick = (s, t) => { lastFig.current = physiqueSrc(s, t); setBackdropId(lastFig.current); };
+          const step = (d) => setBackdropId((cur) => {
+            const i = Math.max(0, FIGURES.findIndex((f) => f.id === cur));
+            lastFig.current = FIGURES[(i + d + FIGURES.length) % FIGURES.length].id;
+            return lastFig.current;
+          });
+          return (
+            <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 12, color: C.dim }}>
+              Body {barBtn(sex === "m", "Male", () => pick("m", tier))} {barBtn(sex === "f", "Female", () => pick("f", tier))}
+              <span style={{ marginLeft: 6 }}>Rank</span>
+              {TIER_IDS.map((t, ti) => <span key={t}>{barBtn(ti === tier, t, () => pick(sex, ti))}</span>)}
+              {barBtn(false, "◀", () => step(-1))} {barBtn(false, "▶", () => step(1))}
+            </span>
+          );
+        })()}
         <span style={{ display: "flex", gap: 4 }}>
           {barBtn(theme === "dark", "Dark", () => setTheme("dark"))}
           {barBtn(theme === "light", "Light", () => setTheme("light"))}
