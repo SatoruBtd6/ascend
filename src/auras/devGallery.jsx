@@ -418,11 +418,17 @@ function ImagePlacement({ layer, index, onLayer }) {
   return (
     <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{shoulders ? "Pauldrons" : `Image layer ${index + 1}`}</div>
+      {!isFrameAnim && layer.src && (
+        <FixedNote>{Array.isArray(layer.src)
+          ? `Images — ${layer.src.length} files cycle across particles (${[...new Set(layer.src)].map((s) => s.split("/").pop()).join(", ")}) — set in the spec, not editable here.`
+          : `Image — ${layer.src} — set in the spec, not editable here.`}</FixedNote>
+      )}
       <NumSlider label="Shift sideways" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} />
       <NumSlider label="Shift up/down" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} />
       {!shoulders && <NumSlider label="Size" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} />}
       {!shoulders && <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />}
       {!shoulders && <FlagField label="Mirror image" checked={layer.flip} onChange={(v) => setLayer("flip", v)} />}
+      {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayer("blend", v)} />}
       {!single && <div style={{ fontSize: 10, color: C.mute }}>Sideways/up-down shifts every image in this layer. 1 is one ring radius.</div>}
 
       <div data-control-group="frame-animation" style={{ display: "grid", gap: 4 }}>
@@ -610,6 +616,7 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
       <NumSlider label="Spin speed" value={layer.spin || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("spin", v)} />
       <NumSlider label="Tongues per flame" value={numberAt(layer.tongues, 6)} min={5} max={7} step={1} onChange={(v) => setLayer("tongues", v)} />
       <NumSlider label="Flicker" value={layer.flicker ?? 0.22} min={0} max={1} step={0.01} onChange={(v) => setLayer("flicker", v)} />
+      {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayer("blend", v)} />}
       <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
         <input type="checkbox" checked={layer.shimmer !== false} onChange={(e) => setLayer("shimmer", e.target.checked)} />
         Sparkle shimmer
@@ -655,6 +662,17 @@ function SelectRow({ label, value, options, onChange }) {
       </select>
     </label>
   );
+}
+
+// Spec values that exist but have no control — named so nothing looks missing.
+function FixedNote({ children }) {
+  return <div style={{ fontSize: 10, color: C.mute, fontStyle: "italic" }}>{children}</div>;
+}
+
+const BLEND_OPTIONS = [["source-over", "Normal"], ["lighter", "Additive glow"], ["screen", "Screen"], ["multiply", "Multiply"]];
+function BlendSelect({ label = "Blend mode", value, onChange }) {
+  const options = BLEND_OPTIONS.some(([v]) => v === value) ? BLEND_OPTIONS : [[value, titleCase(value)], ...BLEND_OPTIONS];
+  return <SelectRow label={label} value={value || "source-over"} options={options} onChange={onChange} />;
 }
 
 // specFields() rebuilds field objects every render, so compare by value.
@@ -731,6 +749,11 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
           {overall.map((field) => <SpecField key={field.path.join(".")} field={field} section="overall" onPath={stablePath} />)}
         </SpecSection>
       )}
+      {spec.art === "ophanim" && (
+        <SpecSection title="Wings">
+          <FixedNote>Rendered as images (art: ophanim) — not tunable here.</FixedNote>
+        </SpecSection>
+      )}
       {rows.map(({ layer, index }) => {
         const own = layerFields.get(index) || [];
         const groups = new Map();
@@ -750,7 +773,11 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
               <>
                 <SelectRow label="Motion" value={layer.k || "orbit"} options={LAYER_KIND_OPTIONS.map((k) => [k, KIND_NAMES[k] || titleCase(k)])} onChange={(v) => setLayerKey(index, "k", v)} />
                 <SelectRow label="Shape" value={layer.shape || "dot"} options={(LAYER_SHAPE_OPTIONS.includes(layer.shape) ? LAYER_SHAPE_OPTIONS : [layer.shape, ...LAYER_SHAPE_OPTIONS]).map((s) => [s, SHAPE_NAMES[s] || titleCase(s)])} onChange={(v) => setLayerKey(index, "shape", v)} />
+                {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayerKey(index, "blend", v)} />}
               </>
+            )}
+            {Array.isArray(layer.e) && layer.e.length > 0 && (
+              <FixedNote>Icons — {layer.e.join(" ")} — set in the spec, not editable here.</FixedNote>
             )}
             {LAYER_GROUPS.map(([gid]) => groups.has(gid) && (
               <div key={gid}>
@@ -768,9 +795,12 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
         );
       })}
       <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>
-      {Object.entries(sectioned).map(([id, list]) => list.length > 0 && (
+      {Object.entries(sectioned).map(([id, list]) => (list.length > 0 || (id === "bolts" && spec.bolts?.from)) && (
         <SpecSection key={id} title={SECTION_TITLES[id]}>
           {list.map((field) => <SpecField key={field.path.join(".")} field={field} section={id} onPath={stablePath} />)}
+          {id === "bolts" && spec.bolts?.from && (
+            <FixedNote>Strike direction — “{spec.bolts.from}” — set in the spec, not editable here.</FixedNote>
+          )}
         </SpecSection>
       ))}
       {(spec.rings || []).map((ring, index) => (
