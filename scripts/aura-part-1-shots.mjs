@@ -21,11 +21,12 @@ const auras = (args[0] && !args[0].startsWith("--") ? args[0] : "blacksun,godray
 const size = args.includes("--size") ? args[args.indexOf("--size") + 1] : "160";
 const theme = args.includes("--theme") ? args[args.indexOf("--theme") + 1] : "dark";
 const tag = args.includes("--tag") ? args[args.indexOf("--tag") + 1] : "p1";
+const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5180";
 
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
 const page = await (await browser.newContext({ viewport: { width: 900, height: 1200 }, deviceScaleFactor: 2 })).newPage();
-await page.goto("http://localhost:5180/?auras=1", { waitUntil: "networkidle" });
+await page.goto(`${base}/?auras=1`, { waitUntil: "networkidle" });
 await page.waitForSelector("canvas");
 await new Promise((r) => setTimeout(r, 1200));
 
