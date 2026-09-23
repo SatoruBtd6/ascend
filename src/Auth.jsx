@@ -17,6 +17,9 @@ const Logo = () => (
 );
 
 export default function Auth() {
+  if (import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("auras") === "1") {
+    return <DevOnlyAuraGallery />;
+  }
   const [session, setSession] = useState(undefined);
   const [mode, setMode] = useState("signin"); // signin | signup | forgot | recover
   const [email, setEmail] = useState(() => { try { return localStorage.getItem("ascend-email") || ""; } catch { return ""; } });
@@ -122,4 +125,16 @@ export default function Auth() {
       if (oldHash) await supabase.from("step_tokens").delete().eq("token_hash", oldHash);
     }, signOut: () => supabase.auth.signOut().then(() => window.location.reload()) };
   return <App key={session.user.id} />;
+}
+
+function DevOnlyAuraGallery() {
+  const [View, setView] = useState(null);
+  useEffect(() => {
+    let on = true;
+    if (import.meta.env.DEV) {
+      import("./auras/devGallery.jsx").then((m) => { if (on) setView(() => m.DevAuraGallery); });
+    }
+    return () => { on = false; };
+  }, []);
+  return View ? <View /> : null;
 }
