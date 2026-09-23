@@ -177,11 +177,85 @@ export function softSprite(color) {
 }
 
 export const _auraImageCache = new Map();
-export function auraImage(src) {
-  if (_auraImageCache.has(src)) return _auraImageCache.get(src);
-  const rec = { img: new Image(), ready: false, failed: false };
+export const FRAME_ANCHOR_CACHE_LIMIT = 16;
+
+export function edgeAnchorsFromAlpha(data, width, height, max = 48) {
+  const alphaAt = (x, y) => x >= 0 && y >= 0 && x < width && y < height ? data[(y * width + x) * 4 + 3] : 0;
+  const boundary = [];
+  let cx = 0, cy = 0;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (alphaAt(x, y) <= 32) continue;
+      let dx = 0, dy = 0, edge = false;
+      for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (alphaAt(x + ox, y + oy) <= 32) { edge = true; dx += ox; dy += oy; }
+      }
+      if (!edge) continue;
+      const px = (x + 0.5) / width - 0.5, py = (y + 0.5) / height - 0.5;
+      boundary.push({ x: px, y: py, dx, dy });
+      cx += px; cy += py;
+    }
+  }
+  if (!boundary.length || max <= 0) return [];
+  cx /= boundary.length; cy /= boundary.length;
+  boundary.forEach((p) => {
+    const len = Math.hypot(p.dx, p.dy) || Math.hypot(p.x - cx, p.y - cy) || 1;
+    p.dx /= len; p.dy /= len;
+  });
+  boundary.sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+  const stride = boundary.length / Math.min(max, boundary.length);
+  return Array.from({ length: Math.min(max, boundary.length) }, (_, i) => boundary[Math.floor(i * stride)]);
+}
+
+export function imageEdgeAnchors(img, max = 48, size = 64) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    if (!g) return [];
+    g.drawImage(img, 0, 0, size, size);
+    const data = g.getImageData(0, 0, size, size).data;
+    return edgeAnchorsFromAlpha(data, size, size, max);
+  } catch (e) {
+    return [];
+  }
+}
+
+export function ensureImageEdgeAnchors(rec, max = 48) {
+  if (!rec?.ready || rec.failed) return [];
+  if (!rec.edgeAnchors) rec.edgeAnchors = imageEdgeAnchors(rec.img, max);
+  return rec.edgeAnchors;
+}
+
+export function cachedFrameEdgeAnchors(cache, rec, max = 48) {
+  if (cache.has(rec)) {
+    const anchors = cache.get(rec);
+    cache.delete(rec);
+    cache.set(rec, anchors);
+    return anchors;
+  }
+  const anchors = rec?.ready && !rec.failed ? imageEdgeAnchors(rec.img, max) : [];
+  if (cache.size >= FRAME_ANCHOR_CACHE_LIMIT) cache.delete(cache.keys().next().value);
+  cache.set(rec, anchors);
+  return anchors;
+}
+
+export function auraImage(src, opts = {}) {
+  if (_auraImageCache.has(src)) {
+    const rec = _auraImageCache.get(src);
+    if (opts.edgeAnchors) {
+      rec.edgeAnchorsWanted = true;
+      if (rec.ready) ensureImageEdgeAnchors(rec);
+    }
+    return rec;
+  }
+  const rec = { img: new Image(), ready: false, failed: false, edgeAnchorsWanted: !!opts.edgeAnchors };
   _auraImageCache.set(src, rec);
-  const markReady = () => { if (!rec.failed) rec.ready = true; };
+  const markReady = () => {
+    if (rec.failed) return;
+    rec.ready = true;
+    if (rec.edgeAnchorsWanted) ensureImageEdgeAnchors(rec);
+  };
   rec.img.onload = () => {
     if (typeof rec.img.decode === "function") rec.img.decode().then(markReady).catch(markReady);
     else markReady();
@@ -498,7 +572,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   let boltT = fx.bolts?.burst ? rnd(0.35, 0.9) : (fx.bolts?.every ? rnd(...fx.bolts.every) : 0), bolt = null;
   let liveBolts = [], burstLeft = 0, burstGap = 0.16, strike = 0, flashLeft = 0;
   let flashState = { last: null, burstFlashed: false };
-  const api = { visible: true, reduce: false, flashes: 0, flashTimes: [], strike: 0, boltsFired: 0 };
+  const api = { visible: true, reduce: false, flashes: 0, flashTimes: [], strike: 0, boltsFired: 0, shadowWisps: 0, shadowAnchorCache: 0 };
   const c1 = base?.colors?.[0] || "#00D9FF", c2 = base?.colors?.[1] || c1;
   const rgba = (hex, a) => { const c = hexRgb(hex) || [0, 217, 255]; return `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`; };
 
@@ -510,8 +584,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const frameList = L.frames ? [].concat(L.frames).filter(Boolean) : [];
     const isFrameAnim = L.shape === "img" && frameList.length > 0;
     const singleSrcList = isFrameAnim ? [] : srcList;
-    if (isFrameAnim) frameList.forEach(auraImage);
-    else singleSrcList.forEach(auraImage);
+    const wantsShadow = !!(L.shadow && L.shape === "img");
+    if (isFrameAnim) frameList.forEach((src) => auraImage(src));
+    else singleSrcList.forEach((src) => auraImage(src, { edgeAnchors: wantsShadow }));
     // `behind` stays on this under-photo canvas. `over` layers paint later,
     // on the second canvas above the photo.
     const range = (v, fallback) => Array.isArray(v) ? v : [v ?? fallback, v ?? fallback];
@@ -526,9 +601,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       if (L.shape === "ash") p.ashBlobs = Array.from({ length: 3 }, () => [rnd(-0.28, 0.28), rnd(-0.28, 0.28), rnd(0.24, 0.42)]);
       if (isFrameAnim) {
         p.frameImages = frameList.map((src) => auraImage(src));
+        if (wantsShadow) p.shadowAnchorCache = new Map();
       } else if (L.shape === "img" && singleSrcList.length) {
         p.src = singleSrcList[p.i % singleSrcList.length];
-        p.image = auraImage(p.src);
+        p.image = auraImage(p.src, { edgeAnchors: wantsShadow });
       }
       if (L.k === "rise" || L.k === "bubble") {
         const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
@@ -548,10 +624,128 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       p.e = L.e ? L.e[p.i % L.e.length] : null;
     };
     const ps = Array.from({ length: n }, (_, i) => { const p = { i }; spawn(p, true); return p; });
-    return { L, ps, spawn };
+    return { L, ps, spawn, wisps: [], wispAcc: 0, wantsShadow };
   });
 
-  const drawP = (ctx, L, p, alpha, x, y) => {
+  const shadowSpec = (L) => {
+    if (!L.shadow) return null;
+    const s = L.shadow === true ? {} : L.shadow;
+    return {
+      max: Math.max(0, Math.round(s.max ?? 24)),
+      rate: Math.max(0, s.rate ?? 10),
+      life: s.life || [0.8, 1.6],
+      sp: s.sp || [4, 12],
+      sz: s.sz || [3, 8],
+      c: s.c || "#111827",
+      a: s.a ?? 0.38,
+      blend: s.blend || "source-over",
+      anchors: Math.max(1, Math.round(s.anchors ?? 48)),
+      jit: s.jit ?? 0.35,
+    };
+  };
+
+  const frameSize = (img, s) => {
+    const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+    return aspect >= 1 ? [s, s / aspect] : [s * aspect, s];
+  };
+
+  const activeShadowSource = (state, p, S) => {
+    const L = state.L;
+    let rec = p.image, index = 0, anchors = null;
+    if (L.frames?.length) {
+      if (p.frameStarted == null) return null;
+      const blend = readyFrameBlend(p.frameImages, time - p.frameStarted, L.frameDuration ?? 0.12, L.frameMode || "loop", L.fadeLen ?? 0.12, api.reduce);
+      if (!blend) return null;
+      const item = blend.available[blend.alpha > 0.5 ? blend.to : blend.from];
+      rec = item.frame;
+      index = item.index;
+      anchors = cachedFrameEdgeAnchors(p.shadowAnchorCache, rec, S.anchors);
+    } else {
+      if (!rec?.ready || rec.failed) return null;
+      anchors = ensureImageEdgeAnchors(rec, S.anchors);
+    }
+    if (!anchors.length) return null;
+    const [iw, ih] = frameSize(rec.img, p.sz);
+    return { anchors, index, iw, ih };
+  };
+
+  const spawnShadowWisp = (state, p, S) => {
+    const src = activeShadowSource(state, p, S);
+    if (!src) return false;
+    const a = src.anchors[Math.floor(rnd(0, src.anchors.length))];
+    const speed = rnd(...(Array.isArray(S.sp) ? S.sp : [S.sp, S.sp])) * unit;
+    const tangent = rnd(-S.jit, S.jit);
+    const off = state.L.frameOffsets?.[src.index] || {};
+    const offRot = ((off.rotation ?? off.rot) || 0) * Math.PI * 2;
+    const offScale = off.scale ?? 1;
+    const cos = Math.cos(offRot), sin = Math.sin(offRot);
+    const dx = a.dx * cos - a.dy * sin, dy = a.dx * sin + a.dy * cos;
+    const tx = -dy, ty = dx;
+    const lx = a.x * src.iw * offScale, ly = a.y * src.ih * offScale;
+    state.wisps.push({
+      p,
+      x: (off.x || 0) * rx + lx * cos - ly * sin,
+      y: (off.y || 0) * ry + lx * sin + ly * cos,
+      vx: dx * speed + tx * speed * tangent,
+      vy: dy * speed + ty * speed * tangent,
+      sz: rnd(...(Array.isArray(S.sz) ? S.sz : [S.sz, S.sz])) * unit,
+      rot: rnd(0, Math.PI * 2),
+      vr: rnd(-0.9, 0.9),
+      c: Array.isArray(S.c) ? pick(S.c) : S.c,
+      age: 0,
+      life: rnd(...(Array.isArray(S.life) ? S.life : [S.life, S.life])),
+    });
+    return true;
+  };
+
+  const updateShadowWisps = (state, dt) => {
+    const S = shadowSpec(state.L);
+    if (!S || !state.wantsShadow) return;
+    state.wisps = state.wisps.filter((w) => {
+      w.age += dt;
+      w.x += w.vx * dt;
+      w.y += w.vy * dt;
+      w.rot += w.vr * dt;
+      return w.age < w.life;
+    });
+    if (!api.reduce && S.max > 0 && S.rate > 0) {
+      state.wispAcc += dt * S.rate;
+      let toSpawn = Math.floor(state.wispAcc);
+      state.wispAcc -= toSpawn;
+      let spawned = false;
+      for (const p of state.ps) {
+        while (toSpawn > 0 && state.wisps.length < S.max && spawnShadowWisp(state, p, S)) {
+          toSpawn -= 1;
+          spawned = true;
+        }
+        if (!toSpawn || state.wisps.length >= S.max) break;
+      }
+      if (toSpawn > 0 && (!spawned || state.wisps.length >= S.max)) state.wispAcc = 0;
+    }
+    api.shadowWisps += state.wisps.length;
+    api.shadowAnchorCache += state.ps.reduce((sum, p) => sum + (p.shadowAnchorCache?.size || 0), 0);
+  };
+
+  const drawShadowWisps = (ctx, state, p, S, edgeScale = 1) => {
+    if (!S || !state.wisps.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = S.blend;
+    for (const w of state.wisps) {
+      if (w.p !== p) continue;
+      const k = Math.sin(Math.PI * Math.min(1, w.age / Math.max(0.001, w.life)));
+      const sprite = softSprite(w.c);
+      ctx.save();
+      ctx.globalAlpha *= S.a * k;
+      ctx.translate(w.x * edgeScale, w.y * edgeScale);
+      ctx.rotate(w.rot);
+      ctx.drawImage(sprite, -w.sz * edgeScale, -w.sz * edgeScale, w.sz * 2 * edgeScale, w.sz * 2 * edgeScale);
+      ctx.restore();
+    }
+    ctx.restore();
+  };
+
+  const drawP = (ctx, state, p, alpha, x, y) => {
+    const L = state.L;
     const g = ctx;
     if (alpha <= 0.01) return;
     g.globalAlpha = Math.min(1, alpha * (L.a ?? 1));
@@ -560,6 +754,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       case "img": {
         const isFrameAnim = L.frames && L.frames.length > 0;
         const rec = isFrameAnim ? null : p.image;
+        const S = state.wantsShadow ? shadowSpec(L) : null;
         if (!isFrameAnim && (!rec?.ready || rec.failed)) break;
         const breathe = L.breathe ? 1 + 0.03 * Math.sin(time * (Math.PI * 2 / 4) + p.ph) : 1;
         const wob = L.wobble ? Math.sin(time * (Math.PI * 2 / (6.8 + (p.ph % 2.2))) + p.ph) * L.wobble : 0;
@@ -567,6 +762,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const ox = (L.x || 0) * rx;
         const oy = (L.y || 0) * ry;
         g.save(); g.translate(x + ox, y + bob + oy); g.rotate(p.rot + wob); if (L.flip) g.scale(-1, 1);
+        if (S) drawShadowWisps(g, state, p, S, breathe);
         if (isFrameAnim) {
           if (p.frameStarted == null && p.frameImages.every((frame) => frame.ready || frame.failed)) p.frameStarted = time;
           const blend = p.frameStarted == null ? null : readyFrameBlend(p.frameImages, time - p.frameStarted, L.frameDuration ?? 0.12, L.frameMode || "loop", L.fadeLen ?? 0.12, api.reduce);
@@ -708,6 +904,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const frame = (dt) => {
     time += dt * spd;
     clock += dt;
+    api.shadowWisps = 0;
+    api.shadowAnchorCache = 0;
     strike = Math.max(0, strike - dt / 0.25);
     g.clearRect(0, 0, w, h);
     g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
@@ -814,9 +1012,11 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.restore();
     }
     const paintLayers = (ctx, wantOver) => {
-      layers.forEach(({ L, ps, spawn }) => {
+      layers.forEach((state) => {
+        const { L, ps, spawn } = state;
         if (!!L.over !== wantOver) return;
         const layerDt = artState?.freeze && L.shape !== "img" ? 0 : dt;
+        updateShadowWisps(state, layerDt);
         ctx.globalCompositeOperation = L.blend || (L.shape === "emoji" || L.shape === "img" ? "source-over" : "lighter");
         ps.forEach((p) => {
           if (L.shape === "img" && p.image?.failed) return;
@@ -843,7 +1043,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             if (mode === "body" && L.shape !== "emoji" && L.shape !== "img") alpha *= Math.sin(p.ang) < 0 ? 0.55 : 1;
           }
           if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
-          drawP(ctx, L, p, alpha, x, y);
+          drawP(ctx, state, p, alpha, x, y);
         });
       });
     };

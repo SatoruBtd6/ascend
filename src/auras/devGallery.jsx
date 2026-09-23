@@ -227,6 +227,12 @@ function ImagePlacement({ layer, index, onLayer }) {
   const single = layer.n === 1;
   const xy = single ? orbitXY(layer) : { x: layer.x || 0, y: layer.y || 0 };
   const isFrameAnim = layer.frames && layer.frames.length > 0;
+  const shadow = layer.shadow === true ? {} : layer.shadow || null;
+  const setShadow = (key, value) => {
+    const next = cloneSpec(layer);
+    next.shadow = { ...(shadow || { rate: 10, max: 24 }), [key]: value };
+    onLayer(next);
+  };
   return (
     <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{shoulders ? "Pauldrons" : `Image layer ${index + 1}`}</div>
@@ -236,6 +242,20 @@ function ImagePlacement({ layer, index, onLayer }) {
       {!shoulders && <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => onLayer(withOptional(layer, "rot", v))} />}
       {!shoulders && <NumSlider label="flip" value={layer.flip ? 1 : 0} min={0} max={1} step={1} onChange={(v) => onLayer(withOptional(layer, "flip", v))} />}
       {!single && <div style={{ fontSize: 10, color: C.mute }}>x and y shift every image in this layer. 1 is one ring radius.</div>}
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>
+        <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <input type="checkbox" checked={!!layer.shadow} onChange={(e) => onLayer(withOptional(layer, "shadow", e.target.checked ? { rate: 10, max: 24 } : false))} />
+          Shadow wisps
+        </label>
+      </div>
+      {shadow && (
+        <>
+          <NumSlider label="shadow max" value={shadow.max ?? 24} min={0} max={64} step={1} onChange={(v) => setShadow("max", v)} />
+          <NumSlider label="shadow rate" value={shadow.rate ?? 10} min={0} max={60} step={0.1} onChange={(v) => setShadow("rate", v)} />
+          <NumSlider label="shadow anchors" value={shadow.anchors ?? 48} min={1} max={48} step={1} onChange={(v) => setShadow("anchors", v)} />
+          <NumSlider label="shadow alpha" value={shadow.a ?? 0.38} min={0} max={1} step={0.01} onChange={(v) => setShadow("a", v)} />
+        </>
+      )}
       {isFrameAnim && (
         <>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>Frame animation</div>
@@ -348,8 +368,8 @@ function PerfHud() {
         const p95 = xs[Math.min(xs.length - 1, Math.max(0, Math.ceil(xs.length * 0.95) - 1))];
         return { avg, p95 };
       };
-      let live = 0;
-      AuraLoop.set.forEach((inst) => { if (inst.visible) live += 1; });
+      let live = 0, shadows = 0;
+      AuraLoop.set.forEach((inst) => { if (inst.visible) live += 1; shadows += inst.shadowWisps || 0; });
       let images = 0;
       _auraImageCache.forEach((rec) => { if (rec.ready && !rec.failed) images += 1; });
       const frame = stat("frame");
@@ -357,11 +377,11 @@ function PerfHud() {
       const fmt = (n) => (n == null ? "—" : n.toFixed(1));
       const hud = {
         frameAvg: frame.avg, frameP95: frame.p95, workAvg: work.avg, workP95: work.p95,
-        live, mounted: AuraLoop.set.size, images,
+        live, mounted: AuraLoop.set.size, images, shadows,
       };
       window.__auraGalleryHud = hud;
       if (ref.current) {
-        ref.current.textContent = `frame ${fmt(frame.avg)} avg · ${fmt(frame.p95)} p95 ms\nwork ${fmt(work.avg)} avg · ${fmt(work.p95)} p95 ms\nlive ${live} · canvases ${AuraLoop.set.size}\nimages ${images}`;
+        ref.current.textContent = `frame ${fmt(frame.avg)} avg · ${fmt(frame.p95)} p95 ms\nwork ${fmt(work.avg)} avg · ${fmt(work.p95)} p95 ms\nlive ${live} · canvases ${AuraLoop.set.size}\nimages ${images} · shadows ${shadows}`;
       }
     };
     publish();
