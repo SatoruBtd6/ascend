@@ -14,7 +14,7 @@ import { DedupeSettings } from "./DedupeSettings.jsx";
 import { GymsSettings } from "./GymsSettings.jsx";
 import { decodeSave, encodeSave } from "./saveCodec.js";
 import { SupportForm } from "./SupportForm.jsx";
-export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag }) {
+export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag, onReplayTutorial }) {
   const st = s.settings || {};
   const setSet = (k, v) => setS((p) => ({ ...p, settings: { ...p.settings, [k]: v, savedAt: Date.now() } }));
   const [code, setCode] = useState("");
@@ -130,6 +130,15 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
             ))}
           </div>
         )}
+      </div>
+
+      <h2 className="text-lg font-bold">Tutorial</h2>
+      <div className="panel p-4 space-y-3">
+        <div>
+          <div className="font-bold">Replay tutorial</div>
+          <div className="body text-xs" style={{ color: C.dim }}>Shows the visual guide again from the welcome step. Clears only the onboarded flag. Workouts, XP, streaks, quests, and unlocks stay as they are.</div>
+        </div>
+        <button type="button" onClick={() => ask("Replay the tutorial from the start? This only clears the onboarded flag.", () => onReplayTutorial?.(), "Replay")} className="btn w-full py-3" style={{ minHeight: 40, touchAction: "manipulation" }}>Replay tutorial</button>
       </div>
 
       <h2 className="text-lg font-bold">Workout tools</h2>

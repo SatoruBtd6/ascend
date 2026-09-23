@@ -328,7 +328,8 @@ export default function App() {
         }
       } catch (e) { /* first run */ }
       if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
-      if (!st.onboarded && !st.workouts?.length) setOnboard(st.profile?.name ? 1 : 0);
+      if (st.onboarded === false) setOnboard(0);
+      else if (!st.onboarded && !st.workouts?.length) setOnboard(st.profile?.name ? 1 : 0);
       if ((st.achV || 1) < 3) st = reconcileAchievements(st, true);
       if (!st.assistV) {
         const bw = Math.max(80, +st.profile?.weight || 170);
@@ -991,7 +992,7 @@ export default function App() {
           </div>
         )}
         {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><TabErrorBoundary><LazyBoundary><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></LazyBoundary></TabErrorBoundary></Sheet>}
-        {onboard === null && tab === "settings" && <TabErrorBoundary><LazyBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} saveDiag={saveDiag} /></LazyBoundary></TabErrorBoundary>}
+        {onboard === null && tab === "settings" && <TabErrorBoundary><LazyBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} saveDiag={saveDiag} onReplayTutorial={() => { setS((p) => ({ ...p, onboarded: false })); setOnboard(0); }} /></LazyBoundary></TabErrorBoundary>}
         {(timerHeld.current) && <TabErrorBoundary><LazyBoundary active={tab === "timer"}><IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} /></LazyBoundary></TabErrorBoundary>}
         {(cardsHeld.current) && <TabErrorBoundary><LazyBoundary active={tab === "cards"}><CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} /></LazyBoundary></TabErrorBoundary>}
         {onboard === null && tab === "assistant" && <TabErrorBoundary><LazyBoundary><Assistant s={s} setS={setS} onBack={() => setTab("status")} /></LazyBoundary></TabErrorBoundary>}
