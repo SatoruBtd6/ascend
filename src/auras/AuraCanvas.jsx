@@ -95,7 +95,10 @@ export const AURA_FX = {
   bonewright: { spd: 0.7, glow: 0.7, overArt: "bonewright", bolts: { burst: [2, 3], burstSpan: 0.36, gap: [3, 5], c: ["#FFF27A"], flash: 1, flashPeak: 0.35, flashLife: 0.09, from: "above", strike: 1, calm: 1 }, rings: [{ r: 1.12, c: "#F4EAD2", spin: 0.06, a: 0.9, w: 5, dash: 1 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#F4EAD2", "#AAB5C4"], sp: [12, 24], life: [1.4, 2.6], sz: [5, 10], sway: 9, blend: "source-over", a: 0.35 }, { k: "orbit", n: 12, shape: "shard", c: ["#FFFFFF", "#DDE6F2"], w: [0.12, 0.28], r: [1.08, 1.2], sz: [2.2, 4.2] }] },
   nullpoint: { spd: 0.62, glow: 0.66, dark: 1, rings: [{ r: 1.15, c: "#38C6FF", spin: -0.03, a: 0.82, w: 2.8 }], layers: [{ k: "inward", n: 64, shape: "dot", c: ["#38C6FF", "#C2001F", "#a855f7"], sp: [0.35, 0.7], life: [2, 4], sz: [1.2, 2.6] }] },
   carve: { spd: 0.85, glow: 0.58, dark: 1, art: "carve", rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }], sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 }, layers: [{ k: "orbit", n: 36, shape: "spark", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.8, 1.8], r: [1.08, 1.35], sz: [0.8, 1.5], tw: 1 }] },
-  brandmark: { spd: 0.58, glow: 0.5, dark: 1, art: "brandmark", artLate: 1, overArt: "brandmark", sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 }] },
+  brandmark: { spd: 0.58, glow: 0.5, dark: 1, art: "brandmark", artLate: 1, overArt: "brandmark", sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [
+    { k: "orbit", n: 2, shape: "img", src: "/aura/pauldron.webp", placed: "shoulders" },
+    { k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 },
+  ] },
   blacksun: { spd: 0.32, glow: 0.96, dark: 1, art: "blacksun", rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4 }], layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.38, rot: 0.04, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
     { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.12, rot: -0.04, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
@@ -250,18 +253,20 @@ function drawCape(ctx, { clock, anchors }) {
   ctx.restore();
 }
 
-function drawPauldrons(ctx, anchors) {
+function drawPauldrons(ctx, anchors, shift) {
   const rec = auraImage("/aura/pauldron.webp");
   if (!rec.ready || rec.failed || !ctx || !anchors) return;
   const img = rec.img;
   const ih = anchors.pauldronH;
   const iw = ih * (img.naturalWidth / Math.max(1, img.naturalHeight));
+  const dx = shift?.x || 0;
+  const dy = shift?.y || 0;
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
   for (const side of [-1, 1]) {
     ctx.save();
-    ctx.translate(anchors.shoulderX + side * anchors.shoulderHalf, anchors.shoulderY);
+    ctx.translate(anchors.shoulderX + side * anchors.shoulderHalf + dx, anchors.shoulderY + dy);
     ctx.rotate(side * -0.08);
     if (side > 0) ctx.scale(-1, 1);
     ctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
@@ -377,7 +382,7 @@ export const AURA_ART = {
     if (opts.pass === "late") drawCape(opts.g, opts);
     else if (opts.pass === "over") {
       const ctx = opts.over || opts.g;
-      drawPauldrons(ctx, opts.anchors);
+      drawPauldrons(ctx, opts.anchors, opts.paulShift);
       drawSigil(ctx, opts);
     }
   },
@@ -430,7 +435,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const rgba = (hex, a) => { const c = hexRgb(hex) || [0, 217, 255]; return `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`; };
 
   let particleBudget = 120;
-  const layers = fx.layers.map((L) => {
+  const layers = fx.layers.filter((L) => L.placed !== "shoulders").map((L) => {
     const n = Math.min(particleBudget, Math.max(L.even ? L.n : 3, Math.round(L.n * (L.even ? 1 : scale))));
     particleBudget -= n;
     const srcList = L.shape === "img" ? [].concat(L.src || []).filter(Boolean) : [];
@@ -483,7 +488,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const iw = iw0 * breathe, ih = ih0 * breathe;
         const wob = L.wobble ? Math.sin(time * (Math.PI * 2 / (6.8 + (p.ph % 2.2))) + p.ph) * L.wobble : 0;
         const bob = L.bob ? Math.sin(time * (Math.PI * 2 / 2.5) + p.ph) * s * 0.1 : 0;
-        g.save(); g.translate(x, y + bob); g.rotate(p.rot + wob); if (L.flip) g.scale(-1, 1);
+        const ox = (L.x || 0) * rx;
+        const oy = (L.y || 0) * ry;
+        g.save(); g.translate(x + ox, y + bob + oy); g.rotate(p.rot + wob); if (L.flip) g.scale(-1, 1);
         g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
         if (L.glint) {
           const period = 3.4 + (p.ph % 2.4);
@@ -630,7 +637,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
-    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, unit, strike, sweep: fx.sweep, pass, mode, anchors });
+    const paul = fx.layers?.find((L) => L.placed === "shoulders");
+    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, unit, strike, sweep: fx.sweep, pass, mode, anchors, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
     const artState = AURA_ART[fx.art]?.(artArgs("main")) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";

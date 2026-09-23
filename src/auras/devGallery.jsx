@@ -209,18 +209,19 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors }) {
 }
 
 function ImagePlacement({ layer, index, onLayer }) {
+  const shoulders = layer.placed === "shoulders";
   const scale = layerScale(layer);
   const single = layer.n === 1;
   const xy = single ? orbitXY(layer) : { x: layer.x || 0, y: layer.y || 0 };
   return (
     <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Image layer {index + 1}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{shoulders ? "Pauldrons" : `Image layer ${index + 1}`}</div>
       <NumSlider label="x" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} />
       <NumSlider label="y" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} />
-      <NumSlider label="scale" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} />
-      <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => onLayer(withOptional(layer, "rot", v))} />
-      <NumSlider label="flip" value={layer.flip ? 1 : 0} min={0} max={1} step={1} onChange={(v) => onLayer(withOptional(layer, "flip", v))} />
-      {!single && <div style={{ fontSize: 10, color: C.mute }}>Several images share this layer. x and y are stored on it. Scale, rotation, and flip move them on the canvas.</div>}
+      {!shoulders && <NumSlider label="scale" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} />}
+      {!shoulders && <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => onLayer(withOptional(layer, "rot", v))} />}
+      {!shoulders && <NumSlider label="flip" value={layer.flip ? 1 : 0} min={0} max={1} step={1} onChange={(v) => onLayer(withOptional(layer, "flip", v))} />}
+      {!single && <div style={{ fontSize: 10, color: C.mute }}>x and y shift every image in this layer. 1 is one ring radius.</div>}
     </div>
   );
 }
