@@ -151,7 +151,13 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold glowtext">{me ? "Your profile" : "Profile"}</h1>
+        <h1 className="text-2xl font-bold glowtext flex-1 min-w-0">{me ? "Your profile" : "Profile"}</h1>
+        {me && (
+          <>
+            <button type="button" aria-label="Change profile photo" onClick={() => fileRef.current?.click()} className="flex items-center justify-center gap-1.5 shrink-0 font-bold text-sm" style={{ minWidth: 40, minHeight: 40, padding: "0 12px", borderRadius: 999, background: C.cyan, color: "#001018", touchAction: "manipulation" }}><Camera size={16} />Photo</button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
+          </>
+        )}
       </div>
 
       {loading && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={16} className="animate-spin" />Loading profile…</div>}
@@ -161,15 +167,7 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
         <>
           <div className="panel p-5" style={lookStyle(data.look)}>
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(!data.reigning && !(me && (s.lbReigning || s.test)) && data.look?.aura === "ascended") ? { ...(data.look || {}), aura: (data.look?.auraPrev && data.look.auraPrev !== "ascended") ? data.look.auraPrev : "none" } : data.look} />
-                {me && (
-                  <>
-                    <button aria-label="Change profile photo" onClick={() => fileRef.current?.click()} className="absolute flex items-center justify-center" style={{ right: -4, bottom: -4, width: 28, height: 28, borderRadius: 999, background: C.cyan, color: "#001018" }}><Camera size={15} /></button>
-                    <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: "none" }} />
-                  </>
-                )}
-              </div>
+              <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(!data.reigning && !(me && (s.lbReigning || s.test)) && data.look?.aura === "ascended") ? { ...(data.look || {}), aura: (data.look?.auraPrev && data.look.auraPrev !== "ascended") ? data.look.auraPrev : "none" } : data.look} />
               <div className="flex-1 min-w-0">
                 <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
                 {data.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: data.look?.accent || C.cyan }}>{data.title}</div>}
