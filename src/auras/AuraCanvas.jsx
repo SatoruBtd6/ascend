@@ -792,8 +792,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
 
   const updateShadowWisps = (state, dt) => {
     const S = shadowSpec(state.L);
-    if (!S || !state.wantsShadow) return;
-    const max = api.reduce ? Math.ceil(S.max * 0.35) : S.max;
+    if (!S || !state.wantsShadow || Math.min(w, h) < 56) return;
+    const sizeScale = Math.min(1, Math.min(w, h) / 160);
+    const sizeMax = Math.ceil(S.max * sizeScale);
+    const max = api.reduce ? Math.ceil(sizeMax * 0.35) : sizeMax;
     const motionDt = dt * (api.reduce ? 0.35 : 1);
     state.wisps = state.wisps.filter((w) => {
       w.age += motionDt;
@@ -804,7 +806,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     });
     if (state.wisps.length > max) state.wisps.splice(0, state.wisps.length - max);
     if (max > 0 && S.rate > 0) {
-      state.wispAcc += dt * S.rate * (api.reduce ? 0.25 : 1);
+      state.wispAcc += dt * S.rate * sizeScale * (api.reduce ? 0.25 : 1);
       let toSpawn = Math.floor(state.wispAcc);
       state.wispAcc -= toSpawn;
       let spawned = false;

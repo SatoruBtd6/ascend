@@ -221,6 +221,36 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors }) {
   );
 }
 
+function rangePair(value, fallback) {
+  return Array.isArray(value) ? [...value] : [value ?? fallback, value ?? fallback];
+}
+
+function setRangePart(object, key, index, value, fallback) {
+  const next = cloneSpec(object);
+  const pair = rangePair(next[key], fallback);
+  pair[index] = value;
+  next[key] = pair;
+  return next;
+}
+
+function numberAt(value, fallback) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return Number.isFinite(Number(raw)) ? Number(raw) : fallback;
+}
+
+function ColorField({ label, value, onChange }) {
+  return (
+    <label style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+      <span>{label}</span>
+      <input type="color" value={colorInputValue(value)} onChange={(e) => onChange(e.target.value)} style={{ width: 48, height: 28, padding: 0, border: "none", background: "transparent" }} />
+    </label>
+  );
+}
+
+function ControlTitle({ children }) {
+  return <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>{children}</div>;
+}
+
 function ImagePlacement({ layer, index, onLayer }) {
   const shoulders = layer.placed === "shoulders";
   const scale = layerScale(layer);
@@ -228,10 +258,47 @@ function ImagePlacement({ layer, index, onLayer }) {
   const xy = single ? orbitXY(layer) : { x: layer.x || 0, y: layer.y || 0 };
   const isFrameAnim = layer.frames && layer.frames.length > 0;
   const shadow = layer.shadow === true ? {} : layer.shadow || null;
+  const setLayer = (key, value) => {
+    const next = cloneSpec(layer);
+    next[key] = value;
+    onLayer(next);
+  };
   const setShadow = (key, value) => {
     const next = cloneSpec(layer);
     next.shadow = { ...(shadow || { rate: 10, max: 24 }), [key]: value };
     onLayer(next);
+  };
+  const setShadowRange = (key, part, value, fallback) => setShadow(key, setRangePart(shadow || {}, key, part, value, fallback)[key]);
+  const setFrames = (on) => {
+    const next = cloneSpec(layer);
+    if (on) {
+      next.frames = [].concat(next.src || next.frames || []).filter(Boolean);
+      if (!next.frames.length) next.frames = [""];
+      delete next.src;
+      next.frameDuration ??= 0.12;
+      next.fadeLen ??= 0.12;
+      next.frameMode ??= "loop";
+    } else {
+      next.src = next.frames?.find(Boolean) || "";
+      delete next.frames;
+      delete next.frameDuration;
+      delete next.fadeLen;
+      delete next.frameMode;
+      delete next.frameOffsets;
+    }
+    onLayer(next);
+  };
+  const setFrameSrc = (frameIndex, src) => {
+    const next = cloneSpec(layer);
+    next.frames = [...next.frames];
+    next.frames[frameIndex] = src;
+    onLayer(next);
+  };
+  const shadowColors = Array.isArray(shadow?.c) ? shadow.c : [shadow?.c || "#111827"];
+  const setShadowColor = (i, color) => {
+    const colors = [...shadowColors];
+    colors[i] = color;
+    setShadow("c", colors.length === 1 ? colors[0] : colors);
   };
   return (
     <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
@@ -239,79 +306,255 @@ function ImagePlacement({ layer, index, onLayer }) {
       <NumSlider label="x" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} />
       <NumSlider label="y" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} />
       {!shoulders && <NumSlider label="scale" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} />}
-      {!shoulders && <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => onLayer(withOptional(layer, "rot", v))} />}
-      {!shoulders && <NumSlider label="flip" value={layer.flip ? 1 : 0} min={0} max={1} step={1} onChange={(v) => onLayer(withOptional(layer, "flip", v))} />}
+      {!shoulders && <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />}
+      {!shoulders && <NumSlider label="flip" value={layer.flip ? 1 : 0} min={0} max={1} step={1} onChange={(v) => setLayer("flip", v)} />}
       {!single && <div style={{ fontSize: 10, color: C.mute }}>x and y shift every image in this layer. 1 is one ring radius.</div>}
-      <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>
-        <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <input type="checkbox" checked={!!layer.shadow} onChange={(e) => onLayer(withOptional(layer, "shadow", e.target.checked ? { rate: 10, max: 24 } : false))} />
+
+      <div data-control-group="frame-animation" style={{ display: "grid", gap: 4 }}>
+        <ControlTitle>Frame animation</ControlTitle>
+        <button type="button" onClick={() => setFrames(!isFrameAnim)} style={{ ...chip(!!isFrameAnim), justifySelf: "start", fontSize: 11 }}>{isFrameAnim ? "Disable frame cycle" : "Enable frame cycle"}</button>
+        {isFrameAnim && (
+          <>
+            <NumSlider label="frameDuration" value={layer.frameDuration || 0.12} min={0.01} max={1} step={0.01} onChange={(v) => setLayer("frameDuration", v)} />
+            <NumSlider label="fadeLen" value={layer.fadeLen || 0.12} min={0} max={0.5} step={0.01} onChange={(v) => setLayer("fadeLen", v)} />
+            <div style={{ fontSize: 10, color: C.mute }}>
+              <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                Mode: <select value={layer.frameMode || "loop"} onChange={(e) => setLayer("frameMode", e.target.value)} style={{ fontSize: 10 }}>
+                  <option value="loop">loop</option>
+                  <option value="pingpong">pingpong</option>
+                </select>
+              </label>
+            </div>
+            {layer.frames.map((src, frameIndex) => {
+              const offset = layer.frameOffsets?.[frameIndex] || {};
+              const updateOffset = (key, value) => {
+                const next = cloneSpec(layer);
+                next.frameOffsets = [...(next.frameOffsets || [])];
+                while (next.frameOffsets.length < next.frames.length) next.frameOffsets.push({});
+                next.frameOffsets[frameIndex] = { ...next.frameOffsets[frameIndex], [key]: value };
+                onLayer(next);
+              };
+              return (
+                <div key={`${src}:${frameIndex}`} style={{ display: "grid", gap: 3, paddingTop: 4, borderTop: `1px dashed ${C.border}` }}>
+                  <label style={{ display: "grid", gridTemplateColumns: "58px 1fr auto", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
+                    Frame {frameIndex + 1}
+                    <input value={src} onChange={(e) => setFrameSrc(frameIndex, e.target.value)} style={{ minWidth: 0, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 5, padding: "2px 4px", fontSize: 10 }} />
+                    {layer.frames.length > 1 && <button type="button" onClick={() => {
+                      const next = cloneSpec(layer);
+                      next.frames.splice(frameIndex, 1);
+                      next.frameOffsets?.splice(frameIndex, 1);
+                      onLayer(next);
+                    }} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>}
+                  </label>
+                  <NumSlider label="offset x" value={offset.x || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("x", v)} />
+                  <NumSlider label="offset y" value={offset.y || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("y", v)} />
+                  <NumSlider label="offset scale" value={offset.scale ?? 1} min={0.02} max={4} step={0.01} onChange={(v) => updateOffset("scale", v)} />
+                  <NumSlider label="offset rotation" value={offset.rotation || 0} min={-1} max={1} step={0.01} onChange={(v) => updateOffset("rotation", v)} />
+                </div>
+              );
+            })}
+            <button type="button" onClick={() => {
+              const next = cloneSpec(layer);
+              next.frames.push(next.frames.at(-1) || "");
+              onLayer(next);
+            }} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add frame</button>
+          </>
+        )}
+      </div>
+
+      <div data-control-group="shadow-emission" style={{ display: "grid", gap: 4 }}>
+        <ControlTitle>Shadow emission</ControlTitle>
+        <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
+          <input type="checkbox" checked={!!layer.shadow} onChange={(e) => setLayer("shadow", e.target.checked ? { rate: 10, max: 24 } : false)} />
           Shadow wisps
         </label>
-      </div>
-      {shadow && (
-        <>
-          <NumSlider label="shadow max" value={shadow.max ?? 24} min={0} max={64} step={1} onChange={(v) => setShadow("max", v)} />
-          <NumSlider label="shadow rate" value={shadow.rate ?? 10} min={0} max={60} step={0.1} onChange={(v) => setShadow("rate", v)} />
-          <NumSlider label="shadow anchors" value={shadow.anchors ?? 48} min={1} max={48} step={1} onChange={(v) => setShadow("anchors", v)} />
-          <NumSlider label="shadow alpha" value={shadow.a ?? 0.38} min={0} max={1} step={0.01} onChange={(v) => setShadow("a", v)} />
-        </>
-      )}
-      {isFrameAnim && (
-        <>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>Frame animation</div>
-          <NumSlider label="frameDuration" value={layer.frameDuration || 0.12} min={0.01} max={1} step={0.01} onChange={(v) => onLayer(withOptional(layer, "frameDuration", v))} />
-          <NumSlider label="fadeLen" value={layer.fadeLen || 0.12} min={0} max={0.5} step={0.01} onChange={(v) => onLayer(withOptional(layer, "fadeLen", v))} />
-          <div style={{ fontSize: 10, color: C.mute }}>
-            <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              Mode: <select value={layer.frameMode || "loop"} onChange={(e) => onLayer(withOptional(layer, "frameMode", e.target.value))} style={{ fontSize: 10 }}>
-                <option value="loop">loop</option>
-                <option value="pingpong">pingpong</option>
+        {shadow && (
+          <>
+            <NumSlider label="shadow max" value={shadow.max ?? 24} min={0} max={64} step={1} onChange={(v) => setShadow("max", v)} />
+            <NumSlider label="shadow rate" value={shadow.rate ?? 10} min={0} max={60} step={0.1} onChange={(v) => setShadow("rate", v)} />
+            <NumSlider label="shadow anchors" value={shadow.anchors ?? 48} min={1} max={48} step={1} onChange={(v) => setShadow("anchors", v)} />
+            <NumSlider label="life min" value={rangePair(shadow.life, 0.8)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 0, v, 0.8)} />
+            <NumSlider label="life max" value={rangePair(shadow.life, 1.6)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 1, v, 1.6)} />
+            <NumSlider label="speed min" value={rangePair(shadow.sp, 4)[0]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 0, v, 4)} />
+            <NumSlider label="speed max" value={rangePair(shadow.sp, 12)[1]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 1, v, 12)} />
+            <NumSlider label="size min" value={rangePair(shadow.sz, 3)[0]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 0, v, 3)} />
+            <NumSlider label="size max" value={rangePair(shadow.sz, 8)[1]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 1, v, 8)} />
+            <NumSlider label="shadow alpha" value={shadow.a ?? 0.38} min={0} max={1} step={0.01} onChange={(v) => setShadow("a", v)} />
+            <NumSlider label="edge jitter" value={shadow.jit ?? 0.35} min={0} max={1} step={0.01} onChange={(v) => setShadow("jit", v)} />
+            {shadowColors.map((color, i) => <ColorField key={i} label={`shadow colour ${i + 1}`} value={color} onChange={(v) => setShadowColor(i, v)} />)}
+            <label style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+              <span>blend</span>
+              <select value={shadow.blend || "source-over"} onChange={(e) => setShadow("blend", e.target.value)} style={{ fontSize: 10 }}>
+                <option value="source-over">source-over</option>
+                <option value="lighter">lighter</option>
+                <option value="screen">screen</option>
+                <option value="multiply">multiply</option>
               </select>
             </label>
-          </div>
-          {layer.frames.map((src, frameIndex) => {
-            const offset = layer.frameOffsets?.[frameIndex] || {};
-            const updateOffset = (key, value) => {
-              const next = cloneSpec(layer);
-              next.frameOffsets = [...(next.frameOffsets || [])];
-              while (next.frameOffsets.length < next.frames.length) next.frameOffsets.push({});
-              next.frameOffsets[frameIndex] = { ...next.frameOffsets[frameIndex], [key]: value };
-              onLayer(next);
-            };
-            return (
-              <div key={`${src}:${frameIndex}`} style={{ display: "grid", gap: 3, paddingTop: 4, borderTop: `1px dashed ${C.border}` }}>
-                <div title={src} style={{ fontSize: 10, color: C.mute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Frame {frameIndex + 1}: {src}</div>
-                <NumSlider label="offset x" value={offset.x || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("x", v)} />
-                <NumSlider label="offset y" value={offset.y || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("y", v)} />
-                <NumSlider label="offset scale" value={offset.scale ?? 1} min={0.02} max={4} step={0.01} onChange={(v) => updateOffset("scale", v)} />
-                <NumSlider label="offset rotation" value={offset.rotation || 0} min={-1} max={1} step={0.01} onChange={(v) => updateOffset("rotation", v)} />
-              </div>
-            );
-          })}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RingCycleControls({ ring, index, onRing }) {
+  const active = Array.isArray(ring.colorCycle) && ring.colorCycle.length > 1;
+  const colors = ring.colorCycle || [];
+  const setRing = (key, value) => {
+    const next = cloneSpec(ring);
+    next[key] = value;
+    onRing(next);
+  };
+  const setActive = (on) => {
+    const next = cloneSpec(ring);
+    if (on) {
+      next.colorCycle = [ring.c || "#FFD447", "#FFFFFF"];
+      next.cyclePeriod ??= 3;
+      next.cycleEasing ??= "linear";
+    } else {
+      delete next.colorCycle;
+      delete next.cyclePeriod;
+      delete next.cycleEasing;
+    }
+    onRing(next);
+  };
+  const setColor = (i, color) => {
+    const nextColors = [...colors];
+    nextColors[i] = color;
+    setRing("colorCycle", nextColors);
+  };
+  return (
+    <div data-control-group={`ring-cycle-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1} colour cycle</div>
+      <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
+        <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+        Animated colours
+      </label>
+      {active && (
+        <>
+          <NumSlider label="cyclePeriod" value={ring.cyclePeriod ?? 3} min={0.5} max={10} step={0.1} onChange={(v) => setRing("cyclePeriod", v)} />
+          <label style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+            <span>cycleEasing</span>
+            <select value={ring.cycleEasing || "linear"} onChange={(e) => setRing("cycleEasing", e.target.value)} style={{ fontSize: 10 }}>
+              <option value="linear">linear</option>
+              <option value="step">step</option>
+            </select>
+          </label>
+          {colors.map((color, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 4, alignItems: "center" }}>
+              <ColorField label={`cycle colour ${i + 1}`} value={color} onChange={(v) => setColor(i, v)} />
+              {colors.length > 2 && <button type="button" onClick={() => setRing("colorCycle", colors.filter((_, j) => j !== i))} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>}
+            </div>
+          ))}
+          <button type="button" onClick={() => setRing("colorCycle", [...colors, colors.at(-1) || "#FFFFFF"])} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add cycle colour</button>
         </>
       )}
     </div>
   );
 }
 
-function SpecEditor({ spec, onPath, onLayer }) {
+function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
+  const setLayer = (key, value) => {
+    const next = cloneSpec(layer);
+    next[key] = value;
+    onLayer(next);
+  };
+  const embers = layer.embers === true ? {} : layer.embers || null;
+  const emberDefaults = { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] };
+  const setEmber = (key, value) => {
+    const next = cloneSpec(layer);
+    next.embers = { ...(embers || emberDefaults), [key]: value };
+    onLayer(next);
+  };
+  const setEmberRange = (key, part, value, fallback) => setEmber(key, setRangePart(embers || {}, key, part, value, fallback)[key]);
+  const palette = Array.isArray(layer.c) ? layer.c : [layer.c || "#FF5A1F", "#FFB43C", "#FFF6C9"];
+  const setPalette = (i, color) => {
+    const next = cloneSpec(layer);
+    next.c = [...palette];
+    while (next.c.length < 3) next.c.push(["#FF5A1F", "#FFB43C", "#FFF6C9"][next.c.length]);
+    next.c[i] = color;
+    onLayer(next);
+  };
+  const emberColors = Array.isArray(embers?.c) ? embers.c : [embers?.c || "#FFB43C"];
+  const setEmberColor = (i, color) => {
+    const colors = [...emberColors];
+    colors[i] = color;
+    setEmber("c", colors.length === 1 ? colors[0] : colors);
+  };
+  return (
+    <div data-control-group="flame" style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Flame layer {index + 1}</div>
+        <button type="button" onClick={onRemoveLayer} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>
+      </div>
+      <NumSlider label="count" value={layer.n ?? 1} min={1} max={12} step={1} onChange={(v) => setLayer("n", v)} />
+      <NumSlider label="size" value={layerScale(layer)} min={1} max={30} step={0.1} onChange={(v) => onLayer(withScale(layer, v))} />
+      <NumSlider label="alpha" value={layer.a ?? 1} min={0} max={1} step={0.01} onChange={(v) => setLayer("a", v)} />
+      <NumSlider label="rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />
+      <NumSlider label="spin" value={layer.spin || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("spin", v)} />
+      <NumSlider label="tongues" value={numberAt(layer.tongues, 6)} min={5} max={7} step={1} onChange={(v) => setLayer("tongues", v)} />
+      <NumSlider label="flicker" value={layer.flicker ?? 0.22} min={0} max={1} step={0.01} onChange={(v) => setLayer("flicker", v)} />
+      <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
+        <input type="checkbox" checked={layer.shimmer !== false} onChange={(e) => setLayer("shimmer", e.target.checked)} />
+        Base shimmer
+      </label>
+      {layer.shimmer !== false && <NumSlider label="shimmer arcs" value={layer.shimmerN ?? 3} min={0} max={6} step={1} onChange={(v) => setLayer("shimmerN", v)} />}
+      {["outer", "mid", "inner"].map((name, i) => <ColorField key={name} label={`${name} flame`} value={palette[i] || "#FFF6C9"} onChange={(v) => setPalette(i, v)} />)}
+      <ControlTitle>Embers</ControlTitle>
+      <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
+        <input type="checkbox" checked={!!layer.embers} onChange={(e) => setLayer("embers", e.target.checked ? emberDefaults : false)} />
+        Reuse rise particles
+      </label>
+      {embers && (
+        <>
+          <NumSlider label="ember count" value={embers.n ?? 8} min={0} max={40} step={1} onChange={(v) => setEmber("n", v)} />
+          <NumSlider label="ember speed min" value={rangePair(embers.sp, 18)[0]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 0, v, 18)} />
+          <NumSlider label="ember speed max" value={rangePair(embers.sp, 42)[1]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 1, v, 42)} />
+          <NumSlider label="ember life min" value={rangePair(embers.life, 0.5)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 0, v, 0.5)} />
+          <NumSlider label="ember life max" value={rangePair(embers.life, 1.1)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 1, v, 1.1)} />
+          <NumSlider label="ember size min" value={rangePair(embers.sz, 0.8)[0]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 0, v, 0.8)} />
+          <NumSlider label="ember size max" value={rangePair(embers.sz, 1.6)[1]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 1, v, 1.6)} />
+          <NumSlider label="ember sway" value={embers.sway ?? 10} min={0} max={40} step={0.5} onChange={(v) => setEmber("sway", v)} />
+          <NumSlider label="ember alpha" value={embers.a ?? 0.8} min={0} max={1} step={0.01} onChange={(v) => setEmber("a", v)} />
+          {emberColors.map((color, i) => <ColorField key={i} label={`ember colour ${i + 1}`} value={color} onChange={(v) => setEmberColor(i, v)} />)}
+        </>
+      )}
+    </div>
+  );
+}
+
+const DEDICATED_LAYER_FIELDS = new Set(["frames", "frameDuration", "fadeLen", "frameMode", "frameOffsets", "shadow", "tongues", "flicker", "shimmer", "shimmerN", "embers"]);
+const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
+
+function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer }) {
   if (!spec) return <p style={{ color: C.dim, fontSize: 13 }}>This aura has no particle spec.</p>;
-  const fields = specFields(spec);
-  const images = (spec.layers || []).map((layer, index) => ({ layer, index })).filter((row) => row.layer?.shape === "img");
+  const rows = (spec.layers || []).map((layer, index) => ({ layer, index }));
+  const images = rows.filter((row) => row.layer?.shape === "img");
+  const flames = rows.filter((row) => row.layer?.shape === "flame");
+  const dedicatedIndexes = new Set(rows.filter((row) => ["img", "flame"].includes(row.layer?.shape)).map((row) => row.index));
+  const fields = specFields(spec).filter((field) => {
+    if (field.path[0] === "layers" && dedicatedIndexes.has(field.path[1]) && DEDICATED_LAYER_FIELDS.has(field.path[2])) return false;
+    if (field.path[0] === "layers" && flames.some((row) => row.index === field.path[1]) && field.path[2] === "c") return false;
+    if (field.path[0] === "rings" && DEDICATED_RING_FIELDS.has(field.path[2])) return false;
+    return true;
+  });
   return (
     <div style={{ display: "grid", gap: 6 }}>
       {images.map(({ layer, index }) => (
         <ImagePlacement key={index} layer={layer} index={index} onLayer={(next) => onLayer(index, next)} />
       ))}
+      {flames.map(({ layer, index }) => (
+        <FlameControls key={index} layer={layer} index={index} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />
+      ))}
+      {(spec.rings || []).map((ring, index) => (
+        <RingCycleControls key={index} ring={ring} index={index} onRing={(next) => onPath(["rings", index], next)} />
+      ))}
+      <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>
       {fields.map((field) => {
         const label = field.path.join(".");
         if (field.kind === "color") {
-          return (
-            <label key={label} style={{ display: "grid", gridTemplateColumns: "118px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
-              <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-              <input type="color" value={colorInputValue(field.value)} onChange={(e) => onPath(field.path, e.target.value)} style={{ width: 48, height: 28, padding: 0, border: "none", background: "transparent" }} />
-            </label>
-          );
+          return <ColorField key={label} label={label} value={field.value} onChange={(v) => onPath(field.path, v)} />;
         }
         const range = sliderRange(field.path, field.value);
         return (
@@ -595,7 +838,18 @@ export function DevAuraGallery() {
               onPath={(path, value) => bump(selected, (base) => setPath(base, path, value))}
               onLayer={(index, layer) => bump(selected, (base) => {
                 const next = cloneSpec(base);
-                next.layers[index] = layer;
+                if (layer == null) next.layers.splice(index, 1);
+                else next.layers[index] = layer;
+                return next;
+              })}
+              onAddLayer={(layer) => bump(selected, (base) => {
+                const next = cloneSpec(base);
+                next.layers = [...(next.layers || []), layer];
+                return next;
+              })}
+              onRemoveLayer={(index) => bump(selected, (base) => {
+                const next = cloneSpec(base);
+                next.layers.splice(index, 1);
                 return next;
               })}
             />
@@ -622,7 +876,7 @@ export function DevAuraGallery() {
         </div>
       )}
       {showShapes && (
-        <div style={{
+        <div data-control-group="shape-sheet" style={{
           position: "fixed",
           top: barH + 12,
           left: 12,

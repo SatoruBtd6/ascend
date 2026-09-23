@@ -50,3 +50,27 @@ test("every catalog aura round-trips through the gallery serializer", async () =
   }
   assert.ok(seen.size > 1);
 });
+
+test("every renderer-addition field round-trips through copy spec", () => {
+  const spec = {
+    glow: 0.7,
+    rings: [{ r: 1.12, c: "#111111", colorCycle: ["#000000", "#FFFFFF", "#7DF9FF"], cyclePeriod: 4.5, cycleEasing: "step" }],
+    layers: [
+      {
+        k: "orbit", n: 1, shape: "img", frames: ["a.webp", "b.webp"], frameDuration: 0.24, fadeLen: 0.08, frameMode: "pingpong",
+        frameOffsets: [{ x: 0.1, y: -0.2, scale: 1.15, rotation: 0.25 }, { x: -0.05, y: 0.08, scale: 0.9, rotation: -0.1 }],
+        shadow: { max: 18, rate: 12.5, anchors: 32, life: [0.8, 1.6], sp: [4, 12], sz: [3, 8], c: ["#111827", "#334155"], a: 0.42, blend: "source-over", jit: 0.28 },
+      },
+      {
+        k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6,
+        c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmer: true, shimmerN: 3,
+        embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] },
+      },
+      { k: "rise", n: 4, shape: "ash", c: ["#9CA3AF"], sp: [4, 9], life: [1, 2], sz: [1, 2] },
+    ],
+  };
+  const text = formatAuraEntry("rendereradditions", spec);
+  const back = parseAuraEntry(text);
+  assert.equal(back.id, "rendereradditions");
+  assert.deepEqual(back.spec, spec);
+});

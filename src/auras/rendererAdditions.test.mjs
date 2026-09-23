@@ -285,6 +285,33 @@ test("reduced motion keeps shadow wisps with a smaller cap", () => {
   renderer._auraImageCache.delete("shadow-reduced.png");
 });
 
+test("shadow count and spawn rate scale with canvas size and stop below 56px", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  installAlphaDocument();
+  const rec = { img: alphaImage("shadow-size.png"), ready: true, failed: false };
+  renderer._auraImageCache.set("shadow-size.png", rec);
+  const make = (id, size, rate = 1000) => {
+    renderer.AURA_FX[id] = { glow: 0, layers: [{ k: "orbit", n: 1, shape: "img", src: "shadow-size.png", r: [0, 0], w: [0, 0], sz: [0.25, 0.25], a: 1, shadow: { rate, max: 24 } }] };
+    return renderer.makeAura(stubRendererCanvas(), { aura: id, w: size, h: size, mode: "circle", ringR: size / 3 });
+  };
+  const tiny = make("__shadowSize32", 32);
+  tiny.frame(1);
+  assert.equal(tiny.shadowWisps, 0);
+  for (const [id, size, expected] of [["__shadowSize76", 76, 12], ["__shadowSize88", 88, 14], ["__shadowSize160", 160, 24]]) {
+    const inst = make(id, size);
+    inst.frame(1);
+    assert.equal(inst.shadowWisps, expected);
+  }
+  const small = make("__shadowRate88", 88, 10);
+  const large = make("__shadowRate160", 160, 10);
+  small.frame(0.25);
+  large.frame(0.25);
+  assert.equal(small.shadowWisps, 1);
+  assert.equal(large.shadowWisps, 2);
+  for (const id of ["__shadowSize32", "__shadowSize76", "__shadowSize88", "__shadowSize160", "__shadowRate88", "__shadowRate160"]) delete renderer.AURA_FX[id];
+  renderer._auraImageCache.delete("shadow-size.png");
+});
+
 test("animated image shadows compute and cache anchors per frame lazily", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   const calls = installAlphaDocument();
