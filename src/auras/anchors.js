@@ -1,6 +1,8 @@
 // Face anchor in avatar radii, +y down. Bonewright eyes use it. A Nullpoint
 // blindfold in the over pass belongs on this same origin so photos match.
 export const FACE_REGION = { x: 0.19, y: -0.16, eyeW: 0.17 };
+// Head half-width ≈ eye-to-centre offset × 22.5/9 (measured on the E head).
+export const HEAD_FROM_EYE = 22.5 / 9;
 
 // Physique art is 424×568. Keys are the paths physiqueSrc returns, so the
 // figure on screen and the landmarks are the same choice. Each entry is pixels

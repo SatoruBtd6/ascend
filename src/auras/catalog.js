@@ -3,7 +3,7 @@ export const AURAS = [
   { id: "ember", name: "Ember", how: "Any lift at D", tier: 1, group: "rank", colors: ["#FF9340", "#FF4D6D"] },
   { id: "tide", name: "Tide", how: "Any lift at C", tier: 2, group: "rank", colors: ["#38C6FF", "#2F6BFF"] },
   { id: "storm", name: "Storm", how: "Any lift at B", tier: 3, group: "rank", colors: ["#B14BFF", "#38C6FF"] },
-  { id: "inferno", name: "Inferno", how: "Any lift at A", tier: 4, group: "rank", colors: ["#FF2D6F", "#FFB43C"] },
+  { id: "inferno", name: "Inferno", how: "Any lift at A", tier: 4, group: "rank", colors: ["#7DD3FC", "#FFFFFF"] },
   { id: "halo", name: "Halo", how: "Any lift at S", tier: 5, group: "rank", colors: ["#FFD447", "#FFFFFF"] },
   { id: "godray", name: "Godray", how: "Any lift at SS", tier: 6, group: "rank", colors: ["#FFFFFF", "#7DF9FF"] },
   { id: "smolder", name: "Smoldering Ember", how: "Train 30 days in a row", task: "streak30", group: "feat", colors: ["#FF6A2B", "#7A1E0E"] },

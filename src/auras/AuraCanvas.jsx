@@ -3,16 +3,28 @@ import { createPortal } from "react-dom";
 import { hexRgb } from "../theme.js";
 import { AURAS } from "./catalog.js";
 import { noteStrikeFlash } from "./boltClock.js";
-import { resolveAuraAnchors } from "./anchors.js";
-export { FACE_REGION, resolveAuraAnchors } from "./anchors.js";
+import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
+export { FACE_REGION, HEAD_FROM_EYE, resolveAuraAnchors } from "./anchors.js";
 /* Particle recipes. Easy unlocks stay simple; rare ones stack more motion. Never shrink the ring so small that studio tiles go blank. */
 export const AURA_FX = {
   ember: { spd: 1, glow: 0.6, layers: [{ k: "rise", n: 22, shape: "spark", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [18, 38], life: [1, 2.2], sz: [1.4, 2.6], sway: 10 }, { k: "rise", n: 8, shape: "dot", c: ["#FF9340", "#FF4D6D"], sp: [10, 20], life: [1.2, 2], sz: [3.2, 6], sway: 6, a: 0.55 }] },
   tide: { spd: 1, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2.4, 5.2] }, { k: "orbit", n: 16, shape: "dot", c: ["#38C6FF", "#2F6BFF"], w: [0.7, 1.2], r: [0.95, 1.18], sz: [1.8, 3.2], wave: 0.08 }] },
   storm: { spd: 1.35, glow: 0.58, bolts: { every: [0.8, 1.8], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 28, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.8, 2.8], r: [0.9, 1.22], sz: [1.3, 2.4] }, { k: "rise", n: 10, shape: "dot", c: ["#B14BFF", "#38C6FF"], sp: [16, 30], life: [0.8, 1.5], sz: [2, 4], sway: 8, a: 0.6 }] },
-  inferno: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 32, shape: "dot", c: ["#FF2D6F", "#FF5A1F", "#FFB43C"], sp: [28, 54], life: [0.55, 1.15], sz: [3.2, 7.5], sway: 5, a: 0.85 }, { k: "rise", n: 18, shape: "spark", c: ["#FFE08A", "#FFB43C", "#FF4D00"], sp: [42, 78], life: [0.5, 1.1], sz: [1.1, 2], sway: 16 }] },
-  halo: { spd: 1.2, glow: 0.78, rays: { n: 12, c: "#FFD447", spin: 0.22, len: 1.42, a: 0.18 }, layers: [{ k: "orbit", n: 22, shape: "dot", c: ["#FFF6C9", "#FFD447"], w: [0.4, 0.85], r: [1.02, 1.18], sz: [1.8, 3.4], tw: 1 }, { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.7, 1.2], r: [1.08, 1.24], sz: [1, 1.8], tw: 1 }] },
-  godray: { spd: 1.4, glow: 0.82, rays: { n: 16, c: "#DFFBFF", spin: -0.2, len: 1.55, a: 0.2 }, layers: [{ k: "rise", n: 22, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [12, 26], life: [1.2, 2.2], sz: [1.6, 3.2], sway: 4, tw: 1 }, { k: "orbit", n: 18, shape: "spark", c: ["#FFFFFF", "#7DF9FF"], w: [0.8, 1.6], r: [1, 1.28], sz: [1.2, 2.2] }] },
+  inferno: { spd: 1.55, glow: 0.72, layers: [
+    { k: "orbit", n: 9, shape: "flame", c: ["#2F7BFF", "#7DD3FC", "#FFFFFF"], w: [0.05, 0.12], r: [1.02, 1.14], sz: [7, 12], even: 1, flicker: 0.26, tongues: [5, 6], shimmer: false, embers: { n: 12, c: ["#BFE9FF", "#FFFFFF"], sp: [16, 34], life: [0.7, 1.3], sz: [0.9, 1.7], sway: 12, a: 0.85 } },
+    { k: "orbit", n: 4, shape: "flame", c: ["#38BDF8", "#BAE6FD", "#FFFFFF"], w: [-0.08, -0.14], r: [0.92, 1.02], sz: [4.5, 7.5], even: 1, flicker: 0.3, tongues: [5, 5], shimmer: false, a: 0.8 },
+  ] },
+  halo: { spd: 1.2, glow: 0.78, rays: { n: 12, c: "#FFD447", spin: 0.22, len: 1.42, a: 0.18 }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/halo.webp", placed: "head", sz: [0.85, 0.85], w: [0, 0], r: [1, 1], bob: 1, wobble: 0.04, rot: 0.05, a: 0.98, blend: "source-over", hover: 0.16 },
+    { k: "orbit", n: 22, shape: "dot", c: ["#FFF6C9", "#FFD447"], w: [0.4, 0.85], r: [1.02, 1.18], sz: [1.8, 3.4], tw: 1 },
+    { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.7, 1.2], r: [1.08, 1.24], sz: [1, 1.8], tw: 1 },
+  ] },
+  godray: { spd: 1.4, glow: 0.82, rays: { n: 16, c: "#DFFBFF", spin: -0.2, len: 1.55, a: 0.2 }, layers: [
+    { k: "orbit", n: 1, shape: "img", frames: ["/aura/arm-rest.webp", "/aura/arm-mid.webp", "/aura/arm-flex.webp"], frameMode: "pingpong", frameDuration: 0.62, fadeLen: 0.18, frameOffsets: { 0: { scale: 0.93, y: 0.05 } }, r: [1.02, 1.02], w: [0, 0], sz: [0.82, 0.82], even: 1, at: 0.515, a: 0.92, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 1, shape: "img", frames: ["/aura/arm-rest.webp", "/aura/arm-mid.webp", "/aura/arm-flex.webp"], frameMode: "pingpong", frameDuration: 0.62, fadeLen: 0.18, frameOffsets: { 0: { scale: 0.93, y: 0.05 } }, r: [1.02, 1.02], w: [0, 0], sz: [0.82, 0.82], even: 1, at: -0.015, flip: 1, a: 0.92, behind: 1, blend: "source-over" },
+    { k: "rise", n: 22, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [12, 26], life: [1.2, 2.2], sz: [1.6, 3.2], sway: 4, tw: 1 },
+    { k: "orbit", n: 18, shape: "spark", c: ["#FFFFFF", "#7DF9FF"], w: [0.8, 1.6], r: [1, 1.28], sz: [1.2, 2.2] },
+  ] },
   smolder: { spd: 1.1, glow: 0.6, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [8, 16], life: [2.2, 3.4], sz: [8, 15], sway: 8, a: 0.35, blend: "source-over" }, { k: "rise", n: 26, shape: "spark", c: ["#FF6A2B", "#FFB070", "#FF8A3D"], sp: [12, 26], life: [1.4, 2.6], sz: [1.3, 2.3], sway: 12, flick: 1 }, { k: "orbit", n: 8, shape: "dot", c: ["#C2361A", "#FF6A2B"], w: [0.25, 0.45], r: [0.98, 1.08], sz: [2.2, 4], tw: 1 }] },
   stormborn: { spd: 1.45, glow: 0.4, bolts: { every: [1, 2.2], c: ["#FFFFFF", "#BFD6FF"], flash: 1 }, layers: [{ k: "fall", n: 34, shape: "drop", c: ["#BFD6FF", "#8FB8FF", "#E6F0FF"], sp: [90, 150], sz: [1, 1.7], drift: -16, a: 0.75 }, { k: "orbit", n: 8, shape: "spark", c: ["#FFFFFF", "#8FB8FF"], w: [1.2, 2], r: [1.05, 1.22], sz: [1, 1.8] }] },
   dawn: { spd: 1, glow: 0.62, rays: { n: 9, c: "#FFB978", spin: 0.1, len: 1.4, a: 0.2, fan: 1 }, layers: [{ k: "rise", n: 18, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFE9C2"], sp: [10, 20], life: [1.6, 2.8], sz: [1.5, 2.8], sway: 6, tw: 1 }] },
@@ -99,10 +111,10 @@ export const AURA_FX = {
     { k: "orbit", n: 2, shape: "img", src: "/aura/pauldron.webp", placed: "shoulders" },
     { k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 },
   ] },
-  blacksun: { spd: 0.32, glow: 0.96, dark: 1, art: "blacksun", rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4 }], layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.38, rot: 0.04, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.12, 1.12], w: [0, 0], sz: [1.55, 1.55], even: 1, at: -0.12, rot: -0.04, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over" },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.42, 0.42], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over" },
+  blacksun: { spd: 0.32, glow: 0.96, dark: 1, art: "blacksun", rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4, colorCycle: ["#FFFFFF", "#0A0A0A"], cyclePeriod: 4 }], layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/wing-blacksun.webp", r: [1.1, 1.1], w: [0, 0], sz: [1.35, 1.35], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over" } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/wing-blacksun.webp", r: [1.1, 1.1], w: [0, 0], sz: [1.35, 1.35], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over" } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.56, 0.56], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over" },
     { k: "fall", n: 82, shape: "leaf", c: ["#FFFFFF", "#E4E8F2"], sp: [5, 13], sz: [1.8, 4.6], drift: 3, spin: 1, blend: "source-over" },
     { k: "orbit", n: 5, shape: "dot", c: ["#C2001F"], w: [0.16, 0.16], r: [1.16, 1.16], sz: [2.6, 2.6], even: 1 },
   ] },
@@ -1139,6 +1151,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           } else {
             p.ang += p.w * layerDt; const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
             [x, y] = onRing(p.ang, p.r + wob);
+            if (L.placed === "head") {
+              if (!anchors) { alpha = 0; }
+              else {
+                x = anchors.face.x;
+                y = anchors.face.y - anchors.face.eyeX * HEAD_FROM_EYE - p.sz * (L.hover ?? 0.14);
+              }
+            }
             if (L.shape !== "emoji" && L.shape !== "smoke" && L.shape !== "img") alpha = 0.75 + 0.25 * Math.sin(time * 3 + p.ph);
             if (mode === "body" && L.shape !== "emoji" && L.shape !== "img") alpha *= Math.sin(p.ang) < 0 ? 0.55 : 1;
           }

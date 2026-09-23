@@ -1,6 +1,6 @@
 // Dev-only aura tuning gallery. Loaded from a DEV branch in Auth so production builds drop this module.
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { resolveAuraAnchors } from "./anchors.js";
+import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape } from "./AuraCanvas.jsx";
 import { AURAS } from "./catalog.js";
 import { cloneSpec, formatAuraEntry, setPath, specFields } from "./specFormat.js";
@@ -35,7 +35,7 @@ const SHAPE_SHEET = {
 };
 
 const FLAG_KEYS = new Set(["flip", "even", "behind", "tw", "bob", "dash", "ink", "dark", "flash", "strike", "calm", "breathe", "glint", "over", "top", "flick", "fan", "artLate"]);
-const HEAD_FROM_EYE = 22.5 / 9;
+
 
 function sliderRange(path, value) {
   const key = String(path[path.length - 1]);
@@ -164,6 +164,7 @@ const LAYER_LABELS = {
   breathe: "Breathing", even: "Evenly spaced", flip: "Mirror", behind: "Behind figure",
   over: "Over figure", top: "On top", placed: "Placement", e: "Icons",
   rate: "Wisps per second", max: "Most at once", anchors: "Edge samples",
+  hover: "Hover gap", flicker: "Flicker", tongues: "Tongues", shimmer: "Shimmer",
 };
 const SECTION_LABELS = { rays: RAY_LABELS, bolts: BOLT_LABELS, sweep: SWEEP_LABELS, rings: RING_LABELS, corona: CORONA_LABELS };
 const SECTION_TITLES = { rays: "Rays", bolts: "Lightning", sweep: "Sweep", corona: "Corona glow" };
