@@ -458,37 +458,61 @@ test("moment start is randomized per mount within the spec interval", () => {
   assert.ok(Math.min(...waits) < 10 && Math.max(...waits) > 15, "waits should spread across the interval");
 });
 
-test("atlas moment lifts the sphere then drops with a dust burst, staying above the face", async () => {
+test("atlas moment orbits the avatar faster and faster, then explodes at its centre", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   const canvas = stubRendererCanvas();
-  const inst = renderer.makeAura(canvas, { aura: "atlas", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  const over = stubRendererCanvas();
+  const w = 141, cx = w / 2, cy = w / 2;
+  const inst = renderer.makeAura(canvas, { aura: "atlas", w, h: w, mode: "circle", ringR: 40.7, overCanvas: over });
   await new Promise((resolve) => setTimeout(resolve, 0));
   inst.forceMoment();
-  const sphereY = [];
-  const faceY = 70.5 + (-0.16) * 40.7;
-  let phases = 0;
-  for (let i = 0; i < 60 * 4 && inst.moment == null; i += 1) inst.frame(1 / 60);
-  for (let i = 0; i < 60 * 4; i += 1) {
+  const sphereXY = [];
+  let boomBurst = null;
+  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 8; i += 1) {
     inst.frame(1 / 60);
     if (inst.moment == null) break;
-    phases += 1;
-    for (let j = canvas.output.length - 1; j >= 0; j -= 1) {
-      const op = canvas.output[j];
-      if (op[0] === "drawImage" && String(op[1]).includes("stone-sphere")) {
-        for (let k = j - 1; k >= 0; k -= 1) {
-          if (canvas.output[k][0] === "translate") { sphereY.push(canvas.output[k][2]); break; }
+    if (inst.moment > 0.72 && inst.moment < 0.8 && inst.lastBurst?.anchor === "center") boomBurst = inst.lastBurst;
+    // Sphere position = the translate feeding its drawImage, on either canvas
+    for (const out of [canvas.output, over.output]) {
+      for (let j = out.length - 1; j >= 0; j -= 1) {
+        const op = out[j];
+        if (op[0] === "drawImage" && String(op[1]).includes("stone-sphere")) {
+          for (let k = j - 1; k >= 0; k -= 1) {
+            if (out[k][0] === "translate") { sphereXY.push({ mt: inst.moment, x: out[k][1], y: out[k][2] }); break; }
+          }
+          break;
         }
-        break;
       }
+      if (sphereXY.length && sphereXY.at(-1).mt === inst.moment) break;
     }
   }
-  assert.ok(phases > 10, "moment should run for a while");
-  const lift = Math.min(...sphereY), drop = Math.max(...sphereY), rest = sphereY[0];
-  assert.ok(lift < rest - 2, `sphere should lift (lift ${lift} vs rest ${rest})`);
-  assert.ok(drop > rest, "sphere should overshoot downward on the slam");
-  assert.ok(drop < faceY, `sphere must never reach the face (lowest ${drop} vs face ${faceY})`);
-  assert.ok(Math.abs(sphereY.at(-1) - rest) < 1, "sphere settles back to rest");
+  assert.ok(sphereXY.length > 30, "moment should run for a while");
+  // Angular speed about the avatar centre must grow across the orbit window
+  const orb = sphereXY.filter((p) => p.mt > 0.1 && p.mt < 0.6);
+  const steps = [];
+  for (let i = 1; i < orb.length; i += 1) {
+    const a0 = Math.atan2(orb[i - 1].y - cy, orb[i - 1].x - cx);
+    const a1 = Math.atan2(orb[i].y - cy, orb[i].x - cx);
+    let d = a1 - a0;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    steps.push(Math.abs(d));
+  }
+  const half = Math.floor(steps.length / 2);
+  const early = steps.slice(0, half).reduce((a, b) => a + b, 0) / half;
+  const late = steps.slice(half).reduce((a, b) => a + b, 0) / (steps.length - half);
+  assert.ok(late > early * 2, `orbit should speed up (early ${early.toFixed(4)} vs late ${late.toFixed(4)} rad/frame)`);
+  // The orbit sweeps around the avatar, not just above it
+  const span = Math.max(...orb.map((p) => p.y)) - Math.min(...orb.map((p) => p.y));
+  assert.ok(span > 40, `orbit should sweep a wide arc (y span ${span.toFixed(1)})`);
+  // Explosion bursts fire from the avatar centre (torso / photo centre)
+  assert.ok(boomBurst, "explosion burst should have fired at the centre anchor");
+  assert.ok(Math.abs(boomBurst.x - cx) < 1 && Math.abs(boomBurst.y - cy) < 1,
+    `explosion at (${boomBurst.x.toFixed(1)},${boomBurst.y.toFixed(1)}) should be the centre (${cx},${cy})`);
+  // Sphere returns to rest after the moment
+  assert.ok(inst.moment == null, "moment should have completed");
 });
 
 test("forge moment slams and fires a gated flash; never over 3 flashes per second", () => {

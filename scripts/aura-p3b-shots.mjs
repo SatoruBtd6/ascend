@@ -20,15 +20,16 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "baselin
 mkdirSync(OUT, { recursive: true });
 const base = process.argv[2] && process.argv[2].startsWith("http") ? process.argv[2] : "http://localhost:5180";
 const auras = (process.argv[2] && !process.argv[2].startsWith("http") ? process.argv[2] : "atlas,forge").split(",");
-const PHASES = [
-  ["loop", null], ["mstart", 0.06], ["mpeak", "peak"], ["mend", 0.94],
-];
+const PHASES = {
+  // orbit slow -> orbit fast -> dive/hit -> explosion -> re-form
+  atlas: [["loop", null], ["oslow", 0.18], ["ofast", 0.55], ["hit", 0.7], ["boom", 0.735], ["reform", 0.9]],
+  forge: [["loop", null], ["mstart", 0.06], ["mpeak", 0.28], ["mend", 0.94]],
+};
 // Body mode on three figures: low rank (E), high rank (SS), female (S-f);
 // plus the 76 photo and 32 board circle stages.
 const STAGES = [
   ["figure", "E"], ["figure", "SS"], ["figure", "Sf"], ["photo", 76], ["photo", 32],
 ];
-const PEAK = { atlas: 0.63, forge: 0.28 };
 const FIG_SRC = { E: "/avatars/E.webp", SS: "/avatars/SS.webp", Sf: "/avatars/S-f.webp" };
 
 const chromium = await loadChromium();
@@ -80,7 +81,7 @@ for (const aura of auras) {
         await new Promise((r) => setTimeout(r, 25));
       }
     }, { aura, kind, avatar, figSrc: FIG_SRC[avatar] });
-    for (const [label, target] of PHASES) {
+    for (const [label, target] of PHASES[aura] || PHASES.forge) {
       await page.evaluate(({ target, aura }) => {
         const inst = window.__inst;
         const step = (n) => { for (let i = 0; i < n; i++) inst.frame(1 / 60); };
@@ -98,7 +99,7 @@ for (const aura of auras) {
         inst.forceMoment();
         let guard = 0;
         while (inst.moment == null && guard++ < 600) inst.frame(1 / 60);
-        const want = target === "peak" ? { atlas: 0.63, forge: 0.28 }[aura] ?? 0.5 : target;
+        const want = target === "peak" ? 0.5 : target;
         guard = 0;
         while (inst.moment != null && inst.moment < want && guard++ < 600) inst.frame(1 / 60);
         step(2);

@@ -34,18 +34,36 @@ export const AURA_FX = {
     { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", r: [0.5, 0.5], w: [0, 0], sz: [1.95, 1.95], even: 1, at: 0.75, y: 0.38, wobble: 0.035, bob: 1, a: 0.95, behind: 1, blend: "source-over" },
     { k: "rise", n: 7, shape: "ember", c: ["#FF6A3C", "#C2001F", "#E8C56A"], sp: [10, 20], life: [1.8, 3], sz: [0.9, 1.7], sway: 9, a: 0.6 },
   ] },
-  atlas: { spd: 0.85, glow: 0.5, moment: { every: [20, 30], dur: 2.4, bursts: [
-    { at: 0.3, path: "shower", shape: "sandgrain", n: 6, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "head", y: -0.08, dir: 0.22, sp: [20, 55], spread: 1.3, sz: [1.6, 3], life: [0.5, 0.9], grav: 2.4, a: 0.9, over: 1 },
-    { at: 0.45, path: "shower", shape: "sandgrain", n: 8, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "head", y: -0.08, dir: 0.24, sp: [25, 60], spread: 1.3, sz: [1.6, 3.2], life: [0.5, 0.9], grav: 2.4, a: 0.9, over: 1 },
-    { at: 0.62, path: "shockring", c: "#FFF3D0", a: 1, lw: 3.5, r0: 0.22, v: 2.4, life: [0.65, 0.65], anchor: "head", y: 0.14, aspect: 1, over: 1 },
-    { at: 0.68, path: "shockring", c: "#E8C878", a: 0.7, lw: 1.8, r0: 0.15, v: 2, life: [0.5, 0.5], anchor: "head", y: 0.14, aspect: 1, over: 1 },
-    { at: 0.62, path: "radial", shape: "smoke", n: 18, c: ["#F4E3B2", "#D9B87A", "#B08D57"], anchor: "head", y: 0.12, sp: [25, 60], sz: [5, 9], life: [0.8, 1.4], grav: 0.35, a: 0.65, over: 1 },
-    { at: 0.62, path: "radial", shape: "shard", n: 7, c: ["#D9DEE7", "#9AA3B2", "#F4E3B2"], anchor: "head", y: -0.05, sp: [70, 130], sz: [2.2, 4], life: [0.7, 1.1], grav: 2.4, a: 0.95, over: 1 },
-    { at: 0.62, path: "shower", shape: "sandgrain", n: 16, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "head", y: 0.05, dir: 0.28, sp: [50, 100], spread: 1.4, sz: [1.8, 3.2], life: [0.6, 1.1], grav: 2.4, a: 0.9, over: 1 },
-  ] }, layers: [
+  // Atlas: a stone sphere rests above the head. Its moment is a violent
+  // orbit — the sphere lifts off, circles the avatar faster and faster
+  // (behind on the far side, in front on the near side, with a motion
+  // trail and debris flung off), dives into the avatar centre and
+  // explodes into light beams, a shockwave and rock chunks, then re-forms.
+  atlas: { spd: 0.85, glow: 0.5, moment: {
+    every: [20, 30], dur: 4.4,
+    flash: { at: 0.72, flashPeak: 0.55, flashLife: 0.1, flashC: ["#FFF8E0", "#F0D090"], anchor: "center" },
+    shake: { at: 0.72, amp: 0.16, dur: 0.45 },
+    bursts: [
+      { at: 0.72, path: "beams", n: 12, nScale: 0.5, c: ["#FFFDF2", "#FFF6D8", "#F0D090"], a: 0.95, lw: [2.4, 4.6], len: [0.62, 0.92], life: [0.42, 0.62], anchor: "center", over: 1 },
+      { at: 0.72, path: "shockring", c: "#FFF3D0", a: 1, lw: 4, r0: 0.12, v: 3.4, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
+      { at: 0.74, path: "shockring", c: "#E8C878", a: 0.7, lw: 2, r0: 0.08, v: 2.6, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
+      { at: 0.72, path: "radial", shape: "shard", n: 10, c: ["#D9DEE7", "#9AA3B2", "#F4E3B2"], anchor: "center", sp: [90, 210], sz: [2.5, 4.5], life: [0.7, 1.2], grav: 2.6, a: 0.95, over: 1 },
+      { at: 0.72, path: "radial", shape: "smoke", n: 20, c: ["#F4E3B2", "#D9B87A", "#B08D57"], anchor: "center", sp: [30, 85], sz: [5, 10], life: [0.9, 1.5], grav: 0.3, a: 0.7, over: 1 },
+      { at: 0.72, path: "radial", shape: "sandgrain", n: 14, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "center", sp: [60, 150], sz: [1.4, 2.6], life: [0.6, 1], grav: 2.4, a: 0.9, over: 1 },
+      { at: 0.84, path: "shower", shape: "sandgrain", n: 8, c: ["#F4E3B2", "#E8C878"], anchor: "head", y: -0.1, dir: -0.25, sp: [15, 45], spread: 0.9, sz: [1.2, 2.2], life: [0.6, 1], grav: 1.8, a: 0.8, over: 1 },
+    ] }, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.4, spin: 0.02, tremble: 0.008, a: 0.98, blend: "source-over",
-      mY: [[0, 0], [0.3, -0.12], [0.5, -0.15], [0.62, 0.1], [0.78, -0.03], [1, 0]], mX: [[0, 0], [0.3, 0.04], [0.42, -0.04], [0.52, 0.03], [0.62, 0], [1, 0]], mRot: [[0, 0], [0.4, 0.02], [0.55, -0.02], [0.7, 0], [1, 0]], mShake: [[0, 1], [0.2, 2.5], [0.45, 4.5], [0.6, 5], [0.65, 0.4], [1, 1]], mScale: [[0, 1], [0.5, 1.04], [0.62, 0.95], [0.75, 1.02], [1, 1]],
-      circle: { sz: [0.9, 0.9], hover: 0.51, mY: [[0, 0], [0.3, -0.1], [0.5, -0.12], [0.62, 0.08], [0.78, -0.03], [1, 0]] } },
+      mside: "far", mTrail: { n: 6, lag: 0.015, a: 0.4 },
+      mOrbit: { center: "center", rX: 1.25, rY: 0.85, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1, reform: [0.8, 0.95],
+        flings: { from: 0.16, every: 0.05, shape: "sandgrain", n: 2, c: ["#F4E3B2", "#E8C878", "#C89B5A"], sp: [40, 110], spread: 0.4, sz: [1.2, 2.4], life: [0.5, 0.9], grav: 2, a: 0.9 } },
+      mShake: [[0, 1], [0.15, 1.5], [0.35, 3], [0.55, 6], [0.66, 8], [0.72, 0], [1, 0]], mScale: [[0, 1], [0.55, 1], [0.66, 1.08], [0.72, 1], [1, 1]],
+      circle: { sz: [0.9, 0.9], hover: 0.51, mOrbit: { center: "center", rX: 1.12, rY: 1.12, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1, reform: [0.8, 0.95],
+        flings: { from: 0.16, every: 0.05, shape: "sandgrain", n: 2, c: ["#F4E3B2", "#E8C878", "#C89B5A"], sp: [40, 110], spread: 0.4, sz: [1.2, 2.4], life: [0.5, 0.9], grav: 2, a: 0.9 } } } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.4, spin: 0.02, a: 0.98, over: 1, blend: "source-over",
+      mside: "near", mTrail: { n: 6, lag: 0.015, a: 0.4 },
+      mOrbit: { center: "center", rX: 1.25, rY: 0.85, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1 },
+      mScale: [[0, 1], [0.55, 1], [0.66, 1.08], [0.72, 1], [1, 1]],
+      circle: { sz: [0.9, 0.9], hover: 0.51, mOrbit: { center: "center", rX: 1.12, rY: 1.12, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1 } } },
     { k: "fall", n: 12, shape: "sandgrain", c: ["#E8C878", "#C89B5A", "#F4E3B2"], sp: [10, 22], sz: [0.9, 1.8], drift: 3, a: 0.55 },
   ] },
   forge: { spd: 1, glow: 0.38, overArt: "forge", moment: { every: [6, 10], dur: 1.5,
@@ -959,14 +977,50 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const ox = (L.x || 0) * rx;
         const oy = (L.y || 0) * ry;
         const mt = api.moment, mAmp = api.reduce ? 0.45 : 1;
-        const mdx = mt != null ? (keyAt(L.mX, mt) || 0) * mAmp * rx : 0;
-        const mdy = mt != null ? (keyAt(L.mY, mt) || 0) * mAmp * ry : 0;
+        let mdx = mt != null ? (keyAt(L.mX, mt) || 0) * mAmp * rx : 0;
+        let mdy = mt != null ? (keyAt(L.mY, mt) || 0) * mAmp * ry : 0;
         const mrot = mt != null ? (keyAt(L.mRot, mt) || 0) * mAmp : 0;
         const msc = mt != null ? 1 + ((keyAt(L.mScale, mt) ?? 1) - 1) * mAmp : 1;
         const mshake = mt != null ? 1 + ((keyAt(L.mShake, mt) ?? 1) - 1) * mAmp : 1;
         const trem = (L.tremble || 0) * mshake * (api.reduce ? 0.3 : 1);
         const mDim = mt != null ? (keyAt(L.mDim, mt) ?? 1) : 1;
+        const mo = L.mOrbit;
+        let absX = null, absY = null;
         g.save(); if (mDim < 1) g.globalAlpha *= mDim;
+        if (mo && mt != null) {
+          const os = orbitPos(mo, mt, x + ox, y + bob + oy);
+          const wantNear = L.mside === "near";
+          let vis = 1;
+          if (os.phase === "orbit" || os.phase === "dive") {
+            vis = wantNear ? (os.z > -0.12 ? 1 : 0) : (os.z < 0.12 ? 1 : 0);
+            absX = os.x; absY = os.y;
+          } else if (os.phase === "gone" || wantNear) vis = 0;
+          const ref = mo.reform;
+          if (ref && mt >= ref[0] && !wantNear) vis *= Math.min(1, (mt - ref[0]) / Math.max(0.001, ref[1] - ref[0]));
+          if (vis <= 0.01) { g.restore(); break; }
+          g.globalAlpha *= vis;
+          // Motion trail: ghost copies at earlier orbit positions. The orbit
+          // is a pure function of phase, so ghosts are recomputed — the trail
+          // naturally lengthens as the spin accelerates.
+          if (L.mTrail && absX != null && !isFrameAnim && rec?.ready && !rec.failed) {
+            const T = L.mTrail, tn = T.n ?? 6;
+            const timg = rec.img, tAspect = timg.naturalWidth / Math.max(1, timg.naturalHeight);
+            const tiw = (tAspect >= 1 ? s : s * tAspect) * breathe, tih = (tAspect >= 1 ? s / tAspect : s) * breathe;
+            for (let j = 1; j <= tn; j++) {
+              const mtP = mt - j * (T.lag ?? 0.015);
+              if (mtP < mo.from) break;
+              const os2 = orbitPos(mo, mtP, x + ox, y + bob + oy);
+              if (os2.phase !== "orbit" && os2.phase !== "dive") break;
+              if (wantNear ? os2.z < -0.12 : os2.z > 0.12) continue;
+              const ga = (T.a ?? 0.45) * (1 - j / (tn + 1)) * Math.min(1, (os2.u ?? 1) / 0.45);
+              if (ga <= 0.02) continue;
+              g.save(); g.globalAlpha *= ga;
+              g.translate(os2.x, os2.y); g.rotate(p.rot + wob + mrot * Math.PI * 2); g.scale(msc * (L.flip ? -1 : 1), msc);
+              g.drawImage(timg, -tiw / 2, -tih / 2, tiw, tih); g.restore();
+            }
+          }
+        }
+        if (absX != null) { mdx = absX - x - ox; mdy = absY - y - bob - oy; }
         g.translate(x + ox + mdx, y + bob + oy + mdy); g.rotate(p.rot + wob + mrot * Math.PI * 2 + trem * Math.PI * 2 * Math.sin(time * 41 + p.ph * 9.7)); g.scale(msc * (L.flip ? -1 : 1), msc);
         if (S) drawShadowWisps(g, state, p, S, breathe);
         if (isFrameAnim) {
@@ -1115,17 +1169,45 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const anchorOrigin = (name) => {
     if (name === "head" && anchors) return { x: anchors.face.x, y: anchors.face.y - anchors.face.eyeX * HEAD_FROM_EYE };
     if (name === "face" && anchors) return { x: anchors.face.x, y: anchors.face.y };
+    if (name === "center") return anchors ? { x: anchors.torso.x, y: anchors.torso.y } : { x: cx, y: cy };
     if (name === "ground") return { x: cx, y: mode === "body" ? h * 0.965 : cy + ry * 0.97 };
     return { x: cx, y: cy };
+  };
+  // Parametric moment orbit for img layers (Atlas): lifts off the rest spot,
+  // circles the orbit centre faster and faster (ease>1), then dives into the
+  // centre. Pure function of the moment phase so trails and fling spawns can
+  // evaluate past positions. z < 0 = far side (behind), z > 0 = near (front).
+  const orbitPos = (o, mt, restX, restY) => {
+    const oc = anchorOrigin(o.center || "center");
+    const rScale = api.reduce ? 0.55 : 1;
+    const oRX = (o.rX ?? 1.15) * rx * rScale, oRY = (o.rY ?? 0.8) * ry * rScale;
+    const hit = o.hit ?? 0.72;
+    if (mt < o.from) return { x: restX, y: restY, z: -1, u: 0, phase: "rest" };
+    if (mt <= o.to) {
+      const u = (mt - o.from) / Math.max(0.001, o.to - o.from);
+      const ang = -Math.PI / 2 + (o.revs ?? 2.5) * Math.PI * 2 * Math.pow(u, o.ease ?? 1.7);
+      const bl = Math.min(1, u / (o.blend ?? 0.1));
+      const px = oc.x + Math.cos(ang) * oRX, py = oc.y + Math.sin(ang) * oRY;
+      return { x: restX + (px - restX) * bl, y: restY + (py - restY) * bl, z: Math.sin(ang), u, ang, phase: "orbit" };
+    }
+    if (mt < hit) {
+      const end = orbitPos(o, o.to, restX, restY);
+      const e = Math.min(1, (mt - o.to) / Math.max(0.001, hit - o.to)) ** 2;
+      return { x: end.x + (oc.x - end.x) * e, y: end.y + (oc.y - end.y) * e, z: 1, u: 1, phase: "dive" };
+    }
+    const ref = o.reform;
+    if (ref && mt >= ref[0]) return { x: restX, y: restY, z: -1, u: 0, phase: "rest" };
+    return { x: oc.x, y: oc.y, z: 1, phase: "gone" };
   };
   // One-shot moment burst: n scales with canvas size, paths give the burst
   // shape (cone spray, radial dust, expanding shock ring). `dir` aims the cone
   // in turns (0=right, .25=down, -.25=up); `flat` flattens the ring to a
   // ground shockwave.
   const burstFire = (b) => {
-    const n = Math.max(1, Math.round((b.n ?? 8) * mScale * (b.over ? 1 : scale)));
-    const o = anchorOrigin(b.anchor);
+    const n = Math.max(1, Math.round((b.n ?? 8) * mScale * (b.nScale ?? 1) * (b.over ? 1 : scale)));
+    const o = b.absX != null ? { x: b.absX, y: b.absY } : anchorOrigin(b.anchor);
     const ox = o.x + (b.x ?? 0) * rx, oy = o.y + (b.y ?? 0) * ry;
+    api.lastBurst = { x: ox, y: oy, anchor: b.anchor || null };
     for (let i = 0; i < n; i++) {
       const p = {
         b, over: !!b.over, x: ox, y: oy, age: 0,
@@ -1133,7 +1215,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         sz: (b.sz ? rnd(...b.sz) : 1.4) * unit,
         c: Array.isArray(b.c) ? pick(b.c) : (b.c || c1), rot: rnd(0, Math.PI * 2), vr: rnd(-2, 2),
       };
-      if (b.path === "shockring") {
+      if (b.path === "beams") {
+        p.beam = true;
+        p.ang = (i / n) * Math.PI * 2 + rnd(-0.14, 0.14);
+        const edge = Math.min(ox, oy, w - ox, h - oy);
+        p.len = rnd(...(b.len || [0.6, 0.9])) * Math.max(8, edge * 0.92);
+        p.lw = (b.lw ? rnd(...b.lw) : 3) * unit;
+      } else if (b.path === "shockring") {
         p.ring = true; p.aspect = b.aspect ?? (b.flat ? 0.16 : ry / rx); p.r = (b.r0 ?? 0.4) * Math.min(rx, ry); p.rv = (b.v ?? 2) * Math.min(rx, ry);
       } else {
         const cone = b.path === "shower" || b.dir != null;
@@ -1153,7 +1241,14 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       if (a <= 0.01) continue;
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      if (p.ring) {
+      if (p.beam) {
+        const tx = p.x + Math.cos(p.ang) * p.len, ty = p.y + Math.sin(p.ang) * p.len;
+        const grd = ctx.createLinearGradient(p.x, p.y, tx, ty);
+        grd.addColorStop(0, p.c); grd.addColorStop(0.5, p.c); grd.addColorStop(1, rgba(p.c, 0));
+        ctx.globalAlpha = Math.max(0, a);
+        ctx.strokeStyle = grd; ctx.lineWidth = Math.max(0.7, p.lw * (1 - k * 0.45)); ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
+      } else if (p.ring) {
         ctx.globalAlpha = Math.max(0, a);
         ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.7, (p.b.lw ?? 2) * unit * (1 - k * 0.5));
         ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * p.aspect, 0, 0, Math.PI * 2); ctx.stroke();
@@ -1185,7 +1280,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     if (fx.moment) {
       if (momentT == null) {
         momentAt -= dt;
-        if (momentAt <= 0) { momentT = 0; momentFired = new Set(); }
+        if (momentAt <= 0) { momentT = 0; momentFired = new Set(); layers.forEach((st) => { st.flingAt = null; }); }
       } else {
         momentT += dt;
         const mt = momentT / mdur;
@@ -1207,6 +1302,22 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           (fx.moment.bursts || []).forEach((b, i) => {
             if (!momentFired.has(i) && mt >= b.at) { momentFired.add(i); burstFire(b); }
           });
+          // Orbit flings: dust/pebbles shed tangentially while the sphere spins
+          // up. Spawned at the sphere's position at each scheduled phase.
+          for (const st of layers) {
+            const o = st.L.mOrbit, fl2 = o?.flings;
+            if (!o || !fl2 || mt < (fl2.from ?? o.from) || mt > o.to) continue;
+            if (st.flingAt == null) st.flingAt = fl2.from ?? o.from;
+            while (st.flingAt <= mt) {
+              const fp = orbitPos(o, st.flingAt, 0, 0);
+              if (fp.phase === "orbit" && fp.ang != null) {
+                const fp2 = orbitPos(o, Math.min(o.to, st.flingAt + 0.002), 0, 0);
+                const tdir = Math.atan2(fp2.y - fp.y, fp2.x - fp.x) / (Math.PI * 2);
+                burstFire({ ...fl2, path: "shower", dir: tdir, absX: fp.x, absY: fp.y, over: fp.z > 0 });
+              }
+              st.flingAt += fl2.every ?? 0.05;
+            }
+          }
         }
       }
     }
@@ -1365,8 +1476,15 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         });
       });
     };
+    // Explosion shake: decays over moment.shake.dur, skipped entirely when no
+    // moment spec exists so non-moment auras keep identical pixels.
+    const shkSpec = fx.moment?.shake;
+    const shkU = shkSpec && api.moment != null ? (api.moment - shkSpec.at) / Math.max(0.01, shkSpec.dur ?? 0.4) : 1;
+    const shakeAmp = shkSpec && shkU >= 0 && shkU < 1 ? (shkSpec.amp ?? 0.04) * Math.min(rx, ry) * (1 - shkU) * (1 - shkU) * (api.reduce ? 0.3 : 1) : 0;
+    if (shakeAmp > 0.01) { g.save(); g.translate(rnd(-shakeAmp, shakeAmp), rnd(-shakeAmp, shakeAmp)); }
     paintLayers(g, false);
     paintMoment(g, false);
+    if (shakeAmp > 0.01) g.restore();
     if (fx.artLate) AURA_ART[fx.art]?.(artArgs("late"));
     if (fx.bolts?.burst) {
       boltT -= dt;
@@ -1463,8 +1581,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     };
     paintWash(g);
     if (overG) {
+      if (shakeAmp > 0.01) { overG.save(); overG.translate(rnd(-shakeAmp, shakeAmp), rnd(-shakeAmp, shakeAmp)); }
       paintLayers(overG, true);
       paintMoment(overG, true);
+      if (shakeAmp > 0.01) overG.restore();
       paintWash(overG);
       if (fx.overArt) AURA_ART[fx.overArt]?.(artArgs("over"));
     }
@@ -1477,6 +1597,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     if (import.meta.env && import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("auraProbe") === "1") canvas._aura = api;
   } catch (e) { /* probe is dev-only */ }
   return api;
+}
+
+// Live aura instances by aura id — lets dev tools fire a moment on every
+// mounted canvas of an aura at once (gallery stage + profile preview).
+const auraLiveInstances = new Map();
+export function fireAuraMoment(aura) {
+  for (const inst of auraLiveInstances.get(aura) || []) { try { inst.forceMoment?.(); } catch (e) { /* dev-only */ } }
 }
 
 export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance }) {
@@ -1496,8 +1623,11 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     if (reduce && aura !== "bonewright") { for (let i = 0; i < 60; i++) inst.frame(1 / 30); return; }
     let io = null;
     if (typeof IntersectionObserver !== "undefined") { io = new IntersectionObserver((es) => { inst.visible = es[0]?.isIntersecting ?? true; }, { rootMargin: "80px" }); io.observe(cv); }
+    let live = auraLiveInstances.get(aura);
+    if (!live) auraLiveInstances.set(aura, (live = new Set()));
+    live.add(inst);
     AuraLoop.add(inst);
-    return () => { AuraLoop.remove(inst); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
+    return () => { AuraLoop.remove(inst); live.delete(inst); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
   }, [aura, w, h, mode, ringR, needs, overSlot, figure]);
   if (!AURA_FX[aura]) return null;
   const overCanvas = needs ? (

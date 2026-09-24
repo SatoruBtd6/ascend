@@ -1,7 +1,7 @@
 // Dev-only aura tuning gallery. Loaded from a DEV branch in Auth so production builds drop this module.
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
-import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape } from "./AuraCanvas.jsx";
+import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape, fireAuraMoment } from "./AuraCanvas.jsx";
 import { AURAS } from "./catalog.js";
 import { cloneSpec, formatAuraEntry, specFields } from "./specFormat.js";
 import { C, applyTheme } from "../theme.js";
@@ -1220,8 +1220,7 @@ export function DevAuraGallery() {
     <button type="button" aria-pressed={on} onClick={onClick} style={chip(on)}>{label}</button>
   );
 
-  const momentInst = useRef(null);
-  const stageFor = (id, live) => (
+  const stageFor = (id) => (
     <Stage
       aura={id}
       size={size}
@@ -1229,7 +1228,6 @@ export function DevAuraGallery() {
       photo={photo}
       showAnchors={showAnchors}
       canvasKey={`${id}:${revs[id] || 0}:${reduce ? 1 : 0}`}
-      onInstance={live ? (inst) => { momentInst.current = inst; } : undefined}
     />
   );
 
@@ -1321,9 +1319,9 @@ export function DevAuraGallery() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start", paddingTop: barH + 12, paddingRight: 16, paddingBottom: 88, paddingLeft: 16, scrollMarginTop: barH + 12 }}>
           <div style={{ flex: "0 0 auto" }}>
             <button type="button" onClick={() => { setSelected(null); setCopied(""); }} style={{ ...chip(false), marginBottom: 8 }}>All auras</button>
-            {stageFor(selected, true)}
+            {stageFor(selected)}
             {specFor(selected)?.moment && (
-              <button type="button" onClick={() => momentInst.current?.forceMoment?.()} style={{ ...chip(false), marginTop: 8, fontSize: 12 }}>▶ Play moment</button>
+              <button type="button" onClick={() => fireAuraMoment(selected)} style={{ ...chip(false), marginTop: 8, fontSize: 12 }}>▶ Play moment</button>
             )}
             <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700 }}>{selectedAura.name}</div>
             <div style={{ fontSize: 11, color: C.dim }}>{selectedAura.rarity || selectedAura.group} · {selectedAura.id}</div>
