@@ -17,7 +17,7 @@ async function loadChromium() {
 }
 
 const dir = process.argv[2] || join(process.cwd(), "public", "aura");
-const FILES = ["hat-straw.webp", "blindfold.webp", "hair-white.webp", "robe-ledger.webp", "mask-ledger.webp"];
+const FILES = ["hat-straw.webp", "blindfold.webp", "robe-ledger.webp", "mask-ledger.webp"];
 
 // WebP container: RIFF....WEBP then chunks. VP8X flag bit 0x10 = alpha.
 // VP8L is always RGBA. Plain VP8 (lossy) has no alpha.

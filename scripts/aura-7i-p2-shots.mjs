@@ -1,7 +1,6 @@
-// 7i Part 2 shots: nullpoint blindfold + procedural pale hair on all 14
+// 7i Part 2 shots: nullpoint blindfold (with fluttering tail ends) on all 14
 // physique figures at 160, plus a photo at 76 and at board 32, dark theme
-// (light variants too — the part adds colour). "pair" stages render the
-// procedural strands and the hair-white.webp asset variant side by side.
+// (light variants too — the part adds colour).
 // Stage DOM mirrors production z-order: main canvas < figure/photo < over.
 // Also reports the smallest alpha margin of the over-canvas drawing to the
 // canvas edge.
@@ -33,9 +32,6 @@ const STAGES = [
   ["figE", "figure", 160, "light"],
   ["photo76", "photo", 76, "light"],
   ["board32", "photo", 32, "light"],
-  // procedural vs asset hair, side by side, figure 160 and photo 76
-  ["pair-figE", "pair-figure", 160, "dark"],
-  ["pair-photo", "pair-photo", 76, "dark"],
 ];
 
 const chromium = await loadChromium();
@@ -49,12 +45,10 @@ await page.evaluate(() => import("/src/auras/AuraCanvas.jsx").then((m) => {
 }));
 
 const margins = [];
-const buildStage = async ({ aura, kind, size, theme, label, hair }) => {
-  const margin = await page.evaluate(async ({ aura, kind, size, theme, label, hair }) => {
+const buildStage = async ({ aura, kind, size, theme, label }) => {
+  const margin = await page.evaluate(async ({ aura, kind, size, theme, label }) => {
     const host = document.getElementById("stage") || document.body;
     const mod = window.__mod;
-    const prevHair = mod.AURA_FX[aura].hair;
-    if (hair) mod.AURA_FX[aura].hair = hair;
     let cw, ch, ringR, mode, art;
     if (kind === "figure") {
       cw = Math.round(size * 0.8); ch = Math.round(size * 1.02); mode = "body"; ringR = Math.min(cw, ch) / 3.2;
@@ -94,8 +88,9 @@ const buildStage = async ({ aura, kind, size, theme, label, hair }) => {
     wrap.appendChild(cv2);
     host.appendChild(wrap);
     const inst = mod.makeAura(cv, { aura, w: cw, h: ch, mode, ringR, figure: mode === "body" ? art.src : undefined, overCanvas: cv2 });
+    inst.frame(1 / 60); // kicks off lazy image loads so the cache has records
     for (let tries = 0; tries < 200; tries++) {
-      if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
+      if ([...mod._auraImageCache.values()].length && [...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
       await new Promise((r) => setTimeout(r, 25));
     }
     for (let i = 0; i < 120; i++) inst.frame(1 / 60);
@@ -105,33 +100,14 @@ const buildStage = async ({ aura, kind, size, theme, label, hair }) => {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (d[(y * W + x) * 4 + 3] > 8) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
     }
-    if (hair) mod.AURA_FX[aura].hair = prevHair;
     if (maxX < 0) return { empty: true };
     const dpr = cv2.width / cw;
     return { left: +(minX / dpr).toFixed(1), top: +(minY / dpr).toFixed(1), right: +((W - 1 - maxX) / dpr).toFixed(1), bottom: +((H - 1 - maxY) / dpr).toFixed(1) };
-  }, { aura, kind, size, theme, label, hair });
+  }, { aura, kind, size, theme, label });
   return margin;
 };
 
 for (const [label, kind, size, theme] of STAGES) {
-  if (kind.startsWith("pair-")) {
-    const baseKind = kind.slice(5);
-    await page.evaluate((theme) => {
-      document.body.innerHTML = "";
-      document.body.style.cssText = `margin:0;background:${theme === "light" ? "#EDF1F7" : "#0B0F17"};display:flex;align-items:center;justify-content:center;gap:40px;height:100vh`;
-      const stage = document.createElement("div");
-      stage.id = "stage";
-      stage.style.cssText = "display:flex;align-items:center;justify-content:center;gap:40px";
-      document.body.appendChild(stage);
-    }, theme);
-    const r1 = await buildStage({ aura: AURA, kind: baseKind, size, theme, label, hair: "strands" });
-    const r2 = await buildStage({ aura: AURA, kind: baseKind, size, theme, label, hair: "asset" });
-    const stage = await page.$("#stage");
-    await stage.screenshot({ path: join(OUT, `7i-p2-${AURA}-${label}-${theme}.png`) });
-    margins.push({ label, theme, strands: r1, asset: r2 });
-    console.log(`7i-p2-${AURA}-${label}-${theme}.png  strands L${r1.left} T${r1.top} R${r1.right} B${r1.bottom} | asset L${r2.left} T${r2.top} R${r2.right} B${r2.bottom}`);
-    continue;
-  }
   await page.evaluate((theme) => {
     document.body.innerHTML = "";
     document.body.style.cssText = `margin:0;background:${theme === "light" ? "#EDF1F7" : "#0B0F17"};display:flex;align-items:center;justify-content:center;height:100vh`;
@@ -146,5 +122,5 @@ for (const [label, kind, size, theme] of STAGES) {
   console.log(`7i-p2-${AURA}-${label}-${theme}.png  margin L${r.left} T${r.top} R${r.right} B${r.bottom}`);
 }
 await browser.close();
-const flat = margins.flatMap((m) => [m.left, m.top, m.right, m.bottom, m.strands?.left, m.strands?.top, m.strands?.right, m.strands?.bottom, m.asset?.left, m.asset?.top, m.asset?.right, m.asset?.bottom]).filter((v) => typeof v === "number");
+const flat = margins.flatMap((m) => [m.left, m.top, m.right, m.bottom]).filter((v) => typeof v === "number");
 console.log(`smallest over-canvas margin: ${Math.min(...flat)}px`);

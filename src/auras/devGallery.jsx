@@ -87,6 +87,11 @@ const FIELD_RANGES = {
   span: { min: 0, max: 3, step: 0.01 },
   len: { min: 0, max: 3, step: 0.01 },
   scale: { min: 0.02, max: 6, step: 0.01 },
+  foldW: { min: 0.5, max: 16, step: 0.05 },
+  foldY: { min: -1.5, max: 2, step: 0.01 },
+  foldH: { min: 0.2, max: 3, step: 0.02 },
+  foldTail: { min: 0, max: 5, step: 0.05 },
+  foldGlow: { min: 0, max: 1.5, step: 0.01 },
 };
 // Section-aware overrides: `w` is ring/sweep thickness there but orbit speed
 // in layers; `spd` can run backwards in a sweep; rays have far fewer items.
@@ -224,7 +229,7 @@ function titleCase(key) {
 
 // Plain-English labels per spec section. Anything missing falls back to a
 // prettified key — raw spec paths must never reach the owner.
-const TOP_LABELS = { spd: "Speed", glow: "Glow strength", dark: "Dark backdrop", artLate: "Draw art last", foldW: "Blindfold width", foldY: "Blindfold height", foldGlow: "Blindfold edge glow", hairN: "Hair strands", hairLen: "Hair length", hairDrift: "Hair drift" };
+const TOP_LABELS = { spd: "Speed", glow: "Glow strength", dark: "Dark backdrop", artLate: "Draw art last", foldW: "Blindfold width", foldY: "Blindfold position", foldH: "Blindfold thickness", foldTail: "Blindfold tail length", foldGlow: "Blindfold edge glow" };
 const RAY_LABELS = { n: "Count", c: "Colour", spin: "Spin speed", len: "Length", a: "Opacity", fan: "Fan out" };
 const BOLT_LABELS = { every: "Seconds between strikes", burst: "Strikes per burst", burstSpan: "Burst spacing (s)", gap: "Rest between bursts (s)", c: "Colour", flash: "Flash on strike", flashPeak: "Flash brightness", flashLife: "Flash length (s)", from: "Strike direction", strike: "Strike marker", calm: "Calmer under reduced motion" };
 const SWEEP_LABELS = { c: "Colour", a: "Opacity", spd: "Speed", r: "Distance from centre", w: "Thickness", span: "Arc width" };
@@ -265,10 +270,9 @@ const FIELD_HINTS = {
   rimSz: "Size on the avatar ring's top edge",
   foldW: "Blindfold width in head half-widths — follows the figure",
   foldY: "Blindfold offset below the eye line, in head half-widths",
+  foldH: "Blindfold thickness as a multiplier of the band's natural height",
+  foldTail: "Length of the fluttering tail ends, in head half-widths",
   foldGlow: "Faint light bleeding along the blindfold's lower edge",
-  hairN: "Procedural hair strand count (hair: strands)",
-  hairLen: "Strand length below the eye line, in head half-widths",
-  hairDrift: "How much the strands sway with the aura's slow motion",
   rimSink: "How far the piece dips into the ring",
   rimX: "Slide the piece along the ring's top edge",
   flashPeak: "Brightness of the strike flash",

@@ -1,7 +1,6 @@
 // 7i Part 2 lazy-load proof: /aura/blindfold.webp must NOT be fetched on page
 // load or when other auras mount — only when a nullpoint instance is created.
-// /aura/hair-white.webp must not fetch at all while hair is the default
-// "strands" (it only loads if the asset variant is selected).
+// (hair-white.webp was removed with the procedural hair — no asset remains.)
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -35,8 +34,7 @@ await page.evaluate(async () => {
 await page.waitForTimeout(600);
 console.log(`after makeAura(atlas): ${auraReqs.length} /aura/ reqs (${auraReqs.join(", ") || "none"}), blindfold: ${auraReqs.some((u) => u.includes("blindfold")) ? "FETCHED (bad)" : "no"}`);
 
-// mount a nullpoint instance — only now should the blindfold load; the
-// hair-white asset must stay unfetched (spec ships hair:"strands")
+// mount a nullpoint instance — only now should the blindfold load
 const before = auraReqs.length;
 await page.evaluate(async () => {
   const mod = await import("/src/auras/AuraCanvas.jsx");
@@ -51,6 +49,6 @@ const foldReqs = auraReqs.slice(before).filter((u) => u.includes("blindfold"));
 const hairReqs = auraReqs.filter((u) => u.includes("hair-white"));
 console.log(`after makeAura(nullpoint): ${auraReqs.length - before} new /aura/ reqs, blindfold fetches: ${foldReqs.length}, hair-white fetches: ${hairReqs.length}`);
 const pass = foldReqs.length === 1 && hairReqs.length === 0;
-console.log(pass ? "PASS: blindfold.webp lazy-loads only on nullpoint mount; hair-white.webp stays unloaded under strands" : "FAIL");
+console.log(pass ? "PASS: blindfold.webp lazy-loads only on nullpoint mount; no other asset fetched" : "FAIL");
 await browser.close();
 process.exit(pass ? 0 : 1);

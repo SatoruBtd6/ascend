@@ -1089,7 +1089,7 @@ test("a leaderboard card carrying the old crownfall id renders the Redline aura 
   assert.equal(run("crownfall"), run("redline"));
 });
 
-// --- 7i Part 2: nullpoint blindfold + pale hair ---
+// --- 7i Part 2: nullpoint blindfold ---
 
 test("nullpoint renders without throwing in circle and body modes", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
@@ -1133,35 +1133,15 @@ test("nullpoint blindfold sits on the eye line and spans both eyes on every figu
   assert.ok(widths["/avatars/S-f.webp"] > widths["/avatars/E.webp"] * 1.2, "the wider female head must get a wider blindfold");
 });
 
-test("nullpoint procedural hair strands fall from the head-top anchor", async () => {
+test("nullpoint tails trail past the band ends and flutter under reduced motion", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   installAlphaDocument();
   const w = 128, h = 163;
-  const over = stubRendererCanvas();
-  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w, h, mode: "body", ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  inst.frame(1 / 60);
-  const head = figureHead(w, h, "/avatars/E.webp");
-  const hh = head.half;
-  const roots = over.output.filter((o) => o[0] === "moveTo");
-  const n = renderer.AURA_FX.nullpoint.hairN || 13;
-  assert.equal(roots.length, n, `expected ${n} strand roots, got ${roots.length}`);
-  for (const r of roots) {
-    assert.ok(r[2] > head.y - hh * 1.05 && r[2] < head.y - hh * 0.6, `strand root y ${r[2].toFixed(2)} should sit on the crown (${(head.y - hh).toFixed(1)}±)`);
-    assert.ok(Math.abs(r[1] - head.x) < hh * 0.75, `strand root x ${r[1].toFixed(2)} should stay on the head`);
-  }
-  const tips = over.output.filter((o) => o[0] === "bezierCurveTo").map((o) => ({ x: o[5], y: o[6] }));
-  assert.ok(tips.some((t) => t.y > head.y + hh * 0.8), `strands should fall below the face (max tip y ${Math.max(...tips.map((t) => t.y)).toFixed(1)} vs ${(head.y + hh * 0.8).toFixed(1)})`);
-});
-
-test("nullpoint hair drift damps under reduced motion", async () => {
-  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
-  globalThis.Image = FakeImage;
-  installAlphaDocument();
   const tipXs = async (reduce) => {
     const over = stubRendererCanvas();
-    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w, h, mode: "body", ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
+    inst.frame(1 / 60); // kicks off the lazy blindfold image load
     await new Promise((resolve) => setTimeout(resolve, 0));
     if (reduce) inst.reduce = true;
     const out = [];
@@ -1170,36 +1150,41 @@ test("nullpoint hair drift damps under reduced motion", async () => {
       // the stub output accumulates across frames — only look at ops after
       // this frame's clearRect
       const start = over.output.map((o, j) => (o[0] === "clearRect" ? j : -1)).reduce((a, b) => Math.max(a, b), 0);
-      const bz = over.output.slice(start).find((o) => o[0] === "bezierCurveTo");
-      if (bz) out.push(bz[5]);
+      const frame = over.output.slice(start);
+      const quads = frame.filter((o) => o[0] === "quadraticCurveTo");
+      // two tails per frame, each two quads — the tip quad ends farthest out;
+      // its y flutters with time
+      if (quads.length) {
+        const tip = quads.reduce((a, b) => (b[3] > a[3] ? b : a));
+        out.push(tip[4]);
+      }
     }
     return out;
   };
   const full = await tipXs(false), calm = await tipXs(true);
   const range = (a) => Math.max(...a) - Math.min(...a);
-  assert.ok(full.length > 200 && calm.length > 200, "hair should draw under both motions");
-  assert.ok(range(full) > 1, `hair should visibly drift at full motion (range ${range(full).toFixed(2)})`);
-  assert.ok(range(calm) < range(full) * 0.55, `drift should damp under reduce (${range(calm).toFixed(2)} vs ${range(full).toFixed(2)})`);
+  assert.ok(full.length > 200 && calm.length > 200, "tails should draw under both motions");
+  assert.ok(range(full) > 1, `tails should visibly flutter at full motion (range ${range(full).toFixed(2)})`);
+  assert.ok(range(calm) < range(full) * 0.55, `tail flutter should damp under reduce (${range(calm).toFixed(2)} vs ${range(full).toFixed(2)})`);
 });
 
-test("nullpoint asset hair variant draws hair-white.webp in the over pass", async () => {
+test("nullpoint circle: override widens only the ring blindfold", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   installAlphaDocument();
-  const fx = renderer.AURA_FX.nullpoint;
-  const prev = fx.hair;
-  try {
-    fx.hair = "asset";
+  const bandW = async (mode, figure) => {
     const over = stubRendererCanvas();
-    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
-    inst.frame(1 / 60); // kicks off the lazy hair image load
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40.7, overCanvas: over, figure });
+    inst.frame(1 / 60);
     await new Promise((resolve) => setTimeout(resolve, 0));
     inst.frame(1 / 60);
-    assert.ok(lastImgDraw(over.output, "hair-white"), "asset hair variant drew nothing");
-    assert.ok(!over.output.some((o) => o[0] === "bezierCurveTo"), "asset variant should not draw procedural strands");
-  } finally {
-    fx.hair = prev;
-  }
+    const di = lastImgDraw(over.output, "blindfold");
+    return di ? di[4] : 0;
+  };
+  const ring = await bandW("circle"), body = await bandW("body", "/avatars/E.webp");
+  const fx = renderer.AURA_FX.nullpoint;
+  assert.ok(fx.circle.foldW > fx.foldW, "shipped spec must carry a wider circle: foldW");
+  assert.ok(ring > body * 2, `ring band ${ring.toFixed(1)} should dominate the body band ${body.toFixed(1)}`);
 });
 
 // --- view-scoped overrides: body:/circle: blocks + gallery write path ---
