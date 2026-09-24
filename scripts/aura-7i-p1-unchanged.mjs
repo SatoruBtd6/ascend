@@ -79,9 +79,9 @@ for (const key of Object.keys(a)) {
   }
   const ftSame = JSON.stringify(a[key].flashTimes) === JSON.stringify(b[key].flashTimes);
   console.log(`${key.padEnd(20)} ${String(diff).padEnd(7)} ${ftSame ? "same" : `DIFF ${JSON.stringify(a[key].flashTimes)} vs ${JSON.stringify(b[key].flashTimes)}`}`);
-  if (key.startsWith("crownfall")) { if (diff === 0) { console.log("  ^ crownfall expected to differ (hat added) — 0 diffs means the hat is NOT rendering"); fail++; } }
+  if (key.startsWith("crownfall") || key.startsWith("eclipseheart")) { if (diff === 0) { console.log(`  ^ ${key} expected to differ (7i respec) — 0 diffs means the change is NOT rendering`); fail++; } }
   else if (diff !== 0 || !ftSame) fail++;
 }
-console.log(fail ? `FAIL: ${fail} unexpected result(s)` : "PASS: only crownfall differs; all other auras pixel-identical, flashTimes identical");
+console.log(fail ? `FAIL: ${fail} unexpected result(s)` : "PASS: only 7i-respec'd auras differ; all other auras pixel-identical, flashTimes identical");
 await browser.close();
 process.exit(fail ? 1 : 0);
