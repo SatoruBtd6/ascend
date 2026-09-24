@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import esbuild from "esbuild";
-import { FIGURE_ANCHORS, HEAD_FROM_EYE } from "./anchors.js";
+import { FIGURE_ANCHORS } from "./anchors.js";
 
 async function loadRenderer() {
   const dir = mkdtempSync(join(tmpdir(), "aura-renderer-"));
