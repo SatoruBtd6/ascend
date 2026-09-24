@@ -18,8 +18,14 @@ async function loadChromium() {
 }
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "baselines", "ascended-7h");
 mkdirSync(OUT, { recursive: true });
-const base = process.argv[2] && process.argv[2].startsWith("http") ? process.argv[2] : "http://localhost:5180";
+const base = [process.argv[2], process.argv[3], process.argv[4]].find((a) => a && a.startsWith("http")) || "http://localhost:5180";
 const auras = (process.argv[2] && !process.argv[2].startsWith("http") ? process.argv[2] : "atlas,forge").split(",");
+// argv[3]: "before" uses src/auras/AuraCanvas.before.jsx (git HEAD copy) and
+// tags files -before; otherwise an optional comma list filters phases.
+const arg3 = (process.argv[3] && !process.argv[3].startsWith("http") ? process.argv[3] : "") || "";
+const beforeMode = arg3 === "before";
+const phaseFilter = !beforeMode && arg3 ? arg3.split(",") : null;
+const MOD = beforeMode ? "/src/auras/AuraCanvas.before.jsx" : "/src/auras/AuraCanvas.jsx";
 const PHASES = {
   // orbit slow -> orbit fast -> dive/hit -> explosion -> re-form
   atlas: [["loop", null], ["oslow", 0.18], ["ofast", 0.55], ["hit", 0.7], ["boom", 0.735], ["reform", 0.9]],
@@ -36,11 +42,11 @@ const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
 const page = await (await browser.newContext({ viewport: { width: 700, height: 700 }, deviceScaleFactor: 2 })).newPage();
 await page.goto(`${base}/?auras=1`, { waitUntil: "domcontentloaded" });
-await page.evaluate(() => import("/src/auras/AuraCanvas.jsx").then((m) => {
+await page.evaluate((modPath) => import(modPath).then((m) => {
   if (m.AuraLoop.raf) cancelAnimationFrame(m.AuraLoop.raf);
   m.AuraLoop.raf = null; m.AuraLoop.set.clear();
   window.__mod = m;
-}));
+}), MOD);
 
 for (const aura of auras) {
   for (const [kind, avatar] of STAGES) {
@@ -81,7 +87,7 @@ for (const aura of auras) {
         await new Promise((r) => setTimeout(r, 25));
       }
     }, { aura, kind, avatar, figSrc: FIG_SRC[avatar] });
-    for (const [label, target] of PHASES[aura] || PHASES.forge) {
+    for (const [label, target] of (PHASES[aura] || PHASES.forge).filter(([l]) => !phaseFilter || phaseFilter.includes(l))) {
       await page.evaluate(({ target, aura }) => {
         const inst = window.__inst;
         const step = (n) => { for (let i = 0; i < n; i++) inst.frame(1 / 60); };
@@ -106,7 +112,7 @@ for (const aura of auras) {
       }, { target, aura });
       const stage = await page.$("#stage");
       const tag = kind === "figure" ? `fig${avatar}` : `${kind}${avatar}`;
-      const name = `p3b2-${aura}-${tag}-${label}-dark.png`;
+      const name = `p3b2-${aura}-${tag}-${label}${beforeMode ? "-before" : ""}-dark.png`;
       await stage.screenshot({ path: join(OUT, name) });
       console.log(`${name}`);
     }
