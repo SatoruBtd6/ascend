@@ -1,5 +1,5 @@
 // Dev-only aura tuning gallery. Loaded from a DEV branch in Auth so production builds drop this module.
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape, fireAuraMoment } from "./AuraCanvas.jsx";
 import { AURAS } from "./catalog.js";
@@ -96,22 +96,29 @@ const SECTION_RANGES = {
 // img layer it's a multiplier of the ring size (same range ImagePlacement uses).
 const SHAPE_SZ_RANGES = { flame: { min: 1, max: 150, step: 0.1 }, img: { min: 0.02, max: 4, step: 0.02 } };
 
-function sliderRange(path, value, shape) {
+// Fixed slider bounds per field — resolved from the range table plus the
+// spec's own default value, NEVER the live draft value, so the pixel↔value
+// mapping can't move mid-drag (the old value-derived bounds caused the
+// runaway-range / release-snap-back bugs).
+function fieldBounds(path, shape, base) {
   const last = path[path.length - 1];
   const key = String(typeof last === "number" ? path[path.length - 2] : last);
   if (FLAG_KEYS.has(key)) return { min: 0, max: 1, step: 1 };
   let named = SECTION_RANGES[String(path[0])]?.[key] || FIELD_RANGES[key];
   if (key === "sz" && SHAPE_SZ_RANGES[shape]) named = SHAPE_SZ_RANGES[shape];
   if (named) {
-    // Never pin the current value outside the track — extend to fit it.
+    // Extend to fit the spec default once — still fixed for the field's life.
     const range = { ...named };
-    if (value < range.min) range.min = Math.floor(value * 100) / 100;
-    if (value > range.max) range.max = Math.ceil(value * 100) / 100;
+    if (Number.isFinite(base)) {
+      if (base < range.min) range.min = Math.floor(base * 100) / 100;
+      if (base > range.max) range.max = Math.ceil(base * 100) / 100;
+    }
     return range;
   }
-  const abs = Math.abs(value);
-  const neg = value < 0;
-  if (Number.isInteger(value) && abs >= 2) return { min: neg ? -Math.ceil(abs * 3) : 0, max: Math.max(4, Math.ceil(abs * 3)), step: 1 };
+  const v = Number.isFinite(base) ? base : 0;
+  const abs = Math.abs(v);
+  const neg = v < 0;
+  if (Number.isInteger(v) && abs >= 2) return { min: neg ? -Math.ceil(abs * 3) : 0, max: Math.max(4, Math.ceil(abs * 3)), step: 1 };
   if (abs <= 1) return { min: neg ? -2 : 0, max: 2, step: 0.01 };
   if (abs <= 8) return { min: neg ? -Math.ceil(abs * 3) : 0, max: Math.max(2, Number((abs * 3).toFixed(2))), step: 0.01 };
   return { min: neg ? -Math.ceil(abs * 2) : 0, max: Math.ceil(Math.max(abs * 3, abs + 1)), step: abs > 20 ? 1 : 0.1 };
@@ -284,6 +291,19 @@ const DRAG_MS = 300;
 // Count of sliders currently mid-drag — the gallery renders a reduced-count
 // preview spec while >0 and restores the real spec on release.
 let liveDrags = 0;
+const dragSubs = new Set();
+function changeDrags(d) {
+  liveDrags = Math.max(0, liveDrags + d);
+  dragSubs.forEach((f) => f());
+}
+// Reactive read of liveDrags so the "preview simplified while dragging" hint
+// appears while any drag is in flight.
+function useDragging() {
+  return useSyncExternalStore(
+    (cb) => { dragSubs.add(cb); return () => dragSubs.delete(cb); },
+    () => liveDrags > 0,
+  );
+}
 const PREVIEW_N_CAP = 24;
 function clampForPreview(spec) {
   if (!spec || !Array.isArray(spec.layers)) return spec;
@@ -302,7 +322,7 @@ function useLiveCommit(value, onChange) {
   refs.current.onChange = onChange;
   useEffect(() => () => {
     clearTimeout(refs.current.timer);
-    if (refs.current.active) { refs.current.active = false; liveDrags = Math.max(0, liveDrags - 1); }
+    if (refs.current.active) { refs.current.active = false; changeDrags(-1); }
   }, []);
   // Timer path — commits the pending value but the drag is still in flight.
   const commit = () => {
@@ -320,7 +340,7 @@ function useLiveCommit(value, onChange) {
     clearTimeout(refs.current.timer);
     refs.current.timer = 0;
     const wasActive = refs.current.active;
-    if (wasActive) { refs.current.active = false; liveDrags = Math.max(0, liveDrags - 1); }
+    if (wasActive) { refs.current.active = false; changeDrags(-1); }
     setLive(null);
     const v = refs.current.pending;
     if (v == null || v === refs.current.value) {
@@ -331,7 +351,7 @@ function useLiveCommit(value, onChange) {
     commit();
   };
   const push = (v) => {
-    if (!refs.current.active) { refs.current.active = true; liveDrags += 1; }
+    if (!refs.current.active) { refs.current.active = true; changeDrags(1); }
     setLive(v);
     refs.current.pending = v;
     const wait = Math.max(0, (refs.current.active ? DRAG_MS : COMMIT_MS) - (performance.now() - refs.current.lastAt));
@@ -340,15 +360,42 @@ function useLiveCommit(value, onChange) {
   return [live, push, flush];
 }
 
-function NumSlider({ label, value, min, max, step, onChange }) {
+const numRow = { display: "grid", gridTemplateColumns: "140px 1fr 72px 22px", gap: 6, alignItems: "center", fontSize: 11, color: C.dim };
+
+function ResetBtn({ onClick, dirty }) {
+  return (
+    <button type="button" title="Reset to default" aria-label="Reset to default" disabled={!dirty} onClick={onClick}
+      style={{ ...chip(false), padding: "0 4px", fontSize: 11, lineHeight: "18px", opacity: dirty ? 1 : 0.35, cursor: dirty ? "pointer" : "default" }}>⟲</button>
+  );
+}
+
+// One field row: label + range slider + number box + per-control reset.
+// min/max/step are FIXED bounds — they never change while dragging.
+// capMin/capMax clamp only the VALUE (used to keep min<=max inside a pair);
+// the slider's own bounds attributes stay fixed.
+function NumSlider({ label, value, min, max, step, onChange, defaultValue, onReset, capMin, capMax, smallLabel }) {
   const [live, push, flush] = useLiveCommit(value, onChange);
-  const shown = Math.min(max, Math.max(min, live ?? value));
+  const [text, setText] = useState(null);
+  const lo = capMin != null ? Math.max(min, capMin) : min;
+  const hi = capMax != null ? Math.min(max, capMax) : max;
+  const clamp = (n) => Math.min(hi, Math.max(lo, n));
+  const shown = clamp(live ?? value);
   const drag = (raw) => {
     const n = Number(raw);
-    if (Number.isFinite(n)) push(quantize(n, step));
+    if (Number.isFinite(n)) push(quantize(clamp(n), step));
   };
+  // The number box is free text while focused; committing clamps + quantizes.
+  const commitText = () => {
+    if (text != null) {
+      const n = Number(text);
+      if (Number.isFinite(n)) onChange(quantize(clamp(n), step));
+      setText(null);
+    }
+    flush();
+  };
+  const dirty = defaultValue != null && quantize(clamp(value), step) !== quantize(clamp(defaultValue), step);
   return (
-    <label style={{ display: "grid", gridTemplateColumns: "140px 1fr 72px", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+    <label style={{ ...numRow, gridTemplateColumns: smallLabel ? `44px 1fr 72px 22px` : numRow.gridTemplateColumns }}>
       <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       <span style={{ position: "relative", display: "block" }}>
         <input type="range" min={min} max={max} step={step} value={shown} onChange={(e) => drag(e.target.value)} onPointerUp={flush} onKeyUp={flush} onBlur={flush} style={{ width: "100%" }} />
@@ -356,8 +403,47 @@ function NumSlider({ label, value, min, max, step, onChange }) {
           <span>{min}</span><span>{max}</span>
         </span>
       </span>
-      <input type="number" value={live ?? value} step={step} onChange={(e) => drag(e.target.value)} onBlur={flush} style={{ width: 72, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }} />
+      <input type="number" min={min} max={max} step={step} value={text ?? shown} onChange={(e) => setText(e.target.value)} onBlur={commitText} onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} style={{ width: 72, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }} />
+      {onReset ? <ResetBtn dirty={dirty} onClick={onReset} /> : <span />}
     </label>
+  );
+}
+
+// Keys whose [a, b] array form is a min/max range — grouped into one frame
+// with min <= max enforced. Other numeric arrays (keyframe rows like
+// mShake [[t, v], ...], colour/icon lists) keep individual rows.
+const RANGE_PAIR_KEYS = new Set(["sz", "sp", "life", "w", "r", "a", "n", "every", "burst", "gap", "scale", "sway", "drift", "hover"]);
+
+function pairKeyOf(field) {
+  const last = field.path[field.path.length - 1];
+  if (typeof last !== "number" || field.kind !== "number") return null;
+  const key = String(field.path[field.path.length - 2]);
+  return RANGE_PAIR_KEYS.has(key) ? field.path.slice(0, -1).join(".") : null;
+}
+
+// A min/max pair in one frame: two stacked rows, each with its own slider,
+// number box and reset. The min side's value is capped at max (and vice
+// versa) so the pair can never invert; slider bounds stay fixed.
+function PairField({ title, lo, hi, bounds, onLo, onHi, loDefault, hiDefault, onResetPair }) {
+  const row = (side, value, other, onChange, def) => (
+    <NumSlider
+      label={side}
+      smallLabel
+      value={value}
+      min={bounds.min} max={bounds.max} step={bounds.step}
+      capMax={side === "min" ? other : undefined}
+      capMin={side === "max" ? other : undefined}
+      onChange={onChange}
+      defaultValue={def}
+      onReset={onResetPair ? () => onResetPair(side) : undefined}
+    />
+  );
+  return (
+    <div data-pair={title} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px 10px", display: "grid", gap: 4 }}>
+      <div style={{ fontSize: 10, fontWeight: 650, color: C.text }}>{title}<span style={{ color: C.mute, fontWeight: 400 }}> — min / max</span></div>
+      {row("min", lo, hi, onLo, loDefault)}
+      {row("max", hi, lo, onHi, hiDefault)}
+    </div>
   );
 }
 
@@ -481,7 +567,8 @@ function rangePair(value, fallback) {
 function setRangePart(object, key, index, value, fallback) {
   const next = cloneSpec(object);
   const pair = rangePair(next[key], fallback);
-  pair[index] = value;
+  // enforce min <= max — the edited side clamps against the other
+  pair[index] = index === 0 ? Math.min(value, pair[1]) : Math.max(value, pair[0]);
   next[key] = pair;
   return next;
 }
@@ -505,13 +592,17 @@ function ControlTitle({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>{children}</div>;
 }
 
-function ImagePlacement({ layer, index, onLayer }) {
+function ImagePlacement({ layer, index, onLayer, original }) {
   const shoulders = layer.placed === "shoulders";
   const scale = layerScale(layer);
   const single = layer.n === 1;
   const xy = single ? orbitXY(layer) : { x: layer.x || 0, y: layer.y || 0 };
   const isFrameAnim = layer.frames && layer.frames.length > 0;
   const shadow = layer.shadow === true ? {} : layer.shadow || null;
+  const orig = original || layer;
+  const oShadow = orig.shadow === true ? {} : orig.shadow || null;
+  const oxy = single ? orbitXY(orig) : { x: orig.x || 0, y: orig.y || 0 };
+  const oScale = layerScale(orig);
   const setLayer = (key, value) => {
     const next = cloneSpec(layer);
     next[key] = value;
@@ -562,10 +653,10 @@ function ImagePlacement({ layer, index, onLayer }) {
           ? `Images — ${layer.src.length} files cycle across particles (${[...new Set(layer.src)].map((s) => s.split("/").pop()).join(", ")}) — set in the spec, not editable here.`
           : `Image — ${layer.src} — set in the spec, not editable here.`}</FixedNote>
       )}
-      <NumSlider label="Shift sideways" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} />
-      <NumSlider label="Shift up/down" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} />
-      {!shoulders && <NumSlider label="Size" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} />}
-      {!shoulders && <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />}
+      <NumSlider label="Shift sideways" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} defaultValue={oxy.x} onReset={() => onLayer(single ? withOrbitXY(layer, oxy.x, xy.y) : withOptional(layer, "x", oxy.x))} />
+      <NumSlider label="Shift up/down" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} defaultValue={oxy.y} onReset={() => onLayer(single ? withOrbitXY(layer, xy.x, oxy.y) : withOptional(layer, "y", oxy.y))} />
+      {!shoulders && <NumSlider label="Size" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} defaultValue={oScale} onReset={() => onLayer(withScale(layer, oScale))} />}
+      {!shoulders && <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} defaultValue={orig.rot || 0} onReset={() => setLayer("rot", orig.rot || 0)} />}
       {!shoulders && <FlagField label="Mirror image" checked={layer.flip} onChange={(v) => setLayer("flip", v)} />}
       {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayer("blend", v)} />}
       {!single && <div style={{ fontSize: 10, color: C.mute }}>Sideways/up-down shifts every image in this layer. 1 is one ring radius.</div>}
@@ -575,8 +666,8 @@ function ImagePlacement({ layer, index, onLayer }) {
         <button type="button" onClick={() => setFrames(!isFrameAnim)} style={{ ...chip(!!isFrameAnim), justifySelf: "start", fontSize: 11 }}>{isFrameAnim ? "Disable frame cycle" : "Enable frame cycle"}</button>
         {isFrameAnim && (
           <>
-            <NumSlider label="Seconds per frame" value={layer.frameDuration || 0.12} min={0.01} max={1} step={0.01} onChange={(v) => setLayer("frameDuration", v)} />
-            <NumSlider label="Crossfade (s)" value={layer.fadeLen || 0.12} min={0} max={0.5} step={0.01} onChange={(v) => setLayer("fadeLen", v)} />
+            <NumSlider label="Seconds per frame" value={layer.frameDuration || 0.12} min={0.01} max={1} step={0.01} onChange={(v) => setLayer("frameDuration", v)} defaultValue={orig.frameDuration || 0.12} onReset={() => setLayer("frameDuration", orig.frameDuration || 0.12)} />
+            <NumSlider label="Crossfade (s)" value={layer.fadeLen || 0.12} min={0} max={0.5} step={0.01} onChange={(v) => setLayer("fadeLen", v)} defaultValue={orig.fadeLen || 0.12} onReset={() => setLayer("fadeLen", orig.fadeLen || 0.12)} />
             <div style={{ fontSize: 10, color: C.mute }}>
               <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 Cycle: <select value={layer.frameMode || "loop"} onChange={(e) => setLayer("frameMode", e.target.value)} style={{ fontSize: 10 }}>
@@ -614,10 +705,10 @@ function ImagePlacement({ layer, index, onLayer }) {
                       onLayer(next);
                     }} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>}
                   </label>
-                  <NumSlider label="Nudge sideways" value={offset.x || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("x", v)} />
-                  <NumSlider label="Nudge up/down" value={offset.y || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("y", v)} />
-                  <NumSlider label="Size multiplier" value={offset.scale ?? 1} min={0.02} max={4} step={0.01} onChange={(v) => updateOffset("scale", v)} />
-                  <NumSlider label="Extra rotation" value={offset.rotation || 0} min={-1} max={1} step={0.01} onChange={(v) => updateOffset("rotation", v)} />
+                  <NumSlider label="Nudge sideways" value={offset.x || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("x", v)} defaultValue={(orig.frameOffsets?.[frameIndex] || {}).x || 0} onReset={() => updateOffset("x", (orig.frameOffsets?.[frameIndex] || {}).x || 0)} />
+                  <NumSlider label="Nudge up/down" value={offset.y || 0} min={-2} max={2} step={0.01} onChange={(v) => updateOffset("y", v)} defaultValue={(orig.frameOffsets?.[frameIndex] || {}).y || 0} onReset={() => updateOffset("y", (orig.frameOffsets?.[frameIndex] || {}).y || 0)} />
+                  <NumSlider label="Size multiplier" value={offset.scale ?? 1} min={0.02} max={4} step={0.01} onChange={(v) => updateOffset("scale", v)} defaultValue={(orig.frameOffsets?.[frameIndex] || {}).scale ?? 1} onReset={() => updateOffset("scale", (orig.frameOffsets?.[frameIndex] || {}).scale ?? 1)} />
+                  <NumSlider label="Extra rotation" value={offset.rotation || 0} min={-1} max={1} step={0.01} onChange={(v) => updateOffset("rotation", v)} defaultValue={(orig.frameOffsets?.[frameIndex] || {}).rotation || 0} onReset={() => updateOffset("rotation", (orig.frameOffsets?.[frameIndex] || {}).rotation || 0)} />
                 </div>
               );
             })}
@@ -638,17 +729,23 @@ function ImagePlacement({ layer, index, onLayer }) {
         </label>
         {shadow && (
           <>
-            <NumSlider label="Most wisps at once" value={shadow.max ?? 24} min={0} max={64} step={1} onChange={(v) => setShadow("max", v)} />
-            <NumSlider label="Wisps per second" value={shadow.rate ?? 10} min={0} max={60} step={0.1} onChange={(v) => setShadow("rate", v)} />
-            <NumSlider label="Edge sample points" value={shadow.anchors ?? 48} min={1} max={48} step={1} onChange={(v) => setShadow("anchors", v)} />
-            <NumSlider label="Wisp lifetime — min (s)" value={rangePair(shadow.life, 0.8)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 0, v, 0.8)} />
-            <NumSlider label="Wisp lifetime — max (s)" value={rangePair(shadow.life, 1.6)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setShadowRange("life", 1, v, 1.6)} />
-            <NumSlider label="Drift speed — min" value={rangePair(shadow.sp, 4)[0]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 0, v, 4)} />
-            <NumSlider label="Drift speed — max" value={rangePair(shadow.sp, 12)[1]} min={0} max={80} step={0.5} onChange={(v) => setShadowRange("sp", 1, v, 12)} />
-            <NumSlider label="Wisp size — min" value={rangePair(shadow.sz, 3)[0]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 0, v, 3)} />
-            <NumSlider label="Wisp size — max" value={rangePair(shadow.sz, 8)[1]} min={0} max={20} step={0.1} onChange={(v) => setShadowRange("sz", 1, v, 8)} />
-            <NumSlider label="Wisp opacity" value={shadow.a ?? 0.38} min={0} max={1} step={0.01} onChange={(v) => setShadow("a", v)} />
-            <NumSlider label="Edge randomness" value={shadow.jit ?? 0.35} min={0} max={1} step={0.01} onChange={(v) => setShadow("jit", v)} />
+            <NumSlider label="Most wisps at once" value={shadow.max ?? 24} min={0} max={64} step={1} onChange={(v) => setShadow("max", v)} defaultValue={oShadow?.max ?? 24} onReset={() => setShadow("max", oShadow?.max ?? 24)} />
+            <NumSlider label="Wisps per second" value={shadow.rate ?? 10} min={0} max={60} step={0.1} onChange={(v) => setShadow("rate", v)} defaultValue={oShadow?.rate ?? 10} onReset={() => setShadow("rate", oShadow?.rate ?? 10)} />
+            <NumSlider label="Edge sample points" value={shadow.anchors ?? 48} min={1} max={48} step={1} onChange={(v) => setShadow("anchors", v)} defaultValue={oShadow?.anchors ?? 48} onReset={() => setShadow("anchors", oShadow?.anchors ?? 48)} />
+            <PairField title="Wisp lifetime (s)" lo={rangePair(shadow.life, 0.8)[0]} hi={rangePair(shadow.life, 1.6)[1]} bounds={{ min: 0.1, max: 5, step: 0.1 }}
+              onLo={(v) => setShadowRange("life", 0, v, 0.8)} onHi={(v) => setShadowRange("life", 1, v, 1.6)}
+              loDefault={rangePair(oShadow?.life, 0.8)[0]} hiDefault={rangePair(oShadow?.life, 1.6)[1]}
+              onResetPair={(side) => setShadowRange("life", side === "min" ? 0 : 1, rangePair(oShadow?.life, side === "min" ? 0.8 : 1.6)[side === "min" ? 0 : 1], side === "min" ? 0.8 : 1.6)} />
+            <PairField title="Drift speed" lo={rangePair(shadow.sp, 4)[0]} hi={rangePair(shadow.sp, 12)[1]} bounds={{ min: 0, max: 80, step: 0.5 }}
+              onLo={(v) => setShadowRange("sp", 0, v, 4)} onHi={(v) => setShadowRange("sp", 1, v, 12)}
+              loDefault={rangePair(oShadow?.sp, 4)[0]} hiDefault={rangePair(oShadow?.sp, 12)[1]}
+              onResetPair={(side) => setShadowRange("sp", side === "min" ? 0 : 1, rangePair(oShadow?.sp, side === "min" ? 4 : 12)[side === "min" ? 0 : 1], side === "min" ? 4 : 12)} />
+            <PairField title="Wisp size" lo={rangePair(shadow.sz, 3)[0]} hi={rangePair(shadow.sz, 8)[1]} bounds={{ min: 0, max: 20, step: 0.1 }}
+              onLo={(v) => setShadowRange("sz", 0, v, 3)} onHi={(v) => setShadowRange("sz", 1, v, 8)}
+              loDefault={rangePair(oShadow?.sz, 3)[0]} hiDefault={rangePair(oShadow?.sz, 8)[1]}
+              onResetPair={(side) => setShadowRange("sz", side === "min" ? 0 : 1, rangePair(oShadow?.sz, side === "min" ? 3 : 8)[side === "min" ? 0 : 1], side === "min" ? 3 : 8)} />
+            <NumSlider label="Wisp opacity" value={shadow.a ?? 0.38} min={0} max={1} step={0.01} onChange={(v) => setShadow("a", v)} defaultValue={oShadow?.a ?? 0.38} onReset={() => setShadow("a", oShadow?.a ?? 0.38)} />
+            <NumSlider label="Edge randomness" value={shadow.jit ?? 0.35} min={0} max={1} step={0.01} onChange={(v) => setShadow("jit", v)} defaultValue={oShadow?.jit ?? 0.35} onReset={() => setShadow("jit", oShadow?.jit ?? 0.35)} />
             {shadowColors.map((color, i) => <ColorField key={i} label={`Wisp colour ${i + 1}`} value={color} onChange={(v) => setShadowColor(i, v)} />)}
             <label style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
               <span>Blend style</span>
@@ -666,7 +763,7 @@ function ImagePlacement({ layer, index, onLayer }) {
   );
 }
 
-function RingCycleControls({ ring, index, onRing }) {
+function RingCycleControls({ ring, index, onRing, original }) {
   const active = Array.isArray(ring.colorCycle) && ring.colorCycle.length > 1;
   const colors = ring.colorCycle || [];
   const setRing = (key, value) => {
@@ -701,7 +798,7 @@ function RingCycleControls({ ring, index, onRing }) {
       </label>
       {active && (
         <>
-          <NumSlider label="Seconds per cycle" value={ring.cyclePeriod ?? 3} min={0.5} max={10} step={0.1} onChange={(v) => setRing("cyclePeriod", v)} />
+          <NumSlider label="Seconds per cycle" value={ring.cyclePeriod ?? 3} min={0.5} max={10} step={0.1} onChange={(v) => setRing("cyclePeriod", v)} defaultValue={original?.cyclePeriod ?? 3} onReset={() => setRing("cyclePeriod", original?.cyclePeriod ?? 3)} />
           <label style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
             <span>Colour change</span>
             <select value={ring.cycleEasing || "linear"} onChange={(e) => setRing("cycleEasing", e.target.value)} style={{ fontSize: 10 }}>
@@ -722,12 +819,14 @@ function RingCycleControls({ ring, index, onRing }) {
   );
 }
 
-function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
+function FlameControls({ layer, index, onLayer, onRemoveLayer, original }) {
   const setLayer = (key, value) => {
     const next = cloneSpec(layer);
     next[key] = value;
     onLayer(next);
   };
+  const orig = original || layer;
+  const oEmbers = orig.embers === true ? {} : orig.embers || null;
   const embers = layer.embers === true ? {} : layer.embers || null;
   const emberDefaults = { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] };
   const setEmber = (key, value) => {
@@ -756,19 +855,19 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Flame layer {index + 1}</div>
         <button type="button" onClick={onRemoveLayer} style={{ ...chip(false), padding: "2px 6px", fontSize: 10 }}>Remove</button>
       </div>
-      <NumSlider label="Count" value={layer.n ?? 1} min={1} max={40} step={1} onChange={(v) => setLayer("n", v)} />
-      <NumSlider label="Flame size" value={layerScale(layer)} min={1} max={150} step={0.1} onChange={(v) => onLayer(withScale(layer, v))} />
-      <NumSlider label="Opacity" value={layer.a ?? 1} min={0} max={1} step={0.01} onChange={(v) => setLayer("a", v)} />
-      <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} />
-      <NumSlider label="Spin speed" value={layer.spin || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("spin", v)} />
-      <NumSlider label="Tongues per flame" value={numberAt(layer.tongues, 6)} min={3} max={10} step={1} onChange={(v) => setLayer("tongues", v)} />
-      <NumSlider label="Flicker" value={layer.flicker ?? 0.22} min={0} max={1} step={0.01} onChange={(v) => setLayer("flicker", v)} />
+      <NumSlider label="Count" value={layer.n ?? 1} min={1} max={40} step={1} onChange={(v) => setLayer("n", v)} defaultValue={orig.n ?? 1} onReset={() => setLayer("n", orig.n ?? 1)} />
+      <NumSlider label="Flame size" value={layerScale(layer)} min={1} max={150} step={0.1} onChange={(v) => onLayer(withScale(layer, v))} defaultValue={layerScale(orig)} onReset={() => onLayer(withScale(layer, layerScale(orig)))} />
+      <NumSlider label="Opacity" value={layer.a ?? 1} min={0} max={1} step={0.01} onChange={(v) => setLayer("a", v)} defaultValue={orig.a ?? 1} onReset={() => setLayer("a", orig.a ?? 1)} />
+      <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} defaultValue={orig.rot || 0} onReset={() => setLayer("rot", orig.rot || 0)} />
+      <NumSlider label="Spin speed" value={layer.spin || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("spin", v)} defaultValue={orig.spin || 0} onReset={() => setLayer("spin", orig.spin || 0)} />
+      <NumSlider label="Tongues per flame" value={numberAt(layer.tongues, 6)} min={3} max={10} step={1} onChange={(v) => setLayer("tongues", v)} defaultValue={numberAt(orig.tongues, 6)} onReset={() => setLayer("tongues", numberAt(orig.tongues, 6))} />
+      <NumSlider label="Flicker" value={layer.flicker ?? 0.22} min={0} max={1} step={0.01} onChange={(v) => setLayer("flicker", v)} defaultValue={orig.flicker ?? 0.22} onReset={() => setLayer("flicker", orig.flicker ?? 0.22)} />
       {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayer("blend", v)} />}
       <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
         <input type="checkbox" checked={layer.shimmer !== false} onChange={(e) => setLayer("shimmer", e.target.checked)} />
         Sparkle shimmer
       </label>
-      {layer.shimmer !== false && <NumSlider label="Shimmer arcs" value={layer.shimmerN ?? 3} min={0} max={6} step={1} onChange={(v) => setLayer("shimmerN", v)} />}
+      {layer.shimmer !== false && <NumSlider label="Shimmer arcs" value={layer.shimmerN ?? 3} min={0} max={6} step={1} onChange={(v) => setLayer("shimmerN", v)} defaultValue={orig.shimmerN ?? 3} onReset={() => setLayer("shimmerN", orig.shimmerN ?? 3)} />}
       {["Outer", "Middle", "Inner"].map((name, i) => <ColorField key={name} label={`${name} flame colour`} value={palette[i] || "#FFF6C9"} onChange={(v) => setPalette(i, v)} />)}
       <ControlTitle>Ember sparks</ControlTitle>
       <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, color: C.mute }}>
@@ -777,15 +876,21 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer }) {
       </label>
       {embers && (
         <>
-          <NumSlider label="Count" value={embers.n ?? 8} min={0} max={40} step={1} onChange={(v) => setEmber("n", v)} />
-          <NumSlider label="Speed — min" value={rangePair(embers.sp, 18)[0]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 0, v, 18)} />
-          <NumSlider label="Speed — max" value={rangePair(embers.sp, 42)[1]} min={0} max={100} step={1} onChange={(v) => setEmberRange("sp", 1, v, 42)} />
-          <NumSlider label="Lifetime — min (s)" value={rangePair(embers.life, 0.5)[0]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 0, v, 0.5)} />
-          <NumSlider label="Lifetime — max (s)" value={rangePair(embers.life, 1.1)[1]} min={0.1} max={5} step={0.1} onChange={(v) => setEmberRange("life", 1, v, 1.1)} />
-          <NumSlider label="Size — min" value={rangePair(embers.sz, 0.8)[0]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 0, v, 0.8)} />
-          <NumSlider label="Size — max" value={rangePair(embers.sz, 1.6)[1]} min={0} max={10} step={0.1} onChange={(v) => setEmberRange("sz", 1, v, 1.6)} />
-          <NumSlider label="Sway" value={embers.sway ?? 10} min={0} max={40} step={0.5} onChange={(v) => setEmber("sway", v)} />
-          <NumSlider label="Opacity" value={embers.a ?? 0.8} min={0} max={1} step={0.01} onChange={(v) => setEmber("a", v)} />
+          <NumSlider label="Count" value={embers.n ?? 8} min={0} max={40} step={1} onChange={(v) => setEmber("n", v)} defaultValue={oEmbers?.n ?? 8} onReset={() => setEmber("n", oEmbers?.n ?? 8)} />
+          <PairField title="Speed" lo={rangePair(embers.sp, 18)[0]} hi={rangePair(embers.sp, 42)[1]} bounds={{ min: 0, max: 100, step: 1 }}
+            onLo={(v) => setEmberRange("sp", 0, v, 18)} onHi={(v) => setEmberRange("sp", 1, v, 42)}
+            loDefault={rangePair(oEmbers?.sp, 18)[0]} hiDefault={rangePair(oEmbers?.sp, 42)[1]}
+            onResetPair={(side) => setEmberRange("sp", side === "min" ? 0 : 1, rangePair(oEmbers?.sp, side === "min" ? 18 : 42)[side === "min" ? 0 : 1], side === "min" ? 18 : 42)} />
+          <PairField title="Lifetime (s)" lo={rangePair(embers.life, 0.5)[0]} hi={rangePair(embers.life, 1.1)[1]} bounds={{ min: 0.1, max: 5, step: 0.1 }}
+            onLo={(v) => setEmberRange("life", 0, v, 0.5)} onHi={(v) => setEmberRange("life", 1, v, 1.1)}
+            loDefault={rangePair(oEmbers?.life, 0.5)[0]} hiDefault={rangePair(oEmbers?.life, 1.1)[1]}
+            onResetPair={(side) => setEmberRange("life", side === "min" ? 0 : 1, rangePair(oEmbers?.life, side === "min" ? 0.5 : 1.1)[side === "min" ? 0 : 1], side === "min" ? 0.5 : 1.1)} />
+          <PairField title="Size" lo={rangePair(embers.sz, 0.8)[0]} hi={rangePair(embers.sz, 1.6)[1]} bounds={{ min: 0, max: 10, step: 0.1 }}
+            onLo={(v) => setEmberRange("sz", 0, v, 0.8)} onHi={(v) => setEmberRange("sz", 1, v, 1.6)}
+            loDefault={rangePair(oEmbers?.sz, 0.8)[0]} hiDefault={rangePair(oEmbers?.sz, 1.6)[1]}
+            onResetPair={(side) => setEmberRange("sz", side === "min" ? 0 : 1, rangePair(oEmbers?.sz, side === "min" ? 0.8 : 1.6)[side === "min" ? 0 : 1], side === "min" ? 0.8 : 1.6)} />
+          <NumSlider label="Sway" value={embers.sway ?? 10} min={0} max={40} step={0.5} onChange={(v) => setEmber("sway", v)} defaultValue={oEmbers?.sway ?? 10} onReset={() => setEmber("sway", oEmbers?.sway ?? 10)} />
+          <NumSlider label="Opacity" value={embers.a ?? 0.8} min={0} max={1} step={0.01} onChange={(v) => setEmber("a", v)} defaultValue={oEmbers?.a ?? 0.8} onReset={() => setEmber("a", oEmbers?.a ?? 0.8)} />
           {emberColors.map((color, i) => <ColorField key={i} label={`Colour ${i + 1}`} value={color} onChange={(v) => setEmberColor(i, v)} />)}
         </>
       )}
@@ -833,7 +938,7 @@ function BlendSelect({ label = "Blend mode", value, onChange }) {
 }
 
 // specFields() rebuilds field objects every render, so compare by value.
-const SpecField = memo(function SpecField({ field, section, onPath, shape }) {
+const SpecField = memo(function SpecField({ field, section, onPath, shape, defaultValue, onReset }) {
   const label = fieldLabel(field, section);
   const key = field.path[field.path.length - 1];
   if (field.kind === "color") {
@@ -842,13 +947,44 @@ const SpecField = memo(function SpecField({ field, section, onPath, shape }) {
   if (typeof key === "string" && key !== "jit" && FLAG_KEYS.has(key)) {
     return <FlagField label={label} checked={field.value} onChange={(v) => onPath(field.path, v)} />;
   }
-  const range = sliderRange(field.path, field.value, shape);
-  return <NumSlider label={label} value={field.value} min={range.min} max={range.max} step={range.step} onChange={(v) => onPath(field.path, v)} />;
+  // Bounds resolve from the spec default (never the live value); for fields
+  // with no default the first-seen value is pinned so bounds still never move.
+  const baseRef = useRef();
+  if (baseRef.current === undefined) baseRef.current = Number.isFinite(defaultValue) ? defaultValue : field.value;
+  const bounds = fieldBounds(field.path, shape, baseRef.current);
+  return <NumSlider label={label} value={field.value} min={bounds.min} max={bounds.max} step={bounds.step}
+    onChange={(v) => onPath(field.path, v)} defaultValue={defaultValue} onReset={onReset} />;
 }, (prev, next) =>
   prev.section === next.section && prev.onPath === next.onPath && prev.shape === next.shape &&
+  prev.defaultValue === next.defaultValue && prev.onReset === next.onReset &&
   prev.field.kind === next.field.kind && prev.field.value === next.field.value &&
   prev.field.path.length === next.field.path.length &&
   prev.field.path.every((part, i) => part === next.field.path[i]));
+
+// Group adjacent [key,0]/[key,1] range fields into a single PairField frame;
+// anything else (scalars, non-range arrays) renders as a plain field row.
+function groupPairs(list) {
+  const out = [];
+  const byKey = new Map();
+  for (const f of list) {
+    const pk = pairKeyOf(f);
+    if (!pk) { out.push({ type: "field", field: f }); continue; }
+    let item = byKey.get(pk);
+    if (!item) { item = { type: "pair", key: pk, lo: null, hi: null, extra: [] }; byKey.set(pk, item); out.push(item); }
+    const idx = f.path[f.path.length - 1];
+    if (idx === 0 && !item.lo) item.lo = f;
+    else if (idx === 1 && !item.hi) item.hi = f;
+    else item.extra.push(f);
+  }
+  const flat = [];
+  for (const item of out) {
+    if (item.type === "field") { flat.push(item); continue; }
+    if (item.lo && item.hi) flat.push(item);
+    else [item.lo, item.hi, ...item.extra].filter(Boolean).forEach((f) => flat.push({ type: "field", field: f }));
+    if (item.lo && item.hi) item.extra.forEach((f) => flat.push({ type: "field", field: f }));
+  }
+  return flat;
+}
 
 function SpecSection({ title, children }) {
   return (
@@ -862,13 +998,23 @@ function SpecSection({ title, children }) {
 // Layer keys that stay structural/shared — not overridable per render mode.
 const CIRCLE_LOCKED_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "circle"]);
 
-function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMode, onDelete }) {
+function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer, circleMode, onDelete }) {
   if (!spec) return <p style={{ color: C.dim, fontSize: 13 }}>This aura has no particle spec.</p>;
   // Circle mode edits against a merged view (base + layer.circle) so sliders
   // show effective values; writes are redirected into the circle block.
-  const viewLayers = circleMode
-    ? (spec.layers || []).map((l) => { const v = { ...l, ...(l.circle || {}) }; delete v.circle; return v; })
-    : spec.layers || [];
+  const mergeView = (s) => circleMode
+    ? (s.layers || []).map((l) => { const v = { ...l, ...(l.circle || {}) }; delete v.circle; return v; })
+    : s.layers || [];
+  const viewLayers = mergeView(spec);
+  const origSpec = original || spec;
+  const origViewLayers = mergeView(origSpec);
+  const walk = (root, path) => path.reduce((o, k) => (o == null ? undefined : o[k]), root);
+  // Per-control reset target: the original spec's value at this path (merged
+  // view for circle-mode layer fields).
+  const defaultAt = (path) => {
+    if (circleMode && path[0] === "layers") return walk(origViewLayers[path[1]], path.slice(2));
+    return walk(origSpec, path);
+  };
   const rows = viewLayers.map((layer, index) => ({ layer, index }));
   const baseLayers = spec.layers || [];
   const isOverridden = (i, key) => !!(baseLayers[i]?.circle && Object.prototype.hasOwnProperty.call(baseLayers[i].circle, key));
@@ -930,21 +1076,82 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMo
     }
     onPathRef.current(p, v);
   }, []);
+  // Per-control reset. Circle mode restores the original override state:
+  // re-set the original circle value if the spec shipped one, else delete the
+  // override so the field inherits the base value again.
+  const resetField = (field) => {
+    const p = field.path;
+    if (circleRef.current && p[0] === "layers") {
+      const i = p[1], key = p[2];
+      const origCircle = origSpec.layers?.[i]?.circle;
+      const hasOrigOverride = !!(origCircle && Object.prototype.hasOwnProperty.call(origCircle, key));
+      if (p.length === 3) {
+        if (hasOrigOverride) onPathRef.current(["layers", i, "circle", key], cloneSpec(origCircle[key]));
+        else onDelete(["layers", i, "circle", key]);
+        return;
+      }
+      // pair element — write the default element into the circle pair, and
+      // drop the override entirely once it matches the base pair again.
+      const idx = p[3];
+      const basePair = rangePair(baseLayers[i]?.[key], 0);
+      const origPair = hasOrigOverride ? rangePair(origCircle[key], 0) : basePair;
+      const curPair = rangePair(baseLayers[i]?.circle?.[key] ?? baseLayers[i]?.[key], 0);
+      curPair[idx] = origPair[Math.min(idx, origPair.length - 1)] ?? basePair[idx];
+      if (hasOrigOverride) {
+        onPathRef.current(["layers", i, "circle", key], cloneSpec(origCircle[key]));
+      } else if (curPair[0] === basePair[0] && curPair[1] === basePair[1]) {
+        onDelete(["layers", i, "circle", key]);
+      } else {
+        onPathRef.current(["layers", i, "circle", key], curPair);
+      }
+      return;
+    }
+    onPathRef.current(p, defaultAt(p));
+  };
   const CircleField = ({ field }) => {
     const key = field.path[2];
     const over = isOverridden(field.path[1], key);
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <div style={{ flex: 1, minWidth: 0 }}><SpecField field={field} section="layer" onPath={stablePath} shape={layerShape(field)} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}><SpecField field={field} section="layer" onPath={stablePath} shape={layerShape(field)} defaultValue={defaultAt(field.path)} onReset={() => resetField(field)} /></div>
         <span title={over ? "Overridden for avatar ring" : "Inherits base value"} style={{ fontSize: 11, width: 14, textAlign: "center", color: over ? C.cyan : C.mute }}>{over ? "●" : "○"}</span>
         {over && <button type="button" title="Revert to base value" onClick={() => onDelete(["layers", field.path[1], "circle", key])} style={{ ...chip(false), padding: "0 6px", fontSize: 10 }}>×</button>}
       </div>
     );
   };
   const layerShape = (field) => field.path[0] === "layers" ? rows[field.path[1]]?.layer?.shape : undefined;
-  const layerFieldRow = (field) => circleMode
-    ? <CircleField key={field.path.join(".")} field={field} />
-    : <SpecField key={field.path.join(".")} field={field} section="layer" onPath={stablePath} shape={layerShape(field)} />;
+  // One [min,max] range pair in a single frame; bounds merge both elements'
+  // fixed ranges (still never derived from the live value).
+  const renderPair = (item, section, shape) => {
+    const { lo, hi } = item;
+    const loDef = defaultAt(lo.path), hiDef = defaultAt(hi.path);
+    const a = fieldBounds(lo.path, shape, Number.isFinite(loDef) ? loDef : lo.value);
+    const b = fieldBounds(hi.path, shape, Number.isFinite(hiDef) ? hiDef : hi.value);
+    const bounds = { min: Math.min(a.min, b.min), max: Math.max(a.max, b.max), step: Math.min(a.step, b.step) };
+    const title = fieldLabel({ path: lo.path.slice(0, -1), value: 0, kind: "number" }, section);
+    const frame = (
+      <PairField key={item.key} title={title} lo={Number(lo.value)} hi={Number(hi.value)} bounds={bounds}
+        onLo={(v) => stablePath(lo.path, v)} onHi={(v) => stablePath(hi.path, v)}
+        loDefault={loDef} hiDefault={hiDef}
+        onResetPair={(side) => resetField(side === "min" ? lo : hi)} />
+    );
+    if (!circleMode || lo.path[0] !== "layers") return frame;
+    const over = isOverridden(lo.path[1], lo.path[2]);
+    return (
+      <div key={item.key} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>{frame}</div>
+        <span title={over ? "Overridden for avatar ring" : "Inherits base value"} style={{ fontSize: 11, width: 14, textAlign: "center", color: over ? C.cyan : C.mute }}>{over ? "●" : "○"}</span>
+        {over && <button type="button" title="Revert to base value" onClick={() => onDelete(["layers", lo.path[1], "circle", lo.path[2]])} style={{ ...chip(false), padding: "0 6px", fontSize: 10 }}>×</button>}
+      </div>
+    );
+  };
+  const renderItem = (item, section) => item.type === "pair"
+    ? renderPair(item, section, layerShape(item.lo))
+    : (section === "layer" && circleMode
+      ? <CircleField key={item.field.path.join(".")} field={item.field} />
+      : <SpecField key={item.field.path.join(".")} field={item.field} section={section} onPath={stablePath}
+        shape={section === "layer" ? layerShape(item.field) : undefined}
+        defaultValue={defaultAt(item.field.path)} onReset={() => resetField(item.field)} />);
   return (
     <div style={{ display: "grid", gap: 6 }}>
       {circleMode && (
@@ -954,7 +1161,7 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMo
       )}
       {overall.length > 0 && (
         <SpecSection title="Overall">
-          {overall.map((field) => <SpecField key={field.path.join(".")} field={field} section="overall" onPath={stablePath} />)}
+          {groupPairs(overall).map((item) => renderItem(item, "overall"))}
         </SpecSection>
       )}
       {spec.art === "ophanim" && (
@@ -979,8 +1186,8 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMo
             {!circleMode && overrideCount > 0 && (
               <FixedNote>{overrideCount} avatar-ring override{overrideCount === 1 ? "" : "s"} — switch to “Avatar ring” mode to edit.</FixedNote>
             )}
-            {!circleMode && imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} onLayer={(next) => onLayer(index, next)} />}
-            {!circleMode && flameIndexes.has(index) && <FlameControls layer={layer} index={index} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
+            {!circleMode && imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} original={origViewLayers[index]} onLayer={(next) => onLayer(index, next)} />}
+            {!circleMode && flameIndexes.has(index) && <FlameControls layer={layer} index={index} original={origViewLayers[index]} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
             {!circleMode && isParticles && (
               <>
                 <SelectRow label="Motion" value={layer.k || "orbit"} options={LAYER_KIND_OPTIONS.map((k) => [k, KIND_NAMES[k] || titleCase(k)])} onChange={(v) => setLayerKey(index, "k", v)} />
@@ -994,13 +1201,13 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMo
             {LAYER_GROUPS.map(([gid]) => groups.has(gid) && (
               <div key={gid}>
                 <ControlTitle>{LAYER_GROUP_TITLES[gid]}</ControlTitle>
-                {groups.get(gid).map(layerFieldRow)}
+                {groupPairs(groups.get(gid)).map((item) => renderItem(item, "layer"))}
               </div>
             ))}
             {groups.has("other") && (
               <div>
                 <ControlTitle>{LAYER_GROUP_TITLES.other}</ControlTitle>
-                {groups.get("other").map(layerFieldRow)}
+                {groupPairs(groups.get("other")).map((item) => renderItem(item, "layer"))}
               </div>
             )}
           </div>
@@ -1009,7 +1216,7 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMo
       {!circleMode && <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>}
       {!circleMode && Object.entries(sectioned).map(([id, list]) => (list.length > 0 || (id === "bolts" && spec.bolts?.from)) && (
         <SpecSection key={id} title={SECTION_TITLES[id]}>
-          {list.map((field) => <SpecField key={field.path.join(".")} field={field} section={id} onPath={stablePath} />)}
+          {groupPairs(list).map((item) => renderItem(item, id))}
           {id === "bolts" && spec.bolts?.from && (
             <FixedNote>Strike direction — “{spec.bolts.from}” — set in the spec, not editable here.</FixedNote>
           )}
@@ -1018,8 +1225,8 @@ function SpecEditor({ spec, onPath, onLayer, onAddLayer, onRemoveLayer, circleMo
       {!circleMode && (spec.rings || []).map((ring, index) => (
         <div key={index} data-control-group={`ring-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1}</div>
-          {(ringFields.get(index) || []).map((field) => <SpecField key={field.path.join(".")} field={field} section="rings" onPath={stablePath} />)}
-          <RingCycleControls ring={ring} index={index} onRing={(next) => onPath(["rings", index], next)} />
+          {groupPairs(ringFields.get(index) || []).map((item) => renderItem(item, "rings"))}
+          <RingCycleControls ring={ring} index={index} original={origSpec.rings?.[index]} onRing={(next) => onPath(["rings", index], next)} />
         </div>
       ))}
     </div>
@@ -1103,6 +1310,7 @@ function PerfHud() {
 }
 
 export function DevAuraGallery() {
+  const dragging = useDragging();
   const originals = useRef(null);
   if (!originals.current) originals.current = { ...AURA_FX };
   const [backdropId, setBackdropId] = useState(FIGURES[0].id);
@@ -1347,6 +1555,7 @@ export function DevAuraGallery() {
             </div>
             <SpecEditor
               spec={specFor(selected)}
+              original={originals.current[selected]}
               circleMode={editMode === "circle"}
               onPath={(path, value) => bump(selected, (base) => setDeep(base, path, value))}
               onDelete={(path) => bump(selected, (base) => deleteDeep(base, path))}
@@ -1408,6 +1617,11 @@ export function DevAuraGallery() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12 }}>
             {Object.entries(SHAPE_SHEET).map(([shape, color]) => <ShapeCell key={shape} shape={shape} color={color} />)}
           </div>
+        </div>
+      )}
+      {dragging && (
+        <div data-testid="drag-preview-hint" aria-live="polite" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 40, fontSize: 11, color: "#F2F8FF", background: "rgba(0,0,0,.78)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 8, padding: "5px 10px", pointerEvents: "none" }}>
+          Preview simplified while dragging
         </div>
       )}
       <PerfHud />
