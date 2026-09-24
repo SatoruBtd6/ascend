@@ -48,7 +48,7 @@ export const CRATES = [
       { rarity: "legendary", type: "aura", id: "crownfall", name: "Redline", flavor: "Power beyond the gauge." },
       { rarity: "legendary", type: "aura", id: "ledger", name: "The Ledger", flavor: "Every debt is written." },
       { rarity: "legendary", type: "aura", id: "bonewright", name: "Bonewright", flavor: "Pressure makes armour." },
-      { rarity: "legendary", type: "aura", id: "ossuary", name: "Ossuary", flavor: "The bones remember every fall." },
+      { rarity: "legendary", type: "aura", id: "ossuary", name: "Ossuary", flavor: "Built from everything that broke before you." },
       { rarity: "mythic", type: "aura", id: "nullpoint", name: "Nullpoint", flavor: "Motion ends at the shell." },
       { rarity: "mythic", type: "aura", id: "carve", name: "Carve", flavor: "The frame remembers every cut." },
       { rarity: "mythic", type: "aura", id: "brandmark", name: "Brandmark", flavor: "One mark outlasts iron." },

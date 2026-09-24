@@ -44,11 +44,11 @@ export const AURAS = [
   { id: "crownfall", name: "Redline", how: "Anime Crate · legendary · power beyond the gauge", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#C2001F", "#FFD447"] },
   { id: "ledger", name: "The Ledger", how: "Anime Crate · legendary · every debt is written", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#161616", "#C2001F"] },
   { id: "bonewright", name: "Bonewright", how: "Anime Crate · legendary · pressure makes armour", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#F4EAD2", "#FFDFA3"] },
-  { id: "ossuary", name: "Ossuary", how: "Anime Crate · legendary · the bones remember every fall", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#E8E0CC", "#9FE8FF"] },
+  { id: "ossuary", name: "Ossuary", how: "Anime Crate · legendary · built from everything that broke before you", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#E8E0CC", "#7CE8A8"] },
   { id: "nullpoint", name: "Nullpoint", how: "Anime Crate · mythic · motion ends at the shell", crate: true, group: "crate", rarity: "mythic", ptsMult: 0.1, colors: ["#a855f7", "#ec4899"] },
   { id: "carve", name: "Carve", how: "Anime Crate · mythic · the frame remembers every cut", crate: true, group: "crate", rarity: "mythic", ptsMult: 0.1, colors: ["#ec4899", "#fff"] },
   { id: "brandmark", name: "Brandmark", how: "Anime Crate · mythic · one mark outlasts iron", crate: true, group: "crate", rarity: "mythic", ptsMult: 0.1, colors: ["#a855f7", "#fff"] },
-  { id: "fallenlight", name: "Fallen Light", how: "Anime Crate · mythic · the halo broke on the way down", crate: true, group: "crate", rarity: "mythic", ptsMult: 0.1, colors: ["#FFE9A8", "#F4E3B2"] },
+  { id: "fallenlight", name: "Fallen Light", how: "Anime Crate · mythic · the halo broke on the way down", crate: true, group: "crate", rarity: "mythic", ptsMult: 0.1, colors: ["#E8C878", "#C0453A"] },
   { id: "eclipseheart", name: "Eclipseheart", how: "Anime Crate · gilded · the old sun still burns", crate: true, group: "crate", rarity: "gilded", gilded: true, ptsMult: 0.12, colors: ["#E8C56A", "#FFF6C9"] },
   { id: "blacksun", name: "Black Sun", how: "Secret — undiscovered", crate: true, group: "crate", rarity: "secret", ptsMult: 0.15, colors: ["#FFFFFF", "#C2001F"] },
 ];

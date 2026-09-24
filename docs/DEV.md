@@ -95,3 +95,9 @@ The owner pushes. The agent does not.
 4. After the owner approves, tag `v<version>`. Every release bumps `APP_VERSION` and the service-worker cache (`ascend-v<version>`) together.
 5. Owner: `git push origin main` and `git push origin v<version>`. Vercel builds from `main`.
 6. A bad production deploy: Vercel → Deployments → the last good deployment → **Instant Rollback**.
+
+## Aura gallery moments and perf
+
+In `?auras=1`, any aura with a `moment` spec shows a **Play moment** button under the stage. It fires the moment on every live canvas of that aura at once — the figure stage and the profile preview — via `fireAuraMoment`, so what you preview is what production renders.
+
+`node scripts/aura-p3b-perf.mjs --base http://localhost:5173` (dev server must be running) reports loop and moment frame cost per moment aura at 4x CPU, then a worst-case stress: 10 auras at board-32 with all moments forced simultaneously — p95 must stay under 16 ms. `node scripts/aura-p3b-shots.mjs <auras> <base>` renders loop/moment-phase screenshots at production z-order into `docs/baselines/ascended-7h/`.

@@ -717,7 +717,7 @@ test("fallenlight moment drops the loose shard and fires one gated flash at the 
   for (let i = 0; i < 60 * 8; i += 1) {
     inst.frame(1 / 60);
     if (inst.moment == null) break;
-    if (inst.lastBurst?.anchor === "head" && inst.moment > 0.28 && inst.moment < 0.5) headBurst = inst.lastBurst;
+    if (inst.lastBurst?.anchor === "img:/aura/halo-cracked.webp" && inst.moment > 0.28 && inst.moment < 0.5) headBurst = inst.lastBurst;
     for (let j = over.output.length - 1; j >= 0; j -= 1) {
       const op = over.output[j];
       if (op[0] === "drawImage" && String(op[1]).includes("halo-shard")) {
@@ -731,7 +731,7 @@ test("fallenlight moment drops the loose shard and fires one gated flash at the 
   assert.ok(shardY.length > 10, "shard should be tracked through the moment");
   const rest = shardY[0].y, low = Math.max(...shardY.filter((p) => p.mt > 0.4 && p.mt < 0.8).map((p) => p.y));
   assert.ok(low > rest + 15, `shard should fall from the halo (rest ${rest.toFixed(1)} → ${low.toFixed(1)})`);
-  assert.ok(headBurst, "moment bursts should fire from the head anchor (the halo)");
+  assert.ok(headBurst, "moment bursts should fire from the halo image position");
   assert.ok(inst.flashes > flashCount, "moment flash should fire");
 });
 
@@ -747,7 +747,7 @@ test("ossuary moment lifts the bone shards and erupts from the crown", () => {
   for (let i = 0; i < 60 * 8; i += 1) {
     inst.frame(1 / 60);
     if (inst.moment == null) break;
-    if (inst.lastBurst?.anchor === "head" && inst.moment > 0.25 && inst.moment < 0.6) headBurst = inst.lastBurst;
+    if (inst.lastBurst?.anchor === "img:/aura/crown-bone.webp" && inst.moment > 0.25 && inst.moment < 0.6) headBurst = inst.lastBurst;
     for (const out of [canvas.output, over.output]) {
       for (let j = out.length - 1; j >= 0; j -= 1) {
         const op = out[j];
@@ -763,6 +763,88 @@ test("ossuary moment lifts the bone shards and erupts from the crown", () => {
   assert.ok(boneY.length > 10, "bone shards should be tracked through the moment");
   const rest = boneY[0].y, high = Math.min(...boneY.filter((p) => p.mt > 0.35 && p.mt < 0.75).map((p) => p.y));
   assert.ok(high < rest - 10, `bones should rise from the crown (rest ${rest.toFixed(1)} → ${high.toFixed(1)})`);
-  assert.ok(headBurst, "bone eruption bursts should fire from the head anchor");
+  assert.ok(headBurst, "bone eruption bursts should fire from the crown image position");
   assert.ok(inst.flashes > 0, "cold flare should fire through the gate");
+});
+
+test("fallenlight flare strikes red lightning through the gate, none under reduced motion", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const reds = ["#FF4D5A", "#FF8A7A", "#D92B2B"];
+  const bolts = (out) => out.filter(([op, key, v]) => op === "set" && key === "strokeStyle" && reds.includes(v)).length;
+  const canvas = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  let struck = 0;
+  for (let i = 0; i < 60 * 60; i += 1) {
+    inst.frame(1 / 60);
+    if (bolts(canvas.output) > struck) struck = bolts(canvas.output);
+  }
+  assert.ok(struck >= 2, `expected recurring red bolt strokes (got ${struck})`);
+  const calm = renderer.makeAura(stubRendererCanvas(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  calm.reduce = true;
+  let rBolts = 0;
+  for (let i = 0; i < 60 * 40; i += 1) rBolts += bolts(calm._cv?.output || []);
+  assert.equal(rBolts, 0, "reduced motion should suppress flare bolts");
+});
+
+test("ossuary moment swirls the bones faster and faster in a tightening spiral, then settles", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "ossuary", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  await new Promise((r) => setTimeout(r, 0)); // flush FakeImage onload microtasks
+  inst.forceMoment();
+  const cx = 70.5, cy = 70.5;
+  const pts = [];
+  let scanned = 0, started = false;
+  for (let i = 0; i < 60 * 8; i += 1) {
+    inst.frame(1 / 60);
+    if (inst.moment == null) { if (started) break; continue; }
+    started = true;
+    const out = canvas.output;
+    for (let j = out.length - 1; j >= scanned; j -= 1) {
+      if (out[j][0] === "drawImage" && String(out[j][1]).includes("bone-shard-1")) {
+        for (let k = j - 1; k >= scanned; k -= 1) {
+          if (out[k][0] === "translate") {
+            pts.push({ mt: inst.moment, ang: Math.atan2(out[k][2] - cy, out[k][1] - cx), r: Math.hypot(out[k][1] - cx, out[k][2] - cy) });
+            break;
+          }
+        }
+        break;
+      }
+    }
+    scanned = out.length;
+  }
+  assert.ok(pts.length > 20, `bone should be tracked through the swirl (got ${pts.length})`);
+  // unwrap the angle and measure orbit speed early vs late in the swirl
+  let prev = pts[0].ang;
+  const speeds = pts.map((p) => {
+    let d = p.ang - prev;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    prev = p.ang;
+    return { mt: p.mt, v: Math.abs(d) };
+  }).slice(1);
+  const early = speeds.filter((s) => s.mt > 0.3 && s.mt < 0.45).map((s) => s.v);
+  const late = speeds.filter((s) => s.mt > 0.6 && s.mt < 0.73).map((s) => s.v);
+  const mean = (a) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+  assert.ok(late.length > 3 && mean(late) > mean(early) * 2, `swirl should accelerate (early ${mean(early).toFixed(4)} → late ${mean(late).toFixed(4)} rad/frame)`);
+  // spiral: the orbit pulls inward at peak speed
+  const restR = pts[0].r, tightR = Math.min(...pts.filter((p) => p.mt > 0.65 && p.mt < 0.78).map((p) => p.r));
+  assert.ok(tightR < restR * 0.95, `spiral should tighten (rest ${restR.toFixed(1)} → ${tightR.toFixed(1)})`);
+  // settle: last position returns near the rest position
+  const last = pts[pts.length - 1];
+  assert.ok(Math.abs(last.r - restR) < restR * 0.2, `bone should settle back to the crown orbit (rest ${restR.toFixed(1)} → ${last.r.toFixed(1)})`);
+  // no explosion: only shower bursts
+  for (const b of renderer.AURA_FX.ossuary.moment.bursts) assert.equal(b.path, "shower", `ossuary burst ${b.path} should be a shower, not an explosion`);
+});
+
+test("ossuary flying bones split between behind and over layers", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const boneLayers = renderer.AURA_FX.ossuary.layers.filter((L) => String(L.src).includes("bone-shard"));
+  assert.ok(boneLayers.some((L) => L.behind), "some bones orbit behind the figure");
+  assert.ok(boneLayers.some((L) => L.over && L.frontOnly), "some bones pass in front on the over layer");
 });

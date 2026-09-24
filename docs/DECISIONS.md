@@ -45,3 +45,11 @@ In production, screen prefetch waits until `navigator.serviceWorker.controller` 
 ## IP
 
 No character names, series names, or copied art from real anime or manga anywhere in the product, the copy, or the asset files. Auras are original designs in an anime idiom.
+
+## Aura moments: flashes, canvas edges, and frame budget
+
+Every moment flash, recurring flare, and lightning strike goes through `noteStrikeFlash` — at most 3 flashes per second, none under reduced motion. `fx.moment.flash`, `fx.flare`, and `fx.bolts.flash` all gate; nothing draws an ungated bright flash. The same rule covers flares that spawn bolts (`fx.flare.bolt`): the strike only exists when the gate fires.
+
+No part of a moment — bursts, beams, orbiting pieces, or placed images — may be cut off by the canvas edge in a way that looks chopped. Transient burst debris may exit while fading; image layers stay inside the canvas or dim out before the edge.
+
+The leaderboard worst-case stress test must stay under 16 ms p95 at 4x CPU: all moment auras at board-32 with every moment forced simultaneously (`scripts/aura-p3b-perf.mjs`).
