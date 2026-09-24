@@ -53,17 +53,19 @@ export const AURA_FX = {
       { at: 0.84, path: "shower", shape: "sandgrain", n: 8, c: ["#F4E3B2", "#E8C878"], anchor: "head", y: -0.1, dir: -0.25, sp: [15, 45], spread: 0.9, sz: [1.2, 2.2], life: [0.6, 1], grav: 1.8, a: 0.8, over: 1 },
     ] }, art: "atlas", layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.4, spin: 0.02, tremble: 0.008, a: 0.98, blend: "source-over",
+      wander: { sx: 0.55, sy: 0.85, xR: 1.05, top: 1.05, bot: 0.6, zX: 1.1 },
       mside: "far", mTrail: { n: 6, lag: 0.015, a: 0.4 },
       mOrbit: { center: "center", rX: 1.25, rY: 0.85, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1, reform: [0.8, 0.95],
         flings: { from: 0.16, every: 0.05, shape: "sandgrain", n: 2, c: ["#F4E3B2", "#E8C878", "#C89B5A"], sp: [40, 110], spread: 0.4, sz: [1.2, 2.4], life: [0.5, 0.9], grav: 2, a: 0.9 } },
       mShake: [[0, 1], [0.15, 1.5], [0.35, 3], [0.55, 6], [0.66, 8], [0.72, 0], [1, 0]], mScale: [[0, 1], [0.55, 1], [0.66, 1.08], [0.72, 1], [1, 1]],
-      circle: { sz: [0.9, 0.9], hover: 0.51, mOrbit: { center: "center", rX: 1.12, rY: 1.12, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1, reform: [0.8, 0.95],
+      circle: { sz: [0.9, 0.9], hover: 0.51, wander: { sx: 0.55, sy: 0.85, xR: 0.62, top: 0.72, bot: 0.62, zX: 1.1 }, mOrbit: { center: "center", rX: 1.12, rY: 1.12, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1, reform: [0.8, 0.95],
         flings: { from: 0.16, every: 0.05, shape: "sandgrain", n: 2, c: ["#F4E3B2", "#E8C878", "#C89B5A"], sp: [40, 110], spread: 0.4, sz: [1.2, 2.4], life: [0.5, 0.9], grav: 2, a: 0.9 } } } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.4, spin: 0.02, a: 0.98, over: 1, blend: "source-over",
+      wander: { sx: 0.55, sy: 0.85, xR: 1.05, top: 1.05, bot: 0.6, zX: 1.1 },
       mside: "near", mTrail: { n: 6, lag: 0.015, a: 0.4 },
       mOrbit: { center: "center", rX: 1.25, rY: 0.85, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1 },
       mScale: [[0, 1], [0.55, 1], [0.66, 1.08], [0.72, 1], [1, 1]],
-      circle: { sz: [0.9, 0.9], hover: 0.51, mOrbit: { center: "center", rX: 1.12, rY: 1.12, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1 } } },
+      circle: { sz: [0.9, 0.9], hover: 0.51, wander: { sx: 0.55, sy: 0.85, xR: 0.62, top: 0.72, bot: 0.62, zX: 1.1 }, mOrbit: { center: "center", rX: 1.12, rY: 1.12, from: 0.04, to: 0.66, hit: 0.72, revs: 2.5, ease: 1.8, blend: 0.1 } } },
     { k: "orbit", n: 5, shape: "shard", c: ["#8B93A6", "#C9CDD4", "#B9A8E8"], w: [0.06, 0.17], r: [1.14, 1.42], sz: [2.2, 4.2], jit: 0.08, a: 0.9, eject: { every: [4, 8], sp: [0.3, 0.45], life: 0.8 } },
     { k: "orbit", n: 3, shape: "shard", c: ["#A7B0C2", "#D9DEE7", "#C4B5FD"], w: [-0.15, -0.06], r: [1.04, 1.26], sz: [1.8, 3.2], jit: 0.06, a: 0.95, over: 1, frontOnly: 1, eject: { every: [5, 9], sp: [0.3, 0.45], life: 0.8 } },
     { k: "fall", n: 12, shape: "sandgrain", c: ["#E8C878", "#C9A86A", "#B9A8E8", "#F4E3B2"], sp: [10, 22], sz: [0.9, 1.8], drift: 3, a: 0.55 },
@@ -1194,6 +1196,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             }
           }
         }
+        // wander z-split (idle, no moment): the far/near copies of a wandering
+        // piece fade across the face-band crossing so it reads as passing
+        // behind the figure/photo rather than popping
+        if (L.wander && mt == null) {
+          const wz = p.wz ?? 1;
+          const wantNear = L.mside === "near";
+          const wvis = Math.min(1, Math.max(0, wantNear ? 0.5 + wz * 1.4 : 0.5 - wz * 1.4));
+          api.orbitXY = api.orbitXY || {};
+          if (wvis <= 0.01) { api.orbitXY[wantNear ? "near" : "far"] = null; g.restore(); break; }
+          g.globalAlpha *= wvis;
+        }
         if (absX != null) { mdx = absX - x - ox; mdy = absY - y - bob - oy; }
         if (mo) { api.orbitXY = api.orbitXY || {}; api.orbitXY[L.mside === "near" ? "near" : "far"] = { x: x + ox + mdx, y: y + bob + oy + mdy }; }
         g.translate(x + ox + mdx, y + bob + oy + mdy); g.rotate(p.rot + wob + mrot * Math.PI * 2 + trem * Math.PI * 2 * Math.sin(time * 41 + p.ph * 9.7)); g.scale(msc * (L.flip ? -1 : 1), msc);
@@ -1712,12 +1725,27 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
                 y = anchors.face.y - anchors.face.eyeX * HEAD_FROM_EYE - p.sz * (L.hover ?? 0.14);
               }
             }
+            if (L.wander && anchors) {
+              // wander: the piece roams a zigzag around the figure/photo —
+              // slow horizontal sweep + triangular vertical bob. p.wz is the
+              // continuous front/back depth: negative while crossing the
+              // figure/face centre (drawn behind), positive elsewhere.
+              const W = L.wander;
+              const hh = anchors.face.eyeX * HEAD_FROM_EYE;
+              const zx = anchors.face.x;
+              x = zx + Math.sin(time * (W.sx ?? 0.55)) * rx * (W.xR ?? 1.05);
+              const tri = Math.asin(Math.sin(time * (W.sy ?? 0.85))) / (Math.PI / 2);
+              const yTop = cy - ry * (W.top ?? 1.05), yBot = cy + ry * (W.bot ?? 0.6);
+              y = (yTop + yBot) / 2 + tri * (yBot - yTop) / 2;
+              const zHalf = hh * (W.zX ?? 1.1);
+              p.wz = Math.max(-1, Math.min(1, (Math.abs(x - zx) - zHalf) / (zHalf * 0.35)));
+            }
             if (L.shape !== "emoji" && L.shape !== "smoke" && L.shape !== "img") alpha = 0.75 + 0.25 * Math.sin(time * 3 + p.ph);
             if (mode === "body" && L.shape !== "emoji" && L.shape !== "img") alpha *= Math.sin(p.ang) < 0 ? 0.55 : 1;
             if (L.frontOnly && Math.sin(p.ang) < 0.15) alpha = 0;
           }
           if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
-          if (L.shape === "img") (api.imgXY ||= {})[L.src] = { x, y };
+          if (L.shape === "img") (api.imgXY ||= {})[L.src] = { x, y, z: p.wz };
           drawP(ctx, state, p, alpha, x, y);
         });
       });

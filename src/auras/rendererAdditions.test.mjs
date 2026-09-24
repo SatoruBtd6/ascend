@@ -967,3 +967,55 @@ test("crownfall hat keeps drawing under reduced motion with a damped bob", async
   assert.ok(range(full) > 0.5, `hat should visibly bob at full motion (range ${range(full).toFixed(2)})`);
   assert.ok(range(calm) < range(full) * 0.55, `bob should damp under reduce (${range(calm).toFixed(2)} vs ${range(full).toFixed(2)})`);
 });
+
+test("atlas sphere wanders a zigzag around the figure instead of resting on the head", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "atlas", w: 128, h: 163, mode: "body", ringR: 40, overCanvas: stubRendererCanvas(), figure: "/avatars/E.webp" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const xs = [], ys = [], zs = [];
+  for (let i = 0; i < 60 * 14; i += 1) {
+    inst.frame(1 / 60);
+    const p = inst.imgXY["/aura/stone-sphere.webp"];
+    xs.push(p.x); ys.push(p.y); zs.push(p.z);
+  }
+  const xr = Math.max(...xs) - Math.min(...xs), yr = Math.max(...ys) - Math.min(...ys);
+  assert.ok(xr > 20, `sphere should sweep horizontally (x range ${xr.toFixed(1)}px)`);
+  assert.ok(yr > 15, `sphere should zigzag vertically (y range ${yr.toFixed(1)}px)`);
+  const revs = (a) => { let n = 0; for (let i = 2; i < a.length; i += 1) if (Math.sign(a[i] - a[i - 1]) !== Math.sign(a[i - 1] - a[i - 2])) n += 1; return n; };
+  assert.ok(revs(ys) >= 3, `zigzag should reverse vertically (got ${revs(ys)} reversals)`);
+  assert.ok(Math.min(...zs) < -0.5 && Math.max(...zs) > 0.5, `sphere should pass both behind (z<0) and in front (z>0); got ${Math.min(...zs).toFixed(2)}..${Math.max(...zs).toFixed(2)}`);
+  const head = figureHead(128, 163, "/avatars/E.webp");
+  const behind = xs.filter((x, i) => zs[i] < -0.3);
+  assert.ok(behind.every((x) => Math.abs(x - head.x) < head.half * 1.6), "sphere goes behind only while crossing the face horizontally");
+});
+
+test("atlas moment orbit lifts off smoothly from the sphere's wander position", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "atlas", w: 128, h: 163, mode: "body", ringR: 40, overCanvas: stubRendererCanvas(), figure: "/avatars/E.webp" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const pos = () => inst.orbitXY?.near || inst.orbitXY?.far;
+  for (let i = 0; i < 120; i += 1) inst.frame(1 / 60);
+  const before = { ...pos() };
+  inst.forceMoment();
+  let maxJump = 0, prev = before, maxDist = 0;
+  const ccx = 64, ccy = 163 * 0.52;
+  for (let i = 0; i < 60 * 5; i += 1) {
+    inst.frame(1 / 60);
+    const p = pos();
+    // lift-off continuity is measured through the orbit phase (mt<=0.7); the
+    // sphere is destroyed at the hit and fades back in at its live wander spot
+    // during reform, which is an intentional fade, not a position jump
+    if (p && inst.moment != null && inst.moment <= 0.7) {
+      maxJump = Math.max(maxJump, Math.hypot(p.x - prev.x, p.y - prev.y));
+      maxDist = Math.max(maxDist, Math.hypot(p.x - ccx, p.y - ccy));
+    }
+    if (p) prev = p;
+    if (inst.moment == null && i > 10) break;
+  }
+  assert.ok(maxJump < 8, `orbit should lift off continuously — largest frame-to-frame jump ${maxJump.toFixed(1)}px`);
+  assert.ok(maxDist > 30, `sphere should actually orbit out from centre (reached ${maxDist.toFixed(1)}px)`);
+});
