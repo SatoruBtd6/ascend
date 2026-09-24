@@ -1519,6 +1519,10 @@ export function DevAuraGallery() {
       ? { kind: "photo" }
       : { kind: "figure", src: backdropId };
   const size = SIZES.find((s) => s.id === sizeId) || SIZES[2];
+  // Ring preview never drops below studio-88 geometry — it's the view users
+  // actually see most, so it stays at least as large as the figure preview.
+  const ringPrev = ringGeom(Math.max(size.avatar, 88));
+  const boardPrev = ringGeom(32);
 
   const specFor = (id) => drafts[id] || originals.current[id];
   const bump = (id, recipe) => {
@@ -1664,33 +1668,53 @@ export function DevAuraGallery() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start", paddingTop: barH + 12, paddingRight: 16, paddingBottom: 88, paddingLeft: 16, scrollMarginTop: barH + 12 }}>
           <div style={{ flex: "0 0 auto" }}>
             <button type="button" onClick={() => { setSelected(null); setCopied(""); }} style={{ ...chip(false), marginBottom: 8 }}>All auras</button>
-            <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Preview — {editMode === "circle" ? "avatar ring" : "body figure"}</div>
-            {editMode === "circle" ? (
-              <CircleStage
-                aura={selected}
-                px={Math.max(size.cpx, 141)}
-                ring={size.ring}
-                facePx={size.avatar}
-                canvasKey={`v-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
-                photo={backdrop.kind === "photo" ? photo : null}
-                letter="A"
-                showAnchors={showAnchors}
-              />
-            ) : (
-              <FigureStage
-                aura={selected}
-                px={size.px}
-                figure={backdrop.kind === "photo" && photo ? photo : backdrop.kind === "figure" ? backdrop.src : lastFig.current}
-                canvasKey={`v-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
-                showAnchors={showAnchors}
-              />
-            )}
+            {/* All three views stay mounted — drafts write AURA_FX + bump revs,
+                so every preview re-renders live, and Play moment hits every
+                live instance of the aura at once. */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end" }}>
+              <div>
+                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Body figure{editMode === "base" ? " — editing" : ""}</div>
+                <FigureStage
+                  aura={selected}
+                  px={size.px}
+                  figure={backdrop.kind === "photo" && photo ? photo : backdrop.kind === "figure" ? backdrop.src : lastFig.current}
+                  canvasKey={`vf-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
+                  showAnchors={showAnchors}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Avatar ring{editMode === "circle" ? " — editing" : ""}</div>
+                <CircleStage
+                  aura={selected}
+                  px={ringPrev.cpx}
+                  ring={ringPrev.ring}
+                  facePx={ringPrev.avatar}
+                  canvasKey={`vr-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
+                  photo={backdrop.kind === "photo" ? photo : null}
+                  letter="A"
+                  showAnchors={showAnchors}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Board 32</div>
+                <CircleStage
+                  aura={selected}
+                  px={boardPrev.cpx}
+                  ring={boardPrev.ring}
+                  facePx={boardPrev.avatar}
+                  canvasKey={`vb-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
+                  photo={backdrop.kind === "photo" ? photo : null}
+                  letter="A"
+                  showAnchors={false}
+                />
+              </div>
+            </div>
             {specFor(selected)?.moment && (
-              <button type="button" onClick={() => fireAuraMoment(selected)} style={{ ...chip(false), marginTop: 8, fontSize: 12 }}>▶ Play moment</button>
+              <button type="button" onClick={() => fireAuraMoment(selected)} style={{ ...chip(false), marginTop: 8, fontSize: 12 }}>▶ Play moment (all previews)</button>
             )}
             <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700 }}>{selectedAura.name}</div>
             <div style={{ fontSize: 11, color: C.dim }}>{selectedAura.rarity || selectedAura.group} · {selectedAura.id}</div>
-            {editMode === "circle" && profilePreview}
+            {profilePreview}
           </div>
           <div style={{ flex: "1 1 340px", minWidth: 280, maxHeight: "calc(100dvh - 120px)", overflow: "auto", paddingBottom: 24 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
