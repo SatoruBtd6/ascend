@@ -11,6 +11,8 @@ export const AURAS = [
   { id: "dawn", name: "Dawnbreaker", how: "Start a workout between 4 and 6 AM", task: "dawn", group: "feat", colors: ["#FF8A5B", "#FFD36B"] },
   { id: "wanderer", name: "Wanderer", how: "10,000 steps a day, 7 days in a row", task: "steps7", group: "feat", colors: ["#7BC96F", "#E0B872"] },
   { id: "standardbearer", name: "Standard-Bearer", how: "Clear 10 crew raids", task: "raids10", group: "feat", colors: ["#C2001F", "#E8C56A"] },
+  { id: "atlas", name: "Atlas", how: "Iron Mover III achievement — 1,000,000 lb lifetime", ach: "volume-2", group: "feat", colors: ["#C9CDD4", "#6B7280"] },
+  { id: "forge", name: "Forge", how: "Unbroken III achievement — 100-day streak", ach: "streak-2", group: "feat", colors: ["#FFB43C", "#FF5A1F"] },
   { id: "wyrm", name: "Wyrmfire", how: "Defeat the Iron Wyrm", loot: "wyrm", group: "boss", colors: ["#3DF08A", "#FFD447"] },
   { id: "frost", name: "Frostbite", how: "Defeat the Frost Colossus", loot: "colossus", group: "boss", colors: ["#B3ECFF", "#FFFFFF"] },
   { id: "abyss", name: "Abyss", how: "Defeat the Gravemaw", loot: "gravemaw", group: "boss", colors: ["#6A00FF", "#FF2D6F"] },

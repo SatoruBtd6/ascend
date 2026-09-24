@@ -34,6 +34,27 @@ export const AURA_FX = {
     { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", r: [0.5, 0.5], w: [0, 0], sz: [1.95, 1.95], even: 1, at: 0.75, y: 0.38, wobble: 0.035, bob: 1, a: 0.95, behind: 1, blend: "source-over" },
     { k: "rise", n: 7, shape: "ember", c: ["#FF6A3C", "#C2001F", "#E8C56A"], sp: [10, 20], life: [1.8, 3], sz: [0.9, 1.7], sway: 9, a: 0.6 },
   ] },
+  atlas: { spd: 0.85, glow: 0.5, moment: { every: [20, 30], dur: 2, bursts: [
+    { at: 0.62, path: "shockring", c: "#D7DCE5", a: 0.8, lw: 2.4, r0: 0.3, v: 1.3, life: [0.6, 0.6], x: 0, y: -0.62, over: 1 },
+    { at: 0.62, path: "radial", shape: "sandgrain", n: 18, c: ["#C9CDD4", "#9AA3B2", "#E8ECF4"], x: 0, y: -0.55, sp: [50, 90], sz: [1.1, 2.2], life: [0.55, 1], grav: 0.7, a: 0.9 },
+    { at: 0.62, path: "shower", shape: "sandgrain", n: 10, c: ["#C9CDD4", "#8A93A3"], x: 0, y: -0.5, sp: [30, 60], spread: 1.5, sz: [0.9, 1.8], life: [0.6, 1.1], grav: 1.6, a: 0.8 },
+  ] }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.42, 0.42], even: 1, hover: 0.65, spin: 0.022, tremble: 0.005, a: 0.97, blend: "source-over",
+      mY: [[0, 0], [0.3, -0.15], [0.52, -0.19], [0.58, -0.16], [0.62, 0.06], [0.8, -0.03], [1, 0]], mShake: [[0, 1], [0.22, 3.2], [0.55, 4.2], [0.62, 0.5], [1, 1]], mScale: [[0, 1], [0.52, 1.07], [0.62, 0.96], [1, 1]] },
+    { k: "fall", n: 12, shape: "sandgrain", c: ["#B8BFC9", "#8A93A3", "#DDE2EA"], sp: [10, 22], sz: [0.9, 1.8], drift: 3, a: 0.5 },
+  ] },
+  forge: { spd: 1, glow: 0.38, art: "forge", moment: { every: [6, 10], dur: 1.15,
+    flash: { at: 0.16, flashPeak: 0.55, flashLife: 0.1, flashC: ["#FFF6E0", "#FFB43C"] },
+    bursts: [
+      { at: 0.16, path: "shower", shape: "spark", n: 18, c: ["#FFF6C9", "#FFD447", "#FF9340"], x: 0.2, y: 1, sp: [150, 260], spread: 1.15, sz: [0.9, 1.7], life: [0.4, 0.8], grav: 2.4, a: 0.95, over: 1 },
+      { at: 0.16, path: "shower", shape: "ember", n: 8, c: ["#FF9340", "#FF5A1F"], x: 0.2, y: 1, sp: [50, 90], spread: 1.5, sz: [0.8, 1.5], life: [0.7, 1.3], grav: 1.2, a: 0.85, over: 1 },
+      { at: 0.16, path: "shockring", c: "#FFB43C", a: 0.55, lw: 1.6, r0: 0.45, v: 1.2, life: [0.5, 0.5], x: 0.2, y: 0.6 },
+    ] }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", r: [1.06, 1.06], w: [0.004, 0.007], sz: [0.72, 0.72], even: 1, at: 0.75, rot: 0.12, wobble: 0.025, a: 0.96, behind: 1, blend: "source-over",
+      mY: [[0, 0], [0.06, -0.12], [0.16, 2.05], [0.42, 2.05], [0.72, 0], [1, 0]], mRot: [[0, 0], [0.06, -0.15], [0.16, 0.25], [0.5, 0.25], [1, 0]] },
+    { k: "rise", n: 12, shape: "ember", c: ["#FFB43C", "#FF5A1F", "#FFE08A"], sp: [16, 34], life: [0.8, 1.6], sz: [1, 2], sway: 10, a: 0.75 },
+    { k: "orbit", n: 8, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6 },
+  ] },
   wyrm: { spd: 1.5, glow: 0.64, layers: [{ k: "orbit", n: 24, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.1, 2], r: [0.94, 1.22], sz: [2.6, 4.6] }, { k: "rise", n: 16, shape: "ember", c: ["#3DF08A", "#FFD447"], sp: [22, 48], life: [0.7, 1.4], sz: [1.2, 2.1], sway: 12 }] },
   frost: { spd: 1.25, glow: 0.58, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [16, 32], sz: [2.2, 4.2], drift: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.4, 0.8], r: [1, 1.18], sz: [2.6, 4.2] }] },
   abyss: { spd: 1.6, glow: 0.5, layers: [{ k: "inward", n: 28, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.55, 1.05], life: [1, 1.9], sz: [1.8, 3.8] }, { k: "orbit", n: 18, shape: "ash", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1, 2.2], r: [0.94, 1.22], sz: [1.2, 2.2] }] },
@@ -293,6 +314,7 @@ export function auraNeedsOver(aura) {
   const fx = AURA_FX[aura];
   if (!fx) return false;
   if (fx.overArt) return true;
+  if (fx.moment?.bursts?.some((b) => b.over)) return true;
   return (fx.layers || []).some((L) => L.over);
 }
 
@@ -475,6 +497,24 @@ export const AURA_ART = {
     }
   },
   bonewright: (opts) => { if (opts.pass === "over") drawBoneEyes(opts.over || opts.g, opts); },
+  // Anvil glow after the slam: white-hot at the flash, cooling to orange.
+  forge: ({ g, moment, cx, cy, rx, ry }) => {
+    const fl = moment?.spec?.flash;
+    if (!fl || moment.t <= fl.at) return null;
+    const k = Math.min(1, (moment.t - fl.at) / Math.max(0.05, 1 - fl.at));
+    const a = Math.pow(1 - k, 1.35) * 0.6;
+    if (a <= 0.02) return null;
+    const gc = Math.round(246 - 96 * k), bc = Math.round(214 - 164 * k);
+    const ax = cx + 0.2 * rx, ay = cy + 0.95 * ry;
+    g.save(); g.globalCompositeOperation = "lighter";
+    const grd = g.createRadialGradient(ax, ay, 0, ax, ay, ry * 0.7);
+    grd.addColorStop(0, `rgba(255,${gc},${bc},${a.toFixed(3)})`);
+    grd.addColorStop(0.5, `rgba(255,150,50,${(a * 0.4).toFixed(3)})`);
+    grd.addColorStop(1, "rgba(255,120,30,0)");
+    g.fillStyle = grd; g.beginPath(); g.arc(ax, ay, ry * 0.7, 0, Math.PI * 2); g.fill();
+    g.restore();
+    return null;
+  },
   brandmark: (opts) => {
     if (opts.pass === "late") drawCape(opts.g, opts);
     else if (opts.pass === "over") {
@@ -645,6 +685,20 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
   }
 }
 
+// Linear keyframe lookup for moment poses: [[t, v], ...] sorted by t,
+// clamped at both ends. t is the 0..1 moment phase from api.moment.
+const keyAt = (frames, t) => {
+  if (!frames?.length) return null;
+  if (t <= frames[0][0]) return frames[0][1];
+  for (let i = 1; i < frames.length; i++) {
+    if (t <= frames[i][0]) {
+      const [t0, v0] = frames[i - 1], [t1, v1] = frames[i];
+      return v0 + (v1 - v0) * ((t - t0) / Math.max(1e-6, t1 - t0));
+    }
+  }
+  return frames[frames.length - 1][1];
+};
+
 export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
   const fx = AURA_FX[aura], base = AURAS.find((a) => a.id === aura);
   const g = canvas.getContext("2d");
@@ -675,7 +729,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   let boltT = fx.bolts?.burst ? rnd(0.35, 0.9) : (fx.bolts?.every ? rnd(...fx.bolts.every) : 0), bolt = null;
   let liveBolts = [], burstLeft = 0, burstGap = 0.16, strike = 0, flashLeft = 0;
   let flashState = { last: null, burstFlashed: false };
-  const api = { visible: true, reduce: false, flashes: 0, flashTimes: [], strike: 0, boltsFired: 0, shadowWisps: 0, shadowAnchorCache: 0 };
+  let flashSpec = null;
+  const api = { visible: true, reduce: false, flashes: 0, flashTimes: [], strike: 0, boltsFired: 0, shadowWisps: 0, shadowAnchorCache: 0, moment: null };
+  // Signature moments: the first wait is drawn per mount so a leaderboard of
+  // auras never fires in sync. Big canvases get 2.5x burst particles and a
+  // longer moment; board-size canvases get the small version.
+  const mScale = (w * h) >= 110 * 110 ? 2.5 : (w * h) >= 80 * 80 ? 1.5 : 1;
+  const mdur = fx.moment ? fx.moment.dur * (mScale >= 2.5 ? 1.35 : 1) : 0;
+  let momentAt = fx.moment ? rnd(0.4, (fx.moment.every || [6, 10])[1]) : 0;
+  let momentT = null, momentFired = null, momentParts = [];
+  api.momentWait = momentAt;
+  api.forceMoment = () => { if (fx.moment && momentT == null) momentAt = Math.min(momentAt, 0.001); };
   const c1 = base?.colors?.[0] || "#00D9FF", c2 = base?.colors?.[1] || c1;
   const rgba = (hex, a) => { const c = hexRgb(hex) || [0, 217, 255]; return `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`; };
 
@@ -883,7 +947,16 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const bob = L.bob ? Math.sin(time * (Math.PI * 2 / 2.5) + p.ph) * s * 0.1 : 0;
         const ox = (L.x || 0) * rx;
         const oy = (L.y || 0) * ry;
-        g.save(); g.translate(x + ox, y + bob + oy); g.rotate(p.rot + wob); if (L.flip) g.scale(-1, 1);
+        const mt = api.moment, mAmp = api.reduce ? 0.45 : 1;
+        const mdx = mt != null ? (keyAt(L.mX, mt) || 0) * mAmp * rx : 0;
+        const mdy = mt != null ? (keyAt(L.mY, mt) || 0) * mAmp * ry : 0;
+        const mrot = mt != null ? (keyAt(L.mRot, mt) || 0) * mAmp : 0;
+        const msc = mt != null ? 1 + ((keyAt(L.mScale, mt) ?? 1) - 1) * mAmp : 1;
+        const mshake = mt != null ? 1 + ((keyAt(L.mShake, mt) ?? 1) - 1) * mAmp : 1;
+        const trem = (L.tremble || 0) * mshake * (api.reduce ? 0.3 : 1);
+        const mDim = mt != null ? (keyAt(L.mDim, mt) ?? 1) : 1;
+        g.save(); if (mDim < 1) g.globalAlpha *= mDim;
+        g.translate(x + ox + mdx, y + bob + oy + mdy); g.rotate(p.rot + wob + mrot * Math.PI * 2 + trem * Math.PI * 2 * Math.sin(time * 41 + p.ph * 9.7)); g.scale(msc * (L.flip ? -1 : 1), msc);
         if (S) drawShadowWisps(g, state, p, S, breathe);
         if (isFrameAnim) {
           if (p.frameStarted == null && p.frameImages.every((frame) => frame.ready || frame.failed)) p.frameStarted = time;
@@ -1026,12 +1099,102 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     return { pts, t: 0, c: pick(fx.bolts.c) };
   };
 
+  // One-shot moment burst: n scales with canvas size, paths give the burst
+  // shape (upward spark shower, radial dust, expanding shock ring).
+  const burstFire = (b) => {
+    const n = Math.max(1, Math.round((b.n ?? 8) * mScale * (b.over ? 1 : scale)));
+    const ox = cx + (b.x ?? 0) * rx, oy = cy + (b.y ?? 0) * ry;
+    for (let i = 0; i < n; i++) {
+      const p = {
+        b, over: !!b.over, x: ox, y: oy, age: 0,
+        life: b.life ? rnd(...b.life) : 0.8,
+        sz: (b.sz ? rnd(...b.sz) : 1.4) * unit,
+        c: pick(b.c || [c1]), rot: rnd(0, Math.PI * 2), vr: rnd(-2, 2),
+      };
+      if (b.path === "shockring") {
+        p.ring = true; p.r = (b.r0 ?? 0.4) * Math.min(rx, ry); p.rv = (b.v ?? 2) * Math.min(rx, ry);
+      } else {
+        const up = b.path === "shower";
+        const ang = up ? -Math.PI / 2 + rnd(-(b.spread ?? 1), b.spread ?? 1) : rnd(0, Math.PI * 2);
+        const v = (b.sp ? rnd(...b.sp) : 70) * unit;
+        p.vx = Math.cos(ang) * v; p.vy = Math.sin(ang) * v;
+        p.grav = (b.grav ?? 1.8) * 150 * unit;
+      }
+      momentParts.push(p);
+    }
+  };
+  const paintMoment = (ctx, wantOver) => {
+    for (const p of momentParts) {
+      if (!!p.over !== wantOver) continue;
+      const k = p.age / p.life, a = (p.b.a ?? 0.9) * (1 - k);
+      if (a <= 0.01) continue;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      if (p.ring) {
+        ctx.globalAlpha = Math.max(0, a);
+        ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.7, (p.b.lw ?? 2) * unit * (1 - k * 0.5));
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * (ry / rx), 0, 0, Math.PI * 2); ctx.stroke();
+      } else {
+        ctx.globalAlpha = Math.max(0, Math.min(1, a));
+        const shape = p.b.shape || "spark";
+        if (shape === "spark" || shape === "dot" || shape === "ember") {
+          const gs = glowSprite(p.c), r = p.sz * (shape === "ember" ? 2.6 : shape === "dot" ? 2 : 1.8);
+          ctx.drawImage(gs, p.x - r * 2, p.y - r * 2, r * 4, r * 4);
+          if (shape === "spark") {
+            ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.5, p.sz * 0.35); ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - (p.vx || 0) * 0.055, p.y - (p.vy || 0) * 0.055); ctx.stroke();
+          }
+        } else {
+          drawNewParticleShape(ctx, shape, p, p.x, p.y, time);
+        }
+      }
+      ctx.restore();
+    }
+  };
+
   const frame = (dt) => {
     time += dt * spd;
     clock += dt;
     api.shadowWisps = 0;
     api.shadowAnchorCache = 0;
     strike = Math.max(0, strike - dt / 0.25);
+    api.moment = null;
+    if (fx.moment) {
+      if (momentT == null) {
+        momentAt -= dt;
+        if (momentAt <= 0) { momentT = 0; momentFired = new Set(); }
+      } else {
+        momentT += dt;
+        const mt = momentT / mdur;
+        if (mt >= 1) { momentT = null; momentAt = rnd(...(fx.moment.every || [6, 10])); }
+        else {
+          api.moment = mt;
+          const fl = fx.moment.flash;
+          if (fl && !momentFired.has("f") && mt >= fl.at) {
+            momentFired.add("f");
+            strike = 1;
+            const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: true, burstStart: true });
+            flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
+            if (gate.fired) {
+              flashSpec = fx.moment.flash; flashLeft = fl.flashLife || 0.09;
+              api.flashes += 1; api.flashTimes.push(clock);
+              if (api.flashTimes.length > 40) api.flashTimes.shift();
+            }
+          }
+          (fx.moment.bursts || []).forEach((b, i) => {
+            if (!momentFired.has(i) && mt >= b.at) { momentFired.add(i); burstFire(b); }
+          });
+        }
+      }
+    }
+    momentParts = momentParts.filter((p) => {
+      p.age += dt;
+      if (p.age >= p.life) return false;
+      if (p.ring) p.r += p.rv * dt;
+      else { p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; p.vy += (p.grav || 0) * dt; p.rot += (p.vr || 0) * dt; }
+      return true;
+    });
+    api.momentParts = momentParts.length;
     g.clearRect(0, 0, w, h);
     g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
     if (overG) {
@@ -1059,7 +1222,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
     const paul = fx.layers?.find((L) => L.placed === "shoulders");
-    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, unit, strike, sweep: fx.sweep, pass, mode, anchors, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
+    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, unit, strike, sweep: fx.sweep, pass, mode, anchors, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
     const artState = AURA_ART[fx.art]?.(artArgs("main")) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";
@@ -1180,6 +1343,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       });
     };
     paintLayers(g, false);
+    paintMoment(g, false);
     if (fx.artLate) AURA_ART[fx.art]?.(artArgs("late"));
     if (fx.bolts?.burst) {
       boltT -= dt;
@@ -1200,6 +1364,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: !!fx.bolts.flash, burstStart: starting });
         flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
         if (gate.fired) {
+          flashSpec = fx.bolts;
           flashLeft = fx.bolts.flashLife || 0.09;
           api.flashes += 1;
           api.flashTimes.push(clock);
@@ -1243,25 +1408,28 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       }
     }
     const paintWash = (ctx) => {
-      if (!(flashLeft > 0) || !fx.bolts?.burst) return;
-      const life = fx.bolts.flashLife || 0.09;
+      if (!(flashLeft > 0) || !flashSpec) return;
+      const life = flashSpec.flashLife || 0.09;
       const k = Math.max(0, flashLeft / life);
       // flashPeak is the spec's strength. Drawn softer so a light theme
       // brightens instead of clipping to white, and only at the ring centre.
-      const a = (fx.bolts.flashPeak ?? 0.35) * 0.5 * k;
+      const a = (flashSpec.flashPeak ?? 0.35) * 0.5 * k;
       if (a <= 0.01) return;
       const edge = Math.min(cx, cy, w - cx, h - cy);
       const outer = Math.max(8, edge * 0.96);
       const inner = Math.min(rx, ry) * 0.15;
+      // flashC defaults to Bonewright's exact warm-white pair.
+      const [w0, w1] = flashSpec.flashC || ["#FFF8DC", "#FFF4D2"];
+      const wc0 = hexRgb(w0) || [255, 248, 220], wc1 = hexRgb(w1) || [255, 244, 210];
       ctx.save();
       // Adds light onto pixels already on this canvas. Empty pixels only pick
       // up the gradient's own alpha, which is 0 before the canvas edge.
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = 1;
       const wash = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
-      wash.addColorStop(0, `rgba(255,248,220,${a.toFixed(3)})`);
-      wash.addColorStop(0.42, `rgba(255,244,210,${(a * 0.38).toFixed(3)})`);
-      wash.addColorStop(1, "rgba(255,248,220,0)");
+      wash.addColorStop(0, `rgba(${wc0[0]},${wc0[1]},${wc0[2]},${a.toFixed(3)})`);
+      wash.addColorStop(0.42, `rgba(${wc1[0]},${wc1[1]},${wc1[2]},${(a * 0.38).toFixed(3)})`);
+      wash.addColorStop(1, `rgba(${wc0[0]},${wc0[1]},${wc0[2]},0)`);
       ctx.fillStyle = wash;
       ctx.beginPath();
       ctx.arc(cx, cy, outer, 0, Math.PI * 2);
@@ -1271,10 +1439,11 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     paintWash(g);
     if (overG) {
       paintLayers(overG, true);
+      paintMoment(overG, true);
       paintWash(overG);
       if (fx.overArt) AURA_ART[fx.overArt]?.(artArgs("over"));
     }
-    if (flashLeft > 0) flashLeft -= dt;
+    if (flashLeft > 0) { flashLeft -= dt; if (flashLeft <= 0) flashSpec = null; }
     api.strike = strike;
     g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
   };

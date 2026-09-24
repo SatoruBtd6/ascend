@@ -430,3 +430,110 @@ test("ironbound and standardbearer render without throwing in circle and body mo
     }
   }
 });
+
+test("atlas and forge render without throwing in circle and body modes", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  for (const id of ["atlas", "forge"]) {
+    for (const mode of ["circle", "body"]) {
+      const canvas = stubRendererCanvas();
+      const inst = renderer.makeAura(canvas, { aura: id, w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, figure: "/avatars/E.webp" });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `${id} ${mode}`);
+      assert.ok(canvas.output.some(([op]) => op === "drawImage"), `${id} ${mode} drew nothing`);
+    }
+  }
+});
+
+test("moment start is randomized per mount within the spec interval", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const waits = [];
+  for (let i = 0; i < 24; i += 1) {
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "atlas", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+    waits.push(inst.momentWait);
+  }
+  assert.ok(waits.every((t) => t >= 0.4 && t <= 30));
+  assert.ok(new Set(waits.map((t) => t.toFixed(2))).size > 12, "first moment waits should differ per mount");
+  assert.ok(Math.min(...waits) < 10 && Math.max(...waits) > 15, "waits should spread across the interval");
+});
+
+test("atlas moment lifts the sphere then drops with a dust burst, staying above the face", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const canvas = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "atlas", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  inst.forceMoment();
+  const sphereY = [];
+  const faceY = 70.5 + (-0.16) * 40.7;
+  let phases = 0;
+  for (let i = 0; i < 60 * 4 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 4; i += 1) {
+    inst.frame(1 / 60);
+    if (inst.moment == null) break;
+    phases += 1;
+    for (let j = canvas.output.length - 1; j >= 0; j -= 1) {
+      const op = canvas.output[j];
+      if (op[0] === "drawImage" && String(op[1]).includes("stone-sphere")) {
+        for (let k = j - 1; k >= 0; k -= 1) {
+          if (canvas.output[k][0] === "translate") { sphereY.push(canvas.output[k][2]); break; }
+        }
+        break;
+      }
+    }
+  }
+  assert.ok(phases > 10, "moment should run for a while");
+  const lift = Math.min(...sphereY), drop = Math.max(...sphereY), rest = sphereY[0];
+  assert.ok(lift < rest - 2, `sphere should lift (lift ${lift} vs rest ${rest})`);
+  assert.ok(drop > rest, "sphere should overshoot downward on the slam");
+  assert.ok(drop < faceY, `sphere must never reach the face (lowest ${drop} vs face ${faceY})`);
+  assert.ok(Math.abs(sphereY.at(-1) - rest) < 1, "sphere settles back to rest");
+});
+
+test("forge moment slams and fires a gated flash; never over 3 flashes per second", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "forge", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  for (let elapsed = 0; elapsed < 120; elapsed += 1 / 60) {
+    inst.frame(1 / 60);
+    if (inst.moment == null) inst.forceMoment();
+  }
+  const times = inst.flashTimes;
+  assert.equal(times.length, 40, "flashTimes should fill its 40-entry cap");
+  assert.ok(inst.flashes >= times.length);
+  for (let i = 1; i < times.length; i += 1) assert.ok(times[i] - times[i - 1] >= 0.334 - 1e-9, "gate min gap");
+  for (let i = 0; i < times.length; i += 1) {
+    const inWindow = times.filter((t) => t >= times[i] && t < times[i] + 1).length;
+    assert.ok(inWindow <= 3, `${inWindow} flashes in one second`);
+  }
+});
+
+test("reduced motion suppresses the forge flash but the moment still runs", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "forge", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  inst.reduce = true;
+  let sawMoment = false;
+  for (let i = 0; i < 60 * 12; i += 1) {
+    inst.frame(1 / 60);
+    if (inst.moment != null) sawMoment = true;
+  }
+  assert.ok(sawMoment, "moment should still play under reduced motion");
+  assert.equal(inst.flashes, 0);
+});
+
+test("moment bursts scale with canvas size", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const peak = (w) => {
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "forge", w, h: w, mode: "circle", ringR: w / 3.456 });
+    inst.forceMoment();
+    let max = 0;
+    for (let i = 0; i < 60 * 3; i += 1) { inst.frame(1 / 60); max = Math.max(max, inst.momentParts || 0); }
+    return max;
+  };
+  const board = peak(59), profile = peak(141);
+  assert.ok(board >= 20, `board burst too small (${board})`);
+  assert.ok(profile >= board * 2, `profile burst (${profile}) should be at least 2x board (${board})`);
+});
