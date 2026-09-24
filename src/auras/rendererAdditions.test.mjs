@@ -11,7 +11,7 @@ async function loadRenderer() {
   const outfile = join(dir, "renderer.mjs");
   await esbuild.build({
     stdin: {
-      contents: `export { AURA_FX, _auraImageCache, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura, makeFlameTongues } from "./AuraCanvas.jsx";\n`,
+      contents: `export { AURA_FX, _auraImageCache, _auraLiveInstances, trackAuraInstance, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura, makeFlameTongues } from "./AuraCanvas.jsx";\n`,
       resolveDir: fileURLToPath(new URL(".", import.meta.url)),
       sourcefile: "renderer-entry.js",
       loader: "js",
@@ -560,4 +560,209 @@ test("moment bursts scale with canvas size", () => {
   const board = peak(59), profile = peak(141);
   assert.ok(board >= 20, `board burst too small (${board})`);
   assert.ok(profile >= board * 2, `profile burst (${profile}) should be at least 2x board (${board})`);
+});
+
+test("untracking removes every AuraCanvas instance and empties the registry key", () => {
+  // AuraCanvas's effect registers via trackAuraInstance and runs the returned
+  // cleanup on unmount — this exercises that exact path.
+  const live = renderer._auraLiveInstances;
+  const a = { id: "a" }, b = { id: "b" };
+  const untrackA = renderer.trackAuraInstance("__reg", a);
+  const untrackB = renderer.trackAuraInstance("__reg", b);
+  assert.equal(live.get("__reg")?.size, 2);
+  untrackA();
+  assert.equal(live.get("__reg")?.size, 1);
+  untrackB();
+  assert.ok(!live.has("__reg"), "registry key removed after last unmount");
+  assert.equal(live.size, 0, "registry is empty afterwards");
+});
+
+test("burst colours given as strings resolve to the full colour, not one character", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  renderer.AURA_FX.__strBurst = { glow: 0, layers: [], moment: { every: [5, 5], dur: 1, bursts: [
+    { at: 0.5, path: "radial", shape: "shard", n: 4, c: "#FFF3D0", sp: [50, 90], sz: [2, 3], life: [0.5, 0.8] },
+    { at: 0.5, path: "shockring", c: "#FFEFC0", lw: 2, life: [0.4, 0.4] },
+  ] } };
+  const canvas = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "__strBurst", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  inst.forceMoment();
+  for (let i = 0; i < 90 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 90; i += 1) { inst.frame(1 / 60); if (inst.moment == null) break; }
+  const colours = canvas.output.filter(([op, key]) => op === "set" && (key === "fillStyle" || key === "strokeStyle")).map(([, , v]) => v);
+  assert.ok(colours.includes("#FFF3D0"), "string burst colour painted verbatim");
+  assert.ok(colours.includes("#FFEFC0"), "string shockring colour painted verbatim");
+  assert.ok(!colours.some((c) => c === "#" || (typeof c === "string" && c.length === 1)), "no single-character colour leaked from pick()");
+  delete renderer.AURA_FX.__strBurst;
+});
+
+test("head and ground burst anchors land correctly in body and circle modes", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  for (const mode of ["circle", "body"]) {
+    renderer.AURA_FX.__anchors = { glow: 0, layers: [], moment: { every: [5, 5], dur: 1, bursts: [
+      { at: 0.2, path: "shockring", c: "#FFFFFF", anchor: "face", life: [0.3, 0.3] },
+      { at: 0.4, path: "shockring", c: "#FFFFFF", anchor: "head", life: [0.3, 0.3] },
+      { at: 0.6, path: "shockring", c: "#FFFFFF", anchor: "ground", life: [0.3, 0.3] },
+    ] } };
+    const w = 141, h = mode === "body" ? 180 : 141, cy = h / 2, ringR = 40;
+    const canvas = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "__anchors", w, h, mode, ringR, figure: "/avatars/E.webp" });
+    const seen = {};
+    inst.forceMoment();
+    for (let i = 0; i < 240 && inst.moment == null; i += 1) inst.frame(1 / 60);
+    for (let i = 0; i < 240; i += 1) {
+      inst.frame(1 / 60);
+      if (inst.lastBurst?.anchor && !seen[inst.lastBurst.anchor]) seen[inst.lastBurst.anchor] = { ...inst.lastBurst };
+      if (inst.moment == null) break;
+    }
+    assert.ok(seen.face && seen.head && seen.ground, `${mode}: all three anchors fired`);
+    assert.ok(seen.head.y < seen.face.y - 2, `${mode}: head lands above the face (head y=${seen.head.y.toFixed(1)} face y=${seen.face.y.toFixed(1)})`);
+    if (mode === "body") assert.ok(seen.ground.y > h * 0.9, `body: ground lands under the feet (y=${seen.ground.y.toFixed(1)} vs h=${h})`);
+    else assert.ok(Math.abs(seen.ground.y - (cy + ringR * 0.97)) < 2, `circle: ground lands at the bottom of the ring (y=${seen.ground.y.toFixed(1)})`);
+    assert.ok(Math.abs(seen.head.x - w / 2) < w * 0.3, `${mode}: head stays centred`);
+  }
+  delete renderer.AURA_FX.__anchors;
+});
+
+test("frontOnly orbit particles skip drawing while on the far side", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  renderer.AURA_FX.__frontOnly = { glow: 0, layers: [
+    { k: "orbit", n: 4, shape: "shard", c: "#FFFFFF", w: [0.1, 0.1], r: [1.1, 1.1], sz: [3, 3], even: 1, over: 1, frontOnly: 1 },
+  ] };
+  const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "__frontOnly", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  const counts = [];
+  for (let i = 0; i < 240; i += 1) {
+    over.output.length = 0;
+    inst.frame(1 / 60);
+    counts.push(over.output.filter(([op]) => op === "translate").length);
+  }
+  const max = Math.max(...counts), min = Math.min(...counts);
+  assert.ok(max < 4, `far-side particles were drawn (max ${max}/4 drawn)`);
+  assert.ok(min >= 1, "near side should always draw at least one");
+  delete renderer.AURA_FX.__frontOnly;
+});
+
+test("ejected orbit particles fly outward and fade", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  renderer.AURA_FX.__eject = { glow: 0, layers: [
+    { k: "orbit", n: 1, shape: "shard", c: "#FFFFFF", w: [0.05, 0.05], r: [1.1, 1.1], sz: [3, 3], even: 1, eject: { every: [0.3, 0.3], sp: [0.8, 0.8], life: 0.7 } },
+  ] };
+  const canvas = stubRendererCanvas();
+  const cx = 70.5, cy = 70.5;
+  const inst = renderer.makeAura(canvas, { aura: "__eject", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  const dists = [];
+  let minAlpha = 1;
+  for (let i = 0; i < 140; i += 1) {
+    canvas.output.length = 0;
+    inst.frame(1 / 60);
+    const t = canvas.output.filter(([op]) => op === "translate").at(-1);
+    if (t) dists.push(Math.hypot(t[1] - cx, t[2] - cy));
+    for (const [op, key, v] of canvas.output) if (op === "set" && key === "globalAlpha") minAlpha = Math.min(minAlpha, v);
+  }
+  const orbitR = dists[0];
+  const maxD = Math.max(...dists);
+  assert.ok(maxD > orbitR * 1.3, `ejected particle should travel outward (orbit ${orbitR.toFixed(1)} → max ${maxD.toFixed(1)})`);
+  assert.ok(minAlpha < 0.5, `ejected particle should fade out (min alpha ${minAlpha.toFixed(2)})`);
+  delete renderer.AURA_FX.__eject;
+});
+
+test("fallenlight and ossuary render without throwing in circle and body modes", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  for (const id of ["fallenlight", "ossuary"]) {
+    for (const mode of ["circle", "body"]) {
+      const canvas = stubRendererCanvas();
+      const over = stubRendererCanvas();
+      const inst = renderer.makeAura(canvas, { aura: id, w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `${id} ${mode}`);
+      assert.ok(canvas.output.some(([op]) => op === "drawImage"), `${id} ${mode} drew nothing`);
+    }
+  }
+});
+
+test("fallenlight flare flickers through the flash gate: <=3 per second, none reduced", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  for (let elapsed = 0; elapsed < 120; elapsed += 1 / 60) {
+    inst.frame(1 / 60);
+    if (inst.moment == null) inst.forceMoment(); // worst case: flares + moment flash together
+  }
+  const times = inst.flashTimes;
+  assert.ok(times.length >= 10, `expected recurring flares to fire (got ${times.length})`);
+  for (let i = 0; i < times.length; i += 1) {
+    const inWindow = times.filter((t) => t >= times[i] && t < times[i] + 1).length;
+    assert.ok(inWindow <= 3, `${inWindow} flashes in one second`);
+  }
+  const calm = renderer.makeAura(stubRendererCanvas(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  calm.reduce = true;
+  for (let i = 0; i < 60 * 30; i += 1) calm.frame(1 / 60);
+  assert.equal(calm.flashes, 0, "no flares under reduced motion");
+});
+
+test("fallenlight moment drops the loose shard and fires one gated flash at the halo", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  inst.forceMoment();
+  const shardY = [];
+  let headBurst = null, flashCount = 0;
+  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 8; i += 1) {
+    inst.frame(1 / 60);
+    if (inst.moment == null) break;
+    if (inst.lastBurst?.anchor === "head" && inst.moment > 0.28 && inst.moment < 0.5) headBurst = inst.lastBurst;
+    for (let j = over.output.length - 1; j >= 0; j -= 1) {
+      const op = over.output[j];
+      if (op[0] === "drawImage" && String(op[1]).includes("halo-shard")) {
+        for (let k = j - 1; k >= 0; k -= 1) {
+          if (over.output[k][0] === "translate") { shardY.push({ mt: inst.moment, y: over.output[k][2] }); break; }
+        }
+        break;
+      }
+    }
+  }
+  assert.ok(shardY.length > 10, "shard should be tracked through the moment");
+  const rest = shardY[0].y, low = Math.max(...shardY.filter((p) => p.mt > 0.4 && p.mt < 0.8).map((p) => p.y));
+  assert.ok(low > rest + 15, `shard should fall from the halo (rest ${rest.toFixed(1)} → ${low.toFixed(1)})`);
+  assert.ok(headBurst, "moment bursts should fire from the head anchor (the halo)");
+  assert.ok(inst.flashes > flashCount, "moment flash should fire");
+});
+
+test("ossuary moment lifts the bone shards and erupts from the crown", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "ossuary", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  inst.forceMoment();
+  const boneY = [];
+  let headBurst = null;
+  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 8; i += 1) {
+    inst.frame(1 / 60);
+    if (inst.moment == null) break;
+    if (inst.lastBurst?.anchor === "head" && inst.moment > 0.25 && inst.moment < 0.6) headBurst = inst.lastBurst;
+    for (const out of [canvas.output, over.output]) {
+      for (let j = out.length - 1; j >= 0; j -= 1) {
+        const op = out[j];
+        if (op[0] === "drawImage" && String(op[1]).includes("bone-shard")) {
+          for (let k = j - 1; k >= 0; k -= 1) {
+            if (out[k][0] === "translate") { boneY.push({ mt: inst.moment, y: out[k][2] }); break; }
+          }
+          break;
+        }
+      }
+    }
+  }
+  assert.ok(boneY.length > 10, "bone shards should be tracked through the moment");
+  const rest = boneY[0].y, high = Math.min(...boneY.filter((p) => p.mt > 0.35 && p.mt < 0.75).map((p) => p.y));
+  assert.ok(high < rest - 10, `bones should rise from the crown (rest ${rest.toFixed(1)} → ${high.toFixed(1)})`);
+  assert.ok(headBurst, "bone eruption bursts should fire from the head anchor");
+  assert.ok(inst.flashes > 0, "cold flare should fire through the gate");
 });

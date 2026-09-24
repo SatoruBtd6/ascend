@@ -30,6 +30,8 @@ const PHASES = {
   // orbit slow -> orbit fast -> dive/hit -> explosion -> re-form
   atlas: [["loop", null], ["oslow", 0.18], ["ofast", 0.55], ["hit", 0.7], ["boom", 0.735], ["reform", 0.9]],
   forge: [["loop", null], ["mstart", 0.06], ["mpeak", 0.28], ["mend", 0.94]],
+  fallenlight: [["loop", null], ["mstart", 0.12], ["mpeak", 0.42], ["mend", 0.92]],
+  ossuary: [["loop", null], ["mstart", 0.14], ["mpeak", 0.45], ["mend", 0.92]],
 };
 // Body mode on three figures: low rank (E), high rank (SS), female (S-f);
 // plus the 76 photo and 32 board circle stages.

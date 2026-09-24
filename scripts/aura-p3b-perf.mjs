@@ -16,8 +16,8 @@ async function loadChromium() {
   return (await import("playwright")).chromium;
 }
 const base = process.argv.includes("--base") ? process.argv[process.argv.indexOf("--base") + 1] : "http://localhost:5180";
-const AURAS = ["atlas", "forge"];
-const STRESS = "atlas forge ironbound standardbearer ascended bonewright nullpoint eclipseheart blacksun inferno".split(" ");
+const AURAS = ["atlas", "forge", "fallenlight", "ossuary"];
+const STRESS = "atlas forge fallenlight ossuary ironbound standardbearer ascended bonewright nullpoint inferno".split(" ");
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
 const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });

@@ -82,6 +82,52 @@ export const AURA_FX = {
     { k: "rise", n: 12, shape: "ember", c: ["#FFB43C", "#FF5A1F", "#FFE08A"], sp: [16, 34], life: [0.8, 1.6], sz: [1, 2], sway: 10, a: 0.75 },
     { k: "orbit", n: 8, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6 },
   ] },
+  fallenlight: { spd: 0.9, glow: 0.5, art: "fallenlight",
+    flare: { every: [4, 8], anchor: "head", flashPeak: 0.3, flashLife: 0.08, flashC: ["#FFF8DC", "#FFDFA0"] },
+    moment: { every: [18, 26], dur: 4.2,
+      flash: { at: 0.3, flashPeak: 0.55, flashLife: 0.1, flashC: ["#FFFBEB", "#FFE9A8"], anchor: "head" },
+      shake: { at: 0.3, amp: 0.12, dur: 0.4 },
+      bursts: [
+        { at: 0.3, path: "beams", n: 10, nScale: 0.5, c: ["#FFFBEB", "#FFEFC0", "#FFD88A"], a: 0.9, lw: [2, 3.6], len: [0.5, 0.8], life: [0.4, 0.6], anchor: "head", over: 1 },
+        { at: 0.3, path: "radial", shape: "shard", n: 14, c: ["#FFE9A8", "#F4C86A", "#E8B04B"], anchor: "head", sp: [60, 160], sz: [1.8, 3.4], life: [0.7, 1.2], grav: 1.6, a: 0.95, over: 1 },
+        { at: 0.34, path: "shower", shape: "feather", n: 12, c: ["#FFFFFF", "#FFF6D8", "#F4E3B2"], anchor: "head", dir: 0.25, spread: 0.75, sp: [20, 60], sz: [1.4, 2.4], life: [1.6, 2.6], grav: 0.5, a: 0.9, over: 1 },
+        { at: 0.34, path: "shower", shape: "shard", n: 8, c: ["#FFD88A", "#E8B04B"], anchor: "head", dir: 0.25, spread: 0.6, sp: [30, 80], sz: [1.6, 3], life: [0.9, 1.4], grav: 1.8, a: 0.9, over: 1 },
+        { at: 0.34, path: "shockring", c: "#FFEFC0", a: 0.7, lw: 2, r0: 0.1, v: 1.8, life: [0.5, 0.5], anchor: "head", aspect: 0.5, over: 1 },
+      ] }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/halo-cracked.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.82, 0.82], even: 1, hover: 0.12, breathe: 1, tremble: 0.004, a: 0.98, blend: "source-over",
+      mY: [[0, 0], [0.3, 0.14], [0.6, 0.18], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, 0.09], [0.6, 0.13], [0.85, 0], [1, 0]], mDim: [[0, 1], [0.3, 0.6], [0.55, 0.55], [0.8, 1], [1, 1]],
+      circle: { sz: [0.9, 0.9], hover: 0.55 } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/halo-shard.webp", r: [1.06, 1.06], w: [0.06, 0.06], sz: [0.3, 0.3], even: 1, bob: 1, a: 0.95, over: 1, blend: "source-over",
+      mY: [[0, 0], [0.32, 0.1], [0.58, 0.95], [0.78, 0.95], [0.92, 0], [1, 0]], mRot: [[0, 0], [0.32, 0.2], [0.62, 0.9], [0.78, 1.4], [1, 1.4]], mDim: [[0, 1], [0.7, 1], [0.82, 0], [0.94, 0], [1, 1]],
+      circle: { sz: [0.34, 0.34] } },
+    { k: "orbit", n: 2, shape: "img", src: "/aura/feather.webp", w: [0.05, 0.08], r: [1.14, 1.3], sz: [0.22, 0.3], spin: 0.02, bob: 1, a: 0.85, blend: "source-over" },
+    { k: "fall", n: 8, shape: "feather", c: ["#FFFFFF", "#FFF6D8", "#E8D5B0"], sp: [10, 22], sz: [1.2, 2], drift: 6, a: 0.7 },
+    { k: "rise", n: 10, shape: "dot", c: ["#FFE9A8", "#FFF6D8", "#B9A8E8"], sp: [8, 18], life: [1.4, 2.6], sz: [1, 1.8], sway: 14, a: 0.5 },
+    { k: "orbit", n: 10, shape: "sandgrain", c: ["#F4E3B2", "#E8C878", "#B9A8E8"], w: [0.05, 0.14], r: [1.06, 1.3], sz: [0.9, 1.7], jit: 0.06, a: 0.6 },
+  ] },
+  ossuary: { spd: 0.85, glow: 0.45, art: "ossuary",
+    moment: { every: [20, 30], dur: 4.4,
+      flash: { at: 0.32, flashPeak: 0.45, flashLife: 0.09, flashC: ["#EAF8FF", "#9FE8FF"], anchor: "head" },
+      shake: { at: 0.32, amp: 0.14, dur: 0.45 },
+      bursts: [
+        { at: 0.3, path: "shower", shape: "bonechip", n: 16, c: ["#F2EAD6", "#D8CDB2", "#B9AE93"], anchor: "head", dir: -0.25, spread: 0.55, sp: [90, 190], sz: [1.8, 3.2], life: [1, 1.7], grav: 1.7, a: 0.95, over: 1 },
+        { at: 0.3, path: "shower", shape: "shard", n: 8, c: ["#E8E0CC", "#9FE8FF"], anchor: "head", dir: -0.25, spread: 0.4, sp: [60, 130], sz: [2, 3.6], life: [1, 1.5], grav: 1.5, a: 0.9, over: 1 },
+        { at: 0.32, path: "shockring", c: "#BFEFFF", a: 0.8, lw: 3, r0: 0.12, v: 2.8, life: [0.55, 0.55], anchor: "head", aspect: 0.55, over: 1 },
+        { at: 0.34, path: "radial", shape: "smoke", n: 12, c: ["#E8E0CC", "#AAB5C4"], anchor: "head", sp: [25, 70], sz: [4, 8], life: [0.9, 1.4], grav: 0.25, a: 0.6, over: 1 },
+        { at: 0.52, path: "shower", shape: "bonechip", n: 10, c: ["#F2EAD6", "#C9BC9E"], anchor: "head", dir: 0.25, spread: 0.8, sp: [15, 50], sz: [1.6, 2.8], life: [1, 1.8], grav: 1.9, a: 0.85, over: 1 },
+      ] }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/crown-bone.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.62, 0.62], even: 1, hover: -0.62, wobble: 0.03, a: 0.97, blend: "source-over",
+      mY: [[0, 0], [0.32, -0.14], [0.56, -0.14], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.32, -0.07], [0.6, 0.05], [0.85, 0], [1, 0]],
+      circle: { sz: [0.6, 0.6], hover: 0.85 } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/bone-shard-1.webp", r: [1.18, 1.18], w: [0.05, 0.05], sz: [0.42, 0.42], even: 1, rot: 0.3, spin: 0.01, behind: 1, a: 0.92, blend: "source-over",
+      mY: [[0, 0], [0.3, -0.35], [0.55, -0.5], [0.82, 0], [1, 0]], mRot: [[0, 0], [0.3, 0.5], [0.7, 1], [0.92, 0], [1, 0]] },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/bone-shard-2.webp", r: [1.3, 1.3], w: [-0.04, -0.04], sz: [0.5, 0.5], even: 1, rot: -0.15, spin: -0.008, behind: 1, a: 0.9, blend: "source-over",
+      mY: [[0, 0], [0.34, -0.3], [0.6, -0.45], [0.86, 0], [1, 0]], mRot: [[0, 0], [0.34, -0.45], [0.7, -0.85], [0.94, 0], [1, 0]] },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/bone-shard-3.webp", r: [1.12, 1.12], w: [0.06, 0.06], sz: [0.44, 0.44], even: 1, a: 0.94, over: 1, frontOnly: 1, blend: "source-over",
+      mY: [[0, 0], [0.36, -0.32], [0.62, -0.48], [0.9, 0], [1, 0]], mRot: [[0, 0], [0.36, 0.6], [0.72, 1.2], [0.95, 0], [1, 0]] },
+    { k: "orbit", n: 9, shape: "bonechip", c: ["#F2EAD6", "#D8CDB2", "#B9AE93"], w: [0.1, 0.22], r: [1.06, 1.24], sz: [2, 3.6], a: 0.85 },
+    { k: "rise", n: 10, shape: "smoke", c: ["#C8D4DC", "#9FB4C0"], sp: [10, 20], life: [1.6, 2.8], sz: [5, 9], sway: 10, a: 0.3, blend: "source-over" },
+  ] },
   wyrm: { spd: 1.5, glow: 0.64, layers: [{ k: "orbit", n: 24, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.1, 2], r: [0.94, 1.22], sz: [2.6, 4.6] }, { k: "rise", n: 16, shape: "ember", c: ["#3DF08A", "#FFD447"], sp: [22, 48], life: [0.7, 1.4], sz: [1.2, 2.1], sway: 12 }] },
   frost: { spd: 1.25, glow: 0.58, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [16, 32], sz: [2.2, 4.2], drift: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.4, 0.8], r: [1, 1.18], sz: [2.6, 4.2] }] },
   abyss: { spd: 1.6, glow: 0.5, layers: [{ k: "inward", n: 28, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.55, 1.05], life: [1, 1.9], sz: [1.8, 3.8] }, { k: "orbit", n: 18, shape: "ash", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1, 2.2], r: [0.94, 1.22], sz: [1.2, 2.2] }] },
@@ -576,6 +622,41 @@ export const AURA_ART = {
     g.restore();
     return null;
   },
+  // Fallen Light: a soft warm glow breathing behind the cracked halo; it
+  // brightens briefly on each gated flare so the flicker reads at the halo.
+  fallenlight: ({ g, time, rx, ry, w, h, anchors, anchor, flash, reduce, pass }) => {
+    if (pass !== "main") return null;
+    const o = anchor("head");
+    const aS = Math.min(1, (w * h) / (100 * 100));
+    const flick = reduce ? 0.85 : 0.85 + 0.15 * Math.sin(time * 1.3) * Math.sin(time * 2.9);
+    const boost = flash && flash.spec?.anchor === "head" ? flash.k * 0.45 : 0;
+    const R = Math.min(rx, ry) * (0.66 + boost * 0.6);
+    g.save(); g.globalCompositeOperation = "lighter";
+    const grd = g.createRadialGradient(o.x, o.y, 0, o.x, o.y, R);
+    grd.addColorStop(0, `rgba(255,236,170,${((0.2 * flick + boost) * aS).toFixed(3)})`);
+    grd.addColorStop(0.55, `rgba(240,200,110,${((0.08 * flick + boost * 0.5) * aS).toFixed(3)})`);
+    grd.addColorStop(1, "rgba(240,200,110,0)");
+    g.fillStyle = grd; g.beginPath(); g.ellipse(o.x, o.y, R, R * 0.45, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+    return null;
+  },
+  // Ossuary: cold cyan gleam breathing inside the crown's cracks.
+  ossuary: ({ g, time, rx, ry, w, h, anchors, anchor, flash, reduce, pass }) => {
+    if (pass !== "main") return null;
+    const o = anchor("head");
+    const aS = Math.min(1, (w * h) / (100 * 100));
+    const br = reduce ? 0.8 : 0.8 + 0.2 * Math.sin(time * 0.9);
+    const boost = flash && flash.spec?.anchor === "head" ? flash.k * 0.4 : 0;
+    const R = Math.min(rx, ry) * (0.58 + boost * 0.5);
+    g.save(); g.globalCompositeOperation = "lighter";
+    const grd = g.createRadialGradient(o.x, o.y, 0, o.x, o.y, R);
+    grd.addColorStop(0, `rgba(159,232,255,${((0.16 * br + boost) * aS).toFixed(3)})`);
+    grd.addColorStop(0.6, `rgba(120,200,235,${((0.06 * br + boost * 0.4) * aS).toFixed(3)})`);
+    grd.addColorStop(1, "rgba(120,200,235,0)");
+    g.fillStyle = grd; g.beginPath(); g.ellipse(o.x, o.y, R, R * 0.5, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+    return null;
+  },
   // Molten pool where the hammer lands: white-hot at the flash, a flat
   // ellipse on the ground that cools to orange — not a round fireball.
   forge: ({ over, moment, cx, rx, anchor, pass }) => {
@@ -763,6 +844,16 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
   } else if (shape === "sandgrain") {
     const vx = p.vx || (p.w ? -Math.sin(p.ang || 0) * p.w : 0), vy = p.vy || (p.w ? Math.cos(p.ang || 0) * p.w : 1);
     g.save(); g.translate(x, y); g.rotate(Math.atan2(vy, vx)); g.fillStyle = p.c; g.globalAlpha *= 0.32; g.beginPath(); g.ellipse(0, 0, s * 0.75, s * 0.35, 0, 0, Math.PI * 2); g.fill(); g.restore();
+  } else if (shape === "shard") {
+    g.save(); g.translate(x, y); g.rotate(p.rot);
+    g.fillStyle = p.c;
+    g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.55, 0); g.lineTo(0, s * 1.1); g.lineTo(-s * 0.55, 0); g.closePath();
+    g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = Math.max(1.1, s * 0.28); g.stroke(); g.fill();
+    g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.2, -s * 0.2); g.lineTo(0, 0); g.closePath(); g.fill();
+    g.restore();
+  } else if (shape === "smoke") {
+    const sp = softSprite(p.c), k = Math.min(1.28, 1 + Math.min(p.age || 0, 2.4) * 0.1);
+    g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k);
   } else if (shape === "chainlink") {
     g.save(); g.translate(x, y); g.rotate(p.rot); g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.beginPath(); g.ellipse(0, 0, s * 0.8, s * 0.4, 0, 0, Math.PI * 2); g.stroke(); g.restore();
   }
@@ -820,6 +911,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const mScale = (w * h) >= 110 * 110 ? 2.5 : (w * h) >= 80 * 80 ? 1.5 : 1;
   const mdur = fx.moment ? fx.moment.dur * (mScale >= 2.5 ? 1.35 : 1) : 0;
   let momentAt = fx.moment ? rnd(0.4, (fx.moment.every || [6, 10])[1]) : 0;
+  let flareAt = fx.flare ? rnd(...fx.flare.every) : 0;
   let momentT = null, momentFired = null, momentParts = [];
   api.momentWait = momentAt;
   api.forceMoment = () => { if (fx.moment && momentT == null) momentAt = Math.min(momentAt, 0.001); };
@@ -1385,6 +1477,22 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       return true;
     });
     api.momentParts = momentParts.length;
+    // Recurring flare (Fallen Light's halo flicker): one gated flash per event,
+    // same noteStrikeFlash gate as moment/bolt flashes — <=3/s, none under
+    // reduced motion.
+    if (fx.flare) {
+      flareAt -= dt;
+      if (flareAt <= 0) {
+        flareAt = rnd(...fx.flare.every);
+        const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: true, burstStart: true });
+        flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
+        if (gate.fired) {
+          flashSpec = fx.flare; flashLeft = fx.flare.flashLife || 0.08;
+          api.flashes += 1; api.flashTimes.push(clock);
+          if (api.flashTimes.length > 40) api.flashTimes.shift();
+        }
+      }
+    }
     g.clearRect(0, 0, w, h);
     g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
     if (overG) {
@@ -1412,7 +1520,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
     const paul = fx.layers?.find((L) => L.placed === "shoulders");
-    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass, mode, anchors, anchor: anchorOrigin, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, orbitXY: api.orbitXY, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
+    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass, mode, anchors, anchor: anchorOrigin, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, orbitXY: api.orbitXY, flash: flashLeft > 0 && flashSpec ? { k: flashLeft / (flashSpec.flashLife || 0.09), spec: flashSpec } : null, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
     const artState = AURA_ART[fx.art]?.(artArgs("main")) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";
@@ -1670,7 +1778,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   };
   api.frame = frame;
   try {
-    if (import.meta.env && import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("auraProbe") === "1") canvas._aura = api;
+    if (import.meta.env && import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("auraProbe") === "1") { canvas._aura = api; window.__auraLive = auraLiveInstances; }
   } catch (e) { /* probe is dev-only */ }
   return api;
 }
@@ -1678,6 +1786,14 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
 // Live aura instances by aura id — lets dev tools fire a moment on every
 // mounted canvas of an aura at once (gallery stage + profile preview).
 const auraLiveInstances = new Map();
+// Test/dev access to the registry.
+export const _auraLiveInstances = auraLiveInstances;
+export function trackAuraInstance(aura, inst) {
+  let live = auraLiveInstances.get(aura);
+  if (!live) auraLiveInstances.set(aura, (live = new Set()));
+  live.add(inst);
+  return () => { live.delete(inst); if (!live.size) auraLiveInstances.delete(aura); };
+}
 export function fireAuraMoment(aura) {
   for (const inst of auraLiveInstances.get(aura) || []) { try { inst.forceMoment?.(); } catch (e) { /* dev-only */ } }
 }
@@ -1699,11 +1815,9 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     if (reduce && aura !== "bonewright") { for (let i = 0; i < 60; i++) inst.frame(1 / 30); return; }
     let io = null;
     if (typeof IntersectionObserver !== "undefined") { io = new IntersectionObserver((es) => { inst.visible = es[0]?.isIntersecting ?? true; }, { rootMargin: "80px" }); io.observe(cv); }
-    let live = auraLiveInstances.get(aura);
-    if (!live) auraLiveInstances.set(aura, (live = new Set()));
-    live.add(inst);
+    const untrack = trackAuraInstance(aura, inst);
     AuraLoop.add(inst);
-    return () => { AuraLoop.remove(inst); live.delete(inst); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
+    return () => { AuraLoop.remove(inst); untrack(); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
   }, [aura, w, h, mode, ringR, needs, overSlot, figure]);
   if (!AURA_FX[aura]) return null;
   const overCanvas = needs ? (
