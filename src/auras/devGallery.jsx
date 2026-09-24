@@ -42,6 +42,7 @@ const SHAPE_SHEET = {
   pulse: "#7DF9FF",
   sandgrain: "#E8C872",
   chainlink: "#CBD5E1",
+  page: "#E8E0CC",
 };
 
 export const FLAG_KEYS = new Set(["flip", "even", "behind", "tw", "bob", "dash", "ink", "dark", "flash", "strike", "calm", "breathe", "glint", "over", "top", "flick", "fan", "artLate", "rim", "frontOnly"]);
@@ -92,6 +93,16 @@ const FIELD_RANGES = {
   foldH: { min: 0.2, max: 3, step: 0.02 },
   foldTail: { min: 0, max: 5, step: 0.05 },
   foldGlow: { min: 0, max: 1.5, step: 0.01 },
+  robeW: { min: 0.3, max: 2.4, step: 0.02 },
+  robeTop: { min: -0.4, max: 1.2, step: 0.01 },
+  robeRise: { min: -1, max: 3, step: 0.02 },
+  robeSway: { min: 0, max: 3, step: 0.05 },
+  robeCrop: { min: 0.3, max: 1, step: 0.01 },
+  emblemBeat: { min: 0, max: 2, step: 0.02 },
+  maskX: { min: -4, max: 4, step: 0.05 },
+  maskY: { min: -4, max: 4, step: 0.05 },
+  maskSz: { min: 0.1, max: 2, step: 0.01 },
+  maskTilt: { min: -1.2, max: 1.2, step: 0.01 },
 };
 // Section-aware overrides: `w` is ring/sweep thickness there but orbit speed
 // in layers; `spd` can run backwards in a sweep; rays have far fewer items.
@@ -217,7 +228,7 @@ const SHAPE_NAMES = {
   leaf: "Leaves", square: "Squares", star: "Stars", drop: "Droplets", glyph: "Glyphs",
   gem: "Gems", petal: "Petals", eye: "Eyes", spark: "Sparks", ash: "Ash motes",
   feather: "Feathers", bonechip: "Bone chips", coin: "Coins", crescent: "Crescents",
-  pulse: "Pulses", sandgrain: "Sand grains", chainlink: "Chain links",
+  pulse: "Pulses", sandgrain: "Sand grains", chainlink: "Chain links", page: "Pages",
   emoji: "Icons", img: "Image art", flame: "Flames",
 };
 const KIND_NAMES = { rise: "Rising", fall: "Falling", orbit: "Orbiting", inward: "Drifting inward", bubble: "Bubbling up" };
@@ -229,7 +240,7 @@ function titleCase(key) {
 
 // Plain-English labels per spec section. Anything missing falls back to a
 // prettified key — raw spec paths must never reach the owner.
-const TOP_LABELS = { spd: "Speed", glow: "Glow strength", dark: "Dark backdrop", artLate: "Draw art last", foldW: "Blindfold width", foldY: "Blindfold position", foldH: "Blindfold thickness", foldTail: "Blindfold tail length", foldGlow: "Blindfold edge glow" };
+const TOP_LABELS = { spd: "Speed", glow: "Glow strength", dark: "Dark backdrop", artLate: "Draw art last", foldW: "Blindfold width", foldY: "Blindfold position", foldH: "Blindfold thickness", foldTail: "Blindfold tail length", foldGlow: "Blindfold edge glow", robeW: "Cloak width", robeTop: "Cloak height on the ring", robeRise: "Cloak collar height", robeSway: "Cloak sway", robeCrop: "Cloak crop on the ring", emblemBeat: "Emblem pulse", maskX: "Mask sideways offset", maskY: "Mask height offset", maskSz: "Mask size", maskTilt: "Mask tilt" };
 const RAY_LABELS = { n: "Count", c: "Colour", spin: "Spin speed", len: "Length", a: "Opacity", fan: "Fan out" };
 const BOLT_LABELS = { every: "Seconds between strikes", burst: "Strikes per burst", burstSpan: "Burst spacing (s)", gap: "Rest between bursts (s)", c: "Colour", flash: "Flash on strike", flashPeak: "Flash brightness", flashLife: "Flash length (s)", from: "Strike direction", strike: "Strike marker", calm: "Calmer under reduced motion" };
 const SWEEP_LABELS = { c: "Colour", a: "Opacity", spd: "Speed", r: "Distance from centre", w: "Thickness", span: "Arc width" };
@@ -273,6 +284,16 @@ const FIELD_HINTS = {
   foldH: "Blindfold thickness as a multiplier of the band's natural height",
   foldTail: "Length of the fluttering tail ends, in head half-widths",
   foldGlow: "Faint light bleeding along the blindfold's lower edge",
+  robeW: "Cloak width — multiplies the figure's shoulder span; on the ring, 1.0 frames the photo's bottom edge",
+  robeTop: "How high the cloak collar sits on the avatar ring, in ring radii",
+  robeRise: "How far the cloak collar rises above the shoulders toward the jaw, in head half-widths",
+  robeSway: "Slow side-to-side sway of the cloak",
+  robeCrop: "How much of the robe art shows on the ring — lower crops to collar and shoulders",
+  emblemBeat: "Crimson emblem pulse on the cloak, brightening as the ink trickle passes",
+  maskX: "Mask offset to the side of the head, in head half-widths",
+  maskY: "Mask offset above/below the eye line, in head half-widths",
+  maskSz: "Mask size relative to head width",
+  maskTilt: "Resting tilt of the mask",
   rimSink: "How far the piece dips into the ring",
   rimX: "Slide the piece along the ring's top edge",
   flashPeak: "Brightness of the strike flash",
@@ -970,7 +991,7 @@ export function isDeadField(layer, key, { view = "figure", overCount = 0 } = {})
   return false;
 }
 export const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
-export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink"];
+export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink", "page"];
 export const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
 
 // The exact field list SpecEditor renders for a spec — exported so the

@@ -21,7 +21,7 @@ async function loadChromium() {
 }
 const base = process.argv.includes("--base") ? process.argv[process.argv.indexOf("--base") + 1] : "http://localhost:5180";
 const AURAS = process.argv.includes("--auras") ? process.argv[process.argv.indexOf("--auras") + 1].split(",") : ["atlas", "forge", "fallenlight", "ossuary"];
-const STRESS = "atlas forge fallenlight ossuary ironbound standardbearer ascended bonewright nullpoint inferno".split(" ");
+const STRESS = process.argv.includes("--stress") ? process.argv[process.argv.indexOf("--stress") + 1].split(",") : "atlas forge fallenlight ossuary ironbound standardbearer ascended bonewright nullpoint inferno".split(" ");
 // board32/profile76 are circle stages; figure160 is body mode on the E figure
 const GEOMS = [["board32", "circle", 59, 59], ["profile76", "circle", 141, 141], ["figure160", "body", 128, 163]];
 const chromium = await loadChromium();
@@ -44,7 +44,8 @@ const stats = (times) => {
 
 // per-aura: steady-state loop (moments suppressed, 600 frames) vs forced
 // moment frame cost at board and profile geometry
-for (const aura of AURAS) {
+const STRESS_ONLY = process.argv.includes("--stress-only");
+for (const aura of STRESS_ONLY ? [] : AURAS) {
   for (const [label, mode, w, h] of GEOMS) {
     const res = await page.evaluate(async ({ aura, mode, w, h }) => {
       const mod = window.__mod;
@@ -61,6 +62,7 @@ for (const aura of AURAS) {
       mod.AURA_FX[aura] = { ...spec, moment: null };
       const li = mk();
       mod.AURA_FX[aura] = spec;
+      li.frame(1 / 60); // lazy images (overArt pieces) only register on first frame
       await waitImgs();
       for (let i = 0; i < 60; i++) li.frame(1 / 60);
       const loop = [];
@@ -71,6 +73,7 @@ for (const aura of AURAS) {
       }
       // forced moments: same as 7h, but only moment frames are kept
       const mi = mk();
+      mi.frame(1 / 60);
       await waitImgs();
       for (let i = 0; i < 60; i++) mi.frame(1 / 60);
       const moment = [];
@@ -95,6 +98,7 @@ const stress = await page.evaluate(async (auras) => {
     const cv2 = document.createElement("canvas"); cv2.width = 59; cv2.height = 59;
     return mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 59 / 3.456, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
   }).filter(Boolean);
+  insts.forEach((inst) => inst.frame(1 / 60)); // lazy images register on first frame
   for (let t = 0; t < 200; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
   insts.forEach((inst) => { for (let i = 0; i < 60; i++) inst.frame(1 / 60); });
   insts.forEach((inst) => inst.forceMoment && inst.forceMoment());
@@ -107,5 +111,5 @@ const stress = await page.evaluate(async (auras) => {
   times.sort((a, b) => a - b);
   return { n: times.length, avg: +(times.reduce((s, v) => s + v, 0) / times.length).toFixed(3), p50: +times[Math.floor(times.length * 0.5)].toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3), max: +times.at(-1).toFixed(3) };
 }, STRESS);
-console.log(`stress 10 auras @ board-32 forced-moments: avg=${stress.avg}ms p50=${stress.p50} p95=${stress.p95} max=${stress.max}`);
+console.log(`stress ${STRESS.length} auras (${STRESS.join(" ")}) @ board-32 forced-moments: avg=${stress.avg}ms p50=${stress.p50} p95=${stress.p95} max=${stress.max}`);
 await browser.close();

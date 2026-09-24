@@ -42,7 +42,7 @@ export const AURAS = [
   { id: "ninetail", name: "Ninetail", how: "Aura Spin · epic · nine flames answer as one", crate: true, group: "crate", rarity: "epic", ptsMult: 0.05, colors: ["#FF9340", "#FFD447"] },
   { id: "ironbound", name: "Ironbound", how: "Aura Spin · epic · the chains remember every rep", crate: true, group: "crate", rarity: "epic", ptsMult: 0.05, colors: ["#9AA7BD", "#5B6472"] },
   { id: "redline", name: "Redline", how: "Aura Spin · legendary · power beyond the gauge", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#C2001F", "#FFD447"] },
-  { id: "ledger", name: "The Ledger", how: "Aura Spin · legendary · every debt is written", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#161616", "#C2001F"] },
+  { id: "ledger", name: "Ledger", how: "Aura Spin · legendary · the record is already open", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#161616", "#C2001F"] },
   { id: "bonewright", name: "Bonewright", how: "Aura Spin · legendary · pressure makes armour", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#F4EAD2", "#FFDFA3"] },
   { id: "ossuary", name: "Ossuary", how: "Aura Spin · legendary · built from everything that broke before you", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#E8E0CC", "#7CE8A8"] },
   { id: "nullpoint", name: "Nullpoint", how: "Aura Spin · mythic · motion ends at the shell", crate: true, group: "crate", rarity: "mythic", ptsMult: 0.1, colors: ["#a855f7", "#ec4899"] },

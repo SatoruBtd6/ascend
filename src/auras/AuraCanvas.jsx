@@ -220,7 +220,26 @@ export const AURA_FX = {
     { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.88, 0.88], w: [0, 0], sz: [0.9, 0.9], even: 1, at: 0.34, rot: 0.05, wobble: 0.1, bob: 1, a: 0.5, behind: 1, blend: "source-over" },
     { k: "orbit", n: 5, shape: "spark", c: ["#DDE6F2", "#9AA7BD"], w: [0.25, 0.5], r: [1.02, 1.18], sz: [0.9, 1.5], a: 0.55 },
   ] },
-  ledger: { spd: 0.65, glow: 0.34, dark: 1, art: "ledger", rings: [{ r: 1.16, c: "#C2001F", spin: -0.03, a: 0.6, w: 1.4 }], layers: [{ k: "fall", n: 42, shape: "leaf", c: ["#080808", "#343434", "#777"], sp: [12, 28], sz: [2, 5], drift: 12, spin: 1, blend: "source-over" }, { k: "orbit", n: 2, shape: "dot", c: ["#C2001F"], w: [0.08, 0.08], r: [1.15, 1.15], sz: [2.4, 2.4], even: 1 }] },
+  // Ledger: a feared secret order in matching cloaks — the cloak hangs behind
+  // the avatar, the order's pale mask drifts beside the head, inked pages of
+  // the record tumble past, and a red ink trickle creeps along the ring.
+  ledger: { spd: 0.6, glow: 0.38, dark: 1, art: "ledger", overArt: "ledger",
+    robeW: 1, robeTop: 0.27, robeRise: 1.6, robeSway: 1, emblemBeat: 1,
+    maskX: 2.5, maskY: -0.7, maskSz: 0.55, maskTilt: 0.18,
+    sweep: { c: "#8A1420", a: 0.8, spd: 0.09, r: 1.06, w: 1.7, span: 0.45, dim: 1 },
+    rings: [{ r: 1.14, c: "#2E0D12", spin: 0.02, a: 0.9, w: 4.5, ink: 1 }],
+    moment: { every: [20, 30], dur: 4.2,
+      flash: { at: 0.76, flashPeak: 0.36, flashLife: 0.09, flashC: ["#FF3A3A", "#C2001F"], anchor: "center", x: -0.34, y: 1.02 },
+      shake: { at: 0.76, amp: 0.09, dur: 0.4 },
+      bursts: [
+        { at: 0.76, path: "shockring", c: "#C2001F", a: 0.9, lw: 2.4, r0: 0.1, v: 2.3, life: [0.5, 0.5], anchor: "center", x: -0.34, y: 1.02, aspect: 1, over: 1 },
+        { at: 0.76, path: "radial", shape: "page", n: 6, c: ["#E8E0CC", "#C9BFA8"], anchor: "center", x: -0.34, y: 1.02, sp: [35, 85], sz: [1.6, 3], life: [0.9, 1.5], grav: 0.5, a: 0.9, over: 1 },
+      ] },
+    layers: [
+      { k: "rise", n: 16, shape: "smoke", c: ["#12040a", "#26070e", "#3B0B13"], sp: [5, 12], life: [3, 5.5], sz: [7, 14], sway: 9, blend: "source-over", a: 0.4 },
+      { k: "orbit", n: 6, shape: "page", c: ["#E8E0CC", "#D8CCB0", "#C0B294"], w: [0.03, 0.08], r: [1.06, 1.3], sz: [2.2, 4], spin: 1, a: 0.88 },
+      { k: "orbit", n: 3, shape: "ember", c: ["#C2001F", "#7A1420"], w: [0.05, 0.1], r: [1.02, 1.2], sz: [0.7, 1.2], a: 0.55 },
+    ] },
   bonewright: { spd: 0.7, glow: 0.7, overArt: "bonewright", bolts: { burst: [2, 3], burstSpan: 0.36, gap: [3, 5], c: ["#FFF27A"], flash: 1, flashPeak: 0.35, flashLife: 0.09, from: "above", strike: 1, calm: 1 }, rings: [{ r: 1.12, c: "#F4EAD2", spin: 0.06, a: 0.9, w: 5, dash: 1 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#F4EAD2", "#AAB5C4"], sp: [12, 24], life: [1.4, 2.6], sz: [5, 10], sway: 9, blend: "source-over", a: 0.35 }, { k: "orbit", n: 12, shape: "bonechip", c: ["#FFFFFF", "#DDE6F2"], w: [0.12, 0.28], r: [1.08, 1.2], sz: [2.2, 4.2] }] },
   nullpoint: { spd: 0.62, glow: 0.66, dark: 1, overArt: "nullpoint", foldW: 3.4, foldY: 0.04, foldH: 1, foldTail: 1.6, foldGlow: 0.55, rings: [{ r: 1.15, c: "#38C6FF", spin: -0.03, a: 0.82, w: 2.8 }], layers: [{ k: "inward", n: 64, shape: "dot", c: ["#38C6FF", "#C2001F", "#a855f7"], sp: [0.35, 0.7], life: [2, 4], sz: [1.2, 2.6] }], circle: { foldW: 6.5, foldY: 0.2, foldH: 0.8, foldTail: 1.8 } },
   carve: { spd: 0.85, glow: 0.58, dark: 1, art: "carve", rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }], sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 }, layers: [{ k: "orbit", n: 36, shape: "shard", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.8, 1.8], r: [1.08, 1.35], sz: [0.8, 1.5], tw: 1 }] },
@@ -532,6 +551,144 @@ function drawSigil(ctx, { time, clock, unit, sweep, anchors }) {
   ctx.restore();
 }
 
+// Crimson ring-sigils printed on the order's cloak, as fractions of
+// robe-ledger.webp (x, y in 0..1). The pulse/flare overlay draws at these.
+const LEDGER_EMBLEMS = [
+  [0.24, 0.26], [0.72, 0.29], [0.13, 0.41], [0.86, 0.44],
+  [0.34, 0.51], [0.66, 0.54], [0.15, 0.65], [0.50, 0.66],
+  [0.84, 0.67], [0.30, 0.79], [0.63, 0.80], [0.82, 0.86],
+];
+
+// The order's cloak hangs behind the avatar: anchored at the shoulder line
+// on figures with the collar rising to the jaw; on the ring it is cropped to
+// collar and shoulders framing the photo's bottom edge. The hem fades out in
+// strips so it ends cleanly before the canvas edge at any size. Emblems
+// pulse faintly, brighten as the ink trickle's arc passes their angle, and
+// flare one by one during the moment.
+function drawLedgerRobe(g, { fx, time, clock, cx, cy, rx, ry, mode, anchors, moment, reduce, sweep }) {
+  const rec = auraImage("/aura/robe-ledger.webp");
+  if (!rec.ready || rec.failed || !anchors) return;
+  const img = rec.img;
+  const srcW = Math.max(1, img.naturalWidth), srcH = Math.max(1, img.naturalHeight);
+  const crop = mode === "body" ? 1 : (fx.robeCrop ?? 0.5);
+  const headHalf = anchors.face.eyeX * HEAD_FROM_EYE;
+  const iw = (mode === "body" ? anchors.cape.w * 1.4 : Math.min(rx, ry) * 2.1) * (fx.robeW ?? 1);
+  const ih = iw * (crop * srcH / srcW);
+  const top = mode === "body" ? anchors.shoulderY - headHalf * (fx.robeRise ?? 1.6) : cy + ry * (fx.robeTop ?? 0.27);
+  const ox = mode === "body" ? anchors.cape.x : cx;
+  const sway = Math.sin((clock || 0) * (Math.PI * 2 / 6.5)) * 0.035 * (fx.robeSway ?? 1) * (reduce ? 0.3 : 1);
+  g.save();
+  g.translate(ox, top);
+  g.rotate(sway);
+  g.globalCompositeOperation = "source-over";
+  const strips = 6, fadeFrom = 0.72;
+  for (let i = 0; i < strips; i++) {
+    const f0 = i / strips, f1 = (i + 1) / strips;
+    g.globalAlpha = 0.97 * (f0 < fadeFrom ? 1 : Math.max(0, 1 - (f0 - fadeFrom) / (1 - fadeFrom)));
+    g.drawImage(img, 0, srcH * crop * f0, srcW, srcH * crop * (f1 - f0), -iw / 2, ih * f0, iw, ih * (f1 - f0));
+  }
+  const beat = fx.emblemBeat ?? 1;
+  const mt = moment?.t;
+  if (beat > 0.01 || mt != null) {
+    const gs = glowSprite("#C2001F");
+    LEDGER_EMBLEMS.forEach(([efx, efy], i) => {
+      if (efy > crop - 0.04) return;
+      const ex = (efx - 0.5) * iw, ey = (efy / crop) * ih;
+      // emblem angle measured in canvas space so the trickle's head hits match
+      const ang = Math.atan2(top + ey - cy, ox + ex - cx);
+      let a = 0.14 * beat + 0.45 * beat * sweepHit(time, sweep, ang);
+      if (mt != null) { const ft = 0.08 + i * 0.045; a += Math.max(0, 1 - Math.abs(mt - ft) / 0.09) * 0.85; }
+      if (a <= 0.03) return;
+      const r0 = Math.max(1.4, iw * 0.034);
+      g.globalCompositeOperation = "lighter";
+      g.globalAlpha = Math.min(1, a) * 0.5;
+      g.drawImage(gs, ex - r0 * 2.4, ey - r0 * 2.4, r0 * 4.8, r0 * 4.8);
+      g.globalAlpha = Math.min(1, a);
+      g.strokeStyle = "#E03040"; g.lineWidth = Math.max(0.7, iw * 0.007);
+      g.beginPath(); g.arc(ex, ey, r0, 0, Math.PI * 2); g.stroke();
+      g.globalCompositeOperation = "source-over";
+    });
+  }
+  g.restore();
+}
+
+// The order's pale mask floats beside the head — tilted, bobbing and turning
+// a few degrees as it drifts. Never over the face: the offset is measured in
+// head half-widths so it clears the head on every figure and the photo edge
+// on the ring.
+function drawLedgerMask(g, { fx, clock, anchors, reduce }) {
+  const rec = auraImage("/aura/mask-ledger.webp");
+  if (!rec.ready || rec.failed || !anchors) return;
+  const img = rec.img;
+  const headHalf = anchors.face.eyeX * HEAD_FROM_EYE;
+  const mw = headHalf * 2 * (fx.maskSz ?? 0.55);
+  const mh = mw * (img.naturalHeight / Math.max(1, img.naturalWidth));
+  const bob = Math.sin((clock || 0) * 1.05) * headHalf * 0.16 * (reduce ? 0.3 : 1);
+  const turn = Math.sin((clock || 0) * 0.55 + 1.1) * 0.07 * (reduce ? 0.35 : 1);
+  g.save();
+  g.globalAlpha = 0.96;
+  g.translate(anchors.face.x + headHalf * (fx.maskX ?? 2.5), anchors.face.y + headHalf * (fx.maskY ?? -0.7) + bob);
+  g.rotate((fx.maskTilt ?? 0.18) + turn);
+  g.drawImage(img, -mw / 2, -mh / 2, mw, mh);
+  g.restore();
+}
+
+// The moment's record page swings in over the cloak's shoulder, a name inks
+// itself in red left to right, then the seal slams down. Flash/shockwave
+// come from the spec's moment.flash/bursts, not drawn here.
+function drawLedgerMoment(g, { moment, cx, cy, rx, ry, unit, reduce }) {
+  const t = moment.t;
+  const R = Math.min(rx, ry);
+  const inK = Math.min(1, Math.max(0, (t - 0.34) / 0.2));
+  const outK = t > 0.88 ? Math.max(0, 1 - (t - 0.88) / 0.12) : 1;
+  if (inK <= 0 || outK <= 0) return;
+  const e = 1 - (1 - inK) * (1 - inK);
+  const px = cx - rx * (0.34 + (1 - e) * 0.55);
+  const py = cy + ry * (1.02 - (1 - e) * 0.12);
+  const pw = R * 0.5, ph = pw * 1.32;
+  g.save();
+  g.translate(px, py);
+  g.rotate(-0.12 + (1 - e) * 0.5 + Math.sin(t * 6) * 0.02 * (reduce ? 0.4 : 1));
+  g.globalAlpha = 0.95 * inK * outK;
+  g.fillStyle = "#E4DCC8";
+  g.beginPath(); g.rect(-pw / 2, -ph / 2, pw, ph); g.fill();
+  g.strokeStyle = "rgba(20,12,8,0.55)"; g.lineWidth = Math.max(0.8, unit * 0.5); g.stroke();
+  g.globalAlpha *= 0.45; g.strokeStyle = "#7A6F58"; g.lineWidth = Math.max(0.5, unit * 0.28);
+  for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(-pw * 0.38, -ph * 0.05 + i * ph * 0.14); g.lineTo(pw * 0.38, -ph * 0.05 + i * ph * 0.14); g.stroke(); }
+  g.globalAlpha = 0.95 * inK * outK;
+  const inkK = Math.min(1, Math.max(0, (t - 0.5) / 0.2));
+  if (inkK > 0) {
+    g.strokeStyle = "#A3151F"; g.lineWidth = Math.max(0.9, unit * 0.55); g.lineCap = "round"; g.lineJoin = "round";
+    g.beginPath();
+    const n = 7;
+    for (let i = 0; i <= n; i++) {
+      const k = i / n;
+      if (k > inkK) break;
+      const ix = -pw * 0.36 + k * pw * 0.72, iy = -ph * 0.3 + Math.sin(k * 17) * ph * 0.05;
+      if (i === 0) g.moveTo(ix, iy); else g.lineTo(ix, iy);
+    }
+    g.stroke();
+  }
+  const sT = (t - 0.76) / 0.07;
+  if (sT > 0) {
+    const slam = Math.min(1, sT);
+    const ss = 1 + (1 - slam) * 0.9;
+    const sr = pw * 0.3;
+    g.globalAlpha = Math.min(1, sT * 2.5) * outK;
+    g.translate(pw * 0.14, ph * 0.18); g.rotate(0.25 - (1 - slam) * 0.35);
+    g.strokeStyle = "#C2001F"; g.lineWidth = Math.max(1, sr * 0.16);
+    g.beginPath(); g.arc(0, 0, sr * ss, 0, Math.PI * 2); g.stroke();
+    g.lineWidth = Math.max(0.7, sr * 0.07);
+    g.beginPath(); g.arc(0, 0, sr * ss * 0.62, 0, Math.PI * 2); g.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      g.beginPath(); g.moveTo(Math.cos(a) * sr * ss * 0.66, Math.sin(a) * sr * ss * 0.66); g.lineTo(Math.cos(a) * sr * ss * 0.94, Math.sin(a) * sr * ss * 0.94); g.stroke();
+    }
+    g.beginPath(); g.moveTo(-sr * ss * 0.3, 0); g.lineTo(sr * ss * 0.3, 0); g.moveTo(0, -sr * ss * 0.3); g.lineTo(0, sr * ss * 0.3); g.stroke();
+  }
+  g.restore();
+}
+
 // Nullpoint worn piece — a blindfold across the eye line on the same face
 // anchors Bonewright's eyes use. The art's baked tails get procedural
 // extensions that flutter with the aura's motion so the ends read as cloth,
@@ -615,12 +772,15 @@ export const AURA_ART = {
     g.restore();
     return { freeze: rad <= 0.94 };
   },
-  ledger: ({ g, time, cx, cy, rx, ry }) => {
-    const write = (time % 8) > 5;
-    g.save(); g.translate(cx + rx * 0.72, cy - ry * 0.82); g.fillStyle = "#080808"; g.strokeStyle = "#777"; g.lineWidth = 1.2;
-    g.beginPath(); g.roundRect?.(-rx * 0.24, -ry * 0.16, rx * 0.48, ry * 0.32, 3); if (!g.roundRect) g.rect(-rx * 0.24, -ry * 0.16, rx * 0.48, ry * 0.32); g.fill(); g.stroke();
-    if (write) { g.strokeStyle = "#C2001F"; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(-rx * 0.16, -ry * 0.1 + i * ry * 0.06); g.lineTo(rx * (0.04 + ((time * 0.2 + i * 0.17) % 0.15)), -ry * 0.1 + i * ry * 0.06); g.stroke(); } }
-    g.restore();
+  ledger: (opts) => {
+    const fx = opts.fx || AURA_FX.ledger;
+    if (opts.pass === "main") { drawLedgerRobe(opts.g, { ...opts, fx }); return null; }
+    if (opts.pass === "over") {
+      const g = opts.over || opts.g;
+      drawLedgerMask(g, { ...opts, fx });
+      if (opts.moment) drawLedgerMoment(g, { ...opts, fx });
+    }
+    return null;
   },
   carve: ({ g, time, cx, cy, rx, ry, unit }) => {
     const k = (time % 3.2) / 3.2;
@@ -970,6 +1130,21 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k);
   } else if (shape === "chainlink") {
     g.save(); g.translate(x, y); g.rotate(p.rot); g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.beginPath(); g.ellipse(0, 0, s * 0.8, s * 0.4, 0, 0, Math.PI * 2); g.stroke(); g.restore();
+  } else if (shape === "page") {
+    // a page of the record: pale rectangle tumbling, one in three carries a
+    // name inked in red
+    g.save(); g.translate(x, y); g.rotate(p.rot + Math.sin(time * 0.7 + p.ph) * 0.15);
+    const pw = s * 1.05, phh = s * 1.45;
+    g.fillStyle = p.c; g.beginPath(); g.rect(-pw / 2, -phh / 2, pw, phh); g.fill();
+    g.strokeStyle = "rgba(20,12,8,0.5)"; g.lineWidth = Math.max(0.5, s * 0.09); g.stroke();
+    if (((p.i ?? Math.floor(p.ph * 10)) % 3) === 0) {
+      g.strokeStyle = "#A3151F"; g.lineWidth = Math.max(0.5, s * 0.1); g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(-pw * 0.3, -phh * 0.14); g.quadraticCurveTo(-pw * 0.05, -phh * 0.22, pw * 0.28, -phh * 0.12);
+      g.moveTo(-pw * 0.3, phh * 0.04); g.quadraticCurveTo(-pw * 0.1, phh * 0.1, pw * 0.14, phh * 0.05);
+      g.stroke();
+    }
+    g.restore();
   }
 }
 
@@ -1007,6 +1182,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     }
   }
   if (aura === "brandmark") { auraImage("/aura/cape.webp"); auraImage("/aura/brand.png"); auraImage("/aura/pauldron.webp"); }
+  if (aura === "ledger") { auraImage("/aura/robe-ledger.webp"); auraImage("/aura/mask-ledger.webp"); }
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
   const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
@@ -1493,7 +1669,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     api.lastBurst = { x: ox, y: oy, anchor: b.anchor || null };
     for (let i = 0; i < n; i++) {
       const p = {
-        b, over: !!b.over, x: ox, y: oy, age: 0,
+        b, over: !!b.over, x: ox, y: oy, age: 0, i,
         life: b.life ? rnd(...b.life) : 0.8,
         sz: (b.sz ? rnd(...b.sz) : 1.4) * unit,
         c: Array.isArray(b.c) ? pick(b.c) : (b.c || c1), rot: rnd(0, Math.PI * 2), vr: rnd(-2, 2),
@@ -1728,13 +1904,15 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.beginPath(); g.arc(0, 0, rr, ang - span, ang); g.stroke();
       g.strokeStyle = rgba(S.c || "#FFF6C9", S.a ?? 1); g.lineWidth = sw;
       g.beginPath(); g.arc(0, 0, rr, ang - span, ang); g.stroke();
-      g.globalCompositeOperation = "lighter";
-      g.strokeStyle = rgba("#FFFFFF", 0.7); g.lineWidth = Math.max(1, sw * 0.35);
-      g.beginPath(); g.arc(0, 0, rr, ang - span * 0.28, ang); g.stroke();
-      const hx = Math.cos(ang) * rr, hy = Math.sin(ang) * rr;
-      const sp = glowSprite(S.c || "#FFF6C9");
-      const hs = Math.max(6, sw * 1.8);
-      g.globalAlpha = 0.85; g.drawImage(sp, hx - hs, hy - hs, hs * 2, hs * 2);
+      if (!S.dim) {
+        g.globalCompositeOperation = "lighter";
+        g.strokeStyle = rgba("#FFFFFF", 0.7); g.lineWidth = Math.max(1, sw * 0.35);
+        g.beginPath(); g.arc(0, 0, rr, ang - span * 0.28, ang); g.stroke();
+        const hx = Math.cos(ang) * rr, hy = Math.sin(ang) * rr;
+        const sp = glowSprite(S.c || "#FFF6C9");
+        const hs = Math.max(6, sw * 1.8);
+        g.globalAlpha = 0.85; g.drawImage(sp, hx - hs, hy - hs, hs * 2, hs * 2);
+      }
       g.restore();
     }
     g.globalCompositeOperation = "source-over";

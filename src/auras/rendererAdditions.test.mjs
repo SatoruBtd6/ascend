@@ -1187,6 +1187,200 @@ test("nullpoint circle: override widens only the ring blindfold", async () => {
   assert.ok(ring > body * 2, `ring band ${ring.toFixed(1)} should dominate the body band ${body.toFixed(1)}`);
 });
 
+// --- 7i Part 3: ledger cloak, mask, record pages, the stamp moment ---
+
+// Seed the cloak/mask records with their real aspect so geometry assertions
+// match production (FakeImage loads 20x10 otherwise).
+const seedLedgerArt = () => {
+  renderer._auraImageCache.set("/aura/robe-ledger.webp", { img: { src: "/aura/robe-ledger.webp", naturalWidth: 447, naturalHeight: 512 }, ready: true, failed: false });
+  renderer._auraImageCache.set("/aura/mask-ledger.webp", { img: { src: "/aura/mask-ledger.webp", naturalWidth: 301, naturalHeight: 384 }, ready: true, failed: false });
+};
+
+// The translate op feeding the FIRST drawImage of `src` — that's the piece's
+// canvas-space anchor (robe hangs from it, mask floats at it).
+const imgAnchor = (out, src) => {
+  for (let j = 0; j < out.length; j += 1) {
+    if (out[j][0] === "drawImage" && String(out[j][1]).includes(src)) {
+      for (let k = j - 1; k >= 0; k -= 1) {
+        if (out[k][0] === "translate") return { x: out[k][1], y: out[k][2], draw: out[j] };
+        if (out[k][0] === "save") break;
+      }
+      return { draw: out[j] };
+    }
+  }
+  return null;
+};
+
+const figurePointAt = (w, h, lx, ly) => {
+  const figH = h / 1.02, figW = figH * (424 / 568), s = figW / 424;
+  return { x: (w - figW) / 2 + lx * s, y: 0.02 * figH + ly * s, s };
+};
+
+test("ledger renders without throwing in circle and body modes", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  seedLedgerArt();
+  for (const mode of ["circle", "body"]) {
+    const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "ledger", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
+    inst.frame(0.01);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `ledger ${mode}`);
+    assert.ok(lastImgDraw(canvas.output, "robe-ledger"), `ledger ${mode} cloak drew nothing on the main canvas`);
+    assert.ok(lastImgDraw(over.output, "mask-ledger"), `ledger ${mode} mask drew nothing on the over canvas`);
+  }
+});
+
+test("ledger cloak hangs from each figure's shoulder line", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  seedLedgerArt();
+  const widths = {};
+  for (const fig of ["/avatars/E.webp", "/avatars/SS.webp", "/avatars/S-f.webp"]) {
+    const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+    const w = 128, h = 163;
+    const inst = renderer.makeAura(canvas, { aura: "ledger", w, h, mode: "body", ringR: 40, overCanvas: over, figure: fig });
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    inst.frame(1 / 60);
+    const lm = FIGURE_ANCHORS[fig];
+    const shoulder = figurePointAt(w, h, lm.shoulder.x, lm.shoulder.y);
+    const headHalf = lm.head.half * shoulder.s;
+    const anchor = imgAnchor(canvas.output, "robe-ledger");
+    assert.ok(anchor, `cloak not drawn on ${fig}`);
+    assert.ok(Math.abs(anchor.x - shoulder.x) < 0.5, `${fig} cloak x ${anchor.x.toFixed(2)} vs shoulder ${shoulder.x.toFixed(2)}`);
+    const expectedTop = shoulder.y - headHalf * (renderer.AURA_FX.ledger.robeRise ?? 1.6);
+    assert.ok(Math.abs(anchor.y - expectedTop) < 0.5, `${fig} cloak top ${anchor.y.toFixed(2)} vs collar line ${expectedTop.toFixed(2)}`);
+    widths[fig] = anchor.draw[8]; // 9-arg drawImage: dw is the strip width
+  }
+  assert.ok(widths["/avatars/SS.webp"] > widths["/avatars/E.webp"] * 1.05, "the broader-shouldered figure must get a wider cloak");
+});
+
+test("ledger mask floats clear of the face on every figure", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  seedLedgerArt();
+  for (const fig of ["/avatars/E.webp", "/avatars/SS.webp", "/avatars/S-f.webp"]) {
+    const over = stubRendererCanvas();
+    const w = 128, h = 163;
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "ledger", w, h, mode: "body", ringR: 40, overCanvas: over, figure: fig });
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    inst.frame(1 / 60);
+    const m = imgAnchor(over.output, "mask-ledger");
+    assert.ok(m, `mask not drawn on ${fig}`);
+    const head = figureHead(w, h, fig);
+    const half = Math.hypot(m.draw[4], m.draw[5]) / 2; // rotated bounding radius
+    assert.ok(m.x - half > head.x + head.half, `${fig} mask edge ${(m.x - half).toFixed(2)} must clear the head edge ${(head.x + head.half).toFixed(2)}`);
+  }
+});
+
+test("ledger record pages tumble and one in three carries a red-inked name", () => {
+  const canvas = stubRendererCanvas();
+  const ctx = canvas.getContext();
+  const base = { sz: 3, c: "#E8E0CC", rot: 0.2, ph: 0.5, age: 0.5, life: 2 };
+  for (const i of [0, 1, 2]) renderer.drawNewParticleShape(ctx, "page", { ...base, i }, 20 + i * 20, 20, 0.5);
+  assert.ok(canvas.output.some(([op]) => op === "fill"), "page drew nothing");
+  const inks = canvas.output.filter(([op, key, v]) => op === "set" && key === "strokeStyle" && v === "#A3151F");
+  assert.equal(inks.length, 1, "only the i%3===0 page should carry the red name");
+});
+
+test("ledger moment flares emblems in order, inks the page, slams the stamp, gates the flash", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  seedLedgerArt();
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
+  const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "ledger", w: 141, h: 141, mode: "circle", ringR: 40.8, overCanvas: over });
+  inst.frame(1 / 60);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  inst.forceMoment();
+  // emblem alpha = the globalAlpha set right before each #E03040 stroke
+  const emblemAlphas = (out, from) => {
+    const found = [];
+    for (let j = from; j < out.length; j += 1) {
+      if (out[j][0] === "set" && out[j][1] === "strokeStyle" && out[j][2] === "#E03040") {
+        for (let k = j - 1; k >= 0; k -= 1) {
+          if (out[k][0] === "set" && out[k][1] === "globalAlpha") { found.push(out[k][2]); break; }
+          if (out[k][0] === "restore") break;
+        }
+      }
+    }
+    return found;
+  };
+  const stepUntil = (mt) => { for (let i = 0; i < 60 * 8 && (inst.moment == null || inst.moment < mt); i += 1) { pageT += 1 / 60; inst.frame(1 / 60); } };
+  stepUntil(0.05); // inside the moment, before the first emblem flare (0.08)
+  const idleMax = Math.max(...emblemAlphas(canvas.output, 0));
+  let mark = canvas.output.length;
+  stepUntil(0.4); // several emblems have flared by now
+  const flareMax = Math.max(...emblemAlphas(canvas.output, mark));
+  assert.ok(flareMax > idleMax + 0.15, `emblems should flare during the moment (idle max ${idleMax.toFixed(2)} vs flare ${flareMax.toFixed(2)})`);
+  stepUntil(0.82); // page inked, stamp down
+  const sets = over.output.filter(([op, key]) => op === "set" && key === "strokeStyle").map(([, , v]) => v);
+  assert.ok(sets.includes("#A3151F"), "no red-inked name drawn on the record page");
+  assert.ok(sets.includes("#C2001F"), "no crimson seal stamp drawn");
+  assert.equal(inst.flashes, 1, "stamp flash should fire exactly once");
+  assert.equal(inst.flashTimes.length, 1);
+});
+
+test("ledger reduced motion suppresses the stamp flash and calms the cloak", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  seedLedgerArt();
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
+  const swayRange = async (reduce) => {
+    const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "ledger", w: 141, h: 141, mode: "circle", ringR: 40.8, overCanvas: over });
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (reduce) inst.reduce = true;
+    const rots = [];
+    for (let i = 0; i < 240; i += 1) {
+      inst.frame(1 / 60);
+      const start = canvas.output.map((o, j) => (o[0] === "clearRect" ? j : -1)).reduce((a, b) => Math.max(a, b), 0);
+      const frame = canvas.output.slice(start);
+      const idx = frame.findIndex((o) => o[0] === "drawImage" && String(o[1]).includes("robe-ledger"));
+      for (let k = idx - 1; k >= 0; k -= 1) { if (frame[k][0] === "rotate") { rots.push(frame[k][1]); break; } }
+    }
+    return Math.max(...rots) - Math.min(...rots);
+  };
+  const full = await swayRange(false), calm = await swayRange(true);
+  assert.ok(full > 0.01, `cloak should sway at full motion (range ${full.toFixed(4)})`);
+  assert.ok(calm < full * 0.6, `cloak sway should damp under reduce (${calm.toFixed(4)} vs ${full.toFixed(4)})`);
+  // forced moment under reduce: no flash ever
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "ledger", w: 141, h: 141, mode: "circle", ringR: 40.8, overCanvas: stubRendererCanvas() });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  inst.reduce = true;
+  for (let i = 0; i < 60 * 8; i += 1) { pageT += 1 / 60; inst.frame(1 / 60); if (inst.moment == null) inst.forceMoment(); }
+  assert.equal(inst.flashes, 0, "reduced motion must not flash");
+  assert.equal(inst.flashTimes.length, 0);
+});
+
+test("ledger cloak ends before the canvas bottom edge on the ring", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  seedLedgerArt();
+  for (const [size, ringR] of [[141, 40.8], [59, 17.2]]) {
+    const canvas = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "ledger", w: size, h: size, mode: "circle", ringR });
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    inst.frame(1 / 60);
+    const strips = canvas.output.filter((o) => o[0] === "drawImage" && String(o[1]).includes("robe-ledger"));
+    assert.ok(strips.length, `no cloak strips on a ${size}px ring`);
+    const anchor = imgAnchor(canvas.output, "robe-ledger");
+    // strips draw local y up to their height — hem = anchor.y + deepest strip bottom
+    const hem = anchor.y + Math.max(...strips.map((o) => o[7] + o[9]));
+    assert.ok(hem <= size - 2, `cloak hem ${hem.toFixed(1)}px must end inside a ${size}px canvas`);
+  }
+});
+
 // --- view-scoped overrides: body:/circle: blocks + gallery write path ---
 
 import { applyScopedEdit } from "./specFormat.js";

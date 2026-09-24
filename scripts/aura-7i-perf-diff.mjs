@@ -46,6 +46,7 @@ const dump = await page.evaluate(async (auras) => {
     const cv2 = document.createElement("canvas"); cv2.width = 59; cv2.height = 59;
     const over = mod.auraNeedsOver(aura) ? cv2 : null;
     const inst = mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 59 / 3.456, overCanvas: over });
+    inst.frame(1 / 60); // seeded: lazy images (overArt pieces) only register on first frame
     Math.random = realRandom;
     for (let t = 0; t < 200; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
     Math.random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
@@ -69,7 +70,9 @@ if (cmd === "capture") {
     const b = before[aura], a = dump[aura];
     const diff = (x, y) => { let n = 0, maxDelta = 0; for (let i = 0; i < x.length; i++) { const d = Math.abs(x[i] - y[i]); if (d) { n++; if (d > maxDelta) maxDelta = d; } } return { n, maxDelta }; };
     const dm = diff(b.main, a.main);
-    const dov = b.over && a.over ? diff(b.over, a.over) : { n: 0, maxDelta: 0 };
+    // A null baseline over canvas means the aura had no over pass back then —
+    // every non-zero live byte is a real difference, not a skip.
+    const dov = b.over && a.over ? diff(b.over, a.over) : (a.over ? { n: a.over.filter((v) => v !== 0).length, maxDelta: 255 } : { n: 0, maxDelta: 0 });
     const totalPx = b.main.length / 4 + (b.over ? b.over.length / 4 : 0);
     console.log(`${aura.padEnd(14)} main ${dm.n} differing bytes (maxDelta ${dm.maxDelta})  over ${dov.n} (maxDelta ${dov.maxDelta})  = ${(100 * (dm.n + dov.n) / (totalPx * 4)).toFixed(3)}% of bytes`);
     if (dm.n + dov.n > worst.n) worst = { aura, n: dm.n + dov.n };

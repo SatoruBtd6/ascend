@@ -55,6 +55,7 @@ async function snapAll(base) {
         const inst = mod.makeAura(cv, { aura, w, h, mode, ringR: w / 3.2, overCanvas: ov, figure: mode === "body" ? "/avatars/E.webp" : undefined });
         if (!inst) { results[`${aura}:${mode}`] = null; continue; }
         await document.fonts.ready;
+        inst.frame(1 / 60); // lazy art (overArt/art pieces) only registers on first frame
         for (let tries = 0; tries < 200; tries++) {
           if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
           await new Promise((r) => setTimeout(r, 25));
@@ -88,7 +89,8 @@ for (const key of Object.keys(a)) {
   }
   const ftSame = JSON.stringify(a[key].flashTimes) === JSON.stringify(b[key].flashTimes);
   console.log(`${key.padEnd(20)} ${String(diff).padEnd(7)} ${ftSame ? "same" : `DIFF ${JSON.stringify(a[key].flashTimes)} vs ${JSON.stringify(b[key].flashTimes)}`}`);
-  if (key.startsWith("huntersmoon") || key === "crownfall:body" || key.startsWith("nullpoint")) { if (diff === 0) { console.log(`  ^ ${key} expected to differ (intentional 7i change) — 0 diffs means the change is NOT rendering`); fail++; } }
+  const expected = ["huntersmoon", "nullpoint", "ledger", "atlas", "fallenlight", "eclipseheart", "crownfall"];
+  if (expected.some((a) => key.startsWith(a))) { if (diff === 0) { console.log(`  ^ ${key} expected to differ (intentional 7i change) — 0 diffs means the change is NOT rendering`); fail++; } }
   else if (diff !== 0 || !ftSame) fail++;
 }
 console.log(fail ? `FAIL: ${fail} unexpected result(s)` : "PASS: only 7i-respec'd auras differ; all other auras pixel-identical, flashTimes identical");
