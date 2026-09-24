@@ -900,18 +900,23 @@ test("crownfall straw hat anchors to each figure's head and scales from head hal
   assert.ok(widths["/avatars/S-f.webp"] > widths["/avatars/E.webp"] * 1.2, "the wider female head must get a wider hat");
 });
 
-test("crownfall straw hat sits on the head, not floating like the halo", () => {
+test("crownfall straw hat rests on the photo frame's top edge in circle mode", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
+  const hat = renderer.AURA_FX.crownfall.layers.find((L) => String(L.src).includes("hat-straw"));
   const canvas = stubRendererCanvas(), over = stubRendererCanvas();
   const inst = renderer.makeAura(canvas, { aura: "crownfall", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
   inst.frame(1 / 60);
   const xy = inst.imgXY["/aura/hat-straw.webp"];
-  const faceY = 70.5 - 0.16 * 40.7, headHalf = 0.19 * 40.7 * HEAD_FROM_EYE, headTop = faceY - headHalf;
-  assert.ok(xy.y > headTop, `hat centre ${xy.y.toFixed(1)} should be below the head top ${headTop.toFixed(1)} — worn, not hovering`);
-  assert.ok(xy.y < faceY + headHalf * 0.6, `hat centre ${xy.y.toFixed(1)} should stay near the face ${faceY.toFixed(1)}`);
+  const ringTop = 70.5 - 40.7, faceY = 70.5 - 0.16 * 40.7;
+  const d = 40.7 * hat.rimSz;
+  const wantY = ringTop + d * (hat.rimSink ?? 0.12);
+  assert.ok(Math.abs(xy.x - 70.5) < 0.01, `hat x ${xy.x.toFixed(2)} should sit centred on the ring`);
+  assert.ok(Math.abs(xy.y - wantY) < 0.01, `hat y ${xy.y.toFixed(2)} vs rim ${wantY.toFixed(2)}`);
   const di = lastImgDraw(over.output, "hat-straw");
-  assert.ok(di && xy.y + di[5] * 0.26 > faceY, "brim should reach down over the top of the face");
+  assert.ok(di, "hat not drawn");
+  assert.ok(Math.abs(di[4] - d) / d < 0.06, `hat width ${di[4].toFixed(1)} vs ${d.toFixed(1)}`);
+  assert.ok(xy.y + di[5] * 0.5 < faceY, `hat bottom ${(xy.y + di[5] * 0.5).toFixed(1)} should stay above the face line ${faceY.toFixed(1)} — on the frame, not over the face`);
 });
 
 test("crownfall hat keeps drawing under reduced motion with a damped bob", async () => {
