@@ -150,7 +150,7 @@ for (const aura of targets) {
       const ring = view === "ring";
       const list = [];
       const seen = new Set();
-      for (const f of gal.editorFields(ORIGINAL, ring)) {
+      for (const f of gal.editorFields(ORIGINAL, ring ? "circle" : "body")) {
         const shape = f.path[0] === "layers" ? ORIGINAL.layers?.[f.path[1]]?.shape : undefined;
         list.push({ path: f.path, kind: f.kind, value: f.value, via: "field", shape });
         seen.add(f.path.join("."));
@@ -190,7 +190,7 @@ for (const aura of targets) {
     function hiddenFields() {
       const visible = new Set();
       for (const v of ["figure", "ring"]) for (const c of controlsFor(v)) visible.add(c.path.join("."));
-      return specFields(ORIGINAL).filter((f) => f.path[2] !== "circle" && !visible.has(f.path.join(".")))
+      return specFields(ORIGINAL).filter((f) => f.path[2] !== "circle" && f.path[2] !== "body" && f.path[0] !== "circle" && f.path[0] !== "body" && !visible.has(f.path.join(".")))
         .map((f) => ({ path: f.path, kind: f.kind, value: f.value, via: "hidden" }));
     }
 
@@ -225,17 +225,10 @@ for (const aura of targets) {
       return { frames, moment, reduce, key, seeds };
     }
 
-    // ---- variant application (ring-view writes land in layer.circle) ----
+    // ---- variant application (scoped writes go through the same helper the
+    // editor's stablePath uses, so overrides land in body:/circle: blocks) ----
     function applyVariant(spec, path, v, ringView) {
-      if (!ringView || path[0] !== "layers") return gal.setDeep(spec, path, v);
-      const [, i, key, ...rest] = path;
-      const layer = spec.layers[i];
-      const eff = layer.circle && Object.prototype.hasOwnProperty.call(layer.circle, key) ? layer.circle[key] : layer[key];
-      let val = cloneSpec(eff);
-      if (rest.length === 0) val = v;
-      else if (val && typeof val === "object") { let cur = val; for (let j = 0; j < rest.length - 1; j++) cur = cur[rest[j]]; cur[rest[rest.length - 1]] = v; }
-      else val = v;
-      return gal.setDeep(spec, ["layers", i, "circle", key], val);
+      return gal.applyScopedEdit(spec, path, v, ringView ? "circle" : "body");
     }
 
     function valueTries(c) {

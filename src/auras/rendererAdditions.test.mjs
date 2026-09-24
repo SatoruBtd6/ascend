@@ -1201,3 +1201,90 @@ test("nullpoint asset hair variant draws hair-white.webp in the over pass", asyn
     fx.hair = prev;
   }
 });
+
+// --- view-scoped overrides: body:/circle: blocks + gallery write path ---
+
+import { applyScopedEdit } from "./specFormat.js";
+
+const seedRng = () => { let st = 0x7f2a11; Math.random = () => { st = (Math.imul(st, 1664525) + 1013904223) >>> 0; return st / 4294967296; }; };
+
+// One layer per field type under test; the img layer exercises `rot`.
+const scopeSpec = () => ({
+  spd: 1,
+  layers: [
+    { k: "orbit", n: 4, shape: "dot", r: [0.6, 0.9], w: [0.3, 0.3], sz: [3, 3], c: "#FF8800", at: [0, 1.5] },
+    // spark strokes record strokeStyle — the colour case lives here (dot
+    // particles draw via a cached glow sprite, invisible to the call stream)
+    { k: "rise", n: 5, shape: "spark", sp: [10, 12], life: [2, 2], sz: [2, 2], c: ["#00FF88"], sway: 2 },
+    { k: "orbit", n: 1, shape: "img", src: "scope-rot.webp", r: [0.5, 0.5], w: [0, 0], sz: [8, 8], rot: 0.1, even: 1, at: 0, x: 0, y: 0 },
+  ],
+});
+
+// Render a spec through makeAura in one mode and serialise the recorded draw
+// calls — identical pixel output produces identical call streams.
+const runScope = async (spec, mode) => {
+  renderer.AURA_FX.__scope = spec;
+  seedRng();
+  const canvas = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "__scope", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, figure: "/avatars/E.webp" });
+  inst.frame(1 / 60); // kicks off the lazy img load
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const mark = canvas.output.length;
+  for (let i = 0; i < 20; i++) inst.frame(1 / 60);
+  return JSON.stringify(canvas.output.slice(mark), (k, v) => (typeof v === "function" ? "fn" : v));
+};
+
+const SCOPE_CASES = [
+  ["position", ["layers", 2, "x"], 0.4],
+  ["size", ["layers", 0, "sz", 0], 7],
+  ["rotation", ["layers", 2, "rot"], 0.45],
+  ["speed", ["layers", 1, "sp", 0], 30],
+  ["colour", ["layers", 1, "c", 0], "#FF00FF"],
+  ["count", ["layers", 0, "n"], 9],
+  ["aura speed (spec-level)", ["spd"], 2.2],
+];
+
+for (const [name, path, value] of SCOPE_CASES) {
+  test(`view scope: body-only ${name} edit changes the body render and leaves the ring pixel-identical`, async () => {
+    globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+    globalThis.Image = FakeImage;
+    installAlphaDocument();
+    const base = scopeSpec();
+    const variant = applyScopedEdit(base, path, value, "body");
+    assert.notEqual(await runScope(variant, "body"), await runScope(base, "body"), `body render should change for ${name}`);
+    assert.equal(await runScope(variant, "circle"), await runScope(base, "circle"), `ring render must stay identical for ${name}`);
+  });
+  test(`view scope: ring-only ${name} edit changes the ring render and leaves the body pixel-identical`, async () => {
+    globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+    globalThis.Image = FakeImage;
+    installAlphaDocument();
+    const base = scopeSpec();
+    const variant = applyScopedEdit(base, path, value, "circle");
+    assert.equal(await runScope(variant, "body"), await runScope(base, "body"), `body render must stay identical for ${name}`);
+    assert.notEqual(await runScope(variant, "circle"), await runScope(base, "circle"), `ring render should change for ${name}`);
+  });
+  test(`view scope: both-views ${name} edit changes both renders`, async () => {
+    globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+    globalThis.Image = FakeImage;
+    installAlphaDocument();
+    const base = scopeSpec();
+    const variant = applyScopedEdit(base, path, value, "both");
+    assert.notEqual(await runScope(variant, "body"), await runScope(base, "body"), `body render should change for ${name}`);
+    assert.notEqual(await runScope(variant, "circle"), await runScope(base, "circle"), `ring render should change for ${name}`);
+  });
+}
+
+test("view scope: shipped circle: overrides still render and stay out of body mode", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  // inferno layer 0 ships circle:{ sz, r } — stripping it must change the ring
+  // render (the override is live) but leave the body render untouched.
+  const withOv = renderer.AURA_FX.inferno;
+  const without = { ...withOv, layers: withOv.layers.map((l) => { const { circle: _drop, ...rest } = l; return rest; }) };
+  renderer.AURA_FX.__infernoNoCircle = without;
+  const ring = (spec, mode) => { seedRng(); const c = stubRendererCanvas(); const i = renderer.makeAura(c, { aura: spec, w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40 }); for (let k = 0; k < 20; k++) i.frame(1 / 60); return JSON.stringify(c.output, (k2, v) => (typeof v === "function" ? "fn" : v)); };
+  assert.notEqual(ring("inferno", "circle"), ring("__infernoNoCircle", "circle"), "shipped circle: override should change the ring render");
+  assert.equal(ring("inferno", "body"), ring("__infernoNoCircle", "body"), "circle: override must not leak into body mode");
+  delete renderer.AURA_FX.__infernoNoCircle;
+});

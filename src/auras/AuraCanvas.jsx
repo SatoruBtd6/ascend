@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { hexRgb } from "../theme.js";
 import { AURAS, resolveAuraId } from "./catalog.js";
+import { mergeViewSpec, mergeViewLayer } from "./specFormat.js";
 import { noteStrikeFlash } from "./boltClock.js";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 export { FACE_REGION, HEAD_FROM_EYE, resolveAuraAnchors } from "./anchors.js";
@@ -397,9 +398,13 @@ export function auraImage(src, opts = {}) {
 export function auraNeedsOver(aura) {
   const fx = AURA_FX[resolveAuraId(aura)];
   if (!fx) return false;
-  if (fx.overArt) return true;
-  if (fx.moment?.bursts?.some((b) => b.over)) return true;
-  return (fx.layers || []).some((L) => L.over);
+  // Over-canvas needs can live in either view block — check both merged views.
+  for (const view of ["body", "circle"]) {
+    const spec = mergeViewSpec(fx, view);
+    if (spec.overArt || spec.moment?.bursts?.some((b) => b.over)) return true;
+    if ((spec.layers || []).some((L) => mergeViewLayer(L, view).over)) return true;
+  }
+  return false;
 }
 
 function eyeIdle(time) {
@@ -1011,7 +1016,10 @@ const keyAt = (frames, t) => {
 
 export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
   aura = resolveAuraId(aura); // legacy ids from old saves/cards render the renamed spec
-  const fx = AURA_FX[aura], base = AURAS.find((a) => a.id === aura);
+  // View-scoped spec overrides: `body:` fields apply only to body/figure
+  // renders, `circle:` only to the avatar ring. Everything else is shared.
+  const viewBlock = mode === "body" ? "body" : "circle";
+  const fx = mergeViewSpec(AURA_FX[aura], viewBlock), base = AURAS.find((a) => a.id === aura);
   const g = canvas.getContext("2d");
   if (!fx || !g) return null;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -1058,8 +1066,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   let particleBudget = 120;
   const layerSpecs = [];
   fx.layers.filter((L) => L.placed !== "shoulders").forEach((L) => {
-    // Per-mode override: `circle:` fields win everywhere except body/figure mode.
-    const eff = mode !== "body" && L.circle ? { ...L, ...L.circle } : L;
+    // Per-view override: `body:` wins in body/figure mode, `circle:` on the
+    // avatar ring — the other view stays pixel-identical to the base layer.
+    const eff = mergeViewLayer(L, viewBlock);
     layerSpecs.push(eff);
     if (eff.shape === "flame" && eff.embers) {
       const embers = eff.embers === true ? {} : eff.embers;

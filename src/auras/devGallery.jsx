@@ -3,7 +3,12 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyn
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape, fireAuraMoment } from "./AuraCanvas.jsx";
 import { AURAS, resolveAuraId } from "./catalog.js";
-import { cloneSpec, formatAuraEntry, specFields } from "./specFormat.js";
+import {
+  cloneSpec, formatAuraEntry, specFields, setDeep, deleteDeep, walkPath,
+  mergeViewSpec, mergeViewLayer, scopedPath, applyScopedEdit, clearScopedOverride,
+  scopedOverrideViews, VIEW_BLOCKS, VIEW_LOCKED_LAYER_KEYS,
+} from "./specFormat.js";
+export { setDeep, deleteDeep, applyScopedEdit };
 import { C, applyTheme } from "../theme.js";
 import { Avatar } from "../tabs/profile/Avatar.jsx";
 import { TIER_IDS, physiqueSrc } from "../tabs/train/physique.js";
@@ -570,37 +575,8 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors, onInstance
   );
 }
 
-// setPath can't create missing intermediate objects — circle override blocks
-// don't exist until first written.
-export function setDeep(root, path, value) {
-  const next = cloneSpec(root);
-  let cur = next;
-  for (let i = 0; i < path.length - 1; i++) {
-    if (cur[path[i]] == null) cur[path[i]] = typeof path[i + 1] === "number" ? [] : {};
-    cur = cur[path[i]];
-  }
-  cur[path[path.length - 1]] = value;
-  return next;
-}
-
-// Removes a key and prunes empty parents (e.g. deleting the last circle override).
-function deleteDeep(root, path) {
-  const next = cloneSpec(root);
-  const stack = [];
-  let cur = next;
-  for (let i = 0; i < path.length - 1; i++) {
-    if (cur[path[i]] == null) return next;
-    stack.push([cur, path[i]]);
-    cur = cur[path[i]];
-  }
-  delete cur[path[path.length - 1]];
-  for (let i = stack.length - 1; i >= 0; i--) {
-    const [parent, key] = stack[i];
-    if (parent[key] && typeof parent[key] === "object" && !Array.isArray(parent[key]) && Object.keys(parent[key]).length === 0) delete parent[key];
-    else break;
-  }
-  return next;
-}
+// setDeep/deleteDeep live in specFormat.js (shared with the renderer's view
+// merge and the effect test) — re-exported above for existing callers.
 
 function rangePair(value, fallback) {
   return Array.isArray(value) ? [...value] : [value ?? fallback, value ?? fallback];
@@ -995,43 +971,45 @@ export const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
 
 // The exact field list SpecEditor renders for a spec — exported so the
 // gallery effect test can cover every visible control without duplicating
-// the filter rules.
-export function editorFields(spec, circleMode) {
-  const view = circleMode ? "ring" : "figure";
-  const viewLayers = circleMode
-    ? (spec.layers || []).map((l) => { const v = { ...l, ...(l.circle || {}) }; delete v.circle; return v; })
-    : spec.layers || [];
+// the filter rules. `view` is the edit scope: "body", "circle" or "both".
+export function editorFields(spec, view = "both") {
+  const scoped = view === "body" || view === "circle";
+  const deadView = view === "circle" ? "ring" : "figure";
+  // Scoped views edit against the merged spec (base + view block) so every
+  // control shows the effective value; "both" edits the shared spec as-is.
+  const vSpec = scoped ? mergeViewSpec(spec, view) : spec;
+  const strip = (o) => { const out = { ...o }; delete out.body; delete out.circle; return out; };
+  const viewLayers = (vSpec.layers || []).map((l) => strip(scoped ? mergeViewLayer(l, view) : l));
   const imgIndexes = new Set(viewLayers.map((l, i) => (l?.shape === "img" ? i : -1)).filter((i) => i >= 0));
   const flameIndexes = new Set(viewLayers.map((l, i) => (l?.shape === "flame" ? i : -1)).filter((i) => i >= 0));
   const overCount = viewLayers.filter((l) => l?.over).length;
-  return specFields(circleMode ? { layers: viewLayers } : spec).filter((field) => {
-    if (circleMode && field.path[0] !== "layers") return false; // only layer fields are per-mode
+  return specFields({ ...strip(vSpec), layers: viewLayers }).filter((field) => {
     const topKey = field.path[field.path.length - 1];
     const named = typeof topKey === "number" ? field.path[field.path.length - 2] : topKey;
     // moment internals are spec-level keyframe data — not slider material
     if (field.path[0] === "moment") return false;
     // glow is ignored by the dark-mode branch
-    if (field.path[0] === "glow" && spec.dark) return false;
+    if (field.path[0] === "glow" && vSpec.dark) return false;
     // flare.bolt only does anything when a bolts spec exists to spawn from
-    if (field.path[0] === "flare" && named === "bolt" && !spec.bolts) return false;
+    if (field.path[0] === "flare" && named === "bolt" && !vSpec.bolts) return false;
     if (field.path[0] === "layers") {
       const i = field.path[1], key = field.path[2];
-      if (key === "circle") return false; // managed via the Avatar-ring mode toggle
-      if (circleMode && CIRCLE_LOCKED_KEYS.has(key)) return false;
-      if (!circleMode && imgIndexes.has(i)) {
+      if (key === "circle" || key === "body") return false; // view blocks — managed via the Editing scope
+      if (scoped && VIEW_LOCKED_LAYER_KEYS.has(key)) return false;
+      if (imgIndexes.has(i)) {
         if (DEDICATED_LAYER_FIELDS.has(key) || IMG_PLACEMENT_FIELDS.has(key)) return false;
         if (viewLayers[i].n === 1 && (key === "at" || key === "r")) return false;
       }
-      if (!circleMode && flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
+      if (flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
       // on the small avatar ring the wander roam is clamped to a horizontal
       // line — the vertical-roam fields (sy/top/bot) can't move it there
-      if (key === "wander" && view === "ring" && ["sy", "top", "bot"].includes(field.path[3])) return false;
-      if (isDeadField(viewLayers[i], key, { view, overCount })) return false;
+      if (key === "wander" && deadView === "ring" && ["sy", "top", "bot"].includes(field.path[3])) return false;
+      if (isDeadField(viewLayers[i], key, { view: deadView, overCount })) return false;
     }
     if (field.path[0] === "rings") {
       if (DEDICATED_RING_FIELDS.has(field.path[2])) return false;
       // a cycling ring colour overrides the static one every frame
-      if (named === "c" && spec.rings?.[field.path[1]]?.colorCycle) return false;
+      if (named === "c" && vSpec.rings?.[field.path[1]]?.colorCycle) return false;
     }
     return true;
   });
@@ -1141,33 +1119,33 @@ function BasicAdv({ items, render }) {
   return <>{basics.map(render)}<AdvBlock items={advs} render={render} /></>;
 }
 
-// Layer keys that stay structural/shared — not overridable per render mode.
-const CIRCLE_LOCKED_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "circle"]);
+// Edit scopes: "body" writes layer.body / spec.body overrides, "circle"
+// writes layer.circle / spec.circle, "both" writes the shared base value.
+const SCOPE_LABEL = { body: "Body figure only", circle: "Avatar ring only", both: "Both views" };
 
-function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer, circleMode, onDelete }) {
+function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer }) {
   if (!spec) return <p style={{ color: C.dim, fontSize: 13 }}>This aura has no particle spec.</p>;
-  // Circle mode edits against a merged view (base + layer.circle) so sliders
-  // show effective values; writes are redirected into the circle block.
-  const mergeView = (s) => circleMode
-    ? (s.layers || []).map((l) => { const v = { ...l, ...(l.circle || {}) }; delete v.circle; return v; })
-    : s.layers || [];
-  const viewLayers = mergeView(spec);
+  const scoped = view === "body" || view === "circle";
+  // Scoped views edit against a merged view (base + view block) so sliders
+  // show effective values; writes are redirected into the view block.
+  const strip = (o) => { const out = { ...o }; delete out.body; delete out.circle; return out; };
+  const mergeLayers = (s) => (s.layers || []).map((l) => strip(scoped ? mergeViewLayer(l, view) : l));
+  const viewLayers = mergeLayers(spec);
   const origSpec = original || spec;
-  const origViewLayers = mergeView(origSpec);
-  const walk = (root, path) => path.reduce((o, k) => (o == null ? undefined : o[k]), root);
-  // Per-control reset target: the original spec's value at this path (merged
-  // view for circle-mode layer fields).
+  const origViewLayers = mergeLayers(origSpec);
+  const origMerged = scoped ? mergeViewSpec(origSpec, view) : origSpec;
+  // Per-control reset target: the original spec's effective value at this
+  // path (merged view for scoped layer fields).
   const defaultAt = (path) => {
-    if (circleMode && path[0] === "layers") return walk(origViewLayers[path[1]], path.slice(2));
-    return walk(origSpec, path);
+    if (scoped && path[0] === "layers") return walkPath(origViewLayers[path[1]], path.slice(2));
+    return walkPath(origMerged, path);
   };
   const rows = viewLayers.map((layer, index) => ({ layer, index }));
   const baseLayers = spec.layers || [];
-  const isOverridden = (i, key) => !!(baseLayers[i]?.circle && Object.prototype.hasOwnProperty.call(baseLayers[i].circle, key));
   const imgIndexes = new Set(rows.filter((row) => row.layer?.shape === "img").map((row) => row.index));
   const flameIndexes = new Set(rows.filter((row) => row.layer?.shape === "flame").map((row) => row.index));
   const overCount = viewLayers.filter((l) => l?.over).length;
-  const fields = editorFields(spec, circleMode);
+  const fields = editorFields(spec, view);
   const overall = fields.filter((f) => f.path.length === 1);
   const layerFields = new Map();
   const ringFields = new Map();
@@ -1191,76 +1169,123 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
     inward: { sp: [0.4, 0.9], life: [1.5, 2.5] },
     orbit: { w: [0.1, 0.4], r: [1, 1.2] },
   };
+  // Whole-layer writes from the dedicated panels/selects: the panel works on
+  // the merged layer, so diff its output against the merged layer — changed
+  // fields land in the view block (or the base for structural keys).
+  const writeLayer = (index, nextLayer) => {
+    const v = viewRef.current;
+    const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    onMutateRef.current((s) => {
+      const merged = v === "both" ? s.layers?.[index] : mergeViewLayer(s.layers?.[index], v);
+      let out = s;
+      for (const key of Object.keys(nextLayer)) {
+        if (key === "body" || key === "circle") continue;
+        if (eq(nextLayer[key], merged?.[key])) continue;
+        if (v === "both") {
+          // shared write wins in every view — drop per-view overrides on it
+          out = setDeep(out, ["layers", index, key], cloneSpec(nextLayer[key]));
+          for (const vb of VIEW_BLOCKS) if (walkPath(out, ["layers", index, vb, key]) !== undefined) out = deleteDeep(out, ["layers", index, vb, key]);
+        } else if (VIEW_LOCKED_LAYER_KEYS.has(key)) {
+          // structural — shared write; a stale override on it would mask it
+          out = setDeep(out, ["layers", index, key], cloneSpec(nextLayer[key]));
+          if (walkPath(out, ["layers", index, v, key]) !== undefined) out = deleteDeep(out, ["layers", index, v, key]);
+        } else {
+          out = setDeep(out, ["layers", index, v, key], cloneSpec(nextLayer[key]));
+        }
+      }
+      for (const key of Object.keys(merged || {})) {
+        if (key === "body" || key === "circle" || key in nextLayer) continue;
+        if (walkPath(out, ["layers", index, key]) !== undefined) out = deleteDeep(out, ["layers", index, key]);
+        for (const vb of v === "both" ? VIEW_BLOCKS : [v]) {
+          if (walkPath(out, ["layers", index, vb, key]) !== undefined) out = deleteDeep(out, ["layers", index, vb, key]);
+        }
+      }
+      return out;
+    });
+  };
   const setLayerKey = (index, key, value) => {
     const next = cloneSpec(rows[index].layer);
     next[key] = value;
     if (key === "k") for (const [need, def] of Object.entries(KIND_NEEDS[value] || {})) if (next[need] == null) next[need] = cloneSpec(def);
-    onLayer(index, next);
+    writeLayer(index, next);
   };
   // Stable callback so memoized SpecField rows skip unchanged controls.
-  // In circle mode, layer paths are rewritten into the layer's circle block.
-  const onPathRef = useRef(onPath);
-  onPathRef.current = onPath;
-  const circleRef = useRef(circleMode);
-  circleRef.current = circleMode;
-  const baseRef = useRef(baseLayers);
-  baseRef.current = baseLayers;
+  // applyScopedEdit redirects scoped writes into the active view block.
+  const onMutateRef = useRef(onMutate);
+  onMutateRef.current = onMutate;
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const stablePath = useCallback((p, v) => {
-    if (circleRef.current && p[0] === "layers") {
-      const i = p[1], key = p[2];
-      // First write into a pair field seeds circle[key] with the base pair, so
-      // editing one end never produces a half-overridden [v] array.
-      if (p.length > 3 && baseRef.current?.[i]?.circle?.[key] == null && baseRef.current?.[i]?.[key] != null) {
-        onPathRef.current([p[0], i, "circle", key], cloneSpec(baseRef.current[i][key]));
-      }
-      onPathRef.current([p[0], i, "circle", ...p.slice(2)], v);
-      return;
-    }
-    onPathRef.current(p, v);
+    onMutateRef.current((base) => applyScopedEdit(base, p, v, viewRef.current));
   }, []);
-  // Per-control reset. Circle mode restores the original override state:
-  // re-set the original circle value if the spec shipped one, else delete the
-  // override so the field inherits the base value again.
+  // Per-control reset restores the original state for the active scope:
+  // scoped views re-set the original override if the spec shipped one (else
+  // delete it so the field inherits the shared value); "both" restores the
+  // shared value and the original override state in every block.
   const resetField = (field) => {
     const p = field.path;
-    if (circleRef.current && p[0] === "layers") {
-      const i = p[1], key = p[2];
-      const origCircle = origSpec.layers?.[i]?.circle;
-      const hasOrigOverride = !!(origCircle && Object.prototype.hasOwnProperty.call(origCircle, key));
-      if (p.length === 3) {
-        if (hasOrigOverride) onPathRef.current(["layers", i, "circle", key], cloneSpec(origCircle[key]));
-        else onDelete(["layers", i, "circle", key]);
-        return;
-      }
-      // pair element — write the default element into the circle pair, and
-      // drop the override entirely once it matches the base pair again.
-      const idx = p[3];
-      const basePair = rangePair(baseLayers[i]?.[key], 0);
-      const origPair = hasOrigOverride ? rangePair(origCircle[key], 0) : basePair;
-      const curPair = rangePair(baseLayers[i]?.circle?.[key] ?? baseLayers[i]?.[key], 0);
-      curPair[idx] = origPair[Math.min(idx, origPair.length - 1)] ?? basePair[idx];
-      if (hasOrigOverride) {
-        onPathRef.current(["layers", i, "circle", key], cloneSpec(origCircle[key]));
-      } else if (curPair[0] === basePair[0] && curPair[1] === basePair[1]) {
-        onDelete(["layers", i, "circle", key]);
-      } else {
-        onPathRef.current(["layers", i, "circle", key], curPair);
-      }
+    const v = viewRef.current;
+    if (v === "both") {
+      onMutateRef.current((s) => {
+        const origVal = walkPath(origSpec, p);
+        let next = origVal !== undefined ? setDeep(s, p, cloneSpec(origVal)) : deleteDeep(s, p);
+        for (const vb of VIEW_BLOCKS) {
+          const sp = scopedPath(p, vb, false);
+          if (!sp) continue;
+          const origOv = walkPath(origSpec, sp);
+          next = origOv !== undefined ? setDeep(next, sp, cloneSpec(origOv)) : deleteDeep(next, sp);
+        }
+        return next;
+      });
       return;
     }
-    onPathRef.current(p, defaultAt(p));
+    const sp = scopedPath(p, v);
+    if (!sp) { // structural/shared field — restore the base value
+      onMutateRef.current((s) => {
+        const origVal = walkPath(origSpec, p);
+        return origVal !== undefined ? setDeep(s, p, cloneSpec(origVal)) : deleteDeep(s, p);
+      });
+      return;
+    }
+    if (typeof p[p.length - 1] === "number" && p.length > 1) {
+      // array element — write the original element into the override array,
+      // and drop the override once every element matches the shared array
+      onMutateRef.current((s) => {
+        const blockParent = sp.slice(0, -1), parent = p.slice(0, -1), idx = p[p.length - 1];
+        const origBlock = walkPath(origSpec, blockParent);
+        if (origBlock !== undefined) return setDeep(s, blockParent, cloneSpec(origBlock));
+        const baseArr = walkPath(s, parent);
+        const origArr = walkPath(origSpec, parent);
+        const cur = cloneSpec(walkPath(s, blockParent) ?? baseArr);
+        if (!Array.isArray(cur)) return setDeep(s, blockParent, cloneSpec(origArr));
+        cur[idx] = Array.isArray(origArr) ? origArr[Math.min(idx, origArr.length - 1)] : origArr;
+        const same = Array.isArray(baseArr) && cur.length === baseArr.length && cur.every((x, j) => x === baseArr[j]);
+        return same ? deleteDeep(s, blockParent) : setDeep(s, blockParent, cur);
+      });
+      return;
+    }
+    onMutateRef.current((s) => {
+      const origOv = walkPath(origSpec, sp);
+      return origOv !== undefined ? setDeep(s, sp, cloneSpec(origOv)) : deleteDeep(s, sp);
+    });
   };
-  const CircleField = ({ field }) => {
-    const key = field.path[2];
-    const over = isOverridden(field.path[1], key);
+  // ● marks a field with a per-view override; × clears it back to the shared
+  // value. In "both" the marker names whichever views hold overrides.
+  const OverrideMark = ({ path }) => {
+    const views = scopedOverrideViews(spec, path);
+    const clear = () => onMutateRef.current((s) => clearScopedOverride(s, path, viewRef.current));
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <div style={{ flex: 1, minWidth: 0 }}><SpecField field={field} section="layer" onPath={stablePath} shape={layerShape(field)} defaultValue={defaultAt(field.path)} onReset={() => resetField(field)} /></div>
-        <span title={over ? "Overridden for avatar ring" : "Inherits base value"} style={{ fontSize: 11, width: 14, textAlign: "center", color: over ? C.cyan : C.mute }}>{over ? "●" : "○"}</span>
-        {over && <button type="button" title="Revert to base value" onClick={() => onDelete(["layers", field.path[1], "circle", key])} style={{ ...chip(false), padding: "0 6px", fontSize: 10 }}>×</button>}
-      </div>
+      <>
+        <span
+          title={views.length ? `Overridden for ${views.map((vv) => (vv === "body" ? "body figure" : "avatar ring")).join(" + ")}` : "Inherits shared value"}
+          style={{ fontSize: 11, width: 14, textAlign: "center", color: views.length ? C.cyan : C.mute }}
+        >{views.length ? "●" : "○"}</span>
+        {views.length > 0 && <button type="button" title="Clear override — inherit the shared value" onClick={clear} style={{ ...chip(false), padding: "0 6px", fontSize: 10 }}>×</button>}
+      </>
     );
   };
+  // The override lives on the field's parent when the path ends in an index.
+  const markPath = (path) => (typeof path[path.length - 1] === "number" ? path.slice(0, -1) : path);
   const layerShape = (field) => field.path[0] === "layers" ? rows[field.path[1]]?.layer?.shape : undefined;
   // One [min,max] range pair in a single frame; bounds merge both elements'
   // fixed ranges (still never derived from the live value).
@@ -1271,42 +1296,45 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
     const b = fieldBounds(hi.path, shape, Number.isFinite(hiDef) ? hiDef : hi.value);
     const bounds = { min: Math.min(a.min, b.min), max: Math.max(a.max, b.max), step: Math.min(a.step, b.step) };
     const title = fieldLabel({ path: lo.path.slice(0, -1), value: 0, kind: "number" }, section);
-    const frame = (
-      <PairField key={item.key} title={title} lo={Number(lo.value)} hi={Number(hi.value)} bounds={bounds}
-        onLo={(v) => stablePath(lo.path, v)} onHi={(v) => stablePath(hi.path, v)}
-        loDefault={loDef} hiDefault={hiDef}
-        onResetPair={(side) => resetField(side === "min" ? lo : hi)} />
-    );
-    if (!circleMode || lo.path[0] !== "layers") return frame;
-    const over = isOverridden(lo.path[1], lo.path[2]);
     return (
       <div key={item.key} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>{frame}</div>
-        <span title={over ? "Overridden for avatar ring" : "Inherits base value"} style={{ fontSize: 11, width: 14, textAlign: "center", color: over ? C.cyan : C.mute }}>{over ? "●" : "○"}</span>
-        {over && <button type="button" title="Revert to base value" onClick={() => onDelete(["layers", lo.path[1], "circle", lo.path[2]])} style={{ ...chip(false), padding: "0 6px", fontSize: 10 }}>×</button>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <PairField title={title} lo={Number(lo.value)} hi={Number(hi.value)} bounds={bounds}
+            onLo={(v) => stablePath(lo.path, v)} onHi={(v) => stablePath(hi.path, v)}
+            loDefault={loDef} hiDefault={hiDef}
+            onResetPair={(side) => resetField(side === "min" ? lo : hi)} />
+        </div>
+        <OverrideMark path={markPath(lo.path)} />
       </div>
     );
   };
   const renderItem = (item, section) => item.type === "pair"
     ? renderPair(item, section, layerShape(item.lo))
-    : (section === "layer" && circleMode
-      ? <CircleField key={item.field.path.join(".")} field={item.field} />
-      : <SpecField key={item.field.path.join(".")} field={item.field} section={section} onPath={stablePath}
-        shape={section === "layer" ? layerShape(item.field) : undefined}
-        defaultValue={defaultAt(item.field.path)} onReset={() => resetField(item.field)} />);
+    : (
+      <div key={item.field.path.join(".")} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SpecField field={item.field} section={section} onPath={stablePath}
+            shape={section === "layer" ? layerShape(item.field) : undefined}
+            defaultValue={defaultAt(item.field.path)} onReset={() => resetField(item.field)} />
+        </div>
+        <OverrideMark path={markPath(item.field.path)} />
+      </div>
+    );
+  const vSpec = scoped ? mergeViewSpec(spec, view) : spec;
+  const scopeNote = view === "both"
+    ? <><b>Both views</b> — edits write the shared value. ● marks a field with a per-view override, which still wins for that view; × clears the override.</>
+    : <><b>{SCOPE_LABEL[view]}</b> — edits apply only to this view; the other stays pixel-identical. ● = overridden for a view, ○ = inherits the shared value; × clears the override.</>;
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      {circleMode && (
-        <div style={{ fontSize: 11, color: C.cyan, background: C.accentBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px" }}>
-          <b>Avatar-ring overrides</b> — these apply only to the profile/ring view. ● = overridden, ○ = inherits the body-figure value. Switch to “Body figure” to edit the base spec.
-        </div>
-      )}
+      <div style={{ fontSize: 11, color: C.cyan, background: C.accentBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px" }}>
+        {scopeNote}
+      </div>
       {overall.length > 0 && (
         <SpecSection title="Overall">
           <BasicAdv items={groupPairs(overall)} render={(item) => renderItem(item, "overall")} />
         </SpecSection>
       )}
-      {spec.art === "ophanim" && (
+      {vSpec.art === "ophanim" && (
         <SpecSection title="Wings">
           <FixedNote>Rendered as images (art: ophanim) — not tunable here.</FixedNote>
         </SpecSection>
@@ -1321,24 +1349,29 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
           groups.get(g).push(f);
         }
         const isParticles = !imgIndexes.has(index) && !flameIndexes.has(index);
-        const overrideCount = baseLayers[index]?.circle ? Object.keys(baseLayers[index].circle).length : 0;
+        const bodyCount = baseLayers[index]?.body ? Object.keys(baseLayers[index].body).length : 0;
+        const circleCount = baseLayers[index]?.circle ? Object.keys(baseLayers[index].circle).length : 0;
         return (
           <div key={index} data-control-group={`layer-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Layer {index + 1} — {describeLayer(layer)}</div>
-            {!circleMode && overrideCount > 0 && (
-              <FixedNote>{overrideCount} avatar-ring override{overrideCount === 1 ? "" : "s"} — switch to “Avatar ring” mode to edit.</FixedNote>
+            {view !== "body" && bodyCount > 0 && (
+              <FixedNote>{bodyCount} body-figure override{bodyCount === 1 ? "" : "s"} — switch to “Body figure only” to edit.</FixedNote>
             )}
-            {!circleMode && imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} original={origViewLayers[index]} overCount={overCount} onLayer={(next) => onLayer(index, next)} />}
-            {!circleMode && flameIndexes.has(index) && <FlameControls layer={layer} index={index} original={origViewLayers[index]} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
-            {!circleMode && isParticles && (
+            {view !== "circle" && circleCount > 0 && (
+              <FixedNote>{circleCount} avatar-ring override{circleCount === 1 ? "" : "s"} — switch to “Avatar ring only” to edit.</FixedNote>
+            )}
+            {imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} original={origViewLayers[index]} overCount={overCount} onLayer={(next) => writeLayer(index, next)} />}
+            {flameIndexes.has(index) && <FlameControls layer={layer} index={index} original={origViewLayers[index]} onLayer={(next) => writeLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
+            {isParticles && (
               <>
+                {scoped && <FixedNote>Motion, shape and blend are shared — they change both views.</FixedNote>}
                 <SelectRow label="Motion" value={layer.k || "orbit"} options={LAYER_KIND_OPTIONS.map((k) => [k, KIND_NAMES[k] || titleCase(k)])} onChange={(v) => setLayerKey(index, "k", v)} />
                 <SelectRow label="Shape" value={layer.shape || "dot"} options={(LAYER_SHAPE_OPTIONS.includes(layer.shape) ? LAYER_SHAPE_OPTIONS : [layer.shape, ...LAYER_SHAPE_OPTIONS]).map((s) => [s, SHAPE_NAMES[s] || titleCase(s)])} onChange={(v) => setLayerKey(index, "shape", v)} />
                 {layer.blend != null && !(layer.over && overCount <= 1) && <BlendSelect value={layer.blend} onChange={(v) => setLayerKey(index, "blend", v)} />}
                 {layer.blend != null && layer.over && overCount <= 1 && <FixedNote>Blend mode — nothing else draws on the over canvas, so it has no visible effect here.</FixedNote>}
               </>
             )}
-            {!circleMode && Array.isArray(layer.e) && layer.e.length > 0 && (
+            {Array.isArray(layer.e) && layer.e.length > 0 && (
               <FixedNote>Icons — {layer.e.join(" ")} — set in the spec, not editable here.</FixedNote>
             )}
             {LAYER_GROUPS.map(([gid]) => groups.has(gid) && (
@@ -1356,20 +1389,20 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
           </div>
         );
       })}
-      {!circleMode && <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>}
-      {!circleMode && Object.entries(sectioned).map(([id, list]) => (list.length > 0 || (id === "bolts" && spec.bolts?.from)) && (
+      <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>
+      {Object.entries(sectioned).map(([id, list]) => (list.length > 0 || (id === "bolts" && vSpec.bolts?.from)) && (
         <SpecSection key={id} title={SECTION_TITLES[id]}>
           <BasicAdv items={groupPairs(list)} render={(item) => renderItem(item, id)} />
-          {id === "bolts" && spec.bolts?.from && (
-            <FixedNote>Strike direction — “{spec.bolts.from}” — set in the spec, not editable here.</FixedNote>
+          {id === "bolts" && vSpec.bolts?.from && (
+            <FixedNote>Strike direction — “{vSpec.bolts.from}” — set in the spec, not editable here.</FixedNote>
           )}
         </SpecSection>
       ))}
-      {!circleMode && (spec.rings || []).map((ring, index) => (
+      {(vSpec.rings || []).map((ring, index) => (
         <div key={index} data-control-group={`ring-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1}</div>
           <BasicAdv items={groupPairs(ringFields.get(index) || [])} render={(item) => renderItem(item, "rings")} />
-          <RingCycleControls ring={ring} index={index} original={origSpec.rings?.[index]} onRing={(next) => onPath(["rings", index], next)} />
+          <RingCycleControls ring={ring} index={index} original={origMerged.rings?.[index]} onRing={(next) => stablePath(["rings", index], next)} />
         </div>
       ))}
     </div>
@@ -1470,7 +1503,7 @@ export function DevAuraGallery() {
   const [reduce, setReduce] = useState(false);
   const [showAnchors, setShowAnchors] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [editMode, setEditMode] = useState("base");
+  const [editScope, setEditScope] = useState("both");
   const lastFig = useRef(FIGURES[0].id);
   const [drafts, setDrafts] = useState({});
   const [revs, setRevs] = useState({});
@@ -1692,7 +1725,7 @@ export function DevAuraGallery() {
                 live instance of the aura at once. */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end" }}>
               <div>
-                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Body figure{editMode === "base" ? " — editing" : ""}</div>
+                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Body figure{editScope !== "circle" ? " — editing" : ""}</div>
                 <FigureStage
                   aura={selected}
                   px={size.px}
@@ -1702,7 +1735,7 @@ export function DevAuraGallery() {
                 />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Avatar ring{editMode === "circle" ? " — editing" : ""}</div>
+                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Avatar ring{editScope !== "body" ? " — editing" : ""}</div>
                 <CircleStage
                   aura={selected}
                   px={ringPrev.cpx}
@@ -1715,7 +1748,7 @@ export function DevAuraGallery() {
                 />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Board 32</div>
+                <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Board 32{editScope !== "body" ? " — editing" : ""}</div>
                 <CircleStage
                   aura={selected}
                   px={boardPrev.cpx}
@@ -1748,23 +1781,17 @@ export function DevAuraGallery() {
                 setRevs((r) => ({ ...r, [selected]: (r[selected] || 0) + 1 }));
               }} style={chip(false)}>Reset</button>
               <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11, color: C.mute, marginLeft: "auto" }}>
-                Editing:
-                {barBtn(editMode === "base", "Body figure", () => setEditMode("base"))}
-                {barBtn(editMode === "circle", "Avatar ring", () => setEditMode("circle"))}
+                Changes apply to:
+                {barBtn(editScope === "body", "Body figure only", () => setEditScope("body"))}
+                {barBtn(editScope === "circle", "Avatar ring only", () => setEditScope("circle"))}
+                {barBtn(editScope === "both", "Both views", () => setEditScope("both"))}
               </span>
             </div>
             <SpecEditor
               spec={specFor(selected)}
               original={origFor(selected)}
-              circleMode={editMode === "circle"}
-              onPath={(path, value) => bump(selected, (base) => setDeep(base, path, value))}
-              onDelete={(path) => bump(selected, (base) => deleteDeep(base, path))}
-              onLayer={(index, layer) => bump(selected, (base) => {
-                const next = cloneSpec(base);
-                if (layer == null) next.layers.splice(index, 1);
-                else next.layers[index] = layer;
-                return next;
-              })}
+              view={editScope}
+              onMutate={(fn) => bump(selected, fn)}
               onAddLayer={(layer) => bump(selected, (base) => {
                 const next = cloneSpec(base);
                 next.layers = [...(next.layers || []), layer];

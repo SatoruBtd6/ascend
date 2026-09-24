@@ -6,7 +6,11 @@ import { join } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 import { AURAS } from "./catalog.js";
-import { formatAuraEntry, parseAuraEntry } from "./specFormat.js";
+import {
+  formatAuraEntry, parseAuraEntry, setDeep, walkPath,
+  mergeViewSpec, mergeViewLayer, scopedPath, applyScopedEdit,
+  clearScopedOverride, hasScopedOverride, scopedOverrideViews,
+} from "./specFormat.js";
 
 async function loadAuraFx() {
   const dir = mkdtempSync(join(tmpdir(), "aura-fx-"));
@@ -73,4 +77,101 @@ test("every renderer-addition field round-trips through copy spec", () => {
   const back = parseAuraEntry(text);
   assert.equal(back.id, "rendereradditions");
   assert.deepEqual(back.spec, spec);
+});
+
+// --- view-scoped override helpers (gallery "Changes apply to" scopes) ---
+
+const scopeBase = () => ({
+  spd: 1,
+  rings: [{ r: 1.1, c: "#111111" }, { r: 1.24, c: "#222222" }],
+  layers: [
+    { k: "orbit", n: 4, shape: "dot", r: [0.6, 0.9], w: [0.3, 0.3], sz: [3, 3], c: "#FF8800", wander: { sx: 0.4, sy: 0.6, every: 4 } },
+    { k: "rise", n: 5, shape: "spark", sp: [10, 12], life: [2, 2], sz: [2, 2], c: "#00FF88" },
+  ],
+});
+
+test("applyScopedEdit writes body/circle blocks for scoped views and shared values for both", () => {
+  const base = scopeBase();
+  const body = applyScopedEdit(base, ["layers", 0, "n"], 9, "body");
+  assert.equal(body.layers[0].body.n, 9);
+  assert.equal(body.layers[0].n, 4); // shared base untouched
+  assert.equal(walkPath(body, ["layers", 0, "body", "n"]), 9);
+
+  const circle = applyScopedEdit(base, ["spd"], 1.6, "circle");
+  assert.equal(circle.circle.spd, 1.6);
+  assert.equal(circle.spd, 1);
+
+  // "both" writes the shared value and drops any per-view override on it
+  const both = applyScopedEdit(body, ["layers", 0, "n"], 7, "both");
+  assert.equal(both.layers[0].n, 7);
+  assert.equal(both.layers[0].body, undefined);
+});
+
+test("applyScopedEdit seeds a range pair so one end keeps its effective value", () => {
+  const base = scopeBase();
+  const out = applyScopedEdit(base, ["layers", 0, "sz", 1], 9, "body");
+  assert.deepEqual(out.layers[0].body.sz, [3, 9]); // untouched end kept
+  const out2 = applyScopedEdit(base, ["layers", 0, "w", 0], 0.9, "circle");
+  assert.deepEqual(out2.layers[0].circle.w, [0.9, 0.3]);
+});
+
+test("applyScopedEdit clones array-valued ancestors into the block (rings)", () => {
+  const base = scopeBase();
+  const out = applyScopedEdit(base, ["rings", 1], { r: 1.5, c: "#FF0000" }, "body");
+  // spec.body.rings must hold BOTH rings — a sparse override would drop ring 0
+  assert.equal(out.body.rings.length, 2);
+  assert.deepEqual(out.body.rings[0], base.rings[0]);
+  assert.deepEqual(out.body.rings[1], { r: 1.5, c: "#FF0000" });
+  assert.deepEqual(mergeViewSpec(out, "body").rings[1], { r: 1.5, c: "#FF0000" });
+  assert.deepEqual(mergeViewSpec(out, "circle").rings, base.rings);
+});
+
+test("applyScopedEdit leaves structural layer keys on the shared value in scoped views", () => {
+  const base = scopeBase();
+  for (const view of ["body", "circle"]) {
+    const out = applyScopedEdit(base, ["layers", 0, "shape"], "star", view);
+    assert.equal(out.layers[0].shape, "star");
+    assert.equal(out.layers[0][view], undefined);
+  }
+});
+
+test("mergeViewLayer deep-merges nested objects one level so partial overrides inherit", () => {
+  const layer = scopeBase().layers[0];
+  const over = { ...layer, body: { wander: { sy: 0.1 } } };
+  const merged = mergeViewLayer(over, "body");
+  assert.equal(merged.wander.sy, 0.1);
+  assert.equal(merged.wander.sx, 0.4); // sibling inherited from base
+  assert.equal(merged.wander.every, 4);
+  assert.equal(mergeViewLayer(over, "circle").wander.sy, 0.6); // other view unaffected
+});
+
+test("clearScopedOverride removes the scoped field; both clears every block", () => {
+  let spec = applyScopedEdit(scopeBase(), ["layers", 0, "n"], 9, "body");
+  spec = applyScopedEdit(spec, ["layers", 0, "n"], 11, "circle");
+  assert.equal(scopedOverrideViews(spec, ["layers", 0, "n"]).join(","), "body,circle");
+  const cleared = clearScopedOverride(spec, ["layers", 0, "n"], "body");
+  assert.equal(cleared.layers[0].body, undefined); // empty block pruned
+  assert.equal(cleared.layers[0].circle.n, 11);
+  const clearedAll = clearScopedOverride(spec, ["layers", 0, "n"], "both");
+  assert.equal(clearedAll.layers[0].body, undefined);
+  assert.equal(clearedAll.layers[0].circle, undefined);
+  assert.equal(hasScopedOverride(clearedAll, ["layers", 0, "n"], "both"), false);
+});
+
+test("scopedPath maps layer paths into the view block and rejects structural keys", () => {
+  assert.deepEqual(scopedPath(["layers", 2, "sz", 0], "body"), ["layers", 2, "body", "sz", 0]);
+  assert.deepEqual(scopedPath(["glow"], "circle"), ["circle", "glow"]);
+  assert.equal(scopedPath(["layers", 0, "k"], "body"), null);
+  assert.equal(scopedPath(["layers", 0], "body"), null);
+  assert.equal(scopedPath(["layers", 0, "sz"], "both"), null);
+  // honorLocks=false still reports the block path so hand-written overrides clear
+  assert.deepEqual(scopedPath(["layers", 0, "k"], "body", false), ["layers", 0, "body", "k"]);
+});
+
+test("hasScopedOverride/scopedOverrideViews report which views hold an override", () => {
+  const spec = setDeep(scopeBase(), ["layers", 1, "circle", "sp", 0], 20);
+  assert.equal(hasScopedOverride(spec, ["layers", 1, "sp"], "circle"), true);
+  assert.equal(hasScopedOverride(spec, ["layers", 1, "sp"], "body"), false);
+  assert.equal(hasScopedOverride(spec, ["layers", 1, "sp"], "both"), true);
+  assert.deepEqual(scopedOverrideViews(spec, ["layers", 1, "sp"]), ["circle"]);
 });
