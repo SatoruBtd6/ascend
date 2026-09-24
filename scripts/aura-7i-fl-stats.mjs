@@ -11,7 +11,7 @@ const dir = mkdtempSync(join(tmpdir(), "aura-renderer-"));
 const outfile = join(dir, "renderer.mjs");
 await esbuild.build({
   stdin: {
-    contents: `export { makeAura } from "./AuraCanvas.jsx";\n`,
+    contents: `export { makeAura, setFlashPageClock } from "./AuraCanvas.jsx";\n`,
     resolveDir: fileURLToPath(new URL("../src/auras/", import.meta.url)),
     sourcefile: "renderer-entry.js",
     loader: "js",
@@ -19,7 +19,9 @@ await esbuild.build({
   bundle: true, format: "esm", platform: "browser", outfile, jsx: "automatic",
   define: { "import.meta.env.DEV": "false", "import.meta.env.PROD": "true" },
 });
-const { makeAura } = await import(pathToFileURL(outfile).href);
+const { makeAura, setFlashPageClock } = await import(pathToFileURL(outfile).href);
+let pageT = 0;
+setFlashPageClock(() => pageT);
 
 class FakeImage {
   constructor() { this.naturalWidth = 20; this.naturalHeight = 10; }
@@ -36,7 +38,8 @@ const run = async (reduce, secs = 10) => {
   const inst = makeAura(stub(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
   await new Promise((r) => setTimeout(r, 0));
   if (reduce) inst.reduce = true;
-  for (let i = 0; i < secs * 60; i += 1) inst.frame(1 / 60);
+  pageT = 0;
+  for (let i = 0; i < secs * 60; i += 1) { pageT += 1 / 60; inst.frame(1 / 60); }
   return inst;
 };
 

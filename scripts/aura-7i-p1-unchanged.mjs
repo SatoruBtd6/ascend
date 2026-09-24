@@ -34,6 +34,10 @@ async function snapAll(base) {
     if (mod.AuraLoop.raf) cancelAnimationFrame(mod.AuraLoop.raf);
     mod.AuraLoop.raf = null;
     mod.AuraLoop.set.clear();
+    // drive the page-wide flash budget on the same fake clock as the frames so
+    // scripted stepping doesn't compress wall time (pre-7i lacks the hook — ?.)
+    let fakeT = 0;
+    mod.setFlashPageClock?.(() => fakeT);
     const results = {};
     for (const aura of auras) {
       for (const mode of ["circle", "body"]) {
@@ -50,7 +54,9 @@ async function snapAll(base) {
           await new Promise((r) => setTimeout(r, 25));
         }
         seed();
-        for (let f = 0; f < 120; f++) inst.frame(1 / 60);
+        fakeT = 0; // re-invoking the hook rewinds the clock AND resets the budget
+        mod.setFlashPageClock?.(() => fakeT);
+        for (let f = 0; f < 120; f++) { fakeT += 1 / 60; inst.frame(1 / 60); }
         const d = cv.getContext("2d").getImageData(0, 0, w, h).data;
         results[`${aura}:${mode}`] = { px: Array.from(d), flashTimes: inst.flashTimes.slice() };
       }

@@ -12,7 +12,7 @@ async function loadRenderer() {
   const outfile = join(dir, "renderer.mjs");
   await esbuild.build({
     stdin: {
-      contents: `export { AURA_FX, _auraImageCache, _auraLiveInstances, trackAuraInstance, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura, makeFlameTongues } from "./AuraCanvas.jsx";\n`,
+      contents: `export { AURA_FX, _auraImageCache, _auraLiveInstances, trackAuraInstance, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura, makeFlameTongues, setFlashPageClock } from "./AuraCanvas.jsx";\n`,
       resolveDir: fileURLToPath(new URL(".", import.meta.url)),
       sourcefile: "renderer-entry.js",
       loader: "js",
@@ -29,6 +29,12 @@ async function loadRenderer() {
 
 const renderer = await loadRenderer();
 const { FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors } = renderer;
+
+// The page-wide flash budget runs on wall time; drive it with this fake clock
+// so tests step flashes deterministically. Tests that assert flash counts reset
+// pageT to 0 (a rewind resets the budget) and advance it inside frame loops.
+let pageT = 0;
+renderer.setFlashPageClock(() => pageT);
 
 function stubCanvas() {
   const output = [];
@@ -470,9 +476,9 @@ test("atlas moment orbits the avatar faster and faster, then explodes at its cen
   inst.forceMoment();
   const sphereXY = [];
   let boomBurst = null;
-  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) { pageT += 1 / 60; inst.frame(1 / 60); }
   for (let i = 0; i < 60 * 8; i += 1) {
-    inst.frame(1 / 60);
+    pageT += 1 / 60; inst.frame(1 / 60);
     if (inst.moment == null) break;
     if (inst.moment > 0.72 && inst.moment < 0.8 && inst.lastBurst?.anchor === "center") boomBurst = inst.lastBurst;
     // Sphere position = the translate feeding its drawImage, on either canvas
@@ -519,9 +525,10 @@ test("atlas moment orbits the avatar faster and faster, then explodes at its cen
 test("forge moment slams and fires a gated flash; never over 3 flashes per second", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
   const inst = renderer.makeAura(stubRendererCanvas(), { aura: "forge", w: 141, h: 141, mode: "circle", ringR: 40.7 });
   for (let elapsed = 0; elapsed < 120; elapsed += 1 / 60) {
-    inst.frame(1 / 60);
+    pageT += 1 / 60; inst.frame(1 / 60);
     if (inst.moment == null) inst.forceMoment();
   }
   const times = inst.flashTimes;
@@ -689,9 +696,10 @@ test("fallenlight and ossuary render without throwing in circle and body modes",
 test("fallenlight flare flickers through the flash gate: <=3 per second, none reduced", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
   const inst = renderer.makeAura(stubRendererCanvas(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
   for (let elapsed = 0; elapsed < 120; elapsed += 1 / 60) {
-    inst.frame(1 / 60);
+    pageT += 1 / 60; inst.frame(1 / 60);
     if (inst.moment == null) inst.forceMoment(); // worst case: flares + moment flash together
   }
   const times = inst.flashTimes;
@@ -709,14 +717,15 @@ test("fallenlight flare flickers through the flash gate: <=3 per second, none re
 test("fallenlight moment drops the loose shard and fires one gated flash at the halo", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
   const canvas = stubRendererCanvas(), over = stubRendererCanvas();
   const inst = renderer.makeAura(canvas, { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
   inst.forceMoment();
   const shardY = [];
   let headBurst = null, flashCount = 0;
-  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) { pageT += 1 / 60; inst.frame(1 / 60); }
   for (let i = 0; i < 60 * 8; i += 1) {
-    inst.frame(1 / 60);
+    pageT += 1 / 60; inst.frame(1 / 60);
     if (inst.moment == null) break;
     if (inst.lastBurst?.anchor === "img:/aura/halo-cracked.webp" && inst.moment > 0.28 && inst.moment < 0.5) headBurst = inst.lastBurst;
     for (let j = over.output.length - 1; j >= 0; j -= 1) {
@@ -739,14 +748,15 @@ test("fallenlight moment drops the loose shard and fires one gated flash at the 
 test("ossuary moment lifts the bone shards and erupts from the crown", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
   const canvas = stubRendererCanvas(), over = stubRendererCanvas();
   const inst = renderer.makeAura(canvas, { aura: "ossuary", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
   inst.forceMoment();
   const boneY = [];
   let headBurst = null;
-  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 8 && inst.moment == null; i += 1) { pageT += 1 / 60; inst.frame(1 / 60); }
   for (let i = 0; i < 60 * 8; i += 1) {
-    inst.frame(1 / 60);
+    pageT += 1 / 60; inst.frame(1 / 60);
     if (inst.moment == null) break;
     if (inst.lastBurst?.anchor === "img:/aura/crown-bone.webp" && inst.moment > 0.25 && inst.moment < 0.6) headBurst = inst.lastBurst;
     for (const out of [canvas.output, over.output]) {
@@ -796,9 +806,10 @@ test("fallenlight bolts strike several times a second while the wash flash stays
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   installAlphaDocument();
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
   const secs = 10;
   const inst = renderer.makeAura(stubRendererCanvas(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
-  for (let i = 0; i < secs * 60; i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < secs * 60; i += 1) { pageT += 1 / 60; inst.frame(1 / 60); }
   const rate = inst.boltsFired / secs;
   assert.ok(rate >= 3 && rate <= 9, `bolts should strike several times per second (got ${rate.toFixed(1)}/s)`);
   assert.ok(inst.flashTimes.length >= 3, `expected gated flashes (got ${inst.flashTimes.length})`);
@@ -811,6 +822,34 @@ test("fallenlight bolts strike several times a second while the wash flash stays
   const calmRate = calm.boltsFired / secs;
   assert.ok(calmRate > 0 && calmRate < rate / 3, `reduced motion should strike far less often (${calmRate.toFixed(1)}/s vs ${rate.toFixed(1)}/s)`);
   assert.equal(calm.flashTimes.length, 0, "reduced motion should never flash");
+});
+
+test("page flash budget caps five fallenlight plus bonewright and forge at 3 per second", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  pageT = 0; renderer.setFlashPageClock(() => pageT);
+  const mk = (aura) => renderer.makeAura(stubRendererCanvas(), { aura, w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  const insts = [0, 1, 2, 3, 4].map(() => mk("fallenlight"));
+  insts.push(mk("bonewright"), mk("forge"));
+  insts.forEach((i) => i.forceMoment());
+  const secs = 12;
+  for (let f = 0; f < secs * 60; f += 1) {
+    pageT += 1 / 60;
+    for (const i of insts) { i.frame(1 / 60); if (i.moment == null) i.forceMoment(); }
+  }
+  const all = insts.flatMap((i) => i.flashTimes).sort((a, b) => a - b);
+  assert.ok(all.length > 6, `expected seven auras to flash often enough to contend (got ${all.length})`);
+  for (const t of all) {
+    const inWindow = all.filter((u) => u >= t && u < t + 1).length;
+    assert.ok(inWindow <= 3, `${inWindow} flashes in a 1s window across the page`);
+  }
+  // reduced motion: zero flashes anywhere on the page
+  const calmSet = [0, 1, 2, 3, 4].map(() => mk("fallenlight"));
+  calmSet.push(mk("bonewright"), mk("forge"));
+  calmSet.forEach((i) => { i.reduce = true; i.forceMoment(); });
+  for (let f = 0; f < 8 * 60; f += 1) { pageT += 1 / 60; for (const i of calmSet) { i.frame(1 / 60); if (i.moment == null) i.forceMoment(); } }
+  assert.equal(calmSet.reduce((n, i) => n + i.flashes, 0), 0, "no flashes anywhere under reduced motion");
 });
 
 test("ossuary moment swirls the bones faster and faster in a tightening spiral, then settles", async () => {

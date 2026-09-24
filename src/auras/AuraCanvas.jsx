@@ -5,6 +5,7 @@ import { AURAS } from "./catalog.js";
 import { noteStrikeFlash } from "./boltClock.js";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 export { FACE_REGION, HEAD_FROM_EYE, resolveAuraAnchors } from "./anchors.js";
+export { setFlashPageClock } from "./boltClock.js";
 /* Particle recipes. Easy unlocks stay simple; rare ones stack more motion. Never shrink the ring so small that studio tiles go blank. */
 export const AURA_FX = {
   ember: { spd: 1, glow: 0.6, layers: [{ k: "rise", n: 22, shape: "ember", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [18, 38], life: [1, 2.2], sz: [1.4, 2.6], sway: 10 }, { k: "rise", n: 8, shape: "dot", c: ["#FF9340", "#FF4D6D"], sp: [10, 20], life: [1.2, 2], sz: [3.2, 6], sway: 6, a: 0.55 }] },
@@ -85,7 +86,7 @@ export const AURA_FX = {
     { k: "orbit", n: 8, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6 },
   ] },
   fallenlight: { spd: 0.9, glow: 0.42, art: "fallenlight",
-    bolts: { every: [0.12, 0.22], calmEvery: [1.2, 2], overlap: 1, flashP: 0.6, c: ["#FF4D5A", "#FF8A7A", "#D92B2B"] },
+    bolts: { every: [0.12, 0.22], calmEvery: [1.2, 2], overlap: 1, flashEvery: 2.4, c: ["#FF4D5A", "#FF8A7A", "#D92B2B"] },
     flare: { every: [4, 8], bolt: 1, anchor: "img:/aura/halo-cracked.webp", flashPeak: 0.34, flashLife: 0.09, flashC: ["#FFEAE0", "#FF7A5A"] },
     moment: { every: [18, 26], dur: 4.2,
       flash: { at: 0.3, flashPeak: 0.55, flashLife: 0.1, flashC: ["#FFEFE8", "#FF8A6A"], anchor: "img:/aura/halo-cracked.webp" },
@@ -930,7 +931,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const onRing = (ang, k = 1) => [cx + Math.cos(ang) * rx * k, cy + Math.sin(ang) * ry * k];
   let time = 0, clock = 0;
   let boltT = fx.bolts?.burst ? rnd(0.35, 0.9) : (fx.bolts?.every ? rnd(...fx.bolts.every) : 0), bolt = null;
-  let liveBolts = [], burstLeft = 0, burstGap = 0.16, strike = 0, flashLeft = 0;
+  let liveBolts = [], burstLeft = 0, burstGap = 0.16, strike = 0, flashLeft = 0, flTryAt = 0;
   let flashState = { last: null, burstFlashed: false };
   let flashSpec = null;
   const api = { visible: true, reduce: false, flashes: 0, flashTimes: [], strike: 0, boltsFired: 0, shadowWisps: 0, shadowAnchorCache: 0, moment: null };
@@ -1811,9 +1812,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         boltT = rnd(...(calm ? fx.bolts.calmEvery : fx.bolts.every));
         api.boltsFired += 1;
         if (fx.bolts.overlap) liveBolts.push(nb); else bolt = nb;
-        // flashP: bolts strike on their own cadence; only some get the bright
-        // wash — still through noteStrikeFlash (<=3/s, none under reduce)
-        if (fx.bolts.flashP != null && Math.random() < fx.bolts.flashP) {
+        // bolts strike on their own cadence; only an occasional bolt gets the
+        // bright wash — flashEvery sets the attempt spacing (~1 per 2s on its
+        // own), flashP picks a random share of bolts. Either way the wash is
+        // still through noteStrikeFlash (<=3/s page-wide, none under reduce).
+        const wantsFlash = fx.bolts.flashEvery != null ? clock >= flTryAt : fx.bolts.flashP != null && Math.random() < fx.bolts.flashP;
+        if (wantsFlash) {
+          if (fx.bolts.flashEvery != null) flTryAt = clock + fx.bolts.flashEvery * (0.7 + Math.random() * 0.6);
           const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: true, burstStart: true });
           flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
           if (gate.fired) {
