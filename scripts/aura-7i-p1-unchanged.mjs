@@ -85,7 +85,7 @@ for (const key of Object.keys(a)) {
   }
   const ftSame = JSON.stringify(a[key].flashTimes) === JSON.stringify(b[key].flashTimes);
   console.log(`${key.padEnd(20)} ${String(diff).padEnd(7)} ${ftSame ? "same" : `DIFF ${JSON.stringify(a[key].flashTimes)} vs ${JSON.stringify(b[key].flashTimes)}`}`);
-  if (key.startsWith("huntersmoon")) { if (diff === 0) { console.log(`  ^ ${key} expected to differ (intentional 7i change) — 0 diffs means the change is NOT rendering`); fail++; } }
+  if (key.startsWith("huntersmoon") || key === "crownfall:body") { if (diff === 0) { console.log(`  ^ ${key} expected to differ (intentional 7i change) — 0 diffs means the change is NOT rendering`); fail++; } }
   else if (diff !== 0 || !ftSame) fail++;
 }
 console.log(fail ? `FAIL: ${fail} unexpected result(s)` : "PASS: only 7i-respec'd auras differ; all other auras pixel-identical, flashTimes identical");

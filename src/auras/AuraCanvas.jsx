@@ -197,7 +197,7 @@ export const AURA_FX = {
   glassfire: { spd: 1.05, glow: 0.78, layers: [{ k: "rise", n: 38, shape: "ember", c: ["#a855f7", "#ec4899", "#FFFFFF"], sp: [22, 48], life: [0.7, 1.5], sz: [2.4, 5.8], sway: 15, tw: 1 }] },
   crownfall: { spd: 1.3, glow: 0.88, bolts: { every: [0.9, 1.4], c: ["#FFD447", "#FFF6C9"] }, rings: [{ r: 1.08, c: "#160000", spin: 0.08, a: 0.95, w: 4 }], layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/hat-straw.webp", placed: "head", headSz: 3.2, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.3, rot: 0.02, wobble: 0.02, bob: 1, bobAmp: 0.04, breathe: 1, a: 0.98, over: 1, blend: "source-over",
-      rim: 1, rimSz: 1.05, rimSink: 0.12 },
+      rim: 1, rimSz: 1.05, rimSink: 0.12, y: -0.18, circle: { y: 0 } },
     { k: "rise", n: 58, shape: "smoke", c: ["#C2001F", "#FF1F4B", "#430008"], sp: [30, 68], life: [0.7, 1.4], sz: [3.2, 7.2], sway: 12, a: 0.62, blend: "source-over" },
     { k: "orbit", n: 14, shape: "pulse", c: ["#FFD447", "#FFF6C9"], w: [1.2, 2], r: [1.14, 1.35], sz: [1.1, 2.1] },
   ] },
