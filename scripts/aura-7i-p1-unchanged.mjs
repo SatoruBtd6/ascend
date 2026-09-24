@@ -1,5 +1,7 @@
-// 7i Part 1 untouched-aura proof: every aura EXCEPT crownfall must render
-// pixel-identical to the pre-7i tag, and bonewright's flashTimes must match.
+// 7i Part 1 untouched-aura proof: every aura EXCEPT the whitelisted 7i fixes
+// must render pixel-identical to the --before server, and flashTimes must
+// match. Expected diffs: huntersmoon (corona gradient was double-offset —
+// invisible before, now renders; intentional fix from a0328db).
 // Same seeded-RNG, per-aura-reserved stream method as aura-part-1-unchanged.mjs.
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
@@ -16,7 +18,7 @@ async function loadChromium() {
 }
 
 const [beforeBase = "http://localhost:5181", afterBase = "http://localhost:5180"] = process.argv.slice(2);
-const AURAS = "ember tide storm smolder stormborn dawn wanderer wyrm frost abyss chud rust thunder hollow deep magma plague sand void yogurt vendetta champion ascended soon_throne soon_seraphim huntersmoon wheel sigil glassfire crownfall eclipseheart steadybreath iaidraw stormstep zeropoint ninetail ledger bonewright nullpoint carve brandmark inferno halo godray blacksun".split(" ");
+const AURAS = "ember tide storm smolder stormborn dawn wanderer wyrm frost abyss chud rust thunder hollow deep magma plague sand void yogurt vendetta champion ascended soon_throne soon_seraphim huntersmoon wheel sigil glassfire crownfall eclipseheart steadybreath iaidraw stormstep zeropoint ninetail ledger bonewright nullpoint carve brandmark inferno halo godray blacksun standardbearer atlas forge fallenlight ossuary ironbound".split(" ");
 
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
@@ -44,9 +46,10 @@ async function snapAll(base) {
         const seed = () => { let st = 0x7f2a11; Math.random = () => { st = (Math.imul(st, 1664525) + 1013904223) >>> 0; return st / 4294967296; }; };
         seed();
         const cv = document.createElement("canvas");
+        const ov = document.createElement("canvas");
         const w = 160, h = mode === "body" ? 204 : 160;
         cv.width = w; cv.height = h;
-        const inst = mod.makeAura(cv, { aura, w, h, mode, ringR: w / 3.2, figure: mode === "body" ? "/avatars/E.webp" : undefined });
+        const inst = mod.makeAura(cv, { aura, w, h, mode, ringR: w / 3.2, overCanvas: ov, figure: mode === "body" ? "/avatars/E.webp" : undefined });
         if (!inst) { results[`${aura}:${mode}`] = null; continue; }
         await document.fonts.ready;
         for (let tries = 0; tries < 200; tries++) {
@@ -57,6 +60,9 @@ async function snapAll(base) {
         fakeT = 0; // re-invoking the hook rewinds the clock AND resets the budget
         mod.setFlashPageClock?.(() => fakeT);
         for (let f = 0; f < 120; f++) { fakeT += 1 / 60; inst.frame(1 / 60); }
+        const gg = cv.getContext("2d");
+        gg.setTransform(1, 0, 0, 1, 0, 0);
+        gg.drawImage(ov, 0, 0);
         const d = cv.getContext("2d").getImageData(0, 0, w, h).data;
         results[`${aura}:${mode}`] = { px: Array.from(d), flashTimes: inst.flashTimes.slice() };
       }
@@ -79,7 +85,7 @@ for (const key of Object.keys(a)) {
   }
   const ftSame = JSON.stringify(a[key].flashTimes) === JSON.stringify(b[key].flashTimes);
   console.log(`${key.padEnd(20)} ${String(diff).padEnd(7)} ${ftSame ? "same" : `DIFF ${JSON.stringify(a[key].flashTimes)} vs ${JSON.stringify(b[key].flashTimes)}`}`);
-  if (key.startsWith("crownfall") || key.startsWith("eclipseheart") || key.startsWith("huntersmoon")) { if (diff === 0) { console.log(`  ^ ${key} expected to differ (7i respec) — 0 diffs means the change is NOT rendering`); fail++; } }
+  if (key.startsWith("huntersmoon")) { if (diff === 0) { console.log(`  ^ ${key} expected to differ (intentional 7i change) — 0 diffs means the change is NOT rendering`); fail++; } }
   else if (diff !== 0 || !ftSame) fail++;
 }
 console.log(fail ? `FAIL: ${fail} unexpected result(s)` : "PASS: only 7i-respec'd auras differ; all other auras pixel-identical, flashTimes identical");

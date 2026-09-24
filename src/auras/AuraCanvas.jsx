@@ -1350,7 +1350,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         if (rk < 1.05) { const s = 1.05 / rk; px = cx + (px - cx) * s; py = cy + (py - cy) * s; }
         pts.push([px, py]);
       }
-      return { pts, t: 0, c: pick(fx.bolts.c) };
+      // short-circuit a single-colour palette: pick() would consume an RNG
+      // value and shift the whole stream even though the colour can't vary
+      return { pts, t: 0, c: Array.isArray(fx.bolts.c) && fx.bolts.c.length === 1 ? fx.bolts.c[0] : pick(fx.bolts.c) };
     }
     const ang = rnd(0, Math.PI * 2), segs = 7, pts = [];
     let [x, y] = onRing(ang, 0.95);

@@ -1058,3 +1058,14 @@ test("atlas moment orbit lifts off smoothly from the sphere's wander position", 
   assert.ok(maxJump < 8, `orbit should lift off continuously — largest frame-to-frame jump ${maxJump.toFixed(1)}px`);
   assert.ok(maxDist > 30, `sphere should actually orbit out from centre (reached ${maxDist.toFixed(1)}px)`);
 });
+
+test("switching a layer's motion kind to one it has no fields for still renders without throwing", () => {
+  // The gallery Motion dropdown can set k on a bare layer — before the spawn
+  // defaults, rnd(...L.sp) on the missing range crashed makeAura/frame.
+  for (const k of ["rise", "fall", "orbit", "inward", "bubble"]) {
+    renderer.AURA_FX[`__kindSwitch_${k}`] = { glow: 0, layers: [{ k, n: 4, shape: "dot", c: "#FFD447" }] };
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: `__kindSwitch_${k}`, w: 128, h: 164, mode: "body", figure: "/avatars/E.webp" });
+    assert.ok(inst, `instance for k=${k}`);
+    for (let i = 0; i < 30; i++) inst.frame(1 / 60);
+  }
+});
