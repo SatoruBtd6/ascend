@@ -1,4 +1,4 @@
-import { AURAS } from "../../auras/catalog.js";
+import { auraById } from "../../auras/catalog.js";
 import { shift } from "../../lib/dates.js";
 import { activeDays, groupScores } from "../../lib/stats.js";
 import { stripGhostCosmeticsState, countRaidClears } from "../../math.js";
@@ -49,7 +49,7 @@ export function unlocked(item, s) {
 export function stripGhostCosmetics(s) {
   const real = { ...s, test: false };
   const auraOk = (id) => {
-    const a = AURAS.find((x) => x.id === id);
+    const a = auraById(id);
     return !id || id === "none" || (a && unlocked(a, real));
   };
   const borderOk = (id) => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { hexRgb } from "../theme.js";
-import { AURAS } from "./catalog.js";
+import { AURAS, resolveAuraId } from "./catalog.js";
 import { noteStrikeFlash } from "./boltClock.js";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 export { FACE_REGION, HEAD_FROM_EYE, resolveAuraAnchors } from "./anchors.js";
@@ -195,7 +195,7 @@ export const AURA_FX = {
     ] },
   sigil: { spd: 0.6, glow: 0.54, layers: [{ k: "rise", n: 12, shape: "ember", c: ["#FFB86B", "#FFD447", "#FFFFFF"], sp: [8, 17], life: [2.1, 3.4], sz: [1.6, 2.8], sway: 9, tw: 1 }] },
   glassfire: { spd: 1.05, glow: 0.78, layers: [{ k: "rise", n: 38, shape: "ember", c: ["#a855f7", "#ec4899", "#FFFFFF"], sp: [22, 48], life: [0.7, 1.5], sz: [2.4, 5.8], sway: 15, tw: 1 }] },
-  crownfall: { spd: 1.3, glow: 0.88, bolts: { every: [0.9, 1.4], c: ["#FFD447", "#FFF6C9"] }, rings: [{ r: 1.08, c: "#160000", spin: 0.08, a: 0.95, w: 4 }], layers: [
+  redline: { spd: 1.3, glow: 0.88, bolts: { every: [0.9, 1.4], c: ["#FFD447", "#FFF6C9"] }, rings: [{ r: 1.08, c: "#160000", spin: 0.08, a: 0.95, w: 4 }], layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/hat-straw.webp", placed: "head", headSz: 3.2, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.3, rot: 0.02, wobble: 0.02, bob: 1, bobAmp: 0.04, breathe: 1, a: 0.98, over: 1, blend: "source-over",
       rim: 1, rimSz: 1.05, rimSink: 0.12, y: -0.18, circle: { y: 0 } },
     { k: "rise", n: 58, shape: "smoke", c: ["#C2001F", "#FF1F4B", "#430008"], sp: [30, 68], life: [0.7, 1.4], sz: [3.2, 7.2], sway: 12, a: 0.62, blend: "source-over" },
@@ -395,7 +395,7 @@ export function auraImage(src, opts = {}) {
 }
 
 export function auraNeedsOver(aura) {
-  const fx = AURA_FX[aura];
+  const fx = AURA_FX[resolveAuraId(aura)];
   if (!fx) return false;
   if (fx.overArt) return true;
   if (fx.moment?.bursts?.some((b) => b.over)) return true;
@@ -908,6 +908,7 @@ const keyAt = (frames, t) => {
 };
 
 export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
+  aura = resolveAuraId(aura); // legacy ids from old saves/cards render the renamed spec
   const fx = AURA_FX[aura], base = AURAS.find((a) => a.id === aura);
   const g = canvas.getContext("2d");
   if (!fx || !g) return null;
@@ -1937,6 +1938,7 @@ export function fireAuraMoment(aura) {
 }
 
 export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance }) {
+  aura = resolveAuraId(aura); // leaderboard cards from older builds still carry the old id
   const ref = useRef(null);
   const overRef = useRef(null);
   const needs = auraNeedsOver(aura);
@@ -1972,6 +1974,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
 }
 // Drop-in replacement for the old ring. `size` is the ring's outer size as before; the canvas is larger so particles can drift out.
 export function AuraRing({ aura, size, style, children }) {
+  aura = resolveAuraId(aura);
   if (!AURA_FX[aura]) return null;
   const k = aura === "ascended" ? 1.5 : 1.28;
   const w = Math.round(size * k);

@@ -1,4 +1,4 @@
-// Crownfall ring-view proof: the 7i body-view spec change (y:-0.18 on the hat)
+// Redline ring-view proof: the 7i body-view spec change (y:-0.18 on the hat)
 // must leave the avatar ring pixel-identical. Renders ring mode at photo 76
 // and board 32 with the previous spec vs the live spec, seeded identically.
 // Usage: node scripts/aura-7i-redline-ring-check.mjs [--base http://127.0.0.1:5173]
@@ -35,16 +35,16 @@ const out = await page.evaluate(async () => {
   mod.AuraLoop.raf = null; mod.AuraLoop.set.clear();
   let fakeT = 0; mod.setFlashPageClock?.(() => fakeT);
   const seed = () => { let st = 0x7f2a11; Math.random = () => { st = (Math.imul(st, 1664525) + 1013904223) >>> 0; return st / 4294967296; }; };
-  const NEW = cloneSpec(mod.AURA_FX.crownfall);
+  const NEW = cloneSpec(mod.AURA_FX.redline);
   const OLD = cloneSpec(NEW);
   delete OLD.layers[0].y; delete OLD.layers[0].circle; // pre-change spec
 
   async function snap(spec, w, h, ringR) {
-    mod.AURA_FX.crownfall = spec;
+    mod.AURA_FX.redline = spec;
     const cv = document.createElement("canvas");
     const ov = document.createElement("canvas");
     seed();
-    const inst = mod.makeAura(cv, { aura: "crownfall", w, h, mode: "circle", ringR, overCanvas: ov });
+    const inst = mod.makeAura(cv, { aura: "redline", w, h, mode: "circle", ringR, overCanvas: ov });
     for (let t = 0; t < 200; t++) {
       if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
       await new Promise((r) => setTimeout(r, 25));
@@ -65,10 +65,10 @@ const out = await page.evaluate(async () => {
   }
   // and the figure view SHOULD differ — sanity that the change is live
   const snapBody = async (spec) => {
-    mod.AURA_FX.crownfall = spec;
+    mod.AURA_FX.redline = spec;
     const cv = document.createElement("canvas"); const ov = document.createElement("canvas");
     seed();
-    const inst = mod.makeAura(cv, { aura: "crownfall", w: 160, h: 204, mode: "body", overCanvas: ov, figure: "/avatars/E.webp" });
+    const inst = mod.makeAura(cv, { aura: "redline", w: 160, h: 204, mode: "body", overCanvas: ov, figure: "/avatars/E.webp" });
     for (let t = 0; t < 200; t++) {
       if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
       await new Promise((r) => setTimeout(r, 25));
@@ -82,7 +82,7 @@ const out = await page.evaluate(async () => {
   let fdiff = 0;
   for (let i = 0; i < fa.length; i += 4) if (fa[i] !== fb[i] || fa[i + 1] !== fb[i + 1] || fa[i + 2] !== fb[i + 2] || fa[i + 3] !== fb[i + 3]) fdiff++;
   results.figure160 = fdiff;
-  mod.AURA_FX.crownfall = NEW;
+  mod.AURA_FX.redline = NEW;
   return results;
 });
 console.log(JSON.stringify(out));

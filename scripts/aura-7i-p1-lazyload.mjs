@@ -1,5 +1,5 @@
 // 7i Part 1 lazy-load proof: /aura/hat-straw.webp must NOT be fetched on page
-// load or when other auras mount — only when a crownfall instance is created.
+// load or when other auras mount — only when a redline instance is created.
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -24,7 +24,7 @@ page.on("request", (r) => { if (r.url().includes("/aura/")) auraReqs.push(r.url(
 await page.goto(`${base}/`, { waitUntil: "networkidle" });
 console.log("after app load:", auraReqs.length ? auraReqs : "(no /aura/ requests)");
 
-// mount a non-crownfall aura — still no hat fetch
+// mount a non-redline aura — still no hat fetch
 await page.evaluate(async () => {
   const mod = await import("/src/auras/AuraCanvas.jsx");
   const cv = document.createElement("canvas"); cv.width = cv.height = 160;
@@ -33,17 +33,17 @@ await page.evaluate(async () => {
 await page.waitForTimeout(600);
 console.log(`after makeAura(atlas): ${auraReqs.length} /aura/ reqs (${auraReqs.join(", ") || "none"}), hat-straw: ${auraReqs.some((u) => u.includes("hat-straw")) ? "FETCHED (bad)" : "no"}`);
 
-// mount a crownfall instance — only now should the hat load
+// mount a redline instance — only now should the hat load
 const before = auraReqs.length;
 await page.evaluate(async () => {
   const mod = await import("/src/auras/AuraCanvas.jsx");
   const cv = document.createElement("canvas"); cv.width = cv.height = 160;
-  mod.makeAura(cv, { aura: "crownfall", w: 160, h: 160, mode: "circle", ringR: 50 });
+  mod.makeAura(cv, { aura: "redline", w: 160, h: 160, mode: "circle", ringR: 50 });
 });
 await page.waitForFunction(() => [...performance.getEntriesByType("resource")].some((e) => e.name.includes("hat-straw")), { timeout: 5000 }).catch(() => {});
 await page.waitForTimeout(300);
 const hatReqs = auraReqs.slice(before).filter((u) => u.includes("hat-straw"));
-console.log(`after makeAura(crownfall): ${auraReqs.length - before} new /aura/ reqs, hat-straw fetches: ${hatReqs.length}`);
-console.log(hatReqs.length === 1 ? "PASS: hat-straw.webp lazy-loads only on crownfall mount" : "FAIL");
+console.log(`after makeAura(redline): ${auraReqs.length - before} new /aura/ reqs, hat-straw fetches: ${hatReqs.length}`);
+console.log(hatReqs.length === 1 ? "PASS: hat-straw.webp lazy-loads only on redline mount" : "FAIL");
 await browser.close();
 process.exit(hatReqs.length === 1 ? 0 : 1);

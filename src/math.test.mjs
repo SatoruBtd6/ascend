@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, migrateAuraIds, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -625,15 +625,44 @@ test("Secret is one in 1000 and does not touch pity", () => {
 test("Anime Crate migration preserves legacy ownership and equipped cosmetics", () => {
   const s = {
     cratePity: { rare: 12, legendary: 27 },
-    crateUnlocks: { chud: "2026-01-01", relic: "2026-01-02", sigil: "2026-01-03", glassfire: "2026-01-04", crownfall: "2026-01-05", eclipseheart: "2026-01-06" },
+    crateUnlocks: { chud: "2026-01-01", relic: "2026-01-02", sigil: "2026-01-03", glassfire: "2026-01-04", redline: "2026-01-05", eclipseheart: "2026-01-06" },
     crateLog: [{ id: "sigil", kind: "aura" }],
-    profile: { title: "chud", look: { border: "relic", aura: "crownfall" } },
+    profile: { title: "chud", look: { border: "relic", aura: "redline" } },
   };
   const got = migrateAnimeCrateState(s);
   assert.equal(got.cratePity, 27);
   assert.equal(got.crateLog[0].type, "aura");
   assert.deepEqual(got.crateUnlocks, s.crateUnlocks);
   assert.deepEqual(got.profile, s.profile);
+});
+
+test("aura id migration rewrites owned, unlocked, equipped, and logged crownfall to redline", () => {
+  const s = {
+    crateUnlocks: { sigil: "2026-01-01", crownfall: "2026-01-02" },
+    auraUnlocks: { crownfall: "2026-01-03" },
+    crateLog: [{ id: "crownfall", type: "aura" }, { id: "sigil", type: "aura" }],
+    testCrate: { pity: 3, log: [{ id: "crownfall", type: "aura" }] },
+    profile: { look: { aura: "crownfall", auraPrev: "sigil", border: "relic" } },
+  };
+  const got = migrateAuraIds(s);
+  assert.deepEqual(Object.keys(got.crateUnlocks).sort(), ["redline", "sigil"]);
+  assert.deepEqual(got.auraUnlocks, { redline: "2026-01-03" });
+  assert.deepEqual(got.crateLog.map((e) => e.id), ["redline", "sigil"]);
+  assert.equal(got.testCrate.log[0].id, "redline");
+  assert.equal(got.profile.look.aura, "redline");
+  assert.equal(got.profile.look.auraPrev, "sigil");
+  assert.equal(got.profile.look.border, "relic");
+});
+
+test("aura id migration is idempotent, runs inside normalizeState, and leaves clean saves alone", () => {
+  const clean = { crateUnlocks: { redline: "d" }, profile: { look: { aura: "redline" } } };
+  assert.equal(migrateAuraIds(clean), clean); // nothing to rename — same object back
+  const s = { crateUnlocks: { crownfall: "d" }, profile: { look: { aura: "crownfall" } } };
+  const once = migrateAuraIds(s);
+  assert.deepEqual(migrateAuraIds(once), once); // second run changes nothing
+  // every load path (local, server, restore) funnels through normalizeState
+  assert.equal(normalizeState(s).profile.look.aura, "redline");
+  assert.equal(normalizeState(s).crateUnlocks.redline, "d");
 });
 
 test("exKey normalises case, punctuation and a trailing s", () => {

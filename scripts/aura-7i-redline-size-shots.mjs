@@ -55,7 +55,7 @@ for (const [view, key, value, file] of jobs) {
   const dataUrl = await page.evaluate(async ([view, key, value]) => {
     const mod = await import("/src/auras/AuraCanvas.jsx");
     const { cloneSpec } = await import("/src/auras/specFormat.js");
-    const ORIG = cloneSpec(mod.AURA_FX.crownfall);
+    const ORIG = cloneSpec(mod.AURA_FX.redline);
     const spec = cloneSpec(ORIG);
     spec.layers[0][key] = value;
     const seed = () => { let st = 0x7f2a11; Math.random = () => { st = (Math.imul(st, 1664525) + 1013904223) >>> 0; return st / 4294967296; }; };
@@ -68,9 +68,9 @@ for (const [view, key, value, file] of jobs) {
     const ov = document.createElement("canvas");
     root.appendChild(cv); root.appendChild(ov);
     document.body.appendChild(root);
-    mod.AURA_FX.crownfall = spec;
+    mod.AURA_FX.redline = spec;
     seed();
-    const inst = mod.makeAura(cv, { aura: "crownfall", w, h, mode: isFig ? "body" : "circle", ringR: isFig ? undefined : 66, overCanvas: ov, figure: isFig ? "/avatars/E.webp" : undefined });
+    const inst = mod.makeAura(cv, { aura: "redline", w, h, mode: isFig ? "body" : "circle", ringR: isFig ? undefined : 66, overCanvas: ov, figure: isFig ? "/avatars/E.webp" : undefined });
     for (let t = 0; t < 200; t++) {
       if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
       await new Promise((r) => setTimeout(r, 25));
@@ -97,7 +97,7 @@ for (const [view, key, value, file] of jobs) {
     g.drawImage(ov, 0, 0);
     const url = cv.toDataURL("image/png");
     root.remove();
-    mod.AURA_FX.crownfall = ORIG;
+    mod.AURA_FX.redline = ORIG;
     return url;
   }, [view, key, value]);
   const { writeFileSync } = await import("node:fs");

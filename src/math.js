@@ -1,5 +1,6 @@
 // Pure helpers shared by App.jsx and the simulation tests in math.test.mjs.
 // Keep everything here free of React and browser APIs so it can run under `node --test`.
+import { AURA_ALIASES } from "./auras/catalog.js";
 
 const clone = (v) => {
   if (v == null || typeof v !== "object") return v;
@@ -310,7 +311,9 @@ export function normalizeState(s) {
   const chat = mapItems(out.chat, "chat", (c) => (isObj(c) || typeof c === "string" ? c : (note("chat[]"), null))).filter((c) => c != null);
   if (chat.length !== (out.chat || []).length) set("chat", chat);
 
-  return out;
+  // Renamed aura ids are rewritten here so every load path (local, server,
+  // merge, paste/restore) gets the migration without needing its own call.
+  return migrateAuraIds(out);
 }
 
 // World First: every player who lands a killing blow writes their own claim row, so upsert
@@ -807,6 +810,55 @@ export function migrateAnimeCrateState(s) {
   const pity = typeof old === "number" ? old : Math.max(0, +(old?.legendary ?? old?.rare) || 0);
   const crateLog = (s.crateLog || []).map((x) => (x && !x.type && x.kind ? { ...x, type: x.kind } : x));
   return { ...s, crateV: 2, cratePity: Math.min(ANIME_PITY_AT - 1, pity), crateLog };
+}
+
+// Aura ids renamed after saves were written (see AURA_ALIASES in catalog.js).
+// Rewrites every field that stores aura ids — unlock maps, crate logs, and the
+// equipped look — so old saves keep what they owned. Idempotent: a second run
+// finds nothing to rename and returns the state untouched.
+export function migrateAuraIds(s) {
+  if (!s || typeof s !== "object") return s;
+  const remapKeys = (obj) => {
+    if (!isObj(obj)) return obj;
+    let out = null;
+    for (const [k, v] of Object.entries(obj)) {
+      const nk = AURA_ALIASES[k];
+      if (!nk) continue;
+      if (out === null) out = { ...obj };
+      delete out[k];
+      if (out[nk] === undefined) out[nk] = v;
+    }
+    return out || obj;
+  };
+  const remapEntries = (arr) => {
+    if (!Array.isArray(arr)) return arr;
+    let out = null;
+    arr.forEach((e, i) => {
+      const nk = e && AURA_ALIASES[e.id];
+      if (!nk) return;
+      if (out === null) out = arr.slice();
+      out[i] = { ...e, id: nk };
+    });
+    return out || arr;
+  };
+  let out = s;
+  const set = (key, val) => {
+    if (val === out[key]) return;
+    if (out === s) out = { ...s };
+    out[key] = val;
+  };
+  set("crateUnlocks", remapKeys(s.crateUnlocks));
+  set("auraUnlocks", remapKeys(s.auraUnlocks));
+  set("crateLog", remapEntries(s.crateLog));
+  if (isObj(s.testCrate)) {
+    const log = remapEntries(s.testCrate.log);
+    if (log !== s.testCrate.log) set("testCrate", { ...s.testCrate, log });
+  }
+  const look = s.profile?.look;
+  if (isObj(look) && (AURA_ALIASES[look.aura] || AURA_ALIASES[look.auraPrev])) {
+    set("profile", { ...s.profile, look: { ...look, aura: AURA_ALIASES[look.aura] || look.aura, auraPrev: AURA_ALIASES[look.auraPrev] || look.auraPrev } });
+  }
+  return out;
 }
 
 // Save-effect helpers: identity skip, per-key reference dirty check, and a cheap

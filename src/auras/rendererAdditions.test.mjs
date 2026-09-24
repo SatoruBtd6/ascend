@@ -913,7 +913,7 @@ test("ossuary flying bones split between behind and over layers", () => {
   assert.ok(boneLayers.some((L) => L.over && L.frontOnly), "some bones pass in front on the over layer");
 });
 
-// --- 7i Part 1: crownfall worn straw hat ---
+// --- 7i Part 1: redline worn straw hat ---
 const figureHead = (w, h, src) => {
   const lm = FIGURE_ANCHORS[src];
   const figH = h / 1.02, figW = figH * (424 / 568), s = figW / 424;
@@ -925,27 +925,27 @@ const lastImgDraw = (out, src) => {
   return null;
 };
 
-test("crownfall renders without throwing in circle and body modes", async () => {
+test("redline renders without throwing in circle and body modes", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   for (const mode of ["circle", "body"]) {
     const canvas = stubRendererCanvas(), over = stubRendererCanvas();
-    const inst = renderer.makeAura(canvas, { aura: "crownfall", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
+    const inst = renderer.makeAura(canvas, { aura: "redline", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `crownfall ${mode}`);
-    assert.ok(lastImgDraw(over.output, "hat-straw"), `crownfall ${mode} hat drew nothing on the over canvas`);
+    assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `redline ${mode}`);
+    assert.ok(lastImgDraw(over.output, "hat-straw"), `redline ${mode} hat drew nothing on the over canvas`);
   }
 });
 
-test("crownfall straw hat anchors to each figure's head and scales from head half-width", async () => {
+test("redline straw hat anchors to each figure's head and scales from head half-width", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
-  const hat = renderer.AURA_FX.crownfall.layers.find((L) => String(L.src).includes("hat-straw"));
+  const hat = renderer.AURA_FX.redline.layers.find((L) => String(L.src).includes("hat-straw"));
   const widths = {};
   for (const fig of ["/avatars/E.webp", "/avatars/SS.webp", "/avatars/S-f.webp"]) {
     const canvas = stubRendererCanvas(), over = stubRendererCanvas();
     const w = 128, h = 163;
-    const inst = renderer.makeAura(canvas, { aura: "crownfall", w, h, mode: "body", ringR: 40, overCanvas: over, figure: fig });
+    const inst = renderer.makeAura(canvas, { aura: "redline", w, h, mode: "body", ringR: 40, overCanvas: over, figure: fig });
     await new Promise((resolve) => setTimeout(resolve, 0));
     inst.frame(1 / 60);
     const head = figureHead(w, h, fig);
@@ -963,12 +963,12 @@ test("crownfall straw hat anchors to each figure's head and scales from head hal
   assert.ok(widths["/avatars/S-f.webp"] > widths["/avatars/E.webp"] * 1.2, "the wider female head must get a wider hat");
 });
 
-test("crownfall straw hat rests on the photo frame's top edge in circle mode", () => {
+test("redline straw hat rests on the photo frame's top edge in circle mode", () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
-  const hat = renderer.AURA_FX.crownfall.layers.find((L) => String(L.src).includes("hat-straw"));
+  const hat = renderer.AURA_FX.redline.layers.find((L) => String(L.src).includes("hat-straw"));
   const canvas = stubRendererCanvas(), over = stubRendererCanvas();
-  const inst = renderer.makeAura(canvas, { aura: "crownfall", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  const inst = renderer.makeAura(canvas, { aura: "redline", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
   inst.frame(1 / 60);
   const xy = inst.imgXY["/aura/hat-straw.webp"];
   const ringTop = 70.5 - 40.7, faceY = 70.5 - 0.16 * 40.7;
@@ -982,12 +982,12 @@ test("crownfall straw hat rests on the photo frame's top edge in circle mode", (
   assert.ok(xy.y + di[5] * 0.5 < faceY, `hat bottom ${(xy.y + di[5] * 0.5).toFixed(1)} should stay above the face line ${faceY.toFixed(1)} — on the frame, not over the face`);
 });
 
-test("crownfall hat keeps drawing under reduced motion with a damped bob", async () => {
+test("redline hat keeps drawing under reduced motion with a damped bob", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   const ys = async (reduce) => {
     const over = stubRendererCanvas();
-    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "crownfall", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "redline", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
     await new Promise((resolve) => setTimeout(resolve, 0));
     if (reduce) inst.reduce = true;
     const out = [];
@@ -1068,4 +1068,23 @@ test("switching a layer's motion kind to one it has no fields for still renders 
     assert.ok(inst, `instance for k=${k}`);
     for (let i = 0; i < 30; i++) inst.frame(1 / 60);
   }
+});
+
+test("a leaderboard card carrying the old crownfall id renders the Redline aura identically", () => {
+  // Cards published before the rename still say "crownfall" — the alias must
+  // resolve to the redline spec so they draw Redline instead of nothing.
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const seed = () => { let st = 0x7f2a11; Math.random = () => { st = (Math.imul(st, 1664525) + 1013904223) >>> 0; return st / 4294967296; }; };
+  const run = (aura) => {
+    seed();
+    const canvas = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura, w: 141, h: 141, mode: "circle", ringR: 40.7 });
+    assert.ok(inst, `instance for ${aura}`);
+    for (let i = 0; i < 30; i++) inst.frame(1 / 60);
+    // serialise the recorded draw calls — gradient/fn values differ by
+    // identity across runs even when every draw is identical
+    return JSON.stringify(canvas.output, (k, v) => (typeof v === "function" ? "fn" : v));
+  };
+  assert.equal(run("crownfall"), run("redline"));
 });

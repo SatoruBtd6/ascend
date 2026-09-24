@@ -4,7 +4,7 @@
 // in lockstep and EVERY frame is compared, so intermittent visuals (bolts,
 // flashes, ejects) can't slip past the check. Controls that leave every frame
 // pixel-identical are reported dead, with a reason.
-// Usage: node scripts/aura-7i-gallery-effects.mjs [--base http://127.0.0.1:5173] [--aura crownfall] [--json]
+// Usage: node scripts/aura-7i-gallery-effects.mjs [--base http://127.0.0.1:5173] [--aura redline] [--json]
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { join } from "node:path";

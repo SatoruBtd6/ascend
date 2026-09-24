@@ -1,8 +1,8 @@
-// 7i Part 1 shots: crownfall straw hat on all 14 physique figures at 160,
+// 7i Part 1 shots: redline straw hat on all 14 physique figures at 160,
 // plus a photo at 76 and at board 32, dark theme (light variants for a few).
 // Stage DOM mirrors production z-order: main canvas < figure/photo < over.
 // Also reports the smallest alpha margin of the over-canvas drawing to the
-// canvas edge (the hat is the only over layer on crownfall).
+// canvas edge (the hat is the only over layer on redline).
 // Usage: node scripts/aura-7i-p1-shots.mjs [--base http://localhost:5173]
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync } from "node:fs";
@@ -21,7 +21,7 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "baselin
 mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2);
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://127.0.0.1:5173";
-const AURA = "crownfall";
+const AURA = "redline";
 const FIGS = ["E", "D", "C", "B", "A", "S", "SS", "E-f", "D-f", "C-f", "B-f", "A-f", "S-f", "SS-f"];
 // [label, kind, size, theme]
 const STAGES = [

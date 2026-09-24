@@ -41,7 +41,7 @@ export const AURAS = [
   { id: "zeropoint", name: "Zero Point", how: "Aura Spin · epic · the air freezes first", crate: true, group: "crate", rarity: "epic", ptsMult: 0.05, colors: ["#DDF6FF", "#7DF9FF"] },
   { id: "ninetail", name: "Ninetail", how: "Aura Spin · epic · nine flames answer as one", crate: true, group: "crate", rarity: "epic", ptsMult: 0.05, colors: ["#FF9340", "#FFD447"] },
   { id: "ironbound", name: "Ironbound", how: "Aura Spin · epic · the chains remember every rep", crate: true, group: "crate", rarity: "epic", ptsMult: 0.05, colors: ["#9AA7BD", "#5B6472"] },
-  { id: "crownfall", name: "Redline", how: "Aura Spin · legendary · power beyond the gauge", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#C2001F", "#FFD447"] },
+  { id: "redline", name: "Redline", how: "Aura Spin · legendary · power beyond the gauge", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#C2001F", "#FFD447"] },
   { id: "ledger", name: "The Ledger", how: "Aura Spin · legendary · every debt is written", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#161616", "#C2001F"] },
   { id: "bonewright", name: "Bonewright", how: "Aura Spin · legendary · pressure makes armour", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#F4EAD2", "#FFDFA3"] },
   { id: "ossuary", name: "Ossuary", how: "Aura Spin · legendary · built from everything that broke before you", crate: true, group: "crate", rarity: "legendary", ptsMult: 0.08, colors: ["#E8E0CC", "#7CE8A8"] },
@@ -52,3 +52,10 @@ export const AURAS = [
   { id: "eclipseheart", name: "Eclipseheart", how: "Aura Spin · gilded · the old sun still burns", crate: true, group: "crate", rarity: "gilded", gilded: true, ptsMult: 0.12, colors: ["#E8C56A", "#FFF6C9"] },
   { id: "blacksun", name: "Black Sun", how: "Secret — undiscovered", crate: true, group: "crate", rarity: "secret", ptsMult: 0.15, colors: ["#FFFFFF", "#C2001F"] },
 ];
+
+// Aura ids renamed after saves and leaderboard cards were already written.
+// Every id that arrives from outside (saved state, another player's card)
+// must go through resolveAuraId before it is looked up or rendered.
+export const AURA_ALIASES = { crownfall: "redline" };
+export const resolveAuraId = (id) => AURA_ALIASES[id] || id;
+export const auraById = (id) => AURAS.find((a) => a.id === resolveAuraId(id));
