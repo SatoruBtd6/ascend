@@ -219,7 +219,7 @@ function titleCase(key) {
 
 // Plain-English labels per spec section. Anything missing falls back to a
 // prettified key — raw spec paths must never reach the owner.
-const TOP_LABELS = { spd: "Speed", glow: "Glow strength", dark: "Dark backdrop", artLate: "Draw art last" };
+const TOP_LABELS = { spd: "Speed", glow: "Glow strength", dark: "Dark backdrop", artLate: "Draw art last", foldW: "Blindfold width", foldY: "Blindfold height", foldGlow: "Blindfold edge glow", hairN: "Hair strands", hairLen: "Hair length", hairDrift: "Hair drift" };
 const RAY_LABELS = { n: "Count", c: "Colour", spin: "Spin speed", len: "Length", a: "Opacity", fan: "Fan out" };
 const BOLT_LABELS = { every: "Seconds between strikes", burst: "Strikes per burst", burstSpan: "Burst spacing (s)", gap: "Rest between bursts (s)", c: "Colour", flash: "Flash on strike", flashPeak: "Flash brightness", flashLife: "Flash length (s)", from: "Strike direction", strike: "Strike marker", calm: "Calmer under reduced motion" };
 const SWEEP_LABELS = { c: "Colour", a: "Opacity", spd: "Speed", r: "Distance from centre", w: "Thickness", span: "Arc width" };
@@ -258,6 +258,12 @@ const FIELD_HINTS = {
   over: "Draw above the figure/photo instead of behind",
   headSz: "Width in head-widths — follows the figure",
   rimSz: "Size on the avatar ring's top edge",
+  foldW: "Blindfold width in head half-widths — follows the figure",
+  foldY: "Blindfold offset below the eye line, in head half-widths",
+  foldGlow: "Faint light bleeding along the blindfold's lower edge",
+  hairN: "Procedural hair strand count (hair: strands)",
+  hairLen: "Strand length below the eye line, in head half-widths",
+  hairDrift: "How much the strands sway with the aura's slow motion",
   rimSink: "How far the piece dips into the ring",
   rimX: "Slide the piece along the ring's top edge",
   flashPeak: "Brightness of the strike flash",

@@ -1088,3 +1088,116 @@ test("a leaderboard card carrying the old crownfall id renders the Redline aura 
   };
   assert.equal(run("crownfall"), run("redline"));
 });
+
+// --- 7i Part 2: nullpoint blindfold + pale hair ---
+
+test("nullpoint renders without throwing in circle and body modes", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  for (const mode of ["circle", "body"]) {
+    const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "nullpoint", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
+    inst.frame(0.01); // kicks off the lazy blindfold image load
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `nullpoint ${mode}`);
+    assert.ok(lastImgDraw(over.output, "blindfold"), `nullpoint ${mode} blindfold drew nothing on the over canvas`);
+  }
+});
+
+test("nullpoint blindfold sits on the eye line and spans both eyes on every figure", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const foldY = renderer.AURA_FX.nullpoint.foldY || 0;
+  const widths = {};
+  for (const fig of ["/avatars/E.webp", "/avatars/SS.webp", "/avatars/S-f.webp"]) {
+    const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+    const w = 128, h = 163;
+    const inst = renderer.makeAura(canvas, { aura: "nullpoint", w, h, mode: "body", ringR: 40, overCanvas: over, figure: fig });
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    inst.frame(1 / 60);
+    const head = figureHead(w, h, fig);
+    const di = lastImgDraw(over.output, "blindfold");
+    assert.ok(di, `blindfold not drawn on ${fig}`);
+    const bx = di[2] + di[4] / 2;
+    const by = di[3] + di[5] * 0.38; // the cloth band's centre line
+    assert.ok(Math.abs(bx - head.x) < 0.5, `${fig} fold centre x ${bx.toFixed(2)} vs face ${head.x.toFixed(2)}`);
+    assert.ok(Math.abs(by - (head.y + head.half * foldY)) < 0.5, `${fig} fold centre y ${by.toFixed(2)} vs eye line ${(head.y + head.half * foldY).toFixed(2)}`);
+    // eyes sit at face.x ± eyeX with width eyeW: band must reach past both
+    const eyeSpan = head.half * ((9 + 4) / 22.5);
+    assert.ok(di[4] / 2 > eyeSpan, `${fig} fold half-width ${(di[4] / 2).toFixed(2)} should clear the outer eye edge ${eyeSpan.toFixed(2)}`);
+    widths[fig] = di[4];
+  }
+  assert.ok(widths["/avatars/S-f.webp"] > widths["/avatars/E.webp"] * 1.2, "the wider female head must get a wider blindfold");
+});
+
+test("nullpoint procedural hair strands fall from the head-top anchor", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const w = 128, h = 163;
+  const over = stubRendererCanvas();
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w, h, mode: "body", ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  inst.frame(1 / 60);
+  const head = figureHead(w, h, "/avatars/E.webp");
+  const hh = head.half;
+  const roots = over.output.filter((o) => o[0] === "moveTo");
+  const n = renderer.AURA_FX.nullpoint.hairN || 13;
+  assert.equal(roots.length, n, `expected ${n} strand roots, got ${roots.length}`);
+  for (const r of roots) {
+    assert.ok(r[2] > head.y - hh * 1.05 && r[2] < head.y - hh * 0.6, `strand root y ${r[2].toFixed(2)} should sit on the crown (${(head.y - hh).toFixed(1)}±)`);
+    assert.ok(Math.abs(r[1] - head.x) < hh * 0.75, `strand root x ${r[1].toFixed(2)} should stay on the head`);
+  }
+  const tips = over.output.filter((o) => o[0] === "bezierCurveTo").map((o) => ({ x: o[5], y: o[6] }));
+  assert.ok(tips.some((t) => t.y > head.y + hh * 0.8), `strands should fall below the face (max tip y ${Math.max(...tips.map((t) => t.y)).toFixed(1)} vs ${(head.y + hh * 0.8).toFixed(1)})`);
+});
+
+test("nullpoint hair drift damps under reduced motion", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const tipXs = async (reduce) => {
+    const over = stubRendererCanvas();
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (reduce) inst.reduce = true;
+    const out = [];
+    for (let i = 0; i < 300; i += 1) {
+      inst.frame(1 / 60);
+      // the stub output accumulates across frames — only look at ops after
+      // this frame's clearRect
+      const start = over.output.map((o, j) => (o[0] === "clearRect" ? j : -1)).reduce((a, b) => Math.max(a, b), 0);
+      const bz = over.output.slice(start).find((o) => o[0] === "bezierCurveTo");
+      if (bz) out.push(bz[5]);
+    }
+    return out;
+  };
+  const full = await tipXs(false), calm = await tipXs(true);
+  const range = (a) => Math.max(...a) - Math.min(...a);
+  assert.ok(full.length > 200 && calm.length > 200, "hair should draw under both motions");
+  assert.ok(range(full) > 1, `hair should visibly drift at full motion (range ${range(full).toFixed(2)})`);
+  assert.ok(range(calm) < range(full) * 0.55, `drift should damp under reduce (${range(calm).toFixed(2)} vs ${range(full).toFixed(2)})`);
+});
+
+test("nullpoint asset hair variant draws hair-white.webp in the over pass", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const fx = renderer.AURA_FX.nullpoint;
+  const prev = fx.hair;
+  try {
+    fx.hair = "asset";
+    const over = stubRendererCanvas();
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "nullpoint", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+    inst.frame(1 / 60); // kicks off the lazy hair image load
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    inst.frame(1 / 60);
+    assert.ok(lastImgDraw(over.output, "hair-white"), "asset hair variant drew nothing");
+    assert.ok(!over.output.some((o) => o[0] === "bezierCurveTo"), "asset variant should not draw procedural strands");
+  } finally {
+    fx.hair = prev;
+  }
+});

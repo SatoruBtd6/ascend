@@ -221,7 +221,7 @@ export const AURA_FX = {
   ] },
   ledger: { spd: 0.65, glow: 0.34, dark: 1, art: "ledger", rings: [{ r: 1.16, c: "#C2001F", spin: -0.03, a: 0.6, w: 1.4 }], layers: [{ k: "fall", n: 42, shape: "leaf", c: ["#080808", "#343434", "#777"], sp: [12, 28], sz: [2, 5], drift: 12, spin: 1, blend: "source-over" }, { k: "orbit", n: 2, shape: "dot", c: ["#C2001F"], w: [0.08, 0.08], r: [1.15, 1.15], sz: [2.4, 2.4], even: 1 }] },
   bonewright: { spd: 0.7, glow: 0.7, overArt: "bonewright", bolts: { burst: [2, 3], burstSpan: 0.36, gap: [3, 5], c: ["#FFF27A"], flash: 1, flashPeak: 0.35, flashLife: 0.09, from: "above", strike: 1, calm: 1 }, rings: [{ r: 1.12, c: "#F4EAD2", spin: 0.06, a: 0.9, w: 5, dash: 1 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#F4EAD2", "#AAB5C4"], sp: [12, 24], life: [1.4, 2.6], sz: [5, 10], sway: 9, blend: "source-over", a: 0.35 }, { k: "orbit", n: 12, shape: "bonechip", c: ["#FFFFFF", "#DDE6F2"], w: [0.12, 0.28], r: [1.08, 1.2], sz: [2.2, 4.2] }] },
-  nullpoint: { spd: 0.62, glow: 0.66, dark: 1, rings: [{ r: 1.15, c: "#38C6FF", spin: -0.03, a: 0.82, w: 2.8 }], layers: [{ k: "inward", n: 64, shape: "dot", c: ["#38C6FF", "#C2001F", "#a855f7"], sp: [0.35, 0.7], life: [2, 4], sz: [1.2, 2.6] }] },
+  nullpoint: { spd: 0.62, glow: 0.66, dark: 1, overArt: "nullpoint", hair: "strands", foldW: 1.9, foldY: 0.04, foldGlow: 0.55, hairN: 13, hairLen: 1.6, hairDrift: 1, rings: [{ r: 1.15, c: "#38C6FF", spin: -0.03, a: 0.82, w: 2.8 }], layers: [{ k: "inward", n: 64, shape: "dot", c: ["#38C6FF", "#C2001F", "#a855f7"], sp: [0.35, 0.7], life: [2, 4], sz: [1.2, 2.6] }] },
   carve: { spd: 0.85, glow: 0.58, dark: 1, art: "carve", rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }], sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 }, layers: [{ k: "orbit", n: 36, shape: "shard", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.8, 1.8], r: [1.08, 1.35], sz: [0.8, 1.5], tw: 1 }] },
   brandmark: { spd: 0.58, glow: 0.5, dark: 1, art: "brandmark", artLate: 1, overArt: "brandmark", sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [
     { k: "orbit", n: 2, shape: "img", src: "/aura/pauldron.webp", placed: "shoulders" },
@@ -527,6 +527,100 @@ function drawSigil(ctx, { time, clock, unit, sweep, anchors }) {
   ctx.restore();
 }
 
+// Nullpoint worn pieces — pale hair strands from the head-top anchor and a
+// blindfold across the eye line, on the same face anchors Bonewright's eyes
+// use. Everything scales from the head half-width (eyeX × HEAD_FROM_EYE) so
+// all 14 figures and photos place the pieces identically.
+function drawNullpointHair(ctx, { time, clock, anchors, reduce }, fx) {
+  if (!ctx || !anchors || fx.hair === "off") return;
+  const hh = anchors.face.eyeX * HEAD_FROM_EYE;
+  const hx = anchors.face.x, fy = anchors.face.y;
+  if (fx.hair === "asset") {
+    const rec = auraImage("/aura/hair-white.webp");
+    if (!rec.ready || rec.failed) return;
+    const img = rec.img;
+    const iw = hh * 2.3;
+    // only the bright cap (top ~58% of the art — the hairline fringe) draws;
+    // the opaque lower mass would swallow the face and hide the blindfold
+    const sh = img.naturalHeight * 0.58;
+    const ih = iw * (sh / Math.max(1, img.naturalWidth));
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.97;
+    ctx.drawImage(img, 0, 0, img.naturalWidth, sh, hx - iw / 2, fy - hh * 0.12 - ih, iw, ih);
+    ctx.restore();
+    return;
+  }
+  const n = Math.max(3, Math.round(fx.hairN || 13));
+  const len = (fx.hairLen || 1.6) * hh;
+  const drift = (reduce ? 0.2 : 1) * (fx.hairDrift ?? 1);
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const side = t < 0.5 ? -1 : 1;
+    const spread = Math.abs(t - 0.5) * 2;              // 0 at the part, 1 at the temples
+    const ox = hx + side * hh * (0.08 + spread * 0.58);
+    const oy = fy - hh * (0.95 - spread * 0.22);
+    const sway = Math.sin(time * 0.9 + i * 0.83) * hh * 0.08 * drift
+      + Math.sin(clock * 0.31 + i * 1.7) * hh * 0.05 * drift;
+    // sweep outward around the head silhouette first, then fall beside the jaw
+    const tipX = hx + side * hh * (0.72 + spread * 0.34) + sway * (0.6 + spread);
+    const tipY = fy + len * (0.55 + spread * 0.45);
+    const c1x = ox + side * hh * (0.42 + spread * 0.18), c1y = oy + len * 0.2;
+    const c2x = hx + side * hh * (0.95 + spread * 0.2) + sway * 0.5, c2y = fy + len * 0.45;
+    const ws = hh * (0.09 + 0.05 * spread);
+    const grad = ctx.createLinearGradient(ox, oy, tipX, tipY);
+    grad.addColorStop(0, "rgba(245,243,255,0.9)");
+    grad.addColorStop(0.5, "rgba(196,181,253,0.5)");
+    grad.addColorStop(1, "rgba(139,92,246,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(ox - ws / 2, oy);
+    ctx.bezierCurveTo(c1x - ws * 0.3, c1y, c2x - ws * 0.15, c2y, tipX, tipY);
+    ctx.bezierCurveTo(c2x + ws * 0.15, c2y, c1x + ws * 0.3, c1y, ox + ws / 2, oy);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawNullpointBlindfold(ctx, { clock, anchors, reduce }, fx) {
+  if (!ctx || !anchors) return;
+  const rec = auraImage("/aura/blindfold.webp");
+  if (!rec.ready || rec.failed) return;
+  const hh = anchors.face.eyeX * HEAD_FROM_EYE;
+  const bw = hh * (fx.foldW || 1.9);
+  const bh = bw * (rec.img.naturalHeight / Math.max(1, rec.img.naturalWidth));
+  const bx = anchors.face.x, by = anchors.face.y + hh * (fx.foldY || 0);
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 0.98;
+  // the cloth band sits around 38% of the art's height — that line, not the
+  // image centre, lands on the eye line
+  ctx.drawImage(rec.img, bx - bw / 2, by - bh * 0.38, bw, bh);
+  // faint aura-light bleeding along the fold's lower edge — slow pulse so the
+  // piece reads as part of the aura rather than a pasted band
+  const a = (fx.foldGlow ?? 0.55) * (reduce ? 0.55 : 0.55 + 0.45 * Math.sin(clock * 0.9));
+  if (a > 0.01) {
+    const gy = by + bh * 0.24;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.save();
+    ctx.translate(bx, gy);
+    ctx.scale(1, 0.26);
+    const grad = ctx.createRadialGradient(0, 0, bw * 0.06, 0, 0, bw * 0.52);
+    grad.addColorStop(0, `rgba(196,181,253,${(0.32 * a).toFixed(3)})`);
+    grad.addColorStop(0.6, `rgba(139,92,246,${(0.14 * a).toFixed(3)})`);
+    grad.addColorStop(1, "rgba(139,92,246,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, bw * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
 // Behaviour-neutral homes for the legacy one-off art passes. Specs opt in via
 // `art`; makeAura invokes the selected pass at the same point as before.
 export const AURA_ART = {
@@ -581,6 +675,14 @@ export const AURA_ART = {
     }
   },
   bonewright: (opts) => { if (opts.pass === "over") drawBoneEyes(opts.over || opts.g, opts); },
+  nullpoint: (opts) => {
+    if (opts.pass !== "over") return null;
+    const g = opts.over || opts.g;
+    const fx = opts.fx || AURA_FX.nullpoint;
+    drawNullpointHair(g, opts, fx);
+    drawNullpointBlindfold(g, opts, fx);
+    return null;
+  },
   // Atlas base loop: a soft violet ambience around the figure, a halo and
   // faint rim light behind the sphere, and a few slow rotating light rays.
   // All low alpha — the moment's explosion must still feel like a big jump.
@@ -1592,7 +1694,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
     const paul = fx.layers?.find((L) => L.placed === "shoulders");
-    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass, mode, anchors, anchor: anchorOrigin, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, orbitXY: api.orbitXY, flash: flashLeft > 0 && flashSpec ? { k: flashLeft / (flashSpec.flashLife || 0.09), spec: flashSpec } : null, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
+    const artArgs = (pass) => ({ g, over: overG, fx, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass, mode, anchors, anchor: anchorOrigin, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, orbitXY: api.orbitXY, flash: flashLeft > 0 && flashSpec ? { k: flashLeft / (flashSpec.flashLife || 0.09), spec: flashSpec } : null, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
     const artState = AURA_ART[fx.art]?.(artArgs("main")) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";
