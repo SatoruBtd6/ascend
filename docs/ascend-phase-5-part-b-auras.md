@@ -113,7 +113,7 @@ Layer order: **cape behind → avatar → pauldrons → sigil on top.**
 
 1. eslint baseline (same 5); real production build (report the size); 109 unit tests pass; `madge`
    zero cycles; harness on chud at 4× and 6×, 100/100, `fallbackCount` 0.
-2. **Screenshots and short screen recordings** of both auras on the profile, the crate reveal (ghost
+2. **Screenshots and short screen recordings** of both auras on the profile, the spin reveal (ghost
    sandbox Force prize) and the leaderboard card, in dark, light, zesty and custom at ~380 px.
 3. **Measured flash rate ≤ 3/s** — say how it was measured (e.g. counted flash events over 10 s of
    heavy strikes). Show `prefers-reduced-motion` behaviour: no flash, calmer bolts, everything else

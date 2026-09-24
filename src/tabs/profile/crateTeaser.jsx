@@ -11,7 +11,7 @@ export function CrateTeaser({ s, onOpen }) {
       <Crown size={18} style={{ color: C.gold }} />
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-bold">{crate.name}</span>
-        <span className="block body text-xs" style={{ color: C.dim }}>{s.test ? "Ghost sandbox · unlimited opens" : `${bank.toLocaleString()} pts ready · ${crate.cost} per open`}</span>
+        <span className="block body text-xs" style={{ color: C.dim }}>{s.test ? "Ghost sandbox · unlimited spins" : `${bank.toLocaleString()} pts ready · ${crate.cost} per spin`}</span>
       </span>
       <ChevronRight size={16} style={{ color: C.gold }} />
     </button>

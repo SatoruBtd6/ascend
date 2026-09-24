@@ -133,7 +133,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
       {sort === "season" && <SeasonBanner />}
       {sort === "month" && <div className="body text-xs" style={{ color: C.mute }}>XP earned since the 1st. Resets every month, so anyone can take the top spot.</div>}
       {sort === "muscle" && <div className="body text-xs" style={{ color: C.mute }}>Ranked by each player's best lift in {muscle}. Numbers hide, ranks show.</div>}
-      {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Board score is the points you have right now. Workouts, lift ranks, quests, fuel, steps, challenges, streak, and sleep/mood check-ins all add. Anime Crate auras multiply that. Opening crates spends points and drops your place.</div>}
+      {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Board score is the points you have right now. Workouts, lift ranks, quests, fuel, steps, challenges, streak, and sleep/mood check-ins all add. Aura Spin auras multiply that. Each spin spends points and drops your place.</div>}
 
       {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
       {!loading && !err && sorted.length === 0 && <Empty>No one's on the board yet. Join and send your cousins the link.</Empty>}

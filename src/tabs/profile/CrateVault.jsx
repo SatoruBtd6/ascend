@@ -58,7 +58,7 @@ export function CrateVault({ s, setS }) {
       document.documentElement.classList.remove("black-sun-pull");
       if (secret) {
         setSecretToast(true); setTimeout(() => setSecretToast(false), 4200);
-        if (!sandbox) XpSync.add({ e: `crate_secret_${last.rollId}`, a: 0, m: "Anime Crate: Black Sun", d: today(), t: Date.now() });
+        if (!sandbox) XpSync.add({ e: `crate_secret_${last.rollId}`, a: 0, m: "Aura Spin: Black Sun", d: today(), t: Date.now() });
       }
       if (["secret", "gilded", "mythic", "legendary"].includes(last.prize.rarity)) SFX.levelUp();
       else if (last.prize.rarity === "epic") SFX.achievement();
@@ -76,7 +76,7 @@ export function CrateVault({ s, setS }) {
       <div className="px-4 pt-4 pb-3 space-y-1" style={{ background: "radial-gradient(80% 90% at 50% 0%, rgba(106,0,255,.28), transparent 70%)" }}>
         <div className="body text-xs uppercase tracking-wider font-bold" style={{ color: C.gold }}>{crate.tag}{sandbox ? " · sandbox" : ""}</div>
         <div className="text-xl font-bold">{crate.name}</div>
-        <div className="body text-xs" style={{ color: C.dim }}>{sandbox ? "Ghost sandbox. Opens are free and do not save unlocks, points, or pity on your real account." : crate.blurb}</div>
+        <div className="body text-xs" style={{ color: C.dim }}>{sandbox ? "Ghost sandbox. Spins are free and do not save unlocks, points, or pity on your real account." : crate.blurb}</div>
       </div>
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-baseline">
@@ -86,13 +86,13 @@ export function CrateVault({ s, setS }) {
         {!sandbox && crateAuraBest(s) && <div className="body text-xs" style={{ color: C.gold }}>{crateAuraBest(s).name} · +{Math.round(crateAuraBest(s).ptsMult * 100)}% on all points</div>}
         <button type="button" disabled={busy || !canOpen} onClick={roll} className="btn w-full py-3 flex items-center justify-center gap-2" style={{ opacity: canOpen ? 1 : 0.5 }}>
           {busy ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-          {busy ? "Opening…" : sandbox ? "Open · free" : `Open · ${crate.cost} pts`}
+          {busy ? "Spinning…" : sandbox ? "Spin · free" : `Spin · ${crate.cost} pts`}
         </button>
         {!sandbox && bank < crate.cost && <div className="body text-xs text-center" style={{ color: C.mute }}>Need {(crate.cost - bank).toLocaleString()} more points.</div>}
         {sandbox && (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" disabled={busy} onClick={() => openOnce(10)} className="ghost py-2 text-sm font-bold">Open ×10</button>
+              <button type="button" disabled={busy} onClick={() => openOnce(10)} className="ghost py-2 text-sm font-bold">Spin ×10</button>
               <button type="button" disabled={busy} onClick={() => setS((p) => ({ ...p, testCrate: { pity: 0, log: [] } }))} className="ghost py-2 text-sm font-bold">Reset sandbox</button>
             </div>
             <label className="body text-xs block" style={{ color: C.dim }}>Force rarity

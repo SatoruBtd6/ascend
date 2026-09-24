@@ -93,7 +93,7 @@ export function LookStudio({ s, setS }) {
           );
         })}
 
-        {tab === "titles" && [["progress", "Milestones"], ["crate", "Anime Crate"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"], ["soon", "Coming soon"]].map(([g, label]) => {
+        {tab === "titles" && [["progress", "Milestones"], ["crate", "Aura Spin"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"], ["soon", "Coming soon"]].map(([g, label]) => {
           const list = TITLES.filter((t) => titleGroup(t) === g);
           return (
             <div key={g} className="space-y-2">

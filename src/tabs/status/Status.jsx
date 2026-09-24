@@ -92,7 +92,7 @@ export function Status({ s, setS, gainXp, openAssistant, openSettings, openProfi
           if (pp.fromStreak) bits.push(`streak +${pp.fromStreak.toLocaleString()}`);
           if (pp.fromCheckins) bits.push(`check-ins +${pp.fromCheckins.toLocaleString()}`);
           if (aura) bits.push(`${aura.name} +${Math.round(aura.ptsMult * 100)}%`);
-          if (pp.spent) bits.push(`${pp.spent.toLocaleString()} spent on crates`);
+          if (pp.spent) bits.push(`${pp.spent.toLocaleString()} spent on spins`);
           return bits.length ? <div className="body text-xs mt-1 text-right" style={{ color: C.mute }}>{bits.join(" · ")}</div> : null;
         })()}
         <CrateTeaser s={s} onOpen={openProfile} />

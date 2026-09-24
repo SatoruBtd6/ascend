@@ -13,11 +13,11 @@ export const BORDERS = [
   { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
   { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
   { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/season-one.svg", spin: true },
-  { id: "relic", name: "Pulse", how: "Anime Crate · rare", crate: true, effect: "pulse", css: "linear-gradient(135deg,#7DF9FF,#38C6FF)" },
-  { id: "orbit", name: "Orbit", how: "Anime Crate · rare", crate: true, effect: "orbit", css: "conic-gradient(#38C6FF,transparent,#FFD447,transparent,#38C6FF)" },
-  { id: "chase", name: "Chase", how: "Anime Crate · rare", crate: true, effect: "chase", css: "conic-gradient(from 0deg,transparent 0 70%,#fff 88%,#38C6FF 100%)" },
-  { id: "fracture", name: "Fracture", how: "Anime Crate · rare", crate: true, effect: "fracture", css: "repeating-conic-gradient(#ec4899 0 24deg,transparent 24deg 45deg)" },
-  { id: "crate_tide", name: "Tide", how: "Anime Crate · rare", crate: true, effect: "tide", css: "conic-gradient(#38C6FF,#a855f7,#38C6FF)" },
+  { id: "relic", name: "Pulse", how: "Aura Spin · rare", crate: true, effect: "pulse", css: "linear-gradient(135deg,#7DF9FF,#38C6FF)" },
+  { id: "orbit", name: "Orbit", how: "Aura Spin · rare", crate: true, effect: "orbit", css: "conic-gradient(#38C6FF,transparent,#FFD447,transparent,#38C6FF)" },
+  { id: "chase", name: "Chase", how: "Aura Spin · rare", crate: true, effect: "chase", css: "conic-gradient(from 0deg,transparent 0 70%,#fff 88%,#38C6FF 100%)" },
+  { id: "fracture", name: "Fracture", how: "Aura Spin · rare", crate: true, effect: "fracture", css: "repeating-conic-gradient(#ec4899 0 24deg,transparent 24deg 45deg)" },
+  { id: "crate_tide", name: "Tide", how: "Aura Spin · rare", crate: true, effect: "tide", css: "conic-gradient(#38C6FF,#a855f7,#38C6FF)" },
 ];
 export const bestTier = (s) => Math.floor(Object.values(groupScores(s)).reduce((a, b) => Math.max(a, b), 0));
 export const longestRun = (days) => { let best = 0, run = 0, prev = null; [...days].sort().forEach((d) => { run = prev && shift(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; }); return best; };

@@ -50,7 +50,7 @@ loading, a failed screen load, the update banner and its reload.** No logged set
      the home screen; aura images already load on demand), and every module from step 3 that startup
      depends on.
    - **Separate files:** `tabs/train/`, `tabs/run/` (Leaflet is already separate), `tabs/fuel/` with
-     the food data, `tabs/board/`, `tabs/profile/` (Look Studio, crate vault, music), `tabs/settings/`
+     the food data, `tabs/board/`, `tabs/profile/` (Look Studio, spin vault, music), `tabs/settings/`
      (Assistant, XP ledger), and any other large screen or sheet.
    - Explain any deviation.
 
@@ -142,7 +142,7 @@ rest timer's loss on reload is the only thing not restored (report if anything e
    - Pending write forced to throw: "Couldn't save" note, no reload.
 6. SW: DevTools → Cache Storage shows at most two `ascend-v*` caches after an update.
 7. Production-preview smoke on chud: every screen, four themes, start/discard a workout (with an
-   exercise added), Force-prize crate. No console errors. Screenshots match 7c.1 except the banner.
+   exercise added), Force-prize spin. No console errors. Screenshots match 7c.1 except the banner.
 8. Banner and placeholder copy screenshotted in dark, light, zesty and custom at ~380 px.
 9. Diagnostic log shows the chunk-failure, retry and banner events from scenario 5.
 10. `APP_VERSION` `7c.2`, SW cache `ascend-v7c.2`. Production build grep: no `simrun`.

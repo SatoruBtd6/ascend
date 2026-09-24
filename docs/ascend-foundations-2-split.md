@@ -63,7 +63,7 @@ src/
   App.jsx            App() shell + save/sync (untouched) + anything only App() uses
   theme.js           THEMES, ZEST, C, RAINBOW and theme helpers
   data/              EXERCISES, RANKS, quest pools (WEEKLY_POOL, MONTHLY_POOL…), ACH,
-                     crate data, other static tables
+                     spin data, other static tables
   lib/               pure non-React helpers (isWorkout, activeDays, rangeStats, lifetimeStats,
                      formatting, dates, stats…)
   ui/                small shared components used by several tabs
@@ -102,7 +102,7 @@ failing and pointing at it, then undo the edit.
 ## Baseline before pass 1
 
 Record on chud at 380 px, dark theme: screenshots of every tab, Settings, the profile with an aura
-equipped, the crate reveal (ghost sandbox) and a run detail sheet. Record the real build's total JS
+equipped, the spin reveal (ghost sandbox) and a run detail sheet. Record the real build's total JS
 size and the size of each output chunk. Every later stop is compared against this baseline.
 
 ---
@@ -115,7 +115,7 @@ size and the size of each output chunk. Every later stop is compared against thi
 
 Everything in `auras/`. Aura behaviour must be identical: one canvas pair, one rAF loop, `over` pass,
 `auraImage` lazy cache (single instance). Extra checks at this stop: screenshots of the profile with
-Black Sun, Ninetail, Nullpoint, Eclipseheart, The Deep and Champion equipped, and the crate reveal,
+Black Sun, Ninetail, Nullpoint, Eclipseheart, The Deep and Champion equipped, and the spin reveal,
 compared with the baseline.
 
 ## Pass 3 — Train, Run, Fuel

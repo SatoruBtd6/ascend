@@ -19,9 +19,9 @@ export const CRATE_RARITY_DESC = [...ANIME_RARITY_ORDER].reverse();
 export const CRATES = [
   {
     id: "reliquary-1",
-    name: "Anime Crate",
-    tag: "Original cosmetic crate",
-    blurb: "Original titles, animated borders, and auras. Opens spend board points; duplicates return points.",
+    name: "Aura Spin",
+    tag: "Original cosmetic spin",
+    blurb: "Original titles, animated borders, and auras. Spins spend board points; duplicates return points.",
     cost: 250,
     theme: { gold: "#FFD447", void: "#6A00FF", rose: "#FF2D6F" },
     prizes: [

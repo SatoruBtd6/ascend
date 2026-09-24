@@ -58,9 +58,9 @@ npx.cmd vite preview --host 127.0.0.1 --port 4173
 - `?fixture=big` — dev-only large synthetic account. Persistence of that state is off. Not for the pass harness.
 - `?noprefetch=1` — skips idle screen prefetch, so a timing run is not racing chunk downloads.
 
-## Ghost crate sandbox
+## Ghost spin sandbox
 
-On the chud test account (`test: true`), Profile → crate is the ghost sandbox. Opens are free and use the real roll. They do not write unlocks, points, or pity on the real account. **Force prize** picks one prize for the next open. **Reset sandbox** clears sandbox pity and the sandbox log.
+On the chud test account (`test: true`), Profile → Aura Spin is the ghost sandbox. Spins are free and use the real roll. They do not write unlocks, points, or pity on the real account. **Force prize** picks one prize for the next spin. **Reset sandbox** clears sandbox pity and the sandbox log.
 
 ## On-device diagnostics
 

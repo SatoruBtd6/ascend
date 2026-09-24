@@ -78,9 +78,9 @@ Supabase: `kv(scope,key,value,updated_at,owner)` + RLS; `xp_logs` + `xp_replace`
 
 | Version | What |
 |---|---|
-| 6v | Train black screen: merge treated `null` as `{}` and rebuilt `active` without `exercises`. `normalizeState` (additive), `TabErrorBoundary` per tab, crate reveal black square (CSS containing block, not the aura canvas). |
+| 6v | Train black screen: merge treated `null` as `{}` and rebuilt `active` without `exercises`. `normalizeState` (additive), `TabErrorBoundary` per tab, spin reveal black square (CSS containing block, not the aura canvas). |
 | 6w | Lag + save holes: reference-based change detection, `active` urgent only on structural changes, memoised bests, Fuel search indexed (1 s → 10 ms/keystroke), sync `ascend-pending` safety copy, shims never silently drop queued ops. Settings diagnostic line. |
-| 6x | Ghost crate sandbox (free opens, real roll code, never touches real crate/XP), pre-update backup + restore, exercise dedupe (`exKey`, approval UI, merge rewrites all name fields incl. `rankSnap`/`rankHist`), legacy assisted sets (before 2026-09-20) excluded from comparisons, per-gym history (`gyms`, `currentGym`, `gymSpecific`; Machine/Cable auto, ranks use current gym), silent `rankSnap` refresh so merges/gym changes never fake a rank-up. |
+| 6x | Ghost spin sandbox (free spins, real roll code, never touches real spin/XP), pre-update backup + restore, exercise dedupe (`exKey`, approval UI, merge rewrites all name fields incl. `rankSnap`/`rankHist`), legacy assisted sets (before 2026-09-20) excluded from comparisons, per-gym history (`gyms`, `currentGym`, `gymSpecific`; Machine/Cable auto, ranks use current gym), silent `rankSnap` refresh so merges/gym changes never fake a rank-up. |
 | 6y | New PR rule (weight PR + rep PR, each once per exercise per workout, history frozen at workout start; first-ever exercise = 1 PR). Retroactive recount for all accounts: only PR bonus swapped, set XP untouched, level floor stored as its own `floor_v3` record, achievements add-only. `XP_VERSION` 3. |
 | 6z | Board: own row from live local state, card publish retries + publishes on load, 30 s refresh while open, `xpV` "not updated yet" marker. Settings and pending keys scoped per user. **Wipe bug** (failed read treated as a new account → default blob written over the server row): hydrate is read-only with a retry screen until a real read, no raw writes without a successful read, tripwire (only when the server has ≥3 workouts or ≥500 XP). Production SW kept on 6y's `skipWaiting`/`clients.claim`; DEV has no SW. |
 | 6z.1 | Local copy stamped after a successful read (verified copy), visible "Couldn't load" + Retry, `/api/steps` treats empty steps as "no steps yet" (not 0). |
@@ -103,7 +103,7 @@ Known cosmetic bug: Settings shows `State 0 KB` on 7b — fixed as step 0 of Pha
   `over` pass on a second canvas above the photo, `auraImage` lazy cache. Nothing inside r = 1.05
   except deliberate `over` elements. Assets in `public/aura/` (WebP + PNG on purpose; generated art
   must be requested on solid green, never a transparency checkerboard).
-- Anime Crate weights in `ANIME_CRATE_WEIGHTS` (`math.js`), pity every 40, Secret rolled first.
+- Aura Spin weights in `ANIME_CRATE_WEIGHTS` (`math.js`), pity every 40, Secret rolled first.
 
 ## Phase docs from this chat
 
@@ -171,7 +171,7 @@ delete account, leaderboard batch loading. (Error boundary, rest timer and plate
 already exist; raid rework and check-in flicker are done.)
 
 Engagement principle agreed: make it sticky through real rewards — visible progress, friends
-noticing, surprises like crates — not punishment (no shaming streaks, no nagging notifications).
+noticing, surprises like spins — not punishment (no shaming streaks, no nagging notifications).
 
 ## Lessons from this chat
 

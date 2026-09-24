@@ -1,6 +1,6 @@
 # Ascend — Aura overhaul 1: Dev tuning gallery (dev-only)
 
-First of four in the aura overhaul (gallery → renderer additions → per-aura pass → crate experience).
+First of four in the aura overhaul (gallery → renderer additions → per-aura pass → spin experience).
 Requires 7e deployed.
 
 **This ships no production change.** Everything is gated on `import.meta.env.DEV` and dead-code
@@ -45,7 +45,7 @@ Controls across the top:
   local image the user picks with a file input (kept in memory, never uploaded, never saved).
 - **Theme:** dark, light, zesty, custom.
 - **Size:** the real sizes auras appear at — 32 (board row), 76 (profile avatar), 88 (studio tile),
-  160 (crate reveal), and a large inspect size.
+  160 (spin reveal), and a large inspect size.
 - **Reduced motion:** a toggle that simulates `prefers-reduced-motion` without changing OS settings.
 - **Anchors overlay:** draws the landmarks from `anchors.js` on the avatar — head centre and
   half-width, shoulder line and half-width, torso centre — so placement can be checked against the
