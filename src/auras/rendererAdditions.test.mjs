@@ -782,11 +782,35 @@ test("fallenlight flare strikes red lightning through the gate, none under reduc
     if (bolts(canvas.output) > struck) struck = bolts(canvas.output);
   }
   assert.ok(struck >= 2, `expected recurring red bolt strokes (got ${struck})`);
+  const calmCv = stubRendererCanvas();
+  const calm = renderer.makeAura(calmCv, { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  calm.reduce = true;
+  let rFrames = 0;
+  for (let i = 0; i < 60 * 40; i += 1) { calmCv.output.length = 0; calm.frame(1 / 60); if (bolts(calmCv.output) > 0) rFrames += 1; }
+  assert.ok(rFrames > 0, "reduced motion should still strike occasionally");
+  assert.ok(rFrames < 60 * 40 * 0.35, `reduced motion should strike far less often (bolt visible on ${(rFrames / 2400 * 100).toFixed(0)}% of frames)`);
+  assert.equal(calm.flashTimes.length, 0, "reduced motion should never flash");
+});
+
+test("fallenlight bolts strike several times a second while the wash flash stays gated", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const secs = 10;
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
+  for (let i = 0; i < secs * 60; i += 1) inst.frame(1 / 60);
+  const rate = inst.boltsFired / secs;
+  assert.ok(rate >= 3 && rate <= 9, `bolts should strike several times per second (got ${rate.toFixed(1)}/s)`);
+  assert.ok(inst.flashTimes.length >= 3, `expected gated flashes (got ${inst.flashTimes.length})`);
+  let maxWin = 0;
+  inst.flashTimes.forEach((t) => { maxWin = Math.max(maxWin, inst.flashTimes.filter((u) => u >= t && u < t + 1).length); });
+  assert.ok(maxWin <= 3, `flash gate exceeded: ${maxWin} flashes in a 1s window`);
   const calm = renderer.makeAura(stubRendererCanvas(), { aura: "fallenlight", w: 141, h: 141, mode: "circle", ringR: 40.7 });
   calm.reduce = true;
-  let rBolts = 0;
-  for (let i = 0; i < 60 * 40; i += 1) rBolts += bolts(calm._cv?.output || []);
-  assert.equal(rBolts, 0, "reduced motion should suppress flare bolts");
+  for (let i = 0; i < secs * 60; i += 1) calm.frame(1 / 60);
+  const calmRate = calm.boltsFired / secs;
+  assert.ok(calmRate > 0 && calmRate < rate / 3, `reduced motion should strike far less often (${calmRate.toFixed(1)}/s vs ${rate.toFixed(1)}/s)`);
+  assert.equal(calm.flashTimes.length, 0, "reduced motion should never flash");
 });
 
 test("ossuary moment swirls the bones faster and faster in a tightening spiral, then settles", async () => {

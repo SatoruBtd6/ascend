@@ -83,7 +83,7 @@ export const AURA_FX = {
     { k: "orbit", n: 8, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6 },
   ] },
   fallenlight: { spd: 0.9, glow: 0.42, art: "fallenlight",
-    bolts: { every: [9999, 9999], c: ["#FF4D5A", "#FF8A7A", "#D92B2B"] },
+    bolts: { every: [0.12, 0.22], calmEvery: [1.2, 2], overlap: 1, flashP: 0.6, c: ["#FF4D5A", "#FF8A7A", "#D92B2B"] },
     flare: { every: [4, 8], bolt: 1, anchor: "img:/aura/halo-cracked.webp", flashPeak: 0.34, flashLife: 0.09, flashC: ["#FFEAE0", "#FF7A5A"] },
     moment: { every: [18, 26], dur: 4.2,
       flash: { at: 0.3, flashPeak: 0.55, flashLife: 0.1, flashC: ["#FFEFE8", "#FF8A6A"], anchor: "img:/aura/halo-cracked.webp" },
@@ -1776,23 +1776,44 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       });
     } else if (fx.bolts) {
       boltT -= dt;
-      if (boltT <= 0) { bolt = makeBolt(); boltT = rnd(...fx.bolts.every); }
-      if (bolt) {
-        bolt.t += dt; const life = 0.28, k = bolt.t / life;
-        if (k >= 1) bolt = null;
-        else {
-          g.globalCompositeOperation = "lighter"; g.globalAlpha = (1 - k) * (0.6 + 0.4 * Math.sin(bolt.t * 90));
-          if (fx.bolts.flash && k < 0.3) {
-            const flash = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry) * 1.25);
-            flash.addColorStop(0, `rgba(200,220,255,${0.14 * (1 - k / 0.3)})`); flash.addColorStop(1, "rgba(0,0,0,0)");
-            g.fillStyle = flash; g.beginPath(); g.arc(cx, cy, Math.max(rx, ry) * 1.25, 0, Math.PI * 2); g.fill();
+      if (boltT <= 0) {
+        const nb = makeBolt();
+        // calmEvery: reduced motion strikes far less often, same bolt look
+        const calm = !!(api.reduce && fx.bolts.calmEvery);
+        boltT = rnd(...(calm ? fx.bolts.calmEvery : fx.bolts.every));
+        api.boltsFired += 1;
+        if (fx.bolts.overlap) liveBolts.push(nb); else bolt = nb;
+        // flashP: bolts strike on their own cadence; only some get the bright
+        // wash — still through noteStrikeFlash (<=3/s, none under reduce)
+        if (fx.bolts.flashP != null && Math.random() < fx.bolts.flashP) {
+          const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: true, burstStart: true });
+          flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
+          if (gate.fired) {
+            flashSpec = fx.flare || fx.bolts;
+            flashLeft = flashSpec.flashLife || 0.09;
+            api.flashes += 1; api.flashTimes.push(clock);
+            if (api.flashTimes.length > 40) api.flashTimes.shift();
+            strike = 1;
           }
-          [[4 * unit, `${bolt.c}55`], [1.6 * unit, bolt.c], [0.7, "#ffffff"]].forEach(([lw, col]) => {
-            g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = "round"; g.beginPath();
-            bolt.pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
-          });
         }
       }
+      const strokeBolt = (b) => {
+        b.t += dt; const life = 0.28, k = b.t / life;
+        if (k >= 1) return false;
+        g.globalCompositeOperation = "lighter"; g.globalAlpha = (1 - k) * (0.6 + 0.4 * Math.sin(b.t * 90));
+        if (fx.bolts.flash && k < 0.3) {
+          const flash = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry) * 1.25);
+          flash.addColorStop(0, `rgba(200,220,255,${0.14 * (1 - k / 0.3)})`); flash.addColorStop(1, "rgba(0,0,0,0)");
+          g.fillStyle = flash; g.beginPath(); g.arc(cx, cy, Math.max(rx, ry) * 1.25, 0, Math.PI * 2); g.fill();
+        }
+        [[4 * unit, `${b.c}55`], [1.6 * unit, b.c], [0.7, "#ffffff"]].forEach(([lw, col]) => {
+          g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = "round"; g.beginPath();
+          b.pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
+        });
+        return true;
+      };
+      if (bolt && !strokeBolt(bolt)) bolt = null;
+      if (fx.bolts.overlap) liveBolts = liveBolts.filter(strokeBolt);
     }
     const paintWash = (ctx) => {
       if (!(flashLeft > 0) || !flashSpec) return;
