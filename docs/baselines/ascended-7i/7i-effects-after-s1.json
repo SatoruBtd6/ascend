@@ -1,0 +1,47 @@
+ember: 50 controls — 0 dead
+tide: 44 controls — 0 dead
+storm: 52 controls — 0 dead
+inferno: 82 controls — 2 dead  [layers.0.even@figure, layers.0.behind@figure]
+halo: 72 controls — 4 dead  [layers.0.w.0@figure, layers.0.w.1@figure, layers.0.r.0@figure, layers.0.r.1@figure]
+godray: 101 controls — 2 dead  [layers.0.behind@figure, layers.1.behind@figure]
+smolder: 75 controls — 0 dead
+stormborn: 49 controls — 0 dead
+dawn: 34 controls — 0 dead
+wanderer: 50 controls — 0 dead
+standardbearer: 53 controls — 1 dead  [layers.0.behind@figure]
+atlas: 332 controls — 16 dead  [layers.0.r.0@figure, layers.0.r.1@figure, layers.0.w.0@figure, layers.0.w.1@figure, layers.0.hover@figure, layers.0.mShake.6.0@figure, layers.0.mScale.4.0@figure, layers.1.r.0@figure, layers.1.r.1@figure, layers.1.w.0@figure, layers.1.w.1@figure, layers.1.hover@figure, layers.1.mScale.4.0@figure, layers.1.mScale.4.1@figure, layers.2.jit@figure, layers.3.jit@figure]
+forge: 179 controls — 2 dead  [layers.0.mX.5.0@figure, layers.0.mRot.5.0@figure]
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 854
+dead visible controls: 0
+hidden spec fields with no rendered effect: 27
+  hidden inferno layers.0.even key=even
+  hidden inferno layers.0.behind key=behind
+  hidden halo layers.0.w.0 key=w
+  hidden halo layers.0.w.1 key=w
+  hidden halo layers.0.r.0 key=r
+  hidden halo layers.0.r.1 key=r
+  hidden godray layers.0.behind key=behind
+  hidden godray layers.1.behind key=behind
+  hidden standardbearer layers.0.behind key=behind
+  hidden atlas layers.0.r.0 key=r
+  hidden atlas layers.0.r.1 key=r
+  hidden atlas layers.0.w.0 key=w
+  hidden atlas layers.0.w.1 key=w
+  hidden atlas layers.0.hover key=hover
+  hidden atlas layers.0.mShake.6.0 key=6
+  hidden atlas layers.0.mScale.4.0 key=4
+  hidden atlas layers.1.r.0 key=r
+  hidden atlas layers.1.r.1 key=r
+  hidden atlas layers.1.w.0 key=w
+  hidden atlas layers.1.w.1 key=w
+  hidden atlas layers.1.hover key=hover
+  hidden atlas layers.1.mScale.4.0 key=4
+  hidden atlas layers.1.mScale.4.1 key=4
+  hidden atlas layers.2.jit key=jit
+  hidden atlas layers.3.jit key=jit
+  hidden forge layers.0.mX.5.0 key=5
+  hidden forge layers.0.mRot.5.0 key=5
+
+JSON {"total":854,"deadVis":[],"hiddenDead":[{"id":"inferno","path":["layers",0,"even"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"even"},{"id":"inferno","path":["layers",0,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"halo","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"halo","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"halo","path":["layers",0,"r",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"halo","path":["layers",0,"r",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"godray","path":["layers",0,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"godray","path":["layers",1,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"standardbearer","path":["layers",0,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"atlas","path":["layers",0,"r",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",0,"r",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",0,"hover"],"kind":"number","value":-0.4,"via":"hidden","view":"figure","ok":false,"key":"hover"},{"id":"atlas","path":["layers",0,"mShake",6,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"6"},{"id":"atlas","path":["layers",0,"mScale",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"atlas","path":["layers",1,"r",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",1,"r",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",1,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",1,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",1,"hover"],"kind":"number","value":-0.4,"via":"hidden","view":"figure","ok":false,"key":"hover"},{"id":"atlas","path":["layers",1,"mScale",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"atlas","path":["layers",1,"mScale",4,1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"atlas","path":["layers",2,"jit"],"kind":"number","value":0.08,"via":"hidden","view":"figure","ok":false,"key":"jit"},{"id":"atlas","path":["layers",3,"jit"],"kind":"number","value":0.06,"via":"hidden","view":"figure","ok":false,"key":"jit"},{"id":"forge","path":["layers",0,"mX",5,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"5"},{"id":"forge","path":["layers",0,"mRot",5,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"5"}]}

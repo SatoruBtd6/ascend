@@ -39,7 +39,7 @@ const SHAPE_SHEET = {
   chainlink: "#CBD5E1",
 };
 
-const FLAG_KEYS = new Set(["flip", "even", "behind", "tw", "bob", "dash", "ink", "dark", "flash", "strike", "calm", "breathe", "glint", "over", "top", "flick", "fan", "artLate"]);
+export const FLAG_KEYS = new Set(["flip", "even", "behind", "tw", "bob", "dash", "ink", "dark", "flash", "strike", "calm", "breathe", "glint", "over", "top", "flick", "fan", "artLate", "rim", "frontOnly"]);
 
 
 // Semantic ranges per field — keyed by spec path so overloaded keys get the
@@ -89,7 +89,7 @@ const SECTION_RANGES = {
   rings: { w: { min: 0.2, max: 12, step: 0.1 } },
   rays: { n: { min: 0, max: 32, step: 1 } },
   sweep: { w: { min: 0.2, max: 6, step: 0.05 }, spd: { min: -5, max: 5, step: 0.01 } },
-  layers: { w: { min: -3, max: 3, step: 0.01 } },
+  layers: { w: { min: -3, max: 3, step: 0.01 }, headSz: { min: 0.1, max: 3, step: 0.01 }, rimSz: { min: 0.1, max: 1.2, step: 0.01 }, rimSink: { min: -0.5, max: 0.8, step: 0.01 }, rimX: { min: -1, max: 1, step: 0.01 } },
 };
 
 // Shape-aware overrides: `sz` on a flame is silhouette px (up to ~150), on an
@@ -100,7 +100,7 @@ const SHAPE_SZ_RANGES = { flame: { min: 1, max: 150, step: 0.1 }, img: { min: 0.
 // spec's own default value, NEVER the live draft value, so the pixel↔value
 // mapping can't move mid-drag (the old value-derived bounds caused the
 // runaway-range / release-snap-back bugs).
-function fieldBounds(path, shape, base) {
+export function fieldBounds(path, shape, base) {
   const last = path[path.length - 1];
   const key = String(typeof last === "number" ? path[path.length - 2] : last);
   if (FLAG_KEYS.has(key)) return { min: 0, max: 1, step: 1 };
@@ -235,10 +235,45 @@ const LAYER_LABELS = {
   over: "Over figure", top: "On top", placed: "Placement", e: "Icons",
   rate: "Wisps per second", max: "Most at once", anchors: "Edge samples",
   hover: "Hover gap", flicker: "Flicker", tongues: "Tongues", shimmer: "Shimmer",
+  headSz: "Size on head", rimSz: "Size on ring", rimSink: "Sink into ring", rimX: "Shift along ring",
+  tremble: "Tremble", frontOnly: "Front only", eject: "Throw particles", wander: "Wander box",
 };
-const SECTION_LABELS = { rays: RAY_LABELS, bolts: BOLT_LABELS, sweep: SWEEP_LABELS, rings: RING_LABELS, corona: CORONA_LABELS };
-const SECTION_TITLES = { rays: "Rays", bolts: "Lightning", sweep: "Sweep", corona: "Corona glow" };
+const FLARE_LABELS = { every: "Seconds between flares", bolt: "Fire a bolt on flare", flashPeak: "Flash brightness", flashLife: "Flash length (s)", flashC: "Flash colour" };
+const SECTION_LABELS = { rays: RAY_LABELS, bolts: BOLT_LABELS, sweep: SWEEP_LABELS, rings: RING_LABELS, corona: CORONA_LABELS, flare: FLARE_LABELS };
+const SECTION_TITLES = { rays: "Rays", bolts: "Lightning", sweep: "Sweep", corona: "Corona glow", flare: "Halo flare" };
 const RANGE_SUFFIX = [" — min", " — max"];
+
+// One-line hints for controls whose name doesn't explain itself.
+const FIELD_HINTS = {
+  spd: "Overall animation speed",
+  glow: "Ambient light around the aura",
+  jit: "Randomness applied to even spacing",
+  at: "Lock the orbit to one angle (0–1 = a full turn)",
+  hover: "Gap between the piece and the head",
+  tw: "Particles fade in and out",
+  sway: "Side-to-side drift while rising",
+  drift: "Sideways push while falling",
+  wave: "Radius wobble while orbiting",
+  even: "Space particles evenly instead of random angles",
+  over: "Draw above the figure/photo instead of behind",
+  headSz: "Width in head-widths — follows the figure",
+  rimSz: "Size on the avatar ring's top edge",
+  rimSink: "How far the piece dips into the ring",
+  rimX: "Slide the piece along the ring's top edge",
+  flashPeak: "Brightness of the strike flash",
+  flashLife: "How long the flash lingers",
+  eject: "Throw particles outward on a timer",
+  tremble: "Fine position jitter",
+  frontOnly: "Hide while orbiting behind the figure",
+  breathe: "Gentle grow/shrink cycle",
+  wobble: "Slow rotation wobble",
+  bob: "Small up/down bob",
+  fan: "Spread rays across the top half",
+  filigree: "Decorative marks around the ring",
+  ink: "Dark outline inside the ring",
+  dash: "Dashed instead of solid ring",
+  calm: "Simpler motion under reduced motion",
+};
 
 function fieldLabel(field, section) {
   const last = field.path[field.path.length - 1];
@@ -373,7 +408,7 @@ function ResetBtn({ onClick, dirty }) {
 // min/max/step are FIXED bounds — they never change while dragging.
 // capMin/capMax clamp only the VALUE (used to keep min<=max inside a pair);
 // the slider's own bounds attributes stay fixed.
-function NumSlider({ label, value, min, max, step, onChange, defaultValue, onReset, capMin, capMax, smallLabel }) {
+function NumSlider({ label, value, min, max, step, onChange, defaultValue, onReset, capMin, capMax, smallLabel, hint }) {
   const [live, push, flush] = useLiveCommit(value, onChange);
   const [text, setText] = useState(null);
   const lo = capMin != null ? Math.max(min, capMin) : min;
@@ -405,6 +440,7 @@ function NumSlider({ label, value, min, max, step, onChange, defaultValue, onRes
       </span>
       <input type="number" min={min} max={max} step={step} value={text ?? shown} onChange={(e) => setText(e.target.value)} onBlur={commitText} onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} style={{ width: 72, background: C.inpBg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 4px" }} />
       {onReset ? <ResetBtn dirty={dirty} onClick={onReset} /> : <span />}
+      {hint && <span style={{ gridColumn: "1 / -1", fontSize: 9, color: C.mute, marginTop: -2 }}>{hint}</span>}
     </label>
   );
 }
@@ -530,7 +566,7 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors, onInstance
 
 // setPath can't create missing intermediate objects — circle override blocks
 // don't exist until first written.
-function setDeep(root, path, value) {
+export function setDeep(root, path, value) {
   const next = cloneSpec(root);
   let cur = next;
   for (let i = 0; i < path.length - 1; i++) {
@@ -592,17 +628,23 @@ function ControlTitle({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 700, color: C.cyan, marginTop: 4 }}>{children}</div>;
 }
 
-function ImagePlacement({ layer, index, onLayer, original }) {
+function ImagePlacement({ layer, index, onLayer, original, overCount = 0 }) {
   const shoulders = layer.placed === "shoulders";
+  const headPlaced = layer.placed === "head";
   const scale = layerScale(layer);
-  const single = layer.n === 1;
+  // placed:head layers take their position from the head anchor — `at`/`r` are
+  // dead there, so a single placed image shifts via the x/y offset instead.
+  const single = layer.n === 1 && !headPlaced;
   const xy = single ? orbitXY(layer) : { x: layer.x || 0, y: layer.y || 0 };
+  const headSized = headPlaced && layer.headSz != null;
+  const headScale = Number(layer.headSz) || 1;
   const isFrameAnim = layer.frames && layer.frames.length > 0;
   const shadow = layer.shadow === true ? {} : layer.shadow || null;
   const orig = original || layer;
   const oShadow = orig.shadow === true ? {} : orig.shadow || null;
-  const oxy = single ? orbitXY(orig) : { x: orig.x || 0, y: orig.y || 0 };
+  const origXY = single ? orbitXY(orig) : { x: orig.x || 0, y: orig.y || 0 };
   const oScale = layerScale(orig);
+  const oHeadScale = Number(orig.headSz) || 1;
   const setLayer = (key, value) => {
     const next = cloneSpec(layer);
     next[key] = value;
@@ -653,13 +695,16 @@ function ImagePlacement({ layer, index, onLayer, original }) {
           ? `Images — ${layer.src.length} files cycle across particles (${[...new Set(layer.src)].map((s) => s.split("/").pop()).join(", ")}) — set in the spec, not editable here.`
           : `Image — ${layer.src} — set in the spec, not editable here.`}</FixedNote>
       )}
-      <NumSlider label="Shift sideways" value={xy.x} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} defaultValue={oxy.x} onReset={() => onLayer(single ? withOrbitXY(layer, oxy.x, xy.y) : withOptional(layer, "x", oxy.x))} />
-      <NumSlider label="Shift up/down" value={xy.y} min={-2} max={2} step={0.01} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} defaultValue={oxy.y} onReset={() => onLayer(single ? withOrbitXY(layer, xy.x, oxy.y) : withOptional(layer, "y", oxy.y))} />
-      {!shoulders && <NumSlider label="Size" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} defaultValue={oScale} onReset={() => onLayer(withScale(layer, oScale))} />}
+      <NumSlider label="Shift sideways" value={xy.x} min={-2} max={2} step={0.01} hint={headPlaced ? "Offset from the figure's head" : undefined} onChange={(v) => onLayer(single ? withOrbitXY(layer, v, xy.y) : withOptional(layer, "x", v))} defaultValue={origXY.x} onReset={() => onLayer(single ? withOrbitXY(layer, origXY.x, xy.y) : withOptional(layer, "x", origXY.x))} />
+      <NumSlider label="Shift up/down" value={xy.y} min={-2} max={2} step={0.01} hint={headPlaced ? "Offset from the figure's head" : undefined} onChange={(v) => onLayer(single ? withOrbitXY(layer, xy.x, v) : withOptional(layer, "y", v))} defaultValue={origXY.y} onReset={() => onLayer(single ? withOrbitXY(layer, xy.x, origXY.y) : withOptional(layer, "y", origXY.y))} />
+      {!shoulders && headSized && <NumSlider label="Size on head" value={headScale} min={0.1} max={3} step={0.01} hint="Width in head-widths — follows the figure" onChange={(v) => setLayer("headSz", v)} defaultValue={oHeadScale} onReset={() => setLayer("headSz", oHeadScale)} />}
+      {!shoulders && !headSized && <NumSlider label="Size" value={scale} min={0.02} max={4} step={0.01} onChange={(v) => onLayer(withScale(layer, v))} defaultValue={oScale} onReset={() => onLayer(withScale(layer, oScale))} />}
+      {!shoulders && layer.rim && <FixedNote>On the avatar ring this piece sizes via “Size on ring” — switch to the avatar-ring view to adjust it.</FixedNote>}
       {!shoulders && <NumSlider label="Rotation" value={layer.rot || 0} min={-1} max={1} step={0.01} onChange={(v) => setLayer("rot", v)} defaultValue={orig.rot || 0} onReset={() => setLayer("rot", orig.rot || 0)} />}
       {!shoulders && <FlagField label="Mirror image" checked={layer.flip} onChange={(v) => setLayer("flip", v)} />}
-      {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayer("blend", v)} />}
-      {!single && <div style={{ fontSize: 10, color: C.mute }}>Sideways/up-down shifts every image in this layer. 1 is one ring radius.</div>}
+      {layer.blend != null && !(layer.over && overCount <= 1) && <BlendSelect value={layer.blend} onChange={(v) => setLayer("blend", v)} />}
+      {layer.blend != null && layer.over && overCount <= 1 && <FixedNote>Blend mode — nothing else draws on the over canvas, so it has no visible effect here.</FixedNote>}
+      {!single && !headPlaced && <div style={{ fontSize: 10, color: C.mute }}>Sideways/up-down shifts every image in this layer. 1 is one ring radius.</div>}
 
       <div data-control-group="frame-animation" style={{ display: "grid", gap: 4 }}>
         <ControlTitle>Frame animation</ControlTitle>
@@ -899,21 +944,92 @@ function FlameControls({ layer, index, onLayer, onRemoveLayer, original }) {
 }
 
 const DEDICATED_LAYER_FIELDS = new Set(["frames", "frameDuration", "fadeLen", "frameMode", "frameOffsets", "shadow", "tongues", "flicker", "shimmer", "shimmerN", "embers"]);
-const IMG_PLACEMENT_FIELDS = new Set(["x", "y", "sz", "rot", "flip"]);
+const IMG_PLACEMENT_FIELDS = new Set(["x", "y", "sz", "rot", "flip", "headSz"]);
 const FLAME_PANEL_FIELDS = new Set(["n", "sz", "a", "rot", "spin"]);
 
-// Fields that do nothing in this layer's context — hidden to keep the editor focused.
-function isDeadField(layer, key) {
+// Moment internals (mY/mRot/mOrbit/…) are spec-level keyframe data — editing
+// them blind produces paths the phase never samples, so they stay out of the
+// slider list entirely (tune via Copy spec instead).
+const MOMENT_INTERNAL = new Set(["mX", "mY", "mRot", "mScale", "mShake", "mSpin", "mR", "mDim", "mOrbit", "mFlings", "mTrail", "mside", "mAmp", "mBurst"]);
+
+// Fields that do nothing in this layer's context — hidden to keep the editor
+// honest: a visible control must change rendered pixels in the current view.
+// `view` is "figure" (body/photo) or "ring" (avatar circle); `overCount` is how
+// many layers share the over canvas (blend is meaningless on a lone layer).
+export function isDeadField(layer, key, { view = "figure", overCount = 0 } = {}) {
   if (key === "even" && (layer.n ?? 1) === 1) return true; // spacing a single particle
   if (key === "jit" && (!layer.even || layer.at != null || layer.placed)) return true; // jitter only applies to even spacing without a fixed angle
-  if (key === "hover" && !layer.placed) return true; // hover gap only applies to placed layers
+  if (key === "behind") return true; // the renderer never reads it — `over` picks the canvas
+  if (key === "spin" && layer.shape !== "img" && layer.shape !== "flame") return true; // non-image shapes only read truthiness, not the value
+  if (key === "c" && layer.shape === "eye") return true; // eye palette is fixed in drawNewParticleShape
+  if (key === "n" && layer.placed === "shoulders") return true; // pauldrons are a fixed pair
+  if (key === "blend" && layer.over && overCount <= 1) return true; // nothing else to blend with on the over canvas
+  if (MOMENT_INTERNAL.has(key)) return true;
+  // hover sets the gap above the head anchor — dead when the piece isn't
+  // head-placed, when wander overrides the anchor position every frame, or on
+  // the avatar ring where the rim branch places it instead.
+  if (key === "hover" && (layer.placed !== "head" || layer.wander || (view === "ring" && layer.rim))) return true;
   if (layer.k === "orbit" && (key === "sp" || key === "life" || key === "sway" || key === "drift")) return true; // rise/fall fields unused by orbit
   if (key === "w" && (layer.at != null || layer.placed) && (Array.isArray(layer.w) ? layer.w : [layer.w]).every((v) => !v)) return true; // anchored — orbit speed would un-anchor it
+  if (layer.placed === "head") {
+    // head-anchored pieces take position and size from anchors — orbit radius,
+    // fixed angle, and the generic size field never reach the draw.
+    if (key === "r" || key === "at") return true;
+    if (key === "sz" && (view === "ring" ? (layer.rim && layer.rimSz != null) : layer.headSz != null)) return true;
+    // on the avatar ring a `rim` piece uses rimSz/rimSink — head fields are dead there
+    if (view === "ring" && layer.rim && (key === "headSz" || key === "hover")) return true;
+  }
+  // rim* only takes effect on the avatar ring's top edge — dead on figures
+  if (view !== "ring" && (key === "rim" || key === "rimSz" || key === "rimSink" || key === "rimX")) return true;
   return false;
 }
-const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
-const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink"];
-const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
+export const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
+export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink"];
+export const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
+
+// The exact field list SpecEditor renders for a spec — exported so the
+// gallery effect test can cover every visible control without duplicating
+// the filter rules.
+export function editorFields(spec, circleMode) {
+  const view = circleMode ? "ring" : "figure";
+  const viewLayers = circleMode
+    ? (spec.layers || []).map((l) => { const v = { ...l, ...(l.circle || {}) }; delete v.circle; return v; })
+    : spec.layers || [];
+  const imgIndexes = new Set(viewLayers.map((l, i) => (l?.shape === "img" ? i : -1)).filter((i) => i >= 0));
+  const flameIndexes = new Set(viewLayers.map((l, i) => (l?.shape === "flame" ? i : -1)).filter((i) => i >= 0));
+  const overCount = viewLayers.filter((l) => l?.over).length;
+  return specFields(circleMode ? { layers: viewLayers } : spec).filter((field) => {
+    if (circleMode && field.path[0] !== "layers") return false; // only layer fields are per-mode
+    const topKey = field.path[field.path.length - 1];
+    const named = typeof topKey === "number" ? field.path[field.path.length - 2] : topKey;
+    // moment internals are spec-level keyframe data — not slider material
+    if (field.path[0] === "moment") return false;
+    // glow is ignored by the dark-mode branch
+    if (field.path[0] === "glow" && spec.dark) return false;
+    // flare.bolt only does anything when a bolts spec exists to spawn from
+    if (field.path[0] === "flare" && named === "bolt" && !spec.bolts) return false;
+    if (field.path[0] === "layers") {
+      const i = field.path[1], key = field.path[2];
+      if (key === "circle") return false; // managed via the Avatar-ring mode toggle
+      if (circleMode && CIRCLE_LOCKED_KEYS.has(key)) return false;
+      if (!circleMode && imgIndexes.has(i)) {
+        if (DEDICATED_LAYER_FIELDS.has(key) || IMG_PLACEMENT_FIELDS.has(key)) return false;
+        if (viewLayers[i].n === 1 && (key === "at" || key === "r")) return false;
+      }
+      if (!circleMode && flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
+      // on the small avatar ring the wander roam is clamped to a horizontal
+      // line — the vertical-roam fields (sy/top/bot) can't move it there
+      if (key === "wander" && view === "ring" && ["sy", "top", "bot"].includes(field.path[3])) return false;
+      if (isDeadField(viewLayers[i], key, { view, overCount })) return false;
+    }
+    if (field.path[0] === "rings") {
+      if (DEDICATED_RING_FIELDS.has(field.path[2])) return false;
+      // a cycling ring colour overrides the static one every frame
+      if (named === "c" && spec.rings?.[field.path[1]]?.colorCycle) return false;
+    }
+    return true;
+  });
+}
 
 function SelectRow({ label, value, options, onChange }) {
   return (
@@ -931,7 +1047,7 @@ function FixedNote({ children }) {
   return <div style={{ fontSize: 10, color: C.mute, fontStyle: "italic" }}>{children}</div>;
 }
 
-const BLEND_OPTIONS = [["source-over", "Normal"], ["lighter", "Additive glow"], ["screen", "Screen"], ["multiply", "Multiply"]];
+export const BLEND_OPTIONS = [["source-over", "Normal"], ["lighter", "Additive glow"], ["screen", "Screen"], ["multiply", "Multiply"]];
 function BlendSelect({ label = "Blend mode", value, onChange }) {
   const options = BLEND_OPTIONS.some(([v]) => v === value) ? BLEND_OPTIONS : [[value, titleCase(value)], ...BLEND_OPTIONS];
   return <SelectRow label={label} value={value || "source-over"} options={options} onChange={onChange} />;
@@ -952,8 +1068,9 @@ const SpecField = memo(function SpecField({ field, section, onPath, shape, defau
   const baseRef = useRef();
   if (baseRef.current === undefined) baseRef.current = Number.isFinite(defaultValue) ? defaultValue : field.value;
   const bounds = fieldBounds(field.path, shape, baseRef.current);
+  const hintKey = typeof key === "number" ? field.path[field.path.length - 2] : key;
   return <NumSlider label={label} value={field.value} min={bounds.min} max={bounds.max} step={bounds.step}
-    onChange={(v) => onPath(field.path, v)} defaultValue={defaultValue} onReset={onReset} />;
+    onChange={(v) => onPath(field.path, v)} defaultValue={defaultValue} onReset={onReset} hint={FIELD_HINTS[hintKey]} />;
 }, (prev, next) =>
   prev.section === next.section && prev.onPath === next.onPath && prev.shape === next.shape &&
   prev.defaultValue === next.defaultValue && prev.onReset === next.onReset &&
@@ -995,6 +1112,29 @@ function SpecSection({ title, children }) {
   );
 }
 
+// "Basic" = size, position, colour, speed, count — everything else tucks into
+// a collapsed Advanced block so the common controls stay one glance away.
+const BASIC_KEYS = new Set(["spd", "glow", "n", "sz", "headSz", "rimSz", "x", "y", "at", "r", "hover", "c", "a", "w", "sp", "spin", "rot", "len"]);
+function isBasicItem(item) {
+  const f = item.type === "pair" ? item.lo : item.field;
+  const last = f.path[f.path.length - 1];
+  const key = typeof last === "number" ? f.path[f.path.length - 2] : last;
+  return BASIC_KEYS.has(key);
+}
+function AdvBlock({ items, render }) {
+  if (!items.length) return null;
+  return (
+    <details style={{ marginTop: 2 }}>
+      <summary style={{ fontSize: 10, color: C.mute, cursor: "pointer", userSelect: "none" }}>Advanced ({items.length})</summary>
+      <div style={{ display: "grid", gap: 4, paddingTop: 4 }}>{items.map(render)}</div>
+    </details>
+  );
+}
+function BasicAdv({ items, render }) {
+  const basics = items.filter(isBasicItem), advs = items.filter((i) => !isBasicItem(i));
+  return <>{basics.map(render)}<AdvBlock items={advs} render={render} /></>;
+}
+
 // Layer keys that stay structural/shared — not overridable per render mode.
 const CIRCLE_LOCKED_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "circle"]);
 
@@ -1020,26 +1160,12 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
   const isOverridden = (i, key) => !!(baseLayers[i]?.circle && Object.prototype.hasOwnProperty.call(baseLayers[i].circle, key));
   const imgIndexes = new Set(rows.filter((row) => row.layer?.shape === "img").map((row) => row.index));
   const flameIndexes = new Set(rows.filter((row) => row.layer?.shape === "flame").map((row) => row.index));
-  const fields = specFields(circleMode ? { layers: viewLayers } : spec).filter((field) => {
-    if (circleMode && field.path[0] !== "layers") return false; // only layer fields are per-mode
-    if (field.path[0] === "layers") {
-      const i = field.path[1], key = field.path[2];
-      if (key === "circle") return false; // managed via the Avatar-ring mode toggle
-      if (circleMode && CIRCLE_LOCKED_KEYS.has(key)) return false;
-      if (!circleMode && imgIndexes.has(i)) {
-        if (DEDICATED_LAYER_FIELDS.has(key) || IMG_PLACEMENT_FIELDS.has(key)) return false;
-        if (rows[i].layer.n === 1 && (key === "at" || key === "r")) return false;
-      }
-      if (!circleMode && flameIndexes.has(i) && (DEDICATED_LAYER_FIELDS.has(key) || FLAME_PANEL_FIELDS.has(key) || key === "c")) return false;
-      if (isDeadField(rows[i].layer, key)) return false;
-    }
-    if (field.path[0] === "rings" && DEDICATED_RING_FIELDS.has(field.path[2])) return false;
-    return true;
-  });
+  const overCount = viewLayers.filter((l) => l?.over).length;
+  const fields = editorFields(spec, circleMode);
   const overall = fields.filter((f) => f.path.length === 1);
   const layerFields = new Map();
   const ringFields = new Map();
-  const sectioned = { rays: [], bolts: [], sweep: [], corona: [] };
+  const sectioned = { rays: [], bolts: [], sweep: [], corona: [], flare: [] };
   for (const f of fields) {
     if (f.path.length === 1) continue;
     if (f.path[0] === "layers") {
@@ -1050,9 +1176,19 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
       ringFields.get(f.path[1]).push(f);
     } else if (sectioned[f.path[0]]) sectioned[f.path[0]].push(f);
   }
+  // Fields a motion kind needs to spawn without crashing — merged in when the
+  // Motion dropdown switches a layer to a kind it doesn't yet carry fields for.
+  const KIND_NEEDS = {
+    rise: { sp: [6, 12], life: [1.8, 2.8], sway: 6 },
+    bubble: { sp: [4, 9], life: [2, 3.5], sway: 9 },
+    fall: { sp: [8, 16], life: [1.5, 3], drift: 4 },
+    inward: { sp: [0.4, 0.9], life: [1.5, 2.5] },
+    orbit: { w: [0.1, 0.4], r: [1, 1.2] },
+  };
   const setLayerKey = (index, key, value) => {
     const next = cloneSpec(rows[index].layer);
     next[key] = value;
+    if (key === "k") for (const [need, def] of Object.entries(KIND_NEEDS[value] || {})) if (next[need] == null) next[need] = cloneSpec(def);
     onLayer(index, next);
   };
   // Stable callback so memoized SpecField rows skip unchanged controls.
@@ -1156,12 +1292,12 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
     <div style={{ display: "grid", gap: 6 }}>
       {circleMode && (
         <div style={{ fontSize: 11, color: C.cyan, background: C.accentBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px" }}>
-          Editing <b>avatar-ring overrides</b> — these values apply only to the profile/ring view. ● = overridden, ○ = inherits base. The figure stage still shows the base spec.
+          <b>Avatar-ring overrides</b> — these apply only to the profile/ring view. ● = overridden, ○ = inherits the body-figure value. Switch to “Body figure” to edit the base spec.
         </div>
       )}
       {overall.length > 0 && (
         <SpecSection title="Overall">
-          {groupPairs(overall).map((item) => renderItem(item, "overall"))}
+          <BasicAdv items={groupPairs(overall)} render={(item) => renderItem(item, "overall")} />
         </SpecSection>
       )}
       {spec.art === "ophanim" && (
@@ -1186,13 +1322,14 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
             {!circleMode && overrideCount > 0 && (
               <FixedNote>{overrideCount} avatar-ring override{overrideCount === 1 ? "" : "s"} — switch to “Avatar ring” mode to edit.</FixedNote>
             )}
-            {!circleMode && imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} original={origViewLayers[index]} onLayer={(next) => onLayer(index, next)} />}
+            {!circleMode && imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} original={origViewLayers[index]} overCount={overCount} onLayer={(next) => onLayer(index, next)} />}
             {!circleMode && flameIndexes.has(index) && <FlameControls layer={layer} index={index} original={origViewLayers[index]} onLayer={(next) => onLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}
             {!circleMode && isParticles && (
               <>
                 <SelectRow label="Motion" value={layer.k || "orbit"} options={LAYER_KIND_OPTIONS.map((k) => [k, KIND_NAMES[k] || titleCase(k)])} onChange={(v) => setLayerKey(index, "k", v)} />
                 <SelectRow label="Shape" value={layer.shape || "dot"} options={(LAYER_SHAPE_OPTIONS.includes(layer.shape) ? LAYER_SHAPE_OPTIONS : [layer.shape, ...LAYER_SHAPE_OPTIONS]).map((s) => [s, SHAPE_NAMES[s] || titleCase(s)])} onChange={(v) => setLayerKey(index, "shape", v)} />
-                {layer.blend != null && <BlendSelect value={layer.blend} onChange={(v) => setLayerKey(index, "blend", v)} />}
+                {layer.blend != null && !(layer.over && overCount <= 1) && <BlendSelect value={layer.blend} onChange={(v) => setLayerKey(index, "blend", v)} />}
+                {layer.blend != null && layer.over && overCount <= 1 && <FixedNote>Blend mode — nothing else draws on the over canvas, so it has no visible effect here.</FixedNote>}
               </>
             )}
             {!circleMode && Array.isArray(layer.e) && layer.e.length > 0 && (
@@ -1201,13 +1338,13 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
             {LAYER_GROUPS.map(([gid]) => groups.has(gid) && (
               <div key={gid}>
                 <ControlTitle>{LAYER_GROUP_TITLES[gid]}</ControlTitle>
-                {groupPairs(groups.get(gid)).map((item) => renderItem(item, "layer"))}
+                <BasicAdv items={groupPairs(groups.get(gid))} render={(item) => renderItem(item, "layer")} />
               </div>
             ))}
             {groups.has("other") && (
               <div>
                 <ControlTitle>{LAYER_GROUP_TITLES.other}</ControlTitle>
-                {groupPairs(groups.get("other")).map((item) => renderItem(item, "layer"))}
+                <BasicAdv items={groupPairs(groups.get("other"))} render={(item) => renderItem(item, "layer")} />
               </div>
             )}
           </div>
@@ -1216,7 +1353,7 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
       {!circleMode && <button type="button" onClick={() => onAddLayer({ k: "orbit", n: 1, shape: "flame", r: [0, 0], w: [0, 0], sz: [12, 12], a: 0.96, tongues: 6, c: ["#FF5A1F", "#FFB43C", "#FFF6C9"], flicker: 0.24, shimmerN: 3, embers: { n: 8, sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8, c: ["#FFB43C", "#FFF6C9"] } })} style={{ ...chip(false), justifySelf: "start", fontSize: 11 }}>Add flame layer</button>}
       {!circleMode && Object.entries(sectioned).map(([id, list]) => (list.length > 0 || (id === "bolts" && spec.bolts?.from)) && (
         <SpecSection key={id} title={SECTION_TITLES[id]}>
-          {groupPairs(list).map((item) => renderItem(item, id))}
+          <BasicAdv items={groupPairs(list)} render={(item) => renderItem(item, id)} />
           {id === "bolts" && spec.bolts?.from && (
             <FixedNote>Strike direction — “{spec.bolts.from}” — set in the spec, not editable here.</FixedNote>
           )}
@@ -1225,7 +1362,7 @@ function SpecEditor({ spec, original, onPath, onLayer, onAddLayer, onRemoveLayer
       {!circleMode && (spec.rings || []).map((ring, index) => (
         <div key={index} data-control-group={`ring-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Ring {index + 1}</div>
-          {groupPairs(ringFields.get(index) || []).map((item) => renderItem(item, "rings"))}
+          <BasicAdv items={groupPairs(ringFields.get(index) || [])} render={(item) => renderItem(item, "rings")} />
           <RingCycleControls ring={ring} index={index} original={origSpec.rings?.[index]} onRing={(next) => onPath(["rings", index], next)} />
         </div>
       ))}
@@ -1527,17 +1664,37 @@ export function DevAuraGallery() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start", paddingTop: barH + 12, paddingRight: 16, paddingBottom: 88, paddingLeft: 16, scrollMarginTop: barH + 12 }}>
           <div style={{ flex: "0 0 auto" }}>
             <button type="button" onClick={() => { setSelected(null); setCopied(""); }} style={{ ...chip(false), marginBottom: 8 }}>All auras</button>
-            {stageFor(selected)}
+            <div style={{ fontSize: 10, color: C.mute, marginBottom: 4 }}>Preview — {editMode === "circle" ? "avatar ring" : "body figure"}</div>
+            {editMode === "circle" ? (
+              <CircleStage
+                aura={selected}
+                px={Math.max(size.cpx, 141)}
+                ring={size.ring}
+                facePx={size.avatar}
+                canvasKey={`v-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
+                photo={backdrop.kind === "photo" ? photo : null}
+                letter="A"
+                showAnchors={showAnchors}
+              />
+            ) : (
+              <FigureStage
+                aura={selected}
+                px={size.px}
+                figure={backdrop.kind === "photo" && photo ? photo : backdrop.kind === "figure" ? backdrop.src : lastFig.current}
+                canvasKey={`v-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
+                showAnchors={showAnchors}
+              />
+            )}
             {specFor(selected)?.moment && (
               <button type="button" onClick={() => fireAuraMoment(selected)} style={{ ...chip(false), marginTop: 8, fontSize: 12 }}>▶ Play moment</button>
             )}
             <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700 }}>{selectedAura.name}</div>
             <div style={{ fontSize: 11, color: C.dim }}>{selectedAura.rarity || selectedAura.group} · {selectedAura.id}</div>
-            {profilePreview}
+            {editMode === "circle" && profilePreview}
           </div>
           <div style={{ flex: "1 1 340px", minWidth: 280, maxHeight: "calc(100dvh - 120px)", overflow: "auto", paddingBottom: 24 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <button type="button" onClick={() => copySpec(selected)} style={chip(false)}>{copied || "Copy spec"}</button>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <button type="button" onClick={() => copySpec(selected)} style={{ ...chip(true), fontWeight: 700, padding: "6px 14px" }}>{copied || "⧉ Copy spec"}</button>
               <button type="button" onClick={() => {
                 setDrafts((d) => {
                   if (!d[selected]) return d;
@@ -1547,9 +1704,9 @@ export function DevAuraGallery() {
                 });
                 setRevs((r) => ({ ...r, [selected]: (r[selected] || 0) + 1 }));
               }} style={chip(false)}>Reset</button>
-              <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11, color: C.mute }}>
+              <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11, color: C.mute, marginLeft: "auto" }}>
                 Editing:
-                {barBtn(editMode === "base", "Base (all modes)", () => setEditMode("base"))}
+                {barBtn(editMode === "base", "Body figure", () => setEditMode("base"))}
                 {barBtn(editMode === "circle", "Avatar ring", () => setEditMode("circle"))}
               </span>
             </div>

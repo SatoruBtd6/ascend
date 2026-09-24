@@ -1,0 +1,80 @@
+ember: 50 controls — 0 dead
+tide: 44 controls — 1 dead  [layers.1.k@figure CRASH]
+storm: 52 controls — 1 dead  [layers.0.k@figure CRASH]
+inferno: 83 controls — 3 dead  [layers.0.behind@figure, layers.0.behind@ring, layers.0.even@figure]
+halo: 74 controls — 8 dead  [layers.0.r.0@figure, layers.0.r.1@figure, layers.1.k@figure CRASH, layers.2.k@figure CRASH, layers.0.r.0@ring, layers.0.r.1@ring, layers.0.w.0@figure, layers.0.w.1@figure]
+godray: 103 controls — 5 dead  [layers.0.behind@figure, layers.1.behind@figure, layers.3.k@figure CRASH, layers.0.behind@ring, layers.1.behind@ring]
+smolder: 75 controls — 1 dead  [layers.2.k@figure CRASH]
+stormborn: 49 controls — 1 dead  [layers.1.k@figure CRASH]
+dawn: 34 controls — 0 dead
+wanderer: 50 controls — 1 dead  [layers.0.k@figure CRASH]
+standardbearer: 54 controls — 2 dead  [layers.0.behind@figure, layers.0.behind@ring]
+atlas: 417 controls — 31 dead  [layers.0.hover@figure, layers.0.mShake.6.0@figure, layers.0.mScale.4.0@figure, layers.1.hover@figure, layers.1.mScale.4.0@figure, layers.1.mScale.4.1@figure, layers.0.r.0@figure, layers.0.r.1@figure, layers.1.r.0@figure, layers.1.r.1@figure, layers.2.k@figure CRASH, layers.3.k@figure CRASH, layers.0.r.0@ring, layers.0.r.1@ring, layers.0.hover@ring, layers.0.mShake.6.0@ring, layers.0.mScale.4.0@ring, layers.1.r.0@ring, layers.1.r.1@ring, layers.1.hover@ring, layers.1.wander.sy@ring, layers.1.wander.top@ring, layers.1.wander.bot@ring, layers.1.mScale.4.0@ring, layers.1.mScale.4.1@ring, layers.0.w.0@figure, layers.0.w.1@figure, layers.1.w.0@figure, layers.1.w.1@figure, layers.2.jit@figure, layers.3.jit@figure]
+forge: 216 controls — 6 dead  [layers.0.mX.5.0@figure, layers.0.mRot.5.0@figure, layers.0.blend@figure, layers.2.k@figure CRASH, layers.0.mX.5.0@ring, layers.0.mRot.5.0@ring]
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 1276
+dead visible controls: 51
+  DEAD tide layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD storm layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD inferno layers.0.behind (field) view=figure
+  DEAD inferno layers.0.behind (field) view=ring
+  DEAD halo layers.0.r.0 (img panel) view=figure
+  DEAD halo layers.0.r.1 (img panel) view=figure
+  DEAD halo layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD halo layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD halo layers.0.r.0 (field) view=ring
+  DEAD halo layers.0.r.1 (field) view=ring
+  DEAD godray layers.0.behind (field) view=figure
+  DEAD godray layers.1.behind (field) view=figure
+  DEAD godray layers.3.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD godray layers.0.behind (field) view=ring
+  DEAD godray layers.1.behind (field) view=ring
+  DEAD smolder layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD stormborn layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD wanderer layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD standardbearer layers.0.behind (field) view=figure
+  DEAD standardbearer layers.0.behind (field) view=ring
+  DEAD atlas layers.0.hover (field) view=figure
+  DEAD atlas layers.0.mShake.6.0 (field) view=figure
+  DEAD atlas layers.0.mScale.4.0 (field) view=figure
+  DEAD atlas layers.1.hover (field) view=figure
+  DEAD atlas layers.1.mScale.4.0 (field) view=figure
+  DEAD atlas layers.1.mScale.4.1 (field) view=figure
+  DEAD atlas layers.0.r.0 (img panel) view=figure
+  DEAD atlas layers.0.r.1 (img panel) view=figure
+  DEAD atlas layers.1.r.0 (img panel) view=figure
+  DEAD atlas layers.1.r.1 (img panel) view=figure
+  DEAD atlas layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD atlas layers.3.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD atlas layers.0.r.0 (field) view=ring
+  DEAD atlas layers.0.r.1 (field) view=ring
+  DEAD atlas layers.0.hover (field) view=ring
+  DEAD atlas layers.0.mShake.6.0 (field) view=ring
+  DEAD atlas layers.0.mScale.4.0 (field) view=ring
+  DEAD atlas layers.1.r.0 (field) view=ring
+  DEAD atlas layers.1.r.1 (field) view=ring
+  DEAD atlas layers.1.hover (field) view=ring
+  DEAD atlas layers.1.wander.sy (field) view=ring
+  DEAD atlas layers.1.wander.top (field) view=ring
+  DEAD atlas layers.1.wander.bot (field) view=ring
+  DEAD atlas layers.1.mScale.4.0 (field) view=ring
+  DEAD atlas layers.1.mScale.4.1 (field) view=ring
+  DEAD forge layers.0.mX.5.0 (field) view=figure
+  DEAD forge layers.0.mRot.5.0 (field) view=figure
+  DEAD forge layers.0.blend (select) view=figure
+  DEAD forge layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD forge layers.0.mX.5.0 (field) view=ring
+  DEAD forge layers.0.mRot.5.0 (field) view=ring
+hidden spec fields with no rendered effect: 9
+  hidden inferno layers.0.even key=even
+  hidden halo layers.0.w.0 key=w
+  hidden halo layers.0.w.1 key=w
+  hidden atlas layers.0.w.0 key=w
+  hidden atlas layers.0.w.1 key=w
+  hidden atlas layers.1.w.0 key=w
+  hidden atlas layers.1.w.1 key=w
+  hidden atlas layers.2.jit key=jit
+  hidden atlas layers.3.jit key=jit
+
+JSON {"total":1276,"deadVis":[{"id":"tide","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"storm","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"inferno","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"flame","view":"figure","ok":false,"key":"behind"},{"id":"inferno","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"flame","view":"ring","ok":false,"key":"behind"},{"id":"halo","path":["layers",0,"r",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"halo","path":["layers",0,"r",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"halo","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"halo","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"halo","path":["layers",0,"r",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"halo","path":["layers",0,"r",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"godray","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"godray","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"godray","path":["layers",3,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"godray","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"godray","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"smolder","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"stormborn","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"wanderer","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"standardbearer","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"standardbearer","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"atlas","path":["layers",0,"hover"],"kind":"number","value":-0.4,"via":"field","shape":"img","view":"figure","ok":false,"key":"hover"},{"id":"atlas","path":["layers",0,"mShake",6,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"6"},{"id":"atlas","path":["layers",0,"mScale",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"atlas","path":["layers",1,"hover"],"kind":"number","value":-0.4,"via":"field","shape":"img","view":"figure","ok":false,"key":"hover"},{"id":"atlas","path":["layers",1,"mScale",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"atlas","path":["layers",1,"mScale",4,1],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"atlas","path":["layers",0,"r",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",0,"r",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",1,"r",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",1,"r",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"atlas","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"atlas","path":["layers",3,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"atlas","path":["layers",0,"r",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"atlas","path":["layers",0,"r",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"atlas","path":["layers",0,"hover"],"kind":"number","value":0.51,"via":"field","shape":"img","view":"ring","ok":false,"key":"hover"},{"id":"atlas","path":["layers",0,"mShake",6,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"6"},{"id":"atlas","path":["layers",0,"mScale",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"atlas","path":["layers",1,"r",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"atlas","path":["layers",1,"r",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"atlas","path":["layers",1,"hover"],"kind":"number","value":0.51,"via":"field","shape":"img","view":"ring","ok":false,"key":"hover"},{"id":"atlas","path":["layers",1,"wander","sy"],"kind":"number","value":0.85,"via":"field","shape":"img","view":"ring","ok":false,"key":"sy"},{"id":"atlas","path":["layers",1,"wander","top"],"kind":"number","value":0.72,"via":"field","shape":"img","view":"ring","ok":false,"key":"top"},{"id":"atlas","path":["layers",1,"wander","bot"],"kind":"number","value":0.62,"via":"field","shape":"img","view":"ring","ok":false,"key":"bot"},{"id":"atlas","path":["layers",1,"mScale",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"atlas","path":["layers",1,"mScale",4,1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"forge","path":["layers",0,"mX",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"5"},{"id":"forge","path":["layers",0,"mRot",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"5"},{"id":"forge","path":["layers",0,"blend"],"kind":"select","value":"source-over","options":["source-over","lighter","screen","multiply"],"via":"select","view":"figure","ok":false,"key":"blend"},{"id":"forge","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"forge","path":["layers",0,"mX",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"5"},{"id":"forge","path":["layers",0,"mRot",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"5"}],"hiddenDead":[{"id":"inferno","path":["layers",0,"even"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"even"},{"id":"halo","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"halo","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",1,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",1,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"atlas","path":["layers",2,"jit"],"kind":"number","value":0.08,"via":"hidden","view":"figure","ok":false,"key":"jit"},{"id":"atlas","path":["layers",3,"jit"],"kind":"number","value":0.06,"via":"hidden","view":"figure","ok":false,"key":"jit"}]}

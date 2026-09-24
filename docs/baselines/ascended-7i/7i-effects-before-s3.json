@@ -1,0 +1,67 @@
+void: 52 controls — 1 dead  [layers.1.k@figure CRASH]
+yogurt: 42 controls — 1 dead  [layers.0.k@figure CRASH]
+vendetta: 75 controls — 1 dead  [layers.2.k@figure CRASH]
+champion: 83 controls — 9 dead  [layers.1.spin@figure, layers.0.r.0@figure, layers.0.r.1@figure, layers.2.k@figure CRASH, layers.0.r.0@ring, layers.0.r.1@ring, layers.1.spin@ring, layers.0.w.0@figure, layers.0.w.1@figure]
+ascended: 100 controls — 7 dead  [layers.0.c.0@figure, layers.1.c.0@figure, layers.0.k@figure CRASH, layers.1.k@figure CRASH, layers.2.k@figure CRASH, layers.0.c.0@ring, layers.1.c.0@ring]
+soon_throne: 29 controls — 1 dead  [layers.0.k@figure CRASH]
+soon_seraphim: 29 controls — 1 dead  [layers.0.k@figure CRASH]
+huntersmoon: 141 controls — 3 dead  [corona.inner@figure, corona.outer@figure, layers.4.k@figure CRASH]
+wheel: 123 controls — 5 dead  [layers.0.c.0@figure, layers.0.k@figure CRASH, layers.1.k@figure CRASH, layers.2.k@figure CRASH, layers.0.c.0@ring]
+sigil: 28 controls — 0 dead
+glassfire: 28 controls — 0 dead
+crownfall: 96 controls — 17 dead  [layers.0.rim@figure, layers.0.rimSz@figure, layers.0.rimSink@figure, layers.0.r.0@figure, layers.0.r.1@figure, layers.0.sz.0@figure, layers.0.sz.1@figure, layers.0.blend@figure, layers.2.k@figure CRASH, layers.0.headSz@ring, layers.0.r.0@ring, layers.0.r.1@ring, layers.0.sz.0@ring, layers.0.sz.1@ring, layers.0.hover@ring, layers.0.w.0@figure, layers.0.w.1@figure]
+eclipseheart: 155 controls — 1 dead  [layers.2.k@figure CRASH]
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 975
+dead visible controls: 43
+  DEAD void layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD yogurt layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD vendetta layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD champion layers.1.spin (field) view=figure
+  DEAD champion layers.0.r.0 (img panel) view=figure
+  DEAD champion layers.0.r.1 (img panel) view=figure
+  DEAD champion layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD champion layers.0.r.0 (field) view=ring
+  DEAD champion layers.0.r.1 (field) view=ring
+  DEAD champion layers.1.spin (field) view=ring
+  DEAD ascended layers.0.c.0 (field) view=figure
+  DEAD ascended layers.1.c.0 (field) view=figure
+  DEAD ascended layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ascended layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ascended layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ascended layers.0.c.0 (field) view=ring
+  DEAD ascended layers.1.c.0 (field) view=ring
+  DEAD soon_throne layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD soon_seraphim layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD huntersmoon corona.inner (field) view=figure
+  DEAD huntersmoon corona.outer (field) view=figure
+  DEAD huntersmoon layers.4.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD wheel layers.0.c.0 (field) view=figure
+  DEAD wheel layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD wheel layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD wheel layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD wheel layers.0.c.0 (field) view=ring
+  DEAD crownfall layers.0.rim (field) view=figure
+  DEAD crownfall layers.0.rimSz (field) view=figure
+  DEAD crownfall layers.0.rimSink (field) view=figure
+  DEAD crownfall layers.0.r.0 (img panel) view=figure
+  DEAD crownfall layers.0.r.1 (img panel) view=figure
+  DEAD crownfall layers.0.sz.0 (img panel) view=figure
+  DEAD crownfall layers.0.sz.1 (img panel) view=figure
+  DEAD crownfall layers.0.blend (select) view=figure
+  DEAD crownfall layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD crownfall layers.0.headSz (field) view=ring
+  DEAD crownfall layers.0.r.0 (field) view=ring
+  DEAD crownfall layers.0.r.1 (field) view=ring
+  DEAD crownfall layers.0.sz.0 (field) view=ring
+  DEAD crownfall layers.0.sz.1 (field) view=ring
+  DEAD crownfall layers.0.hover (field) view=ring
+  DEAD eclipseheart layers.2.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+hidden spec fields with no rendered effect: 4
+  hidden champion layers.0.w.0 key=w
+  hidden champion layers.0.w.1 key=w
+  hidden crownfall layers.0.w.0 key=w
+  hidden crownfall layers.0.w.1 key=w
+
+JSON {"total":975,"deadVis":[{"id":"void","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"yogurt","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"vendetta","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"champion","path":["layers",1,"spin"],"kind":"number","value":1,"via":"field","shape":"square","view":"figure","ok":false,"key":"spin"},{"id":"champion","path":["layers",0,"r",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"champion","path":["layers",0,"r",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"champion","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"champion","path":["layers",0,"r",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"champion","path":["layers",0,"r",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"champion","path":["layers",1,"spin"],"kind":"number","value":1,"via":"field","shape":"square","view":"ring","ok":false,"key":"spin"},{"id":"ascended","path":["layers",0,"c",0],"kind":"color","value":"#7DF9FF","via":"field","shape":"eye","view":"figure","ok":false,"key":"c"},{"id":"ascended","path":["layers",1,"c",0],"kind":"color","value":"#FFD447","via":"field","shape":"eye","view":"figure","ok":false,"key":"c"},{"id":"ascended","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ascended","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ascended","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ascended","path":["layers",0,"c",0],"kind":"color","value":"#7DF9FF","via":"field","shape":"eye","view":"ring","ok":false,"key":"c"},{"id":"ascended","path":["layers",1,"c",0],"kind":"color","value":"#FFD447","via":"field","shape":"eye","view":"ring","ok":false,"key":"c"},{"id":"soon_throne","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"soon_seraphim","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"huntersmoon","path":["corona","inner"],"kind":"color","value":"#E4E8F2","via":"field","view":"figure","ok":false,"key":"inner"},{"id":"huntersmoon","path":["corona","outer"],"kind":"color","value":"#7A0018","via":"field","view":"figure","ok":false,"key":"outer"},{"id":"huntersmoon","path":["layers",4,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"wheel","path":["layers",0,"c",0],"kind":"color","value":"#FFFFFF","via":"field","shape":"eye","view":"figure","ok":false,"key":"c"},{"id":"wheel","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"wheel","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"wheel","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"wheel","path":["layers",0,"c",0],"kind":"color","value":"#FFFFFF","via":"field","shape":"eye","view":"ring","ok":false,"key":"c"},{"id":"crownfall","path":["layers",0,"rim"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"rim"},{"id":"crownfall","path":["layers",0,"rimSz"],"kind":"number","value":1.05,"via":"field","shape":"img","view":"figure","ok":false,"key":"rimSz"},{"id":"crownfall","path":["layers",0,"rimSink"],"kind":"number","value":0.12,"via":"field","shape":"img","view":"figure","ok":false,"key":"rimSink"},{"id":"crownfall","path":["layers",0,"r",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"crownfall","path":["layers",0,"r",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"crownfall","path":["layers",0,"sz",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"sz"},{"id":"crownfall","path":["layers",0,"sz",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"sz"},{"id":"crownfall","path":["layers",0,"blend"],"kind":"select","value":"source-over","options":["source-over","lighter","screen","multiply"],"via":"select","view":"figure","ok":false,"key":"blend"},{"id":"crownfall","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"crownfall","path":["layers",0,"headSz"],"kind":"number","value":3.2,"via":"field","shape":"img","view":"ring","ok":false,"key":"headSz"},{"id":"crownfall","path":["layers",0,"r",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"crownfall","path":["layers",0,"r",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"crownfall","path":["layers",0,"sz",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"sz"},{"id":"crownfall","path":["layers",0,"sz",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"sz"},{"id":"crownfall","path":["layers",0,"hover"],"kind":"number","value":-0.3,"via":"field","shape":"img","view":"ring","ok":false,"key":"hover"},{"id":"eclipseheart","path":["layers",2,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"}],"hiddenDead":[{"id":"champion","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"champion","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"crownfall","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"crownfall","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"}]}

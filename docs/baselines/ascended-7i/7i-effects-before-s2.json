@@ -1,0 +1,96 @@
+fallenlight: 383 controls — 18 dead  [layers.0.mY.4.0@figure, layers.0.mRot.4.0@figure, layers.0.mDim.4.0@figure, layers.1.mY.5.0@figure, layers.1.mRot.4.0@figure, layers.0.r.0@figure, layers.0.r.1@figure, layers.6.k@figure CRASH, layers.0.r.0@ring, layers.0.r.1@ring, layers.0.mY.4.0@ring, layers.0.mRot.4.0@ring, layers.0.mDim.4.0@ring, layers.1.mY.5.0@ring, layers.1.mRot.4.0@ring, layers.0.w.0@figure, layers.0.w.1@figure, layers.6.jit@figure]
+ossuary: 601 controls — 41 dead  [moment.every.0@figure, layers.0.mY.4.0@figure, layers.0.mRot.4.0@figure, layers.1.behind@figure, layers.1.mY.4.0@figure, layers.1.mRot.4.0@figure, layers.1.mR.5.0@figure, layers.2.behind@figure, layers.2.mY.4.0@figure, layers.2.mRot.4.0@figure, layers.2.mR.5.0@figure, layers.3.mY.0.1@figure, layers.3.mY.4.0@figure, layers.3.mRot.0.1@figure, layers.3.mRot.4.0@figure, layers.3.mR.0.1@figure, layers.3.mR.5.0@figure, layers.0.r.0@figure, layers.0.r.1@figure, layers.3.blend@figure, layers.4.k@figure CRASH, layers.0.r.0@ring, layers.0.r.1@ring, layers.0.mY.4.0@ring, layers.0.mRot.4.0@ring, layers.1.behind@ring, layers.1.mY.4.0@ring, layers.1.mRot.4.0@ring, layers.1.mR.5.0@ring, layers.2.behind@ring, layers.2.mY.4.0@ring, layers.2.mRot.4.0@ring, layers.2.mR.5.0@ring, layers.3.mY.0.1@ring, layers.3.mY.4.0@ring, layers.3.mRot.0.1@ring, layers.3.mRot.4.0@ring, layers.3.mR.0.1@ring, layers.3.mR.5.0@ring, layers.0.w.0@figure, layers.0.w.1@figure]
+wyrm: 46 controls — 1 dead  [layers.0.k@figure CRASH]
+frost: 42 controls — 1 dead  [layers.1.k@figure CRASH]
+abyss: 46 controls — 1 dead  [layers.1.k@figure CRASH]
+chud: 47 controls — 1 dead  [layers.0.k@figure CRASH]
+rust: 46 controls — 2 dead  [layers.0.spin@figure, layers.0.spin@ring]
+thunder: 29 controls — 1 dead  [layers.0.k@figure CRASH]
+hollow: 49 controls — 1 dead  [layers.0.k@figure CRASH]
+deep: 118 controls — 6 dead  [layers.0.behind@figure, layers.1.behind@figure, layers.2.behind@figure, layers.0.behind@ring, layers.1.behind@ring, layers.2.behind@ring]
+magma: 50 controls — 0 dead
+plague: 46 controls — 0 dead
+sand: 48 controls — 3 dead  [layers.1.spin@figure, layers.0.k@figure CRASH, layers.1.spin@ring]
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 1531
+dead visible controls: 71
+  DEAD fallenlight layers.0.mY.4.0 (field) view=figure
+  DEAD fallenlight layers.0.mRot.4.0 (field) view=figure
+  DEAD fallenlight layers.0.mDim.4.0 (field) view=figure
+  DEAD fallenlight layers.1.mY.5.0 (field) view=figure
+  DEAD fallenlight layers.1.mRot.4.0 (field) view=figure
+  DEAD fallenlight layers.0.r.0 (img panel) view=figure
+  DEAD fallenlight layers.0.r.1 (img panel) view=figure
+  DEAD fallenlight layers.6.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD fallenlight layers.0.r.0 (field) view=ring
+  DEAD fallenlight layers.0.r.1 (field) view=ring
+  DEAD fallenlight layers.0.mY.4.0 (field) view=ring
+  DEAD fallenlight layers.0.mRot.4.0 (field) view=ring
+  DEAD fallenlight layers.0.mDim.4.0 (field) view=ring
+  DEAD fallenlight layers.1.mY.5.0 (field) view=ring
+  DEAD fallenlight layers.1.mRot.4.0 (field) view=ring
+  DEAD ossuary moment.every.0 (field) view=figure
+  DEAD ossuary layers.0.mY.4.0 (field) view=figure
+  DEAD ossuary layers.0.mRot.4.0 (field) view=figure
+  DEAD ossuary layers.1.behind (field) view=figure
+  DEAD ossuary layers.1.mY.4.0 (field) view=figure
+  DEAD ossuary layers.1.mRot.4.0 (field) view=figure
+  DEAD ossuary layers.1.mR.5.0 (field) view=figure
+  DEAD ossuary layers.2.behind (field) view=figure
+  DEAD ossuary layers.2.mY.4.0 (field) view=figure
+  DEAD ossuary layers.2.mRot.4.0 (field) view=figure
+  DEAD ossuary layers.2.mR.5.0 (field) view=figure
+  DEAD ossuary layers.3.mY.0.1 (field) view=figure
+  DEAD ossuary layers.3.mY.4.0 (field) view=figure
+  DEAD ossuary layers.3.mRot.0.1 (field) view=figure
+  DEAD ossuary layers.3.mRot.4.0 (field) view=figure
+  DEAD ossuary layers.3.mR.0.1 (field) view=figure
+  DEAD ossuary layers.3.mR.5.0 (field) view=figure
+  DEAD ossuary layers.0.r.0 (img panel) view=figure
+  DEAD ossuary layers.0.r.1 (img panel) view=figure
+  DEAD ossuary layers.3.blend (select) view=figure
+  DEAD ossuary layers.4.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ossuary layers.0.r.0 (field) view=ring
+  DEAD ossuary layers.0.r.1 (field) view=ring
+  DEAD ossuary layers.0.mY.4.0 (field) view=ring
+  DEAD ossuary layers.0.mRot.4.0 (field) view=ring
+  DEAD ossuary layers.1.behind (field) view=ring
+  DEAD ossuary layers.1.mY.4.0 (field) view=ring
+  DEAD ossuary layers.1.mRot.4.0 (field) view=ring
+  DEAD ossuary layers.1.mR.5.0 (field) view=ring
+  DEAD ossuary layers.2.behind (field) view=ring
+  DEAD ossuary layers.2.mY.4.0 (field) view=ring
+  DEAD ossuary layers.2.mRot.4.0 (field) view=ring
+  DEAD ossuary layers.2.mR.5.0 (field) view=ring
+  DEAD ossuary layers.3.mY.0.1 (field) view=ring
+  DEAD ossuary layers.3.mY.4.0 (field) view=ring
+  DEAD ossuary layers.3.mRot.0.1 (field) view=ring
+  DEAD ossuary layers.3.mRot.4.0 (field) view=ring
+  DEAD ossuary layers.3.mR.0.1 (field) view=ring
+  DEAD ossuary layers.3.mR.5.0 (field) view=ring
+  DEAD wyrm layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD frost layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD abyss layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD chud layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD rust layers.0.spin (field) view=figure
+  DEAD rust layers.0.spin (field) view=ring
+  DEAD thunder layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD hollow layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD deep layers.0.behind (field) view=figure
+  DEAD deep layers.1.behind (field) view=figure
+  DEAD deep layers.2.behind (field) view=figure
+  DEAD deep layers.0.behind (field) view=ring
+  DEAD deep layers.1.behind (field) view=ring
+  DEAD deep layers.2.behind (field) view=ring
+  DEAD sand layers.1.spin (field) view=figure
+  DEAD sand layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD sand layers.1.spin (field) view=ring
+hidden spec fields with no rendered effect: 5
+  hidden fallenlight layers.0.w.0 key=w
+  hidden fallenlight layers.0.w.1 key=w
+  hidden fallenlight layers.6.jit key=jit
+  hidden ossuary layers.0.w.0 key=w
+  hidden ossuary layers.0.w.1 key=w
+
+JSON {"total":1531,"deadVis":[{"id":"fallenlight","path":["layers",0,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",0,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",0,"mDim",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",1,"mY",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"5"},{"id":"fallenlight","path":["layers",1,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",0,"r",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"fallenlight","path":["layers",0,"r",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"fallenlight","path":["layers",6,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"fallenlight","path":["layers",0,"r",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"fallenlight","path":["layers",0,"r",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"fallenlight","path":["layers",0,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",0,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",0,"mDim",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",1,"mY",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"5"},{"id":"fallenlight","path":["layers",1,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["moment","every",0],"kind":"number","value":20,"via":"field","view":"figure","ok":false,"key":"every"},{"id":"ossuary","path":["layers",0,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",0,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"ossuary","path":["layers",1,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"mR",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"5"},{"id":"ossuary","path":["layers",2,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"ossuary","path":["layers",2,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",2,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",2,"mR",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"5"},{"id":"ossuary","path":["layers",3,"mY",0,1],"kind":"number","value":0,"via":"field","shape":"img","view":"figure","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",3,"mRot",0,1],"kind":"number","value":0,"via":"field","shape":"img","view":"figure","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",3,"mR",0,1],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mR",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"5"},{"id":"ossuary","path":["layers",0,"r",0],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"ossuary","path":["layers",0,"r",1],"kind":"number","value":1,"via":"img panel","shape":"img","view":"figure","ok":false,"key":"r"},{"id":"ossuary","path":["layers",3,"blend"],"kind":"select","value":"source-over","options":["source-over","lighter","screen","multiply"],"via":"select","view":"figure","ok":false,"key":"blend"},{"id":"ossuary","path":["layers",4,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ossuary","path":["layers",0,"r",0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"ossuary","path":["layers",0,"r",1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"r"},{"id":"ossuary","path":["layers",0,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",0,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"ossuary","path":["layers",1,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"mR",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"5"},{"id":"ossuary","path":["layers",2,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"ossuary","path":["layers",2,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",2,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",2,"mR",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"5"},{"id":"ossuary","path":["layers",3,"mY",0,1],"kind":"number","value":0,"via":"field","shape":"img","view":"ring","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mY",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",3,"mRot",0,1],"kind":"number","value":0,"via":"field","shape":"img","view":"ring","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mRot",4,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"4"},{"id":"ossuary","path":["layers",3,"mR",0,1],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mR",5,0],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"5"},{"id":"wyrm","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"frost","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"abyss","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"chud","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"rust","path":["layers",0,"spin"],"kind":"number","value":1,"via":"field","shape":"square","view":"figure","ok":false,"key":"spin"},{"id":"rust","path":["layers",0,"spin"],"kind":"number","value":1,"via":"field","shape":"square","view":"ring","ok":false,"key":"spin"},{"id":"thunder","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"hollow","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"deep","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"deep","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"deep","path":["layers",2,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"deep","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"deep","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"deep","path":["layers",2,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"sand","path":["layers",1,"spin"],"kind":"number","value":1,"via":"field","shape":"square","view":"figure","ok":false,"key":"spin"},{"id":"sand","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"sand","path":["layers",1,"spin"],"kind":"number","value":1,"via":"field","shape":"square","view":"ring","ok":false,"key":"spin"}],"hiddenDead":[{"id":"fallenlight","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"fallenlight","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"fallenlight","path":["layers",6,"jit"],"kind":"number","value":0.06,"via":"hidden","view":"figure","ok":false,"key":"jit"},{"id":"ossuary","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"ossuary","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"}]}

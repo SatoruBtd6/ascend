@@ -1,0 +1,53 @@
+steadybreath: 29 controls — 1 dead  [layers.0.k@figure CRASH]
+iaidraw: 30 controls — 1 dead  [layers.0.k@figure CRASH]
+stormstep: 27 controls — 1 dead  [layers.0.k@figure CRASH]
+zeropoint: 30 controls — 1 dead  [layers.0.k@figure CRASH]
+ninetail: 33 controls — 1 dead  [layers.0.k@figure CRASH]
+ironbound: 104 controls — 7 dead  [layers.0.behind@figure, layers.1.behind@figure, layers.2.behind@figure, layers.3.k@figure CRASH, layers.0.behind@ring, layers.1.behind@ring, layers.2.behind@ring]
+ledger: 51 controls — 4 dead  [glow@figure, layers.0.spin@figure, layers.1.k@figure CRASH, layers.0.spin@ring]
+bonewright: 64 controls — 3 dead  [bolts.c.0@figure, bolts.strike@figure, layers.1.k@figure CRASH]
+nullpoint: 30 controls — 1 dead  [glow@figure]
+carve: 39 controls — 2 dead  [glow@figure, layers.0.k@figure CRASH]
+brandmark: 42 controls — 3 dead  [glow@figure, layers.0.n@figure, layers.0.n@ring]
+blacksun: 145 controls — 9 dead  [glow@figure, rings.0.c@figure, layers.0.behind@figure, layers.1.behind@figure, layers.3.spin@figure, layers.4.k@figure CRASH, layers.0.behind@ring, layers.1.behind@ring, layers.3.spin@ring]
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 606
+dead visible controls: 34
+  DEAD steadybreath layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD iaidraw layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD stormstep layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD zeropoint layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ninetail layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ironbound layers.0.behind (field) view=figure
+  DEAD ironbound layers.1.behind (field) view=figure
+  DEAD ironbound layers.2.behind (field) view=figure
+  DEAD ironbound layers.3.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ironbound layers.0.behind (field) view=ring
+  DEAD ironbound layers.1.behind (field) view=ring
+  DEAD ironbound layers.2.behind (field) view=ring
+  DEAD ledger glow (field) view=figure
+  DEAD ledger layers.0.spin (field) view=figure
+  DEAD ledger layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD ledger layers.0.spin (field) view=ring
+  DEAD bonewright bolts.c.0 (field) view=figure
+  DEAD bonewright bolts.strike (field) view=figure
+  DEAD bonewright layers.1.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD nullpoint glow (field) view=figure
+  DEAD carve glow (field) view=figure
+  DEAD carve layers.0.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD brandmark glow (field) view=figure
+  DEAD brandmark layers.0.n (field) view=figure
+  DEAD brandmark layers.0.n (field) view=ring
+  DEAD blacksun glow (field) view=figure
+  DEAD blacksun rings.0.c (field) view=figure
+  DEAD blacksun layers.0.behind (field) view=figure
+  DEAD blacksun layers.1.behind (field) view=figure
+  DEAD blacksun layers.3.spin (field) view=figure
+  DEAD blacksun layers.4.k (select) view=figure CRASHES: L.sp is not iterable (cannot read property undefined)
+  DEAD blacksun layers.0.behind (field) view=ring
+  DEAD blacksun layers.1.behind (field) view=ring
+  DEAD blacksun layers.3.spin (field) view=ring
+hidden spec fields with no rendered effect: 0
+
+JSON {"total":606,"deadVis":[{"id":"steadybreath","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"iaidraw","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"stormstep","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"zeropoint","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ninetail","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ironbound","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"ironbound","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"ironbound","path":["layers",2,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"ironbound","path":["layers",3,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ironbound","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"ironbound","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"ironbound","path":["layers",2,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"ledger","path":["glow"],"kind":"number","value":0.34,"via":"field","view":"figure","ok":false,"key":"glow"},{"id":"ledger","path":["layers",0,"spin"],"kind":"number","value":1,"via":"field","shape":"leaf","view":"figure","ok":false,"key":"spin"},{"id":"ledger","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"ledger","path":["layers",0,"spin"],"kind":"number","value":1,"via":"field","shape":"leaf","view":"ring","ok":false,"key":"spin"},{"id":"bonewright","path":["bolts","c",0],"kind":"color","value":"#FFF27A","via":"field","view":"figure","ok":false,"key":"c"},{"id":"bonewright","path":["bolts","strike"],"kind":"number","value":1,"via":"field","view":"figure","ok":false,"key":"strike"},{"id":"bonewright","path":["layers",1,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"nullpoint","path":["glow"],"kind":"number","value":0.66,"via":"field","view":"figure","ok":false,"key":"glow"},{"id":"carve","path":["glow"],"kind":"number","value":0.58,"via":"field","view":"figure","ok":false,"key":"glow"},{"id":"carve","path":["layers",0,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"brandmark","path":["glow"],"kind":"number","value":0.5,"via":"field","view":"figure","ok":false,"key":"glow"},{"id":"brandmark","path":["layers",0,"n"],"kind":"number","value":2,"via":"field","shape":"img","view":"figure","ok":false,"key":"n"},{"id":"brandmark","path":["layers",0,"n"],"kind":"number","value":2,"via":"field","shape":"img","view":"ring","ok":false,"key":"n"},{"id":"blacksun","path":["glow"],"kind":"number","value":0.96,"via":"field","view":"figure","ok":false,"key":"glow"},{"id":"blacksun","path":["rings",0,"c"],"kind":"color","value":"#FFFFFF","via":"field","view":"figure","ok":false,"key":"c"},{"id":"blacksun","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"blacksun","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"figure","ok":false,"key":"behind"},{"id":"blacksun","path":["layers",3,"spin"],"kind":"number","value":1,"via":"field","shape":"leaf","view":"figure","ok":false,"key":"spin"},{"id":"blacksun","path":["layers",4,"k"],"kind":"select","value":"rise","options":["rise","fall","orbit","inward","bubble"],"via":"select","view":"figure","ok":false,"key":"k","crash":"L.sp is not iterable (cannot read property undefined)"},{"id":"blacksun","path":["layers",0,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"blacksun","path":["layers",1,"behind"],"kind":"number","value":1,"via":"field","shape":"img","view":"ring","ok":false,"key":"behind"},{"id":"blacksun","path":["layers",3,"spin"],"kind":"number","value":1,"via":"field","shape":"leaf","view":"ring","ok":false,"key":"spin"}],"hiddenDead":[]}

@@ -1,0 +1,56 @@
+fallenlight: 318 controls — 10 dead  [layers.0.r.0@figure, layers.0.r.1@figure, layers.0.w.0@figure, layers.0.w.1@figure, layers.0.mY.4.0@figure, layers.0.mRot.4.0@figure, layers.0.mDim.4.0@figure, layers.1.mY.5.0@figure, layers.1.mRot.4.0@figure, layers.6.jit@figure]
+ossuary: 390 controls — 21 dead  [moment.every.0@figure, layers.0.r.0@figure, layers.0.r.1@figure, layers.0.w.0@figure, layers.0.w.1@figure, layers.0.mY.4.0@figure, layers.0.mRot.4.0@figure, layers.1.behind@figure, layers.1.mY.4.0@figure, layers.1.mRot.4.0@figure, layers.1.mR.5.0@figure, layers.2.behind@figure, layers.2.mY.4.0@figure, layers.2.mRot.4.0@figure, layers.2.mR.5.0@figure, layers.3.mY.0.1@figure, layers.3.mY.4.0@figure, layers.3.mRot.0.1@figure, layers.3.mRot.4.0@figure, layers.3.mR.0.1@figure, layers.3.mR.5.0@figure]
+wyrm: 46 controls — 0 dead
+frost: 42 controls — 0 dead
+abyss: 46 controls — 0 dead
+chud: 47 controls — 0 dead
+rust: 45 controls — 1 dead  [layers.0.spin@figure]
+thunder: 29 controls — 0 dead
+hollow: 49 controls — 0 dead
+deep: 115 controls — 3 dead  [layers.0.behind@figure, layers.1.behind@figure, layers.2.behind@figure]
+magma: 50 controls — 0 dead
+plague: 46 controls — 0 dead
+sand: 47 controls — 1 dead  [layers.1.spin@figure]
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 848
+dead visible controls: 0
+hidden spec fields with no rendered effect: 36
+  hidden fallenlight layers.0.r.0 key=r
+  hidden fallenlight layers.0.r.1 key=r
+  hidden fallenlight layers.0.w.0 key=w
+  hidden fallenlight layers.0.w.1 key=w
+  hidden fallenlight layers.0.mY.4.0 key=4
+  hidden fallenlight layers.0.mRot.4.0 key=4
+  hidden fallenlight layers.0.mDim.4.0 key=4
+  hidden fallenlight layers.1.mY.5.0 key=5
+  hidden fallenlight layers.1.mRot.4.0 key=4
+  hidden fallenlight layers.6.jit key=jit
+  hidden ossuary moment.every.0 key=every
+  hidden ossuary layers.0.r.0 key=r
+  hidden ossuary layers.0.r.1 key=r
+  hidden ossuary layers.0.w.0 key=w
+  hidden ossuary layers.0.w.1 key=w
+  hidden ossuary layers.0.mY.4.0 key=4
+  hidden ossuary layers.0.mRot.4.0 key=4
+  hidden ossuary layers.1.behind key=behind
+  hidden ossuary layers.1.mY.4.0 key=4
+  hidden ossuary layers.1.mRot.4.0 key=4
+  hidden ossuary layers.1.mR.5.0 key=5
+  hidden ossuary layers.2.behind key=behind
+  hidden ossuary layers.2.mY.4.0 key=4
+  hidden ossuary layers.2.mRot.4.0 key=4
+  hidden ossuary layers.2.mR.5.0 key=5
+  hidden ossuary layers.3.mY.0.1 key=0
+  hidden ossuary layers.3.mY.4.0 key=4
+  hidden ossuary layers.3.mRot.0.1 key=0
+  hidden ossuary layers.3.mRot.4.0 key=4
+  hidden ossuary layers.3.mR.0.1 key=0
+  hidden ossuary layers.3.mR.5.0 key=5
+  hidden rust layers.0.spin key=spin
+  hidden deep layers.0.behind key=behind
+  hidden deep layers.1.behind key=behind
+  hidden deep layers.2.behind key=behind
+  hidden sand layers.1.spin key=spin
+
+JSON {"total":848,"deadVis":[],"hiddenDead":[{"id":"fallenlight","path":["layers",0,"r",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"fallenlight","path":["layers",0,"r",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"fallenlight","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"fallenlight","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"fallenlight","path":["layers",0,"mY",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",0,"mRot",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",0,"mDim",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",1,"mY",5,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"5"},{"id":"fallenlight","path":["layers",1,"mRot",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"fallenlight","path":["layers",6,"jit"],"kind":"number","value":0.06,"via":"hidden","view":"figure","ok":false,"key":"jit"},{"id":"ossuary","path":["moment","every",0],"kind":"number","value":20,"via":"hidden","view":"figure","ok":false,"key":"every"},{"id":"ossuary","path":["layers",0,"r",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"ossuary","path":["layers",0,"r",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"ossuary","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"ossuary","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"ossuary","path":["layers",0,"mY",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",0,"mRot",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"ossuary","path":["layers",1,"mY",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"mRot",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",1,"mR",5,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"5"},{"id":"ossuary","path":["layers",2,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"ossuary","path":["layers",2,"mY",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",2,"mRot",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",2,"mR",5,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"5"},{"id":"ossuary","path":["layers",3,"mY",0,1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mY",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",3,"mRot",0,1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mRot",4,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"4"},{"id":"ossuary","path":["layers",3,"mR",0,1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"0"},{"id":"ossuary","path":["layers",3,"mR",5,0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"5"},{"id":"rust","path":["layers",0,"spin"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"spin"},{"id":"deep","path":["layers",0,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"deep","path":["layers",1,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"deep","path":["layers",2,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"sand","path":["layers",1,"spin"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"spin"}]}

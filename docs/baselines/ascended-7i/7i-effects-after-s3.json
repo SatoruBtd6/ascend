@@ -1,0 +1,34 @@
+void: 52 controls — 0 dead
+yogurt: 42 controls — 0 dead
+vendetta: 75 controls — 0 dead
+champion: 80 controls — 5 dead  [layers.0.r.0@figure, layers.0.r.1@figure, layers.0.w.0@figure, layers.0.w.1@figure, layers.1.spin@figure]
+ascended: 98 controls — 2 dead  [layers.0.c.0@figure, layers.1.c.0@figure]
+soon_throne: 29 controls — 0 dead
+soon_seraphim: 29 controls — 0 dead
+huntersmoon: 141 controls — 0 dead
+wheel: 122 controls — 1 dead  [layers.0.c.0@figure]
+sigil: 28 controls — 0 dead
+glassfire: 28 controls — 0 dead
+crownfall: 86 controls — 6 dead  [layers.0.r.0@figure, layers.0.r.1@figure, layers.0.w.0@figure, layers.0.w.1@figure, layers.0.sz.0@figure, layers.0.sz.1@figure]
+eclipseheart: 155 controls — 0 dead
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 948
+dead visible controls: 0
+hidden spec fields with no rendered effect: 14
+  hidden champion layers.0.r.0 key=r
+  hidden champion layers.0.r.1 key=r
+  hidden champion layers.0.w.0 key=w
+  hidden champion layers.0.w.1 key=w
+  hidden champion layers.1.spin key=spin
+  hidden ascended layers.0.c.0 key=c
+  hidden ascended layers.1.c.0 key=c
+  hidden wheel layers.0.c.0 key=c
+  hidden crownfall layers.0.r.0 key=r
+  hidden crownfall layers.0.r.1 key=r
+  hidden crownfall layers.0.w.0 key=w
+  hidden crownfall layers.0.w.1 key=w
+  hidden crownfall layers.0.sz.0 key=sz
+  hidden crownfall layers.0.sz.1 key=sz
+
+JSON {"total":948,"deadVis":[],"hiddenDead":[{"id":"champion","path":["layers",0,"r",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"champion","path":["layers",0,"r",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"champion","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"champion","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"champion","path":["layers",1,"spin"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"spin"},{"id":"ascended","path":["layers",0,"c",0],"kind":"color","value":"#7DF9FF","via":"hidden","view":"figure","ok":false,"key":"c"},{"id":"ascended","path":["layers",1,"c",0],"kind":"color","value":"#FFD447","via":"hidden","view":"figure","ok":false,"key":"c"},{"id":"wheel","path":["layers",0,"c",0],"kind":"color","value":"#FFFFFF","via":"hidden","view":"figure","ok":false,"key":"c"},{"id":"crownfall","path":["layers",0,"r",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"crownfall","path":["layers",0,"r",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"r"},{"id":"crownfall","path":["layers",0,"w",0],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"crownfall","path":["layers",0,"w",1],"kind":"number","value":0,"via":"hidden","view":"figure","ok":false,"key":"w"},{"id":"crownfall","path":["layers",0,"sz",0],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"sz"},{"id":"crownfall","path":["layers",0,"sz",1],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"sz"}]}

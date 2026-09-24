@@ -998,17 +998,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       }
       if (L.k === "rise" || L.k === "bubble") {
         const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
-        [p.x, p.y] = onRing(ang, rnd(1.05, 1.18)); p.vy = -rnd(...L.sp) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
+        [p.x, p.y] = onRing(ang, rnd(1.05, 1.18)); p.vy = -rnd(...(L.sp || [6, 12])) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
         if (fresh) p.age = rnd(0, p.life);
       } else if (L.k === "fall") {
-        p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...L.sp) * unit; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2); p.life = 99;
+        p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...(L.sp || [8, 16])) * unit; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2); p.life = 99;
         if (fresh) p.y = rnd(cy - ry * 1.6, cy + ry * 1.5);
       } else if (L.k === "inward") {
-        p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...L.life); p.spd = rnd(...L.sp);
+        p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...(L.life || [1.5, 2.5])); p.spd = rnd(...(L.sp || [0.4, 0.9]));
         if (fresh) p.age = rnd(0, p.life);
       } else { // orbit
         p.ang = L.at != null ? L.at * Math.PI * 2 : L.even ? (p.i / n) * Math.PI * 2 + (L.jit ? rnd(-L.jit, L.jit) : 0) : rnd(0, Math.PI * 2);
-        p.r = Math.max(0.5, rnd(...L.r)); p.w = rnd(...L.w) * (Math.random() < 0.5 && !L.even && L.at == null ? -1 : 1); p.life = 99;
+        p.r = Math.max(0.5, rnd(...(L.r || [1, 1.1]))); p.w = rnd(...(L.w || [0.1, 0.3])) * (Math.random() < 0.5 && !L.even && L.at == null ? -1 : 1); p.life = 99;
         if (L.top && L.at == null) p.ang = rnd(Math.PI * 1.1, Math.PI * 1.9);
       }
       p.e = L.e ? L.e[p.i % L.e.length] : null;
@@ -1350,7 +1350,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         if (rk < 1.05) { const s = 1.05 / rk; px = cx + (px - cx) * s; py = cy + (py - cy) * s; }
         pts.push([px, py]);
       }
-      return { pts, t: 0, c: "#FFF27A" };
+      return { pts, t: 0, c: pick(fx.bolts.c) };
     }
     const ang = rnd(0, Math.PI * 2), segs = 7, pts = [];
     let [x, y] = onRing(ang, 0.95);
@@ -1581,7 +1581,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     }
     if (fx.corona) {
       const pulse = 0.55 + 0.45 * Math.sin(time * 2.3);
-      const grd = g.createRadialGradient(cx, cy, rx * 0.12, cx, cy, rx * 1.38);
+      // gradient must be centred at the draw origin — the fill runs under
+      // translate(cx, cy), so cx/cy here would double-offset it off-canvas
+      const grd = g.createRadialGradient(0, 0, rx * 0.12, 0, 0, rx * 1.38);
       grd.addColorStop(0, "rgba(4,1,8,.95)"); grd.addColorStop(0.2, "rgba(8,2,12,.8)");
       grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
@@ -1788,7 +1790,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         }
         liveBolts.push(makeBolt());
         api.boltsFired += 1;
-        strike = 1;
+        if (fx.bolts.strike !== 0) strike = 1;
         burstLeft -= 1;
         const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: !!fx.bolts.flash, burstStart: starting });
         flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
@@ -1808,8 +1810,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.globalCompositeOperation = "lighter";
         g.globalAlpha = calmDraw ? (1 - k) * 0.8 : (1 - k) * (0.82 + 0.18 * Math.sin(b.t * 46));
         const strokes = calmDraw
-          ? [[6 * unit, "#FFD447"], [2.6 * unit, "#FFF27A"], [0.9, "#FFFFFF"]]
-          : [[11 * unit, "#FFD447"], [4.6 * unit, "#FFF27A"], [1.5 * unit, "#FFFFFF"]];
+          ? [[6 * unit, "#FFD447"], [2.6 * unit, b.c], [0.9, "#FFFFFF"]]
+          : [[11 * unit, "#FFD447"], [4.6 * unit, b.c], [1.5 * unit, "#FFFFFF"]];
         strokes.forEach(([lw, col]) => {
           g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath();
           b.pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();

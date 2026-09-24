@@ -1,0 +1,33 @@
+steadybreath: 29 controls — 0 dead
+iaidraw: 30 controls — 0 dead
+stormstep: 27 controls — 0 dead
+zeropoint: 30 controls — 0 dead
+ninetail: 33 controls — 0 dead
+ironbound: 101 controls — 3 dead  [layers.0.behind@figure, layers.1.behind@figure, layers.2.behind@figure]
+ledger: 50 controls — 2 dead  [glow@figure, layers.0.spin@figure]
+bonewright: 64 controls — 0 dead
+nullpoint: 30 controls — 1 dead  [glow@figure]
+carve: 39 controls — 1 dead  [glow@figure]
+brandmark: 41 controls — 2 dead  [glow@figure, layers.0.n@figure]
+blacksun: 142 controls — 5 dead  [glow@figure, rings.0.c@figure, layers.0.behind@figure, layers.1.behind@figure, layers.3.spin@figure]
+
+== EFFECT TEST SUMMARY ==
+visible controls tested: 584
+dead visible controls: 0
+hidden spec fields with no rendered effect: 14
+  hidden ironbound layers.0.behind key=behind
+  hidden ironbound layers.1.behind key=behind
+  hidden ironbound layers.2.behind key=behind
+  hidden ledger glow key=glow
+  hidden ledger layers.0.spin key=spin
+  hidden nullpoint glow key=glow
+  hidden carve glow key=glow
+  hidden brandmark glow key=glow
+  hidden brandmark layers.0.n key=n
+  hidden blacksun glow key=glow
+  hidden blacksun rings.0.c key=c
+  hidden blacksun layers.0.behind key=behind
+  hidden blacksun layers.1.behind key=behind
+  hidden blacksun layers.3.spin key=spin
+
+JSON {"total":584,"deadVis":[],"hiddenDead":[{"id":"ironbound","path":["layers",0,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"ironbound","path":["layers",1,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"ironbound","path":["layers",2,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"ledger","path":["glow"],"kind":"number","value":0.34,"via":"hidden","view":"figure","ok":false,"key":"glow"},{"id":"ledger","path":["layers",0,"spin"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"spin"},{"id":"nullpoint","path":["glow"],"kind":"number","value":0.66,"via":"hidden","view":"figure","ok":false,"key":"glow"},{"id":"carve","path":["glow"],"kind":"number","value":0.58,"via":"hidden","view":"figure","ok":false,"key":"glow"},{"id":"brandmark","path":["glow"],"kind":"number","value":0.5,"via":"hidden","view":"figure","ok":false,"key":"glow"},{"id":"brandmark","path":["layers",0,"n"],"kind":"number","value":2,"via":"hidden","view":"figure","ok":false,"key":"n"},{"id":"blacksun","path":["glow"],"kind":"number","value":0.96,"via":"hidden","view":"figure","ok":false,"key":"glow"},{"id":"blacksun","path":["rings",0,"c"],"kind":"color","value":"#FFFFFF","via":"hidden","view":"figure","ok":false,"key":"c"},{"id":"blacksun","path":["layers",0,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"blacksun","path":["layers",1,"behind"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"behind"},{"id":"blacksun","path":["layers",3,"spin"],"kind":"number","value":1,"via":"hidden","view":"figure","ok":false,"key":"spin"}]}
