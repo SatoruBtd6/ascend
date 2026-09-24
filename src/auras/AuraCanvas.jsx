@@ -603,18 +603,22 @@ export const AURA_ART = {
       || (moment == null && anchors ? { x: anchors.face.x, y: anchors.face.y - anchors.face.eyeX * HEAD_FROM_EYE } : null);
     if (!spos) return null;
     const edge = Math.min(spos.x, spos.y, w - spos.x, h - spos.y);
-    const haloR = Math.min(rx * 1.1, Math.max(10, edge));
+    const haloR = Math.min(rx * 1.1, Math.max(8, edge - 1.5));
     const halo = g.createRadialGradient(spos.x, spos.y, 0, spos.x, spos.y, haloR);
     halo.addColorStop(0, `rgba(167,139,250,${(0.16 * aS).toFixed(3)})`);
     halo.addColorStop(1, "rgba(167,139,250,0)");
     g.save(); g.globalCompositeOperation = "lighter"; g.fillStyle = halo;
     g.beginPath(); g.arc(spos.x, spos.y, haloR, 0, Math.PI * 2); g.fill(); g.restore();
     const rim = glowSprite("#A78BFA");
-    const rs = 24 * unit;
-    g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.4 * aS;
-    g.drawImage(rim, spos.x - rs - 3 * unit, spos.y - rs - 5 * unit, rs * 2, rs * 2); g.restore();
+    // sprite is offset up-left by design; cap its radius so the glow rect stays
+    // a pixel inside the canvas at small sizes (unit floors at 1.15 < 110px)
+    const rs = Math.min(24 * unit, spos.x - 3 * unit - 1.5, spos.y - 5 * unit - 1.5, w - 1.5 - spos.x + 3 * unit, h - 1.5 - spos.y + 5 * unit);
+    if (rs > 1) {
+      g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.4 * aS;
+      g.drawImage(rim, spos.x - rs - 3 * unit, spos.y - rs - 5 * unit, rs * 2, rs * 2); g.restore();
+    }
     const rot = time * (reduce ? 0.05 : 0.14);
-    const len = Math.min(rx * 1.45, Math.max(8, edge * 0.92));
+    const len = Math.min(rx * 1.45, Math.max(7, (edge - 1.5) * 0.9));
     g.save(); g.globalCompositeOperation = "lighter";
     for (let i = 0; i < 5; i++) {
       const a0 = rot + (i / 5) * Math.PI * 2;
@@ -1206,6 +1210,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           const wvis = Math.min(1, Math.max(0, wantNear ? 0.5 + wz * 1.4 : 0.5 - wz * 1.4));
           api.orbitXY = api.orbitXY || {};
           if (wvis <= 0.01) { api.orbitXY[wantNear ? "near" : "far"] = null; g.restore(); break; }
+          // record the live wander position so the art's halo/rays follow it
+          api.orbitXY[wantNear ? "near" : "far"] = { x: x + ox, y: y + bob + oy };
           g.globalAlpha *= wvis;
         }
         if (absX != null) { mdx = absX - x - ox; mdy = absY - y - bob - oy; }
@@ -1734,10 +1740,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
               const W = L.wander;
               const hh = anchors.face.eyeX * HEAD_FROM_EYE;
               const zx = anchors.face.x;
-              x = zx + Math.sin(time * (W.sx ?? 0.55)) * rx * (W.xR ?? 1.05);
+              // shrink the roam box so the piece (and its halo) stays inside
+              // the canvas at every size — matters most at board-32. The pad
+              // covers the drawn half-diagonal (≈0.79·sz worst-case under
+              // wobble+breathe rotation) plus a fixed floor.
+              const pad = p.sz * 0.85 + 2;
+              const xAmp = Math.min(rx * (W.xR ?? 1.05), Math.max(0, Math.min(zx, w - zx) - pad));
+              const yTop = Math.max(pad, cy - ry * (W.top ?? 1.05));
+              const yBot = Math.min(h - pad, cy + ry * (W.bot ?? 0.6));
+              x = zx + Math.sin(time * (W.sx ?? 0.55)) * xAmp;
               const tri = Math.asin(Math.sin(time * (W.sy ?? 0.85))) / (Math.PI / 2);
-              const yTop = cy - ry * (W.top ?? 1.05), yBot = cy + ry * (W.bot ?? 0.6);
-              y = (yTop + yBot) / 2 + tri * (yBot - yTop) / 2;
+              y = (yTop + yBot) / 2 + tri * Math.max(0, yBot - yTop) / 2;
               const zHalf = hh * (W.zX ?? 1.1);
               p.wz = Math.max(-1, Math.min(1, (Math.abs(x - zx) - zHalf) / (zHalf * 0.35)));
             }

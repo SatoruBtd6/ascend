@@ -40,7 +40,8 @@ await page.evaluate(() => import("/src/auras/AuraCanvas.jsx").then((m) => {
 }));
 
 const margins = [];
-for (const [label, kind, size] of STAGES) {
+const marginOnly = args.includes("--margin-only");
+for (const [label, kind, size] of marginOnly ? [] : STAGES) {
   for (const t of TIMES) {
     const margin = await page.evaluate(async ({ aura, kind, size, label, t }) => {
       document.body.innerHTML = "";
@@ -99,6 +100,58 @@ for (const [label, kind, size] of STAGES) {
     console.log(`7i-atlas-${label}-t${t}.png  sphere@${JSON.stringify(margin.pos)}  margin L${margin.left} T${margin.top} R${margin.right} B${margin.bottom}`);
   }
 }
+// Sphere-path margin: the wander requirement is that the sphere (and its
+// glow) stays inside the canvas. Atlas's ambient shard orbiters and falling
+// sand grains brush the frame edges by design (pre-existing), so the full-
+// render alpha bound conflates them. Re-render each stage with only the two
+// wander layers + art, and scan every frame over a full path period.
+console.log("\n-- sphere-only margins (wander layers + art, ambient layers stripped)");
+const sphereMargins = [];
+for (const [label, kind, size] of STAGES) {
+  const m = await page.evaluate(async ({ aura, kind, size, label }) => {
+    const mod = window.__mod;
+    let cw, ch, ringR, mode;
+    if (kind === "figure") {
+      cw = Math.round(size * 0.8); ch = Math.round(size * 1.02); mode = "body"; ringR = Math.min(cw, ch) / 3.2;
+    } else {
+      cw = Math.round(size * 1.45 * 1.28); ch = cw; mode = "circle"; ringR = size * 1.45 / 2.7;
+    }
+    const fx0 = mod.AURA_FX[aura];
+    // wander path only: strip the moment (its dive orbit is wider than the
+    // canvas by design) and the ambient shard/sand layers
+    mod.AURA_FX[aura] = { ...fx0, moment: null, layers: fx0.layers.filter((l) => l.wander) };
+    const cv = document.createElement("canvas"), cv2 = document.createElement("canvas");
+    const inst = mod.makeAura(cv, { aura, w: cw, h: ch, mode, figure: mode === "body" ? `/avatars/${label.slice(3)}.webp` : undefined, ringR, overCanvas: cv2 });
+    for (let tries = 0; tries < 200; tries++) {
+      if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const W = cv.width, H = cv.height;
+    const scan = (c) => {
+      const d = c.getContext("2d").getImageData(0, 0, W, H).data;
+      let minX = W, minY = H, maxX = -1, maxY = -1;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        if (d[(y * W + x) * 4 + 3] > 8) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+      }
+      return { minX, minY, maxX, maxY };
+    };
+    let worst = Infinity;
+    const frames = Math.round(24 * 60);
+    for (let i = 0; i < frames; i++) {
+      inst.frame(1 / 60);
+      if (i % 6) continue;
+      const a = scan(cv), b = scan(cv2);
+      const mgn = Math.min(a.minX, b.minX, a.minY, b.minY, W - 1 - Math.max(a.maxX, b.maxX), H - 1 - Math.max(a.maxY, b.maxY));
+      if (mgn < worst) worst = mgn;
+    }
+    mod.AURA_FX[aura] = fx0;
+    return +(worst / (W / cw)).toFixed(1);
+  }, { aura: AURA, kind, size, label });
+  sphereMargins.push({ label, margin: m });
+  console.log(`${label}: smallest sphere margin over 24s path = ${m}px`);
+}
 await browser.close();
 const worst = margins.reduce((acc, m) => Math.min(acc, m.left, m.top, m.right, m.bottom), Infinity);
-console.log(`smallest canvas margin: ${worst}px`);
+const worstSphere = sphereMargins.reduce((acc, m) => Math.min(acc, m.margin), Infinity);
+console.log(`smallest canvas margin (all aura pixels incl. ambient particles): ${worst}px`);
+console.log(`smallest sphere-path margin (wander layers + glow only): ${worstSphere}px`);
