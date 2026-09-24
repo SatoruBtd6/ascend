@@ -1,6 +1,7 @@
 // 7h Part 3 checkpoint B shots: <aura> loop + moment start/peak/end on a real
-// makeAura canvas composited over production-geometry photo/figure art.
-// Deterministic: AuraLoop stopped, frames stepped by hand to exact phases.
+// makeAura canvas composited at production z-order: main aura canvas UNDER
+// the figure/photo, over canvas ABOVE. Deterministic: AuraLoop stopped,
+// frames stepped by hand to exact phases.
 // Usage: node aura-p3b-shots.mjs [atlas,forge]
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync } from "node:fs";
@@ -22,10 +23,13 @@ const auras = (process.argv[2] && !process.argv[2].startsWith("http") ? process.
 const PHASES = [
   ["loop", null], ["mstart", 0.06], ["mpeak", "peak"], ["mend", 0.94],
 ];
+// Body mode on three figures: low rank (E), high rank (SS), female (S-f);
+// plus the 76 photo and 32 board circle stages.
 const STAGES = [
-  ["figure", 160], ["photo", 76], ["photo", 32],
+  ["figure", "E"], ["figure", "SS"], ["figure", "Sf"], ["photo", 76], ["photo", 32],
 ];
-const PEAK = { atlas: 0.63, forge: 0.17 };
+const PEAK = { atlas: 0.63, forge: 0.28 };
+const FIG_SRC = { E: "/avatars/E.webp", SS: "/avatars/SS.webp", Sf: "/avatars/S-f.webp" };
 
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
@@ -40,15 +44,15 @@ await page.evaluate(() => import("/src/auras/AuraCanvas.jsx").then((m) => {
 for (const aura of auras) {
   for (const [kind, avatar] of STAGES) {
     // build the stage DOM
-    await page.evaluate(async ({ aura, kind, avatar }) => {
+    await page.evaluate(async ({ aura, kind, avatar, figSrc }) => {
       document.body.innerHTML = "";
       document.body.style.cssText = "margin:0;background:#0B0F17;display:flex;align-items:center;justify-content:center;height:100vh";
       const mod = window.__mod;
       let cw, ch, ringR, mode, art;
       if (kind === "figure") {
-        const figH = avatar;
+        const figH = 160;
         cw = figH * 0.8; ch = figH * 1.02; mode = "body"; ringR = Math.min(cw, ch) / 3.2;
-        art = { src: "/avatars/E.webp", w: figH * (424 / 568), h: figH };
+        art = { src: figSrc, w: figH * (424 / 568), h: figH };
       } else {
         cw = Math.round(avatar * 1.45 * 1.28); ch = cw; mode = "circle"; ringR = avatar * 1.45 / 2.7;
         art = { src: "/avatars/E.webp", w: avatar, h: avatar, round: true };
@@ -56,25 +60,26 @@ for (const aura of auras) {
       const wrap = document.createElement("div");
       wrap.id = "stage";
       wrap.style.cssText = `position:relative;width:${cw}px;height:${ch}px;display:flex;align-items:center;justify-content:center`;
+      // Production z-order: aura main canvas (0) < figure/photo (1) < over canvas (2)
+      const cv = document.createElement("canvas");
+      cv.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${cw}px;height:${ch}px;z-index:0`;
+      wrap.appendChild(cv);
       const img = document.createElement("img");
       img.src = art.src;
-      img.style.cssText = `width:${art.w}px;height:${art.h}px;${art.round ? "border-radius:50%;" : ""}object-fit:cover;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)`;
+      img.style.cssText = `width:${art.w}px;height:${art.h}px;${art.round ? "border-radius:50%;" : ""}object-fit:cover;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1`;
       wrap.appendChild(img);
-      const cv = document.createElement("canvas");
-      cv.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${cw}px;height:${ch}px;z-index:2`;
-      wrap.appendChild(cv);
       const cv2 = document.createElement("canvas");
-      cv2.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${cw}px;height:${ch}px;z-index:3;pointer-events:none`;
+      cv2.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${cw}px;height:${ch}px;z-index:2;pointer-events:none`;
       wrap.appendChild(cv2);
       document.body.appendChild(wrap);
       await img.decode().catch(() => {});
-      const inst = mod.makeAura(cv, { aura, w: cw, h: ch, mode, ringR, figure: mode === "body" ? "/avatars/E.webp" : undefined, overCanvas: cv2 });
+      const inst = mod.makeAura(cv, { aura, w: cw, h: ch, mode, ringR, figure: mode === "body" ? art.src : undefined, overCanvas: cv2 });
       window.__inst = inst;
       for (let tries = 0; tries < 200; tries++) {
         if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
         await new Promise((r) => setTimeout(r, 25));
       }
-    }, { aura, kind, avatar });
+    }, { aura, kind, avatar, figSrc: FIG_SRC[avatar] });
     for (const [label, target] of PHASES) {
       await page.evaluate(({ target, aura }) => {
         const inst = window.__inst;
@@ -93,13 +98,14 @@ for (const aura of auras) {
         inst.forceMoment();
         let guard = 0;
         while (inst.moment == null && guard++ < 600) inst.frame(1 / 60);
-        const want = target === "peak" ? { atlas: 0.63, forge: 0.17 }[aura] ?? 0.5 : target;
+        const want = target === "peak" ? { atlas: 0.63, forge: 0.28 }[aura] ?? 0.5 : target;
         guard = 0;
         while (inst.moment != null && inst.moment < want && guard++ < 600) inst.frame(1 / 60);
         step(2);
       }, { target, aura });
       const stage = await page.$("#stage");
-      const name = `p3b-${aura}-${kind}${avatar}-${label}-dark.png`;
+      const tag = kind === "figure" ? `fig${avatar}` : `${kind}${avatar}`;
+      const name = `p3b2-${aura}-${tag}-${label}-dark.png`;
       await stage.screenshot({ path: join(OUT, name) });
       console.log(`${name}`);
     }

@@ -34,24 +34,31 @@ export const AURA_FX = {
     { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", r: [0.5, 0.5], w: [0, 0], sz: [1.95, 1.95], even: 1, at: 0.75, y: 0.38, wobble: 0.035, bob: 1, a: 0.95, behind: 1, blend: "source-over" },
     { k: "rise", n: 7, shape: "ember", c: ["#FF6A3C", "#C2001F", "#E8C56A"], sp: [10, 20], life: [1.8, 3], sz: [0.9, 1.7], sway: 9, a: 0.6 },
   ] },
-  atlas: { spd: 0.85, glow: 0.5, moment: { every: [20, 30], dur: 2, bursts: [
-    { at: 0.62, path: "shockring", c: "#D7DCE5", a: 0.8, lw: 2.4, r0: 0.3, v: 1.3, life: [0.6, 0.6], x: 0, y: -0.62, over: 1 },
-    { at: 0.62, path: "radial", shape: "sandgrain", n: 18, c: ["#C9CDD4", "#9AA3B2", "#E8ECF4"], x: 0, y: -0.55, sp: [50, 90], sz: [1.1, 2.2], life: [0.55, 1], grav: 0.7, a: 0.9 },
-    { at: 0.62, path: "shower", shape: "sandgrain", n: 10, c: ["#C9CDD4", "#8A93A3"], x: 0, y: -0.5, sp: [30, 60], spread: 1.5, sz: [0.9, 1.8], life: [0.6, 1.1], grav: 1.6, a: 0.8 },
+  atlas: { spd: 0.85, glow: 0.5, moment: { every: [20, 30], dur: 2.4, bursts: [
+    { at: 0.3, path: "shower", shape: "sandgrain", n: 6, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "head", y: -0.08, dir: 0.22, sp: [20, 55], spread: 1.3, sz: [1.6, 3], life: [0.5, 0.9], grav: 2.4, a: 0.9, over: 1 },
+    { at: 0.45, path: "shower", shape: "sandgrain", n: 8, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "head", y: -0.08, dir: 0.24, sp: [25, 60], spread: 1.3, sz: [1.6, 3.2], life: [0.5, 0.9], grav: 2.4, a: 0.9, over: 1 },
+    { at: 0.62, path: "shockring", c: "#FFF3D0", a: 1, lw: 3.5, r0: 0.22, v: 2.4, life: [0.65, 0.65], anchor: "head", y: 0.14, aspect: 1, over: 1 },
+    { at: 0.68, path: "shockring", c: "#E8C878", a: 0.7, lw: 1.8, r0: 0.15, v: 2, life: [0.5, 0.5], anchor: "head", y: 0.14, aspect: 1, over: 1 },
+    { at: 0.62, path: "radial", shape: "smoke", n: 18, c: ["#F4E3B2", "#D9B87A", "#B08D57"], anchor: "head", y: 0.12, sp: [25, 60], sz: [5, 9], life: [0.8, 1.4], grav: 0.35, a: 0.65, over: 1 },
+    { at: 0.62, path: "radial", shape: "shard", n: 7, c: ["#D9DEE7", "#9AA3B2", "#F4E3B2"], anchor: "head", y: -0.05, sp: [70, 130], sz: [2.2, 4], life: [0.7, 1.1], grav: 2.4, a: 0.95, over: 1 },
+    { at: 0.62, path: "shower", shape: "sandgrain", n: 16, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "head", y: 0.05, dir: 0.28, sp: [50, 100], spread: 1.4, sz: [1.8, 3.2], life: [0.6, 1.1], grav: 2.4, a: 0.9, over: 1 },
   ] }, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.42, 0.42], even: 1, hover: 0.65, spin: 0.022, tremble: 0.005, a: 0.97, blend: "source-over",
-      mY: [[0, 0], [0.3, -0.15], [0.52, -0.19], [0.58, -0.16], [0.62, 0.06], [0.8, -0.03], [1, 0]], mShake: [[0, 1], [0.22, 3.2], [0.55, 4.2], [0.62, 0.5], [1, 1]], mScale: [[0, 1], [0.52, 1.07], [0.62, 0.96], [1, 1]] },
-    { k: "fall", n: 12, shape: "sandgrain", c: ["#B8BFC9", "#8A93A3", "#DDE2EA"], sp: [10, 22], sz: [0.9, 1.8], drift: 3, a: 0.5 },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.4, spin: 0.02, tremble: 0.008, a: 0.98, blend: "source-over",
+      mY: [[0, 0], [0.3, -0.12], [0.5, -0.15], [0.62, 0.1], [0.78, -0.03], [1, 0]], mX: [[0, 0], [0.3, 0.04], [0.42, -0.04], [0.52, 0.03], [0.62, 0], [1, 0]], mRot: [[0, 0], [0.4, 0.02], [0.55, -0.02], [0.7, 0], [1, 0]], mShake: [[0, 1], [0.2, 2.5], [0.45, 4.5], [0.6, 5], [0.65, 0.4], [1, 1]], mScale: [[0, 1], [0.5, 1.04], [0.62, 0.95], [0.75, 1.02], [1, 1]],
+      circle: { sz: [0.9, 0.9], hover: 0.51, mY: [[0, 0], [0.3, -0.1], [0.5, -0.12], [0.62, 0.08], [0.78, -0.03], [1, 0]] } },
+    { k: "fall", n: 12, shape: "sandgrain", c: ["#E8C878", "#C89B5A", "#F4E3B2"], sp: [10, 22], sz: [0.9, 1.8], drift: 3, a: 0.55 },
   ] },
-  forge: { spd: 1, glow: 0.38, art: "forge", moment: { every: [6, 10], dur: 1.15,
-    flash: { at: 0.16, flashPeak: 0.55, flashLife: 0.1, flashC: ["#FFF6E0", "#FFB43C"] },
+  forge: { spd: 1, glow: 0.38, overArt: "forge", moment: { every: [6, 10], dur: 1.5,
+    flash: { at: 0.26, flashPeak: 0.6, flashLife: 0.11, flashC: ["#FFF6E0", "#FFB43C"], anchor: "ground", x: 0.75 },
     bursts: [
-      { at: 0.16, path: "shower", shape: "spark", n: 18, c: ["#FFF6C9", "#FFD447", "#FF9340"], x: 0.2, y: 1, sp: [150, 260], spread: 1.15, sz: [0.9, 1.7], life: [0.4, 0.8], grav: 2.4, a: 0.95, over: 1 },
-      { at: 0.16, path: "shower", shape: "ember", n: 8, c: ["#FF9340", "#FF5A1F"], x: 0.2, y: 1, sp: [50, 90], spread: 1.5, sz: [0.8, 1.5], life: [0.7, 1.3], grav: 1.2, a: 0.85, over: 1 },
-      { at: 0.16, path: "shockring", c: "#FFB43C", a: 0.55, lw: 1.6, r0: 0.45, v: 1.2, life: [0.5, 0.5], x: 0.2, y: 0.6 },
+      { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1 },
+      { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1 },
+      { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.9, lw: 3, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "ground", x: 0.75, flat: 1, over: 1 },
+      { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1 },
     ] }, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", r: [1.06, 1.06], w: [0.004, 0.007], sz: [0.72, 0.72], even: 1, at: 0.75, rot: 0.12, wobble: 0.025, a: 0.96, behind: 1, blend: "source-over",
-      mY: [[0, 0], [0.06, -0.12], [0.16, 2.05], [0.42, 2.05], [0.72, 0], [1, 0]], mRot: [[0, 0], [0.06, -0.15], [0.16, 0.25], [0.5, 0.25], [1, 0]] },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", r: [1.35, 1.35], w: [0, 0], sz: [1.1, 1.1], even: 1, at: 0.79, rot: 0.12, wobble: 0.02, a: 0.97, over: 1, blend: "source-over",
+      mY: [[0, 0], [0.1, -0.12], [0.26, 2.5], [0.45, 2.5], [0.72, 0.08], [1, 0]], mX: [[0, 0], [0.1, -0.08], [0.26, 0.3], [0.45, 0.3], [0.8, 0], [1, 0]], mRot: [[0, 0], [0.1, -0.14], [0.26, 0.22], [0.5, 0.22], [0.85, 0], [1, 0]],
+      circle: { r: [1.2, 1.2], sz: [0.95, 0.95], mY: [[0, 0], [0.1, -0.1], [0.26, 1.93], [0.45, 1.93], [0.72, 0.07], [1, 0]], mX: [[0, 0], [0.1, -0.06], [0.26, 0.32], [0.45, 0.32], [0.8, 0], [1, 0]] } },
     { k: "rise", n: 12, shape: "ember", c: ["#FFB43C", "#FF5A1F", "#FFE08A"], sp: [16, 34], life: [0.8, 1.6], sz: [1, 2], sway: 10, a: 0.75 },
     { k: "orbit", n: 8, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6 },
   ] },
@@ -497,22 +504,26 @@ export const AURA_ART = {
     }
   },
   bonewright: (opts) => { if (opts.pass === "over") drawBoneEyes(opts.over || opts.g, opts); },
-  // Anvil glow after the slam: white-hot at the flash, cooling to orange.
-  forge: ({ g, moment, cx, cy, rx, ry }) => {
+  // Molten pool where the hammer lands: white-hot at the flash, a flat
+  // ellipse on the ground that cools to orange — not a round fireball.
+  forge: ({ over, moment, cx, rx, anchor, pass }) => {
     const fl = moment?.spec?.flash;
-    if (!fl || moment.t <= fl.at) return null;
+    if (!fl || !over || pass !== "over" || moment.t <= fl.at) return null;
     const k = Math.min(1, (moment.t - fl.at) / Math.max(0.05, 1 - fl.at));
-    const a = Math.pow(1 - k, 1.35) * 0.6;
+    const a = Math.pow(1 - k, 1.35) * 0.8;
     if (a <= 0.02) return null;
     const gc = Math.round(246 - 96 * k), bc = Math.round(214 - 164 * k);
-    const ax = cx + 0.2 * rx, ay = cy + 0.95 * ry;
-    g.save(); g.globalCompositeOperation = "lighter";
-    const grd = g.createRadialGradient(ax, ay, 0, ax, ay, ry * 0.7);
+    const o = anchor("ground");
+    const ax = o.x + (fl.x || 0) * rx, ay = o.y;
+    const prx = rx * 0.62, pry = prx * 0.22;
+    over.save(); over.globalCompositeOperation = "lighter";
+    over.translate(ax, ay); over.scale(1, pry / prx);
+    const grd = over.createRadialGradient(0, 0, 0, 0, 0, prx);
     grd.addColorStop(0, `rgba(255,${gc},${bc},${a.toFixed(3)})`);
-    grd.addColorStop(0.5, `rgba(255,150,50,${(a * 0.4).toFixed(3)})`);
+    grd.addColorStop(0.55, `rgba(255,150,50,${(a * 0.45).toFixed(3)})`);
     grd.addColorStop(1, "rgba(255,120,30,0)");
-    g.fillStyle = grd; g.beginPath(); g.arc(ax, ay, ry * 0.7, 0, Math.PI * 2); g.fill();
-    g.restore();
+    over.fillStyle = grd; over.beginPath(); over.arc(0, 0, prx, 0, Math.PI * 2); over.fill();
+    over.restore();
     return null;
   },
   brandmark: (opts) => {
@@ -1099,23 +1110,35 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     return { pts, t: 0, c: pick(fx.bolts.c) };
   };
 
+  // Named canvas points a burst can anchor to — without one it uses the ring
+  // centre, which sits mid-torso in body mode (the Atlas-torso bug).
+  const anchorOrigin = (name) => {
+    if (name === "head" && anchors) return { x: anchors.face.x, y: anchors.face.y - anchors.face.eyeX * HEAD_FROM_EYE };
+    if (name === "face" && anchors) return { x: anchors.face.x, y: anchors.face.y };
+    if (name === "ground") return { x: cx, y: mode === "body" ? h * 0.965 : cy + ry * 0.97 };
+    return { x: cx, y: cy };
+  };
   // One-shot moment burst: n scales with canvas size, paths give the burst
-  // shape (upward spark shower, radial dust, expanding shock ring).
+  // shape (cone spray, radial dust, expanding shock ring). `dir` aims the cone
+  // in turns (0=right, .25=down, -.25=up); `flat` flattens the ring to a
+  // ground shockwave.
   const burstFire = (b) => {
     const n = Math.max(1, Math.round((b.n ?? 8) * mScale * (b.over ? 1 : scale)));
-    const ox = cx + (b.x ?? 0) * rx, oy = cy + (b.y ?? 0) * ry;
+    const o = anchorOrigin(b.anchor);
+    const ox = o.x + (b.x ?? 0) * rx, oy = o.y + (b.y ?? 0) * ry;
     for (let i = 0; i < n; i++) {
       const p = {
         b, over: !!b.over, x: ox, y: oy, age: 0,
         life: b.life ? rnd(...b.life) : 0.8,
         sz: (b.sz ? rnd(...b.sz) : 1.4) * unit,
-        c: pick(b.c || [c1]), rot: rnd(0, Math.PI * 2), vr: rnd(-2, 2),
+        c: Array.isArray(b.c) ? pick(b.c) : (b.c || c1), rot: rnd(0, Math.PI * 2), vr: rnd(-2, 2),
       };
       if (b.path === "shockring") {
-        p.ring = true; p.r = (b.r0 ?? 0.4) * Math.min(rx, ry); p.rv = (b.v ?? 2) * Math.min(rx, ry);
+        p.ring = true; p.aspect = b.aspect ?? (b.flat ? 0.16 : ry / rx); p.r = (b.r0 ?? 0.4) * Math.min(rx, ry); p.rv = (b.v ?? 2) * Math.min(rx, ry);
       } else {
-        const up = b.path === "shower";
-        const ang = up ? -Math.PI / 2 + rnd(-(b.spread ?? 1), b.spread ?? 1) : rnd(0, Math.PI * 2);
+        const cone = b.path === "shower" || b.dir != null;
+        const base = b.dir != null ? b.dir * Math.PI * 2 : -Math.PI / 2;
+        const ang = cone ? base + rnd(-(b.spread ?? 1), b.spread ?? 1) : rnd(0, Math.PI * 2);
         const v = (b.sp ? rnd(...b.sp) : 70) * unit;
         p.vx = Math.cos(ang) * v; p.vy = Math.sin(ang) * v;
         p.grav = (b.grav ?? 1.8) * 150 * unit;
@@ -1133,16 +1156,16 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       if (p.ring) {
         ctx.globalAlpha = Math.max(0, a);
         ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.7, (p.b.lw ?? 2) * unit * (1 - k * 0.5));
-        ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * (ry / rx), 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * p.aspect, 0, 0, Math.PI * 2); ctx.stroke();
       } else {
         ctx.globalAlpha = Math.max(0, Math.min(1, a));
         const shape = p.b.shape || "spark";
         if (shape === "spark" || shape === "dot" || shape === "ember") {
-          const gs = glowSprite(p.c), r = p.sz * (shape === "ember" ? 2.6 : shape === "dot" ? 2 : 1.8);
+          const gs = glowSprite(p.c), r = p.sz * (shape === "ember" ? 2.2 : shape === "dot" ? 1.7 : 1.3);
           ctx.drawImage(gs, p.x - r * 2, p.y - r * 2, r * 4, r * 4);
           if (shape === "spark") {
-            ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.5, p.sz * 0.35); ctx.lineCap = "round";
-            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - (p.vx || 0) * 0.055, p.y - (p.vy || 0) * 0.055); ctx.stroke();
+            ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.5, p.sz * 0.4); ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - (p.vx || 0) * 0.085, p.y - (p.vy || 0) * 0.085); ctx.stroke();
           }
         } else {
           drawNewParticleShape(ctx, shape, p, p.x, p.y, time);
@@ -1222,7 +1245,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
     const paul = fx.layers?.find((L) => L.placed === "shoulders");
-    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, unit, strike, sweep: fx.sweep, pass, mode, anchors, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
+    const artArgs = (pass) => ({ g, over: overG, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass, mode, anchors, anchor: anchorOrigin, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
     const artState = AURA_ART[fx.art]?.(artArgs("main")) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";
@@ -1418,6 +1441,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       const edge = Math.min(cx, cy, w - cx, h - cy);
       const outer = Math.max(8, edge * 0.96);
       const inner = Math.min(rx, ry) * 0.15;
+      const fo = anchorOrigin(flashSpec.anchor);
+      const wx = fo.x + (flashSpec.x || 0) * rx, wy = fo.y + (flashSpec.y || 0) * ry;
       // flashC defaults to Bonewright's exact warm-white pair.
       const [w0, w1] = flashSpec.flashC || ["#FFF8DC", "#FFF4D2"];
       const wc0 = hexRgb(w0) || [255, 248, 220], wc1 = hexRgb(w1) || [255, 244, 210];
@@ -1426,13 +1451,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       // up the gradient's own alpha, which is 0 before the canvas edge.
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = 1;
-      const wash = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+      const wash = ctx.createRadialGradient(wx, wy, inner, wx, wy, outer);
       wash.addColorStop(0, `rgba(${wc0[0]},${wc0[1]},${wc0[2]},${a.toFixed(3)})`);
       wash.addColorStop(0.42, `rgba(${wc1[0]},${wc1[1]},${wc1[2]},${(a * 0.38).toFixed(3)})`);
       wash.addColorStop(1, `rgba(${wc0[0]},${wc0[1]},${wc0[2]},0)`);
       ctx.fillStyle = wash;
       ctx.beginPath();
-      ctx.arc(cx, cy, outer, 0, Math.PI * 2);
+      ctx.arc(wx, wy, outer, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     };
@@ -1454,7 +1479,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   return api;
 }
 
-export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure }) {
+export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance }) {
   const ref = useRef(null);
   const overRef = useRef(null);
   const needs = auraNeedsOver(aura);
@@ -1464,6 +1489,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     let inst = null;
     try { inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2, overCanvas: needs ? overRef.current : null, figure }); } catch (e) { return; }
     if (!inst) return;
+    try { onInstance?.(inst); } catch (e) { /* consumer hook only */ }
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     inst.reduce = !!reduce;
     try { inst.frame(1 / 30); } catch (e) { /* first paint */ }
@@ -1471,7 +1497,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     let io = null;
     if (typeof IntersectionObserver !== "undefined") { io = new IntersectionObserver((es) => { inst.visible = es[0]?.isIntersecting ?? true; }, { rootMargin: "80px" }); io.observe(cv); }
     AuraLoop.add(inst);
-    return () => { AuraLoop.remove(inst); io?.disconnect(); };
+    return () => { AuraLoop.remove(inst); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
   }, [aura, w, h, mode, ringR, needs, overSlot, figure]);
   if (!AURA_FX[aura]) return null;
   const overCanvas = needs ? (

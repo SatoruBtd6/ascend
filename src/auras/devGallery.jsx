@@ -388,12 +388,12 @@ function Face({ px, photo, letter }) {
   );
 }
 
-function CircleStage({ aura, px, ring, facePx, canvasKey, photo, letter, showAnchors }) {
+function CircleStage({ aura, px, ring, facePx, canvasKey, photo, letter, showAnchors, onInstance }) {
   const face = <Face px={facePx} photo={photo} letter={letter} />;
   return (
     <div className="relative" style={{ width: px, height: px, margin: "0 auto" }}>
       {aura && aura !== "none" ? (
-        <AuraCanvas key={canvasKey} aura={aura} w={px} h={px} ringR={ring} style={{ left: 0, top: 0 }}>{face}</AuraCanvas>
+        <AuraCanvas key={canvasKey} aura={aura} w={px} h={px} ringR={ring} style={{ left: 0, top: 0 }} onInstance={onInstance}>{face}</AuraCanvas>
       ) : (
         <div className="absolute flex items-center justify-center" style={{ inset: 0 }}>{face}</div>
       )}
@@ -404,7 +404,7 @@ function CircleStage({ aura, px, ring, facePx, canvasKey, photo, letter, showAnc
   );
 }
 
-function FigureStage({ aura, px, figure, canvasKey, showAnchors }) {
+function FigureStage({ aura, px, figure, canvasKey, showAnchors, onInstance }) {
   const box = bodyBox(px, aura || "ember");
   const [overSlot, setOverSlot] = useState(null);
   const showOver = !!(aura && aura !== "none" && auraNeedsOver(aura));
@@ -412,7 +412,7 @@ function FigureStage({ aura, px, figure, canvasKey, showAnchors }) {
   return (
     <div className="relative" style={{ height: box.height, width: "100%" }}>
       {aura && aura !== "none" && (
-        <AuraCanvas key={canvasKey} aura={aura} mode="body" w={box.aw} h={box.ah} overSlot={overSlot} figure={figure} style={place} />
+        <AuraCanvas key={canvasKey} aura={aura} mode="body" w={box.aw} h={box.ah} overSlot={overSlot} figure={figure} style={place} onInstance={onInstance} />
       )}
       <img src={figure} alt="" style={{ height: box.height, width: "auto", display: "block", margin: "0 auto", position: "relative", zIndex: 1, pointerEvents: "none" }} />
       {showOver && <div ref={setOverSlot} style={{ ...place, zIndex: 2, pointerEvents: "none" }} />}
@@ -423,9 +423,9 @@ function FigureStage({ aura, px, figure, canvasKey, showAnchors }) {
   );
 }
 
-function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors }) {
+function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors, onInstance }) {
   if (backdrop.kind === "figure") {
-    return <FigureStage aura={aura} px={size.px} figure={backdrop.src} canvasKey={canvasKey} showAnchors={showAnchors} />;
+    return <FigureStage aura={aura} px={size.px} figure={backdrop.src} canvasKey={canvasKey} showAnchors={showAnchors} onInstance={onInstance} />;
   }
   return (
     <CircleStage
@@ -437,6 +437,7 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors }) {
       photo={backdrop.kind === "photo" ? photo : null}
       letter="A"
       showAnchors={showAnchors}
+      onInstance={onInstance}
     />
   );
 }
@@ -1219,7 +1220,8 @@ export function DevAuraGallery() {
     <button type="button" aria-pressed={on} onClick={onClick} style={chip(on)}>{label}</button>
   );
 
-  const stageFor = (id) => (
+  const momentInst = useRef(null);
+  const stageFor = (id, live) => (
     <Stage
       aura={id}
       size={size}
@@ -1227,6 +1229,7 @@ export function DevAuraGallery() {
       photo={photo}
       showAnchors={showAnchors}
       canvasKey={`${id}:${revs[id] || 0}:${reduce ? 1 : 0}`}
+      onInstance={live ? (inst) => { momentInst.current = inst; } : undefined}
     />
   );
 
@@ -1318,7 +1321,10 @@ export function DevAuraGallery() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start", paddingTop: barH + 12, paddingRight: 16, paddingBottom: 88, paddingLeft: 16, scrollMarginTop: barH + 12 }}>
           <div style={{ flex: "0 0 auto" }}>
             <button type="button" onClick={() => { setSelected(null); setCopied(""); }} style={{ ...chip(false), marginBottom: 8 }}>All auras</button>
-            {stageFor(selected)}
+            {stageFor(selected, true)}
+            {specFor(selected)?.moment && (
+              <button type="button" onClick={() => momentInst.current?.forceMoment?.()} style={{ ...chip(false), marginTop: 8, fontSize: 12 }}>▶ Play moment</button>
+            )}
             <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700 }}>{selectedAura.name}</div>
             <div style={{ fontSize: 11, color: C.dim }}>{selectedAura.rarity || selectedAura.group} · {selectedAura.id}</div>
             {profilePreview}
