@@ -1934,7 +1934,7 @@ export function trackAuraInstance(aura, inst) {
   return () => { live.delete(inst); if (!live.size) auraLiveInstances.delete(aura); };
 }
 export function fireAuraMoment(aura) {
-  for (const inst of auraLiveInstances.get(aura) || []) { try { inst.forceMoment?.(); } catch (e) { /* dev-only */ } }
+  for (const inst of auraLiveInstances.get(resolveAuraId(aura)) || []) { try { inst.forceMoment?.(); } catch (e) { /* dev-only */ } }
 }
 
 export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance }) {

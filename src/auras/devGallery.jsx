@@ -2,7 +2,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape, fireAuraMoment } from "./AuraCanvas.jsx";
-import { AURAS } from "./catalog.js";
+import { AURAS, resolveAuraId } from "./catalog.js";
 import { cloneSpec, formatAuraEntry, specFields } from "./specFormat.js";
 import { C, applyTheme } from "../theme.js";
 import { Avatar } from "../tabs/profile/Avatar.jsx";
@@ -1450,6 +1450,12 @@ export function DevAuraGallery() {
   const dragging = useDragging();
   const originals = useRef(null);
   if (!originals.current) originals.current = { ...AURA_FX };
+  // Refs survive Fast Refresh, so this snapshot can predate an aura-id rename —
+  // top up any key it missed from the live table rather than trusting it wholesale.
+  for (const k of Object.keys(AURA_FX)) if (!(k in originals.current)) originals.current[k] = AURA_FX[k];
+  // Every id lookup goes through resolveAuraId: drafts and the snapshot may
+  // still hold a pre-rename key, and callers may pass the legacy spelling.
+  const origFor = (id) => originals.current[resolveAuraId(id)] || originals.current[id] || AURA_FX[resolveAuraId(id)];
   const [backdropId, setBackdropId] = useState(FIGURES[0].id);
   const [photo, setPhoto] = useState(null);
   const [theme, setTheme] = useState("dark");
@@ -1489,7 +1495,7 @@ export function DevAuraGallery() {
     // draft itself is untouched and restored in full on release.
     for (const id of ids) AURA_FX[id] = liveDrags > 0 ? clampForPreview(drafts[id]) : drafts[id];
     return () => {
-      for (const id of ids) AURA_FX[id] = originals.current[id];
+      for (const id of ids) AURA_FX[id] = origFor(id);
     };
   }, [drafts]);
 
@@ -1524,10 +1530,17 @@ export function DevAuraGallery() {
   const ringPrev = ringGeom(Math.max(size.avatar, 88));
   const boardPrev = ringGeom(32);
 
-  const specFor = (id) => drafts[id] || originals.current[id];
+  const specFor = (id) => drafts[resolveAuraId(id)] || drafts[id] || origFor(id);
   const bump = (id, recipe) => {
-    setDrafts((d) => ({ ...d, [id]: recipe(d[id] || cloneSpec(originals.current[id])) }));
-    setRevs((r) => ({ ...r, [id]: (r[id] || 0) + 1 }));
+    const rid = resolveAuraId(id);
+    setDrafts((d) => {
+      const next = { ...d };
+      const seed = next[rid] || next[id] || cloneSpec(origFor(rid));
+      if (rid !== id) delete next[id];
+      next[rid] = recipe(seed);
+      return next;
+    });
+    setRevs((r) => ({ ...r, [rid]: (r[rid] || 0) + 1 }));
   };
 
   const onPhoto = (e) => {
@@ -1736,7 +1749,7 @@ export function DevAuraGallery() {
             </div>
             <SpecEditor
               spec={specFor(selected)}
-              original={originals.current[selected]}
+              original={origFor(selected)}
               circleMode={editMode === "circle"}
               onPath={(path, value) => bump(selected, (base) => setDeep(base, path, value))}
               onDelete={(path) => bump(selected, (base) => deleteDeep(base, path))}

@@ -291,5 +291,41 @@ for (const d of deadVis) console.log(`  DEAD ${d.id} ${d.path.join(".")} (${d.vi
 console.log(`hidden spec fields with no rendered effect: ${hiddenDead.length}`);
 for (const d of hiddenDead) console.log(`  hidden ${d.id} ${d.path.join(".")} key=${d.key || ""}${d.crash ? ` CRASHES: ${d.crash}` : ""}`);
 if (JSON_OUT) console.log(`\nJSON ${JSON.stringify({ total, deadVis, hiddenDead })}`);
+
+// ---- editor check: clicking every catalog aura must open its controls.
+// The only allowed "no particle spec" is an aura with no AURA_FX entry
+// (currently just "none"). A regression like the crownfall→redline rename —
+// where previews render via resolveAuraId but the editor's spec lookup missed
+// the new id — shows up here as noSpec/0 controls on a spec'd aura.
+const catalog = await page.evaluate(async () => {
+  const { AURAS } = await import("/src/auras/catalog.js");
+  const mod = await import("/src/auras/AuraCanvas.jsx");
+  return AURAS.map((a) => ({ id: a.id, hasSpec: !!mod.AURA_FX[a.id] }));
+});
+const editorFails = [];
+for (const { id, hasSpec } of catalog) {
+  const clicked = await page.evaluate((aid) => {
+    const btn = [...document.querySelectorAll("button")].find((b) => b.textContent.trim().endsWith(`· ${aid}`));
+    if (!btn) return false;
+    btn.click();
+    return true;
+  }, id);
+  if (!clicked) { editorFails.push({ id, why: "grid button not found" }); continue; }
+  await page.waitForTimeout(400);
+  const r = await page.evaluate(() => ({
+    noSpec: document.body.innerText.includes("no particle spec"),
+    sliders: document.querySelectorAll("input[type=range]").length,
+  }));
+  const ok = hasSpec ? (!r.noSpec && r.sliders > 0) : r.noSpec;
+  if (!ok) editorFails.push({ id, why: hasSpec ? `noSpec=${r.noSpec} sliders=${r.sliders}` : "specless aura did not show the no-spec note" });
+  // the grid unmounts while an aura is selected — go back before the next one
+  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "All auras")?.click());
+  await page.waitForTimeout(250);
+}
+console.log(`\n== EDITOR CHECK ==`);
+console.log(`catalog auras checked: ${catalog.length}`);
+console.log(`specless (no-spec note expected): ${catalog.filter((a) => !a.hasSpec).map((a) => a.id).join(", ") || "none"}`);
+console.log(`failures: ${editorFails.length}`);
+for (const f of editorFails) console.log(`  FAIL ${f.id}: ${f.why}`);
 await browser.close();
-process.exit(0);
+process.exit(deadVis.length + editorFails.length > 0 ? 1 : 0);
