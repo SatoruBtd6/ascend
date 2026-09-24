@@ -20,8 +20,10 @@ async function loadChromium() {
   return (await import("playwright")).chromium;
 }
 const base = process.argv.includes("--base") ? process.argv[process.argv.indexOf("--base") + 1] : "http://localhost:5180";
-const AURAS = ["atlas", "forge", "fallenlight", "ossuary"];
+const AURAS = process.argv.includes("--auras") ? process.argv[process.argv.indexOf("--auras") + 1].split(",") : ["atlas", "forge", "fallenlight", "ossuary"];
 const STRESS = "atlas forge fallenlight ossuary ironbound standardbearer ascended bonewright nullpoint inferno".split(" ");
+// board32/profile76 are circle stages; figure160 is body mode on the E figure
+const GEOMS = [["board32", "circle", 59, 59], ["profile76", "circle", 141, 141], ["figure160", "body", 128, 163]];
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
 const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });
@@ -43,13 +45,13 @@ const stats = (times) => {
 // per-aura: steady-state loop (moments suppressed, 600 frames) vs forced
 // moment frame cost at board and profile geometry
 for (const aura of AURAS) {
-  for (const [label, w] of [["board32", 59], ["profile76", 141]]) {
-    const res = await page.evaluate(async ({ aura, w }) => {
+  for (const [label, mode, w, h] of GEOMS) {
+    const res = await page.evaluate(async ({ aura, mode, w, h }) => {
       const mod = window.__mod;
       const mk = () => {
         const cv = document.createElement("canvas"); cv.width = w; cv.height = w;
         const cv2 = document.createElement("canvas"); cv2.width = w; cv2.height = w;
-        return mod.makeAura(cv, { aura, w, h: w, mode: "circle", ringR: w / 3.456, overCanvas: cv2 });
+        return mod.makeAura(cv, { aura, w, h, mode, ringR: Math.min(w, h) / 3.456, overCanvas: cv2, figure: mode === "body" ? "/avatars/E.webp" : undefined });
       };
       const waitImgs = async () => { for (let t = 0; t < 200; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); } };
       const s = (a) => { a.sort((x, y) => x - y); return a.length ? { n: a.length, avg: +(a.reduce((v, x) => v + x, 0) / a.length).toFixed(3), p95: +a[Math.floor(a.length * 0.95)].toFixed(3), max: +a.at(-1).toFixed(3) } : { n: 0 }; };
@@ -80,7 +82,7 @@ for (const aura of AURAS) {
         if (mi.moment != null || (mi.momentParts || 0) > 0) moment.push(ms);
       }
       return { loop: s(loop), moment: s(moment) };
-    }, { aura, w });
+    }, { aura, mode, w, h });
     console.log(`${aura} ${label}: loop avg=${res.loop.avg} p95=${res.loop.p95} (n=${res.loop.n}) | moment avg=${res.moment.avg} p95=${res.moment.p95} max=${res.moment.max} (n=${res.moment.n})`);
   }
 }

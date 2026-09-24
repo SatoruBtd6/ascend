@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import esbuild from "esbuild";
+import { FIGURE_ANCHORS, HEAD_FROM_EYE } from "./anchors.js";
 
 async function loadRenderer() {
   const dir = mkdtempSync(join(tmpdir(), "aura-renderer-"));
@@ -847,4 +848,93 @@ test("ossuary flying bones split between behind and over layers", () => {
   const boneLayers = renderer.AURA_FX.ossuary.layers.filter((L) => String(L.src).includes("bone-shard"));
   assert.ok(boneLayers.some((L) => L.behind), "some bones orbit behind the figure");
   assert.ok(boneLayers.some((L) => L.over && L.frontOnly), "some bones pass in front on the over layer");
+});
+
+// --- 7i Part 1: crownfall worn straw hat ---
+const figureHead = (w, h, src) => {
+  const lm = FIGURE_ANCHORS[src];
+  const figH = h / 1.02, figW = figH * (424 / 568), s = figW / 424;
+  return { x: (w - figW) / 2 + lm.head.x * s, y: 0.02 * figH + lm.head.y * s, half: lm.head.half * s };
+};
+
+const lastImgDraw = (out, src) => {
+  for (let j = out.length - 1; j >= 0; j -= 1) if (out[j][0] === "drawImage" && String(out[j][1]).includes(src)) return out[j];
+  return null;
+};
+
+test("crownfall renders without throwing in circle and body modes", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  for (const mode of ["circle", "body"]) {
+    const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "crownfall", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40, overCanvas: over, figure: "/avatars/E.webp" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.doesNotThrow(() => { for (let i = 0; i < 5; i += 1) inst.frame(0.4); }, `crownfall ${mode}`);
+    assert.ok(lastImgDraw(over.output, "hat-straw"), `crownfall ${mode} hat drew nothing on the over canvas`);
+  }
+});
+
+test("crownfall straw hat anchors to each figure's head and scales from head half-width", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const hat = renderer.AURA_FX.crownfall.layers.find((L) => String(L.src).includes("hat-straw"));
+  const widths = {};
+  for (const fig of ["/avatars/E.webp", "/avatars/SS.webp", "/avatars/S-f.webp"]) {
+    const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+    const w = 128, h = 163;
+    const inst = renderer.makeAura(canvas, { aura: "crownfall", w, h, mode: "body", ringR: 40, overCanvas: over, figure: fig });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    inst.frame(1 / 60);
+    const head = figureHead(w, h, fig);
+    const xy = inst.imgXY?.["/aura/hat-straw.webp"];
+    assert.ok(xy, `hat imgXY missing on ${fig}`);
+    assert.ok(Math.abs(xy.x - head.x) < 0.01, `${fig} hat x ${xy.x.toFixed(2)} vs head ${head.x.toFixed(2)}`);
+    const d = head.half * hat.headSz;
+    const wantY = head.y - head.half - d * (hat.hover ?? 0.14);
+    assert.ok(Math.abs(xy.y - wantY) < 0.01, `${fig} hat y ${xy.y.toFixed(2)} vs ${wantY.toFixed(2)}`);
+    const di = lastImgDraw(over.output, "hat-straw");
+    assert.ok(di, `hat not drawn on ${fig}`);
+    widths[fig] = di[4];
+    assert.ok(Math.abs(di[4] - d) / d < 0.06, `${fig} hat width ${di[4].toFixed(1)} vs ${d.toFixed(1)}`);
+  }
+  assert.ok(widths["/avatars/S-f.webp"] > widths["/avatars/E.webp"] * 1.2, "the wider female head must get a wider hat");
+});
+
+test("crownfall straw hat sits on the head, not floating like the halo", () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const canvas = stubRendererCanvas(), over = stubRendererCanvas();
+  const inst = renderer.makeAura(canvas, { aura: "crownfall", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  inst.frame(1 / 60);
+  const xy = inst.imgXY["/aura/hat-straw.webp"];
+  const faceY = 70.5 - 0.16 * 40.7, headHalf = 0.19 * 40.7 * HEAD_FROM_EYE, headTop = faceY - headHalf;
+  assert.ok(xy.y > headTop, `hat centre ${xy.y.toFixed(1)} should be below the head top ${headTop.toFixed(1)} — worn, not hovering`);
+  assert.ok(xy.y < faceY + headHalf * 0.6, `hat centre ${xy.y.toFixed(1)} should stay near the face ${faceY.toFixed(1)}`);
+  const di = lastImgDraw(over.output, "hat-straw");
+  assert.ok(di && xy.y + di[5] * 0.26 > faceY, "brim should reach down over the top of the face");
+});
+
+test("crownfall hat keeps drawing under reduced motion with a damped bob", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const ys = async (reduce) => {
+    const over = stubRendererCanvas();
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "crownfall", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (reduce) inst.reduce = true;
+    const out = [];
+    for (let i = 0; i < 170; i += 1) {
+      inst.frame(1 / 60);
+      const di = lastImgDraw(over.output, "hat-straw");
+      for (let k = over.output.indexOf(di) - 1; k >= 0; k -= 1) {
+        if (over.output[k][0] === "translate") { out.push(over.output[k][2]); break; }
+      }
+    }
+    return out;
+  };
+  const full = await ys(false), calm = await ys(true);
+  const range = (a) => Math.max(...a) - Math.min(...a);
+  assert.ok(full.length > 100 && calm.length > 100, "hat should draw under both motions");
+  assert.ok(range(full) > 0.5, `hat should visibly bob at full motion (range ${range(full).toFixed(2)})`);
+  assert.ok(range(calm) < range(full) * 0.55, `bob should damp under reduce (${range(calm).toFixed(2)} vs ${range(full).toFixed(2)})`);
 });

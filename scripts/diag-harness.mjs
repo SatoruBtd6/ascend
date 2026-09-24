@@ -25,7 +25,7 @@ async function loadChromium() {
 }
 const chromium = await loadChromium();
 
-const envPath = process.argv[2] || join(process.cwd(), ".env.local");
+const envPath = process.argv.slice(2).find((a) => !a.startsWith("--")) || join(process.cwd(), ".env.local");
 const env = Object.fromEntries(
   readFileSync(envPath, "utf8")
     .split(/\r?\n/)
