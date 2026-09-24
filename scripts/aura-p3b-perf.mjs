@@ -51,7 +51,7 @@ for (const aura of AURAS) {
       const mk = () => {
         const cv = document.createElement("canvas"); cv.width = w; cv.height = w;
         const cv2 = document.createElement("canvas"); cv2.width = w; cv2.height = w;
-        return mod.makeAura(cv, { aura, w, h, mode, ringR: Math.min(w, h) / 3.456, overCanvas: cv2, figure: mode === "body" ? "/avatars/E.webp" : undefined });
+        return mod.makeAura(cv, { aura, w, h, mode, ringR: Math.min(w, h) / 3.456, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null, figure: mode === "body" ? "/avatars/E.webp" : undefined });
       };
       const waitImgs = async () => { for (let t = 0; t < 200; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); } };
       const s = (a) => { a.sort((x, y) => x - y); return a.length ? { n: a.length, avg: +(a.reduce((v, x) => v + x, 0) / a.length).toFixed(3), p95: +a[Math.floor(a.length * 0.95)].toFixed(3), max: +a.at(-1).toFixed(3) } : { n: 0 }; };
@@ -93,7 +93,7 @@ const stress = await page.evaluate(async (auras) => {
   const insts = auras.map((aura) => {
     const cv = document.createElement("canvas"); cv.width = 59; cv.height = 59;
     const cv2 = document.createElement("canvas"); cv2.width = 59; cv2.height = 59;
-    return mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 59 / 3.456, overCanvas: cv2 });
+    return mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 59 / 3.456, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
   }).filter(Boolean);
   for (let t = 0; t < 200; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
   insts.forEach((inst) => { for (let i = 0; i < 60; i++) inst.frame(1 / 60); });

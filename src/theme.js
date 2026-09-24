@@ -33,7 +33,16 @@ export function applyTheme(settings = {}) {
   RANKS.forEach((r, i) => { r.color = mode === "light" ? RANK_LIGHT[i] : RANK_DARK[i]; });
 }
 // Custom RGB theme: derive every color from three picks
-export const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const _hexRgbMemo = new Map();
+export const hexRgb = (h) => {
+  let v = _hexRgbMemo.get(h);
+  if (v !== undefined || _hexRgbMemo.has(h)) return v || null;
+  const m = /^#?([0-9a-f]{6})$/i.exec(h || "");
+  v = m ? (() => { const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; })() : null;
+  if (_hexRgbMemo.size > 256) _hexRgbMemo.clear();
+  _hexRgbMemo.set(h, v);
+  return v;
+};
 export const rgbaOf = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 export const mixRgb = (a, b, t) => `rgb(${a.map((x, i) => Math.round(x + (b[i] - x) * t)).join(",")})`;
 export function customTheme(cu) {
