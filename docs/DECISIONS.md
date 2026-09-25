@@ -54,6 +54,8 @@ No part of a moment — bursts, beams, orbiting pieces, or placed images — may
 
 The leaderboard worst-case stress test must stay under 16 ms p95 at 4x CPU: all moment auras at board-32 with every moment forced simultaneously (`scripts/aura-p3b-perf.mjs`).
 
+Per-aura render budget: a new or reworked aura must stay at or under 0.8 ms p95 loop time at board-32 / 4x CPU.
+
 ## Worn pieces must end inside the canvas
 
 A worn piece anchored to the figure or photo (cloak, blindfold, hat) must never read as chopped by the canvas edge. Pieces that hang to the bottom edge — Ledger's cloak — fade out over their last stretch and report their smallest clearance in pixels, measured on a cloak-isolated render so full-canvas backdrops don't fake a 0 px margin (`scripts/aura-7i-p3-shots.mjs`). Sides and top get the same rule: the piece either stops short or fades.
