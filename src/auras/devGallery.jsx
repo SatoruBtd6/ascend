@@ -43,6 +43,16 @@ const SHAPE_SHEET = {
   sandgrain: "#E8C872",
   chainlink: "#CBD5E1",
   page: "#E8E0CC",
+  comet: "#FFB27D",
+  sparkle: "#FFFFFF",
+  orb: "#7DD3FC",
+  crystal: "#A5F3FC",
+  wisp: "#6EE7B7",
+  rune: "#F0ABFC",
+  bolt: "#FDE68A",
+  moth: "#F9A8D4",
+  lantern: "#FDBA74",
+  sparkburst: "#93C5FD",
 };
 
 export const FLAG_KEYS = new Set(["flip", "even", "behind", "tw", "bob", "dash", "ink", "dark", "flash", "strike", "calm", "breathe", "glint", "over", "top", "flick", "fan", "artLate", "rim", "frontOnly"]);
@@ -229,6 +239,9 @@ const SHAPE_NAMES = {
   gem: "Gems", petal: "Petals", eye: "Eyes", spark: "Sparks", ash: "Ash motes",
   feather: "Feathers", bonechip: "Bone chips", coin: "Coins", crescent: "Crescents",
   pulse: "Pulses", sandgrain: "Sand grains", chainlink: "Chain links", page: "Pages",
+  comet: "Comets", sparkle: "Sparkles", orb: "Orbs", crystal: "Crystals",
+  wisp: "Wisps", rune: "Runes", bolt: "Mini bolts", moth: "Moths",
+  lantern: "Lanterns", sparkburst: "Spark bursts",
   emoji: "Icons", img: "Image art", flame: "Flames",
 };
 const KIND_NAMES = { rise: "Rising", fall: "Falling", orbit: "Orbiting", inward: "Drifting inward", bubble: "Bubbling up" };
@@ -991,7 +1004,7 @@ export function isDeadField(layer, key, { view = "figure", overCount = 0 } = {})
   return false;
 }
 export const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
-export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink", "page"];
+export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink", "page", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "bolt", "moth", "lantern", "sparkburst"];
 export const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
 
 // The exact field list SpecEditor renders for a spec — exported so the
@@ -1443,8 +1456,31 @@ function ShapeCell({ shape, color }) {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = 160 * dpr; canvas.height = 160 * dpr;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const particle = { sz: 17, c: color, rot: -0.35, ph: 0.8, age: 0.45, life: 1, ang: 0.4, w: 0.3, ashBlobs: [[-0.22, -0.08, 0.34], [0.18, 0.12, 0.28], [0.02, 0.28, 0.22]] };
-    drawNewParticleShape(g, shape, particle, 80, 80, 0.8);
+    // Three sizes matching how the shape reads on each stage: board-32,
+    // photo-76 ring, figure-160. vx/vy give motion-following shapes (comet)
+    // a direction; w/ang make orbit-style velocity fallbacks work too.
+    const mk = (sz, ph, vx, vy) => ({ sz, c: color, rot: -0.35 + ph * 0.2, ph, age: 0.45, life: 1, ang: 0.4, w: 0.3, i: (ph * 10) | 0, vx, vy, ashBlobs: [[-0.22, -0.08, 0.34], [0.18, 0.12, 0.28], [0.02, 0.28, 0.22]] });
+    const cells = [
+      { cx: 30, cy: 92, sz: 3.6 },   // board-32 particle size
+      { cx: 80, cy: 92, sz: 8.5 },   // photo/ring particle size
+      { cx: 128, cy: 92, sz: 15 },   // figure particle size
+    ];
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = (now - t0) / 1000 + 0.8;
+      g.clearRect(0, 0, 160, 160);
+      g.fillStyle = "rgba(148,163,184,0.55)"; g.font = "9px sans-serif"; g.textAlign = "center";
+      for (let i = 0; i < cells.length; i++) {
+        const { cx, cy, sz } = cells[i];
+        drawNewParticleShape(g, shape, mk(sz, 0.8 + i * 1.7, 26, -14), cx, cy, t);
+        if (i) drawNewParticleShape(g, shape, mk(sz * 0.8, 3.1 + i, -18, 20), cx + sz * 0.4, cy - sz * 2.2, t);
+        g.fillText(["board", "ring", "figure"][i], cx, 146);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [shape, color]);
   return (
     <div style={{ textAlign: "center" }}>

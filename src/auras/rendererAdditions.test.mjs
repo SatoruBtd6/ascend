@@ -38,10 +38,25 @@ renderer.setFlashPageClock(() => pageT);
 
 function stubCanvas() {
   const output = [];
-  const methods = ["save", "restore", "translate", "rotate", "beginPath", "arc", "fill", "stroke", "moveTo", "lineTo", "closePath", "ellipse", "quadraticCurveTo", "bezierCurveTo"];
+  const methods = ["save", "restore", "translate", "rotate", "scale", "beginPath", "arc", "fill", "stroke", "moveTo", "lineTo", "closePath", "ellipse", "quadraticCurveTo", "bezierCurveTo", "drawImage", "rect", "clip"];
   const ctx = { globalAlpha: 1 };
   for (const method of methods) ctx[method] = (...args) => output.push([method, ...args]);
   return { ctx, output };
+}
+
+// Sprite helpers (glowSprite/orbSprite/softSprite) build offscreen canvases
+// through document.createElement — give them a recording stub in Node.
+function installStubDocument() {
+  globalThis.document = {
+    createElement: () => {
+      const el = { width: 0, height: 0 };
+      el.getContext = () => new Proxy({ globalAlpha: 1, createRadialGradient: () => ({ addColorStop() {} }), createLinearGradient: () => ({ addColorStop() {} }) }, {
+        get: (t, k) => (k in t ? t[k] : () => {}),
+        set: (t, k, v) => { t[k] = v; return true; },
+      });
+      return el;
+    },
+  };
 }
 
 function stubRendererCanvas(output = []) {
@@ -170,6 +185,55 @@ test("all eight new particle shapes draw non-empty output without throwing", () 
     assert.doesNotThrow(() => renderer.drawNewParticleShape(ctx, shape, particle, 20, 20, 0.5), shape);
     assert.ok(output.some(([operation]) => operation === "fill" || operation === "stroke"), `${shape} produced no painted output`);
   }
+});
+
+test("all ten 7j particle shapes draw distinct painted output without throwing", () => {
+  installStubDocument();
+  const shapes = ["comet", "sparkle", "orb", "crystal", "wisp", "rune", "bolt", "moth", "lantern", "sparkburst"];
+  const mk = (over = {}) => ({ sz: 4, c: "#abcdef", rot: 0.4, ph: 0.7, age: 0.4, life: 1.5, ang: 0.3, w: 0.2, i: 3, vx: 10, vy: -6, ...over });
+  const sig = (shape, t, reduced, p) => {
+    const { ctx, output } = stubCanvas();
+    renderer.drawNewParticleShape(ctx, shape, p || mk(), 20, 20, t, reduced);
+    return JSON.stringify(output);
+  };
+  const seen = new Set();
+  for (const shape of shapes) {
+    const ops = sig(shape, 0.5, false);
+    assert.ok(ops.includes('"fill"') || ops.includes('"stroke"') || ops.includes('"drawImage"'), `${shape} produced no painted output`);
+    assert.ok(!seen.has(ops), `${shape} draws the same op stream as another shape — not visually distinct`);
+    seen.add(ops);
+  }
+});
+
+test("7j particle shapes animate over time and hold still under reduced motion", () => {
+  installStubDocument();
+  const animated = ["sparkle", "orb", "crystal", "wisp", "rune", "moth", "lantern", "sparkburst"];
+  const p = { sz: 4, c: "#abcdef", rot: 0.4, ph: 0.7, age: 0.4, life: 1.5, ang: 0.3, w: 0.2, i: 3, vx: 10, vy: -6 };
+  const sig = (shape, t, reduced) => {
+    const { ctx, output } = stubCanvas();
+    renderer.drawNewParticleShape(ctx, shape, { ...p }, 20, 20, t, reduced);
+    return JSON.stringify(output);
+  };
+  for (const shape of animated) {
+    assert.notEqual(sig(shape, 0.5, false), sig(shape, 1.3, false), `${shape} does not animate`);
+    assert.equal(sig(shape, 0.5, true), sig(shape, 1.3, true), `${shape} still animates under reduced motion`);
+  }
+  // bolt flickers through globalAlpha, which the stub records as a property
+  // set — read the final value rather than the op stream
+  const boltAlpha = (t, reduced) => {
+    const { ctx } = stubCanvas();
+    renderer.drawNewParticleShape(ctx, "bolt", { ...p }, 20, 20, t, reduced);
+    return ctx.globalAlpha;
+  };
+  assert.notEqual(boltAlpha(0.5, false), boltAlpha(0.62, false), "bolt does not flicker");
+  assert.equal(boltAlpha(0.5, true), boltAlpha(0.62, true), "bolt still flickers under reduced motion");
+  // comet has no internal clock — its tail follows velocity; reduced motion shortens it
+  const cometScale = (reduced) => {
+    const { ctx, output } = stubCanvas();
+    renderer.drawNewParticleShape(ctx, "comet", { ...p }, 20, 20, 0.5, reduced);
+    return output.find(([op]) => op === "scale")?.[1];
+  };
+  assert.ok(cometScale(true) < cometScale(false), "comet tail is not shorter under reduced motion");
 });
 
 test("ash geometry is stable across frames and only its transform changes", () => {
