@@ -1623,11 +1623,14 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.restore(); break;
       }
       case "glyph": {
-        const mark = shapePath(p, "m", s, (P, v) => { P.rect(-v, -v, v * 2, v * 2); P.moveTo(0, -v * 1.35); P.lineTo(0, v * 1.35); P.moveTo(-v * 1.35, 0); P.lineTo(v * 1.35, 0); return P; });
         g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.6);
         g.lineJoin = "round";
-        g.strokeStyle = "rgba(18,10,4,0.55)"; g.lineWidth = Math.max(1.6, s * 0.42); g.stroke(mark);
-        g.strokeStyle = p.c; g.lineWidth = Math.max(0.85, s * 0.3); g.stroke(mark);
+        g.strokeStyle = "rgba(18,10,4,0.55)"; g.lineWidth = Math.max(1.6, s * 0.42);
+        g.strokeRect(-s, -s, s * 2, s * 2);
+        g.beginPath(); g.moveTo(0, -s * 1.35); g.lineTo(0, s * 1.35); g.moveTo(-s * 1.35, 0); g.lineTo(s * 1.35, 0); g.stroke();
+        g.strokeStyle = p.c; g.lineWidth = Math.max(0.85, s * 0.3);
+        g.strokeRect(-s, -s, s * 2, s * 2);
+        g.beginPath(); g.moveTo(0, -s * 1.35); g.lineTo(0, s * 1.35); g.moveTo(-s * 1.35, 0); g.lineTo(s * 1.35, 0); g.stroke();
         g.restore(); break;
       }
       case "gem": {
@@ -1975,7 +1978,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.strokeStyle = rgba(ringColor, a);
         g.lineWidth = lw;
         g.beginPath(); g.ellipse(0, 0, rr, rr, rot, 0, Math.PI * 2); g.stroke();
-        if (R.dash) g.setLineDash([]);
+        g.setLineDash([]);
         if (R.filigree) {
           const ticks = R.filigree;
           for (let i = 0; i < ticks; i++) {

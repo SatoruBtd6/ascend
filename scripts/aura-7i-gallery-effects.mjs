@@ -94,6 +94,11 @@ for (const aura of targets) {
       seed(seedV);
       const { inst, cv, ov } = mkInst(spec, stageName, reduce);
       if (!inst) return { crash: "no instance" };
+      // Prime one frame so lazily-requested images (e.g. nullpoint's blindfold,
+      // only fetched inside the first draw) exist in the cache before the
+      // readiness gate — otherwise the asset streams in mid-run and the dead/
+      // live verdict flips on wall-clock timing.
+      inst.frame(1 / 60);
       await imagesReady();
       seed(seedV);
       // Rewind the fake page clock — re-invoking the hook also resets the
