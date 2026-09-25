@@ -54,7 +54,7 @@ No part of a moment — bursts, beams, orbiting pieces, or placed images — may
 
 The leaderboard worst-case stress test must stay under 16 ms p95 at 4x CPU: all moment auras at board-32 with every moment forced simultaneously (`scripts/aura-p3b-perf.mjs`).
 
-Per-aura render budget: a new or reworked aura must stay at or under 0.8 ms p95 loop time at board-32 / 4x CPU.
+Per-aura budget: average loop time at or under 0.6 ms at board-32 / 4x CPU (quiet --perf, 400 frames, moments forced for moment auras), median of 3 runs. p95 is reported for information only. Revamp stress: after every aura batch, run a board-32 stress with the 10 heaviest revamped auras (by average), circle mode, 4x CPU, moments forced; p95 must stay under 16 ms.
 
 ## Worn pieces must end inside the canvas
 

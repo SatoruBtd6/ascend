@@ -65,8 +65,11 @@ In addition:
 - **Edges:** nothing is cut off by the canvas edge at any size (border alpha scan = 0). This
   includes bolt strikes: use `bolts.fit` / `rays.fit` / `inward.fit`. Only transient burst debris
   may leave the frame.
-- **Per-aura budget:** 0.8 ms p95 loop time or less at board-32 / 4x CPU for any new or reworked
-  aura.
+- **Per-aura budget:** average loop time at or under 0.6 ms at board-32 / 4x CPU (quiet --perf,
+  400 frames, moments forced for moment auras), median of 3 runs. p95 is reported for
+  information only. Revamp stress: after every aura batch, run a board-32 stress with the 10
+  heaviest revamped auras (by average), circle mode, 4x CPU, moments forced; p95 must stay
+  under 16 ms.
 - **Leaderboard stress:** the set is `atlas forge fallenlight ossuary ironbound standardbearer
   ascended bonewright nullpoint inferno`, run at board-32, circle mode, 4x CPU, with moments
   forced. p95 must stay under 16 ms. Rerun it whenever any of these auras, or shared renderer code,

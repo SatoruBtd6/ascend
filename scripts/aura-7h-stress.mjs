@@ -16,6 +16,10 @@ async function loadChromium() {
 }
 const args = process.argv.slice(2);
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5173";
+// --revamp: the per-batch revamp stress. Forces moments continuously on
+// moment auras (re-force whenever idle) and wires the over-canvas so
+// overArt moments (vendetta skull) render and cost real time.
+const revamp = args.includes("--revamp");
 const auras = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--base").join(",").split(",").filter(Boolean);
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
@@ -25,7 +29,7 @@ const cdp = await ctx.newCDPSession(page);
 await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 await page.goto(`${base}/?auras=1`, { waitUntil: "domcontentloaded" });
 
-const stats = await page.evaluate(async (auras) => {
+const stats = await page.evaluate(async ({ auras, revamp }) => {
   const mod = await import("/src/auras/AuraCanvas.jsx");
   if (mod.AuraLoop.raf) cancelAnimationFrame(mod.AuraLoop.raf);
   mod.AuraLoop.raf = null;
@@ -34,7 +38,9 @@ const stats = await page.evaluate(async (auras) => {
     const cv = document.createElement("canvas");
     const w = 59;
     cv.width = w; cv.height = w;
-    return mod.makeAura(cv, { aura, w, h: w, mode: "circle", ringR: (32 * 1.45) / 2.7 });
+    const cv2 = document.createElement("canvas");
+    cv2.width = w; cv2.height = w;
+    return mod.makeAura(cv, { aura, w, h: w, mode: "circle", ringR: (32 * 1.45) / 2.7, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
   }).filter(Boolean);
   for (let tries = 0; tries < 200; tries++) {
     if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
@@ -45,12 +51,16 @@ const stats = await page.evaluate(async (auras) => {
   const times = [];
   for (let f = 0; f < 240; f += 1) {
     const t0 = performance.now();
-    insts.forEach((inst) => inst.frame(1 / 60));
+    insts.forEach((inst) => {
+      // revamp stress keeps moment auras inside their moment continuously
+      if (revamp && inst.moment == null && !(inst.momentParts > 0)) inst.forceMoment?.();
+      inst.frame(1 / 60);
+    });
     times.push(performance.now() - t0);
   }
   times.sort((a, b) => a - b);
   const avg = times.reduce((s, v) => s + v, 0) / times.length;
   return { n: times.length, auras: insts.length, avg: +avg.toFixed(3), p50: +times[Math.floor(times.length * 0.5)].toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3), max: +times[times.length - 1].toFixed(3) };
-}, auras);
+}, { auras, revamp });
 console.log(`${stats.auras} auras @ board-32 (59px): frames=${stats.n} avg=${stats.avg}ms p50=${stats.p50} p95=${stats.p95} max=${stats.max}`);
 await browser.close();

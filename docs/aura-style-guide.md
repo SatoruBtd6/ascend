@@ -77,8 +77,12 @@ Ring-first composition; board-32 and figure share the same spec.
 
 ## Hard rules
 
-- **Budget:** p95 ≤ 0.8 ms at board-32 / 4× CPU for every revamped aura.
-  Over budget → fewer, bigger, brighter particles.
+- **Budget:** average loop time at or under 0.6 ms at board-32 / 4× CPU
+  (quiet `--perf`, 400 frames, moments forced for moment auras), median of
+  3 runs. p95 is reported for information only. Revamp stress: after every
+  aura batch, run a board-32 stress with the 10 heaviest revamped auras
+  (by average), circle mode, 4× CPU, moments forced; p95 must stay under
+  16 ms. Over budget → fewer, bigger, brighter particles.
 - **Flashes:** only through `noteStrikeFlash` (≤ 3/s page-wide, none under
   reduced motion). No whole-aura brightness oscillation faster than 3/s.
   Staggered per-particle twinkle is fine.
@@ -99,7 +103,8 @@ Ring-first composition; board-32 and figure share the same spec.
 - Ring on dark + light, board-32, figure — before and after.
 - Two frames (f90 + f120) and a reduced-motion ring shot.
 - Metrics vs the ladder: ring px / lit% **and lit% (glow=0)** / glow / layers.
-- p95 at board-32 / 4× CPU.
+- Average loop time at board-32 / 4× CPU (quiet `--perf`, 400 frames,
+  moments forced, median of 3); p95 reported for information only.
 - Edge scan across sampled frames.
 - **Look-alike strip:** a side-by-side ring-size strip showing each changed
   aura next to its 2–3 closest visual look-alikes, including approved auras
