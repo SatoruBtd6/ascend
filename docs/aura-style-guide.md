@@ -7,13 +7,14 @@ Standards for the aura revamp. Anchored on the two approved pilots:
 
 Measured on the ring view: `ring px` = particle footprint diameter in real
 pixels on the 76 px avatar (`sz × 0.92` at the 141 px render); `lit%` = share
-of the aura-only disc (r ≤ 70.5 px) with luminance ≥ 25; `glow` = the spec's
-ambient disc alpha scale; `layers` = total spec layers incl. body-only.
+of the aura-only disc (r ≤ 70.5 px) with luminance ≥ 25; `lit% (glow=0)` =
+the same measured with the ambient glow disc disabled — this is the number
+that actually separates auras, see below; `glow` = the spec's ambient disc
+alpha scale; `layers` = total spec layers incl. body-only.
 
 | axis | **Tier 1** — ember standard | **Tier 2** — stormstep standard | **Tier 3** — showcase |
 |---|---|---|---|
 | hero ring particle | 2.5–3.5 px | 3.5–4.5 px | 4.5–6.5 px |
-| lit% | 55–65 | 60–70 (lum ≥ 120) | 65–75 |
 | glow | 0.75–0.85 | 1.0–1.15 | 1.3–1.55 |
 | layers | 3–4 | 4–5 | ≥ 5 |
 | signature | none — particle ring only | ONE: bolts, sweep, or art accent | several allowed (art, moments, rays, bolts) |
@@ -23,13 +24,27 @@ The step anyone notices: T1 → T2 adds ~+0.3 glow (disc luminance ~85 → ~137)
 a visibly bigger hero shape, and one signature mechanic. T2 → T3 adds another
 ~+0.3 glow, hero particles ~1.5–2 px larger again, and art/moment content.
 
+### Why lit% is a floor, not a tier metric
+
+`lit%` saturates on the glow disc: at `glow ≥ 0.75` the disc alone lights
+~63 % of the ring regardless of the particles on top, so every normal aura
+measures ~63 %. Report it anyway as a **"not barely visible" floor** — an
+aura under ~55 % lit is probably too dim — but never use it to compare
+tiers. Instead report **`lit% (glow=0)`** (particles only) next to it:
+the two numbers together show how much of the brightness is ambient disc
+vs particle work. Reference glow=0 lit%: ember ~10, stormstep ~5,
+glassfire ~11, vendetta ~28 (vendetta's floor comes from the fixed `dark`
+disc band — `rgba(c1, 0.66)` — not the particles).
+
 ### Dark-by-design auras
 
-`void`, `abyss`, `vendetta` keep their dark mood. They do **not** chase the
-tier lit% band — target **lit 15–25 %** from a bright accent layer only
-(thin `zap`/`sparkle`/`crescent` rim orbit or accent motes, bright palette on
-the dark body). They must read clearly on a dark theme but never become
-bright auras.
+Dark-mood auras keep their dark mood. They do **not** chase the tier lit%
+floor — target **lit 15–25 %** from a bright accent layer only (thin
+`zap`/`sparkle`/`crescent` rim orbit or accent motes, bright palette on the
+dark body). Note the fixed `dark` disc band itself can floor lit% at ~28 %
+for warm-hued catalog colours (vendetta) — measure before trimming accents.
+They must read clearly on a dark theme but never become bright auras.
+(`void` is exempt — it is now the bright starfield aura, not dark-banded.)
 
 ## Pilot recipe — what a revamp looks like
 
@@ -83,7 +98,7 @@ Ring-first composition; board-32 and figure share the same spec.
 
 - Ring on dark + light, board-32, figure — before and after.
 - Two frames (f90 + f120) and a reduced-motion ring shot.
-- Metrics vs the ladder: ring px / lit% / glow / layers.
+- Metrics vs the ladder: ring px / lit% **and lit% (glow=0)** / glow / layers.
 - p95 at board-32 / 4× CPU.
 - Edge scan across sampled frames.
 - **Look-alike strip:** a side-by-side ring-size strip showing each changed
