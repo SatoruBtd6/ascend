@@ -248,12 +248,19 @@ export const AURA_FX = {
     { k: "orbit", n: 3, shape: "comet", c: ["#FFFFFF", "#FFE9A8", "#7C8FE8"], w: [0.9, 1.5], r: [1.05, 1.16], sz: [1.2, 1.7] },
   ] },
   yogurt: { spd: 0.95, glow: 0.42, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.5, 0.5], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.8, 3.6] }] },
-  vendetta: { spd: 1.7, glow: 0.45, dark: 1, bolts: { every: [0.7, 1.5], c: ["#FF4D6D", "#FFB3C1"], fit: 1 }, rings: [{ r: 1.26, c: "#8A0020", spin: 0.05, a: 0.5, w: 2.2, dash: 1 }], layers: [
+  // Vendetta moment (~3.5s): an obsidian skull flies in and grows large in
+  // front of the avatar (over-canvas), its sockets ignite to glowing red on
+  // a ramp, it spews a roaring crimson-orange flame stream through the
+  // transparent mouth, then recedes and the normal aura returns.
+  vendetta: { spd: 1.7, glow: 0.45, dark: 1, overArt: "vendetta", moment: {
+    every: [26, 36], dur: 3.5,
+    flash: { at: 0.46, flashPeak: 0.45, flashLife: 0.1, flashC: ["#FF6B4D", "#C2001F"], anchor: "center" },
+  }, bolts: { every: [0.7, 1.5], c: ["#FF4D6D", "#FFB3C1"], fit: 1 }, rings: [{ r: 1.26, c: "#8A0020", spin: 0.05, a: 0.5, w: 2.2, dash: 1 }], layers: [
     { k: "inward", n: 20, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.55, 1], life: [1, 1.8], sz: [2, 3.4], blend: "source-over", a: 0.85, fit: 1 },
     { k: "orbit", n: 6, shape: "shard", c: ["#FF1F4B", "#FF6B8F", "#8A0020"], w: [1.1, 1.8], r: [1, 1.1], sz: [3.2, 4.2] },
     { k: "orbit", n: 4, shape: "sparkle", c: ["#FFB3C1", "#FFFFFF"], w: [0.5, 0.9], r: [1.02, 1.12], sz: [2, 2.8], tw: 1 },
-    { k: "orbit", n: 7, shape: "dot", c: ["#FF1F4B", "#FF6B8F"], w: [2, 3.2], r: [1.14, 1.28], sz: [1.4, 2.2], tw: 1 },
-    { k: "rise", n: 14, shape: "drop", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [20, 42], life: [0.7, 1.4], sz: [1.2, 2.2], sway: 8, circle: { n: 0, a: 0 } },
+    { k: "orbit", n: 7, shape: "dot", c: ["#FF1F4B", "#FF6B8F"], w: [2, 3.2], r: [1.14, 1.24], sz: [1.4, 2.2], tw: 1 },
+    { k: "rise", n: 14, shape: "drop", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [20, 42], life: [0.7, 1.4], sz: [1.2, 2.2], sway: 8, low: 1, circle: { n: 0, a: 0 } },
   ] },
   champion: { spd: 1.45, glow: 0.68, rays: { n: 12, c: "#FFD447", spin: 0.28, len: 1.45, a: 0.18 }, sweep: { c: "#FFD447", a: 0.85, spd: 0.28, r: 1, w: 3.2, span: 0.55 }, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/crown.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.7, 0.7], even: 1, bob: 1, wobble: 0.05, a: 0.98, blend: "source-over", hover: 0.1 },
@@ -1057,6 +1064,75 @@ export const AURA_ART = {
         if (s) g.lineTo(x, y); else g.moveTo(x, y);
       }
       g.stroke();
+    }
+    g.restore();
+    return null;
+  },
+  // Vendetta skull moment — draws on the over-canvas so the skull sits in
+  // front of the photo/body. Phases: fly-in (grow+settle), socket ignite
+  // ramp, mouth-fire stream, recede.
+  vendetta: (opts) => {
+    if (opts.pass !== "over") return null;
+    const g = opts.over || opts.g;
+    const mo = opts.moment;
+    if (!mo) return null;
+    const rec = auraImage("/aura/vendetta-skull.webp");
+    if (!rec.ready || rec.failed) return null;
+    const { cx, cy, rx, ry, unit, time, reduce } = opts;
+    const t = mo.t, R = Math.min(rx, ry);
+    const inK = Math.min(1, t / 0.22), easeIn = inK * inK * (3 - 2 * inK);
+    const outK = t > 0.8 ? Math.max(0, 1 - (t - 0.8) / 0.18) : 1;
+    // fly in small -> large; on exit it recedes (shrinks back toward the
+    // distance) while fading. Capped so the drawn square never reaches the
+    // canvas edge at any size.
+    const scale = (0.16 + 1.02 * easeIn) * (0.24 + 0.76 * outK);
+    const alpha = Math.min(1, t * 10) * outK;
+    if (alpha <= 0.02) return null;
+    const S = Math.min(R * 2.5 * scale, Math.min(opts.w, opts.h) * 0.78);
+    const sx = cx, sy = cy - S * 0.12;              // skull centre — mouth lands ~mid-canvas
+    const mth = { x: sx, y: sy + S * 0.16 };        // mouth (image ~50%,66%)
+    const eye = { x: sx, y: sy - S * 0.07, dx: S * 0.135 }; // sockets ~36%/63%×43%
+    const fireK = t < 0.4 ? 0 : t < 0.8 ? Math.min(1, (t - 0.4) / 0.12) : Math.max(0, 1 - (t - 0.8) / 0.1);
+    const ignite = t < 0.28 ? 0 : Math.min(1, (t - 0.28) / 0.22); // slow ramp, no flash
+    const img = rec.img;
+    g.save();
+    g.globalAlpha = alpha;
+    // fire behind the skull first — the transparent mouth lets it show
+    // through, and the spill reads as flame bursting out around the jaw
+    if (fireK > 0) {
+      g.globalCompositeOperation = "lighter";
+      const n = reduce ? 8 : 16;
+      const reach2 = Math.min(opts.w - cx, cx, opts.h - cy, cy) * 0.92;
+      for (let i = 0; i < n; i++) {
+        const ph = i * 2.39, sp = 40 + (i % 5) * 22;
+        const tt = ((time * (reduce ? 0.4 : 1.15) * (0.6 + (i % 3) * 0.2) + ph) % 1);
+        const ang = Math.PI * 0.5 + Math.sin(ph * 7 + i) * 0.75; // downward cone
+        const d = tt * sp * unit * 2.2 * fireK;
+        const fx = mth.x + Math.cos(ang) * d * 0.8, fy = mth.y + Math.sin(ang) * d;
+        if (Math.abs(fx - cx) > reach2 - 4 || Math.abs(fy - cy) > reach2 - 4) continue;
+        const fs = (2.4 + tt * 3.4) * unit * fireK;
+        g.globalAlpha = alpha * fireK * (1 - tt) * 0.85;
+        g.drawImage(i % 3 ? glowSprite("#FF4D00") : glowSprite("#C2001F"), fx - fs, fy - fs, fs * 2, fs * 2);
+      }
+      // inner mouth glow — the furnace inside the skull
+      const mg = g.createRadialGradient(mth.x, mth.y, 1, mth.x, mth.y, S * 0.22 * fireK);
+      mg.addColorStop(0, `rgba(255,120,40,${0.9 * fireK})`); mg.addColorStop(0.5, `rgba(220,20,40,${0.5 * fireK})`); mg.addColorStop(1, "rgba(120,0,20,0)");
+      g.globalAlpha = alpha;
+      g.fillStyle = mg; g.beginPath(); g.arc(mth.x, mth.y, S * 0.22 * fireK, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+    }
+    g.drawImage(img, sx - S / 2, sy - S / 2, S, S);
+    // igniting sockets — a red ramp, not a flash
+    if (ignite > 0) {
+      g.globalCompositeOperation = "lighter";
+      for (const sgn of [-1, 1]) {
+        const er = S * 0.075 * (0.6 + 0.4 * ignite);
+        const eg = g.createRadialGradient(eye.x + sgn * eye.dx, eye.y, 0.5, eye.x + sgn * eye.dx, eye.y, er * 2.2);
+        eg.addColorStop(0, `rgba(255,60,40,${0.95 * ignite})`); eg.addColorStop(0.45, `rgba(194,0,31,${0.55 * ignite})`); eg.addColorStop(1, "rgba(90,0,18,0)");
+        g.globalAlpha = alpha;
+        g.fillStyle = eg; g.beginPath(); g.arc(eye.x + sgn * eye.dx, eye.y, er * 2.2, 0, Math.PI * 2); g.fill();
+      }
+      g.globalCompositeOperation = "source-over";
     }
     g.restore();
     return null;
