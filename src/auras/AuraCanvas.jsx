@@ -145,9 +145,21 @@ export const AURA_FX = {
   ] },
   wyrm: { spd: 1.5, glow: 0.64, layers: [{ k: "orbit", n: 24, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.1, 2], r: [0.94, 1.22], sz: [2.6, 4.6] }, { k: "rise", n: 16, shape: "ember", c: ["#3DF08A", "#FFD447"], sp: [22, 48], life: [0.7, 1.4], sz: [1.2, 2.1], sway: 12 }] },
   frost: { spd: 1.25, glow: 0.58, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [16, 32], sz: [2.2, 4.2], drift: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.4, 0.8], r: [1, 1.18], sz: [2.6, 4.2] }] },
-  abyss: { spd: 1.6, glow: 0.5, layers: [{ k: "inward", n: 28, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.55, 1.05], life: [1, 1.9], sz: [1.8, 3.8] }, { k: "orbit", n: 18, shape: "ash", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1, 2.2], r: [0.94, 1.22], sz: [1.2, 2.2] }] },
+  abyss: { spd: 1.6, glow: 0.62, dark: 1, layers: [
+    { k: "inward", n: 10, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.55, 1.05], life: [1, 1.9], sz: [1.8, 3.2], fit: 1 },
+    { k: "orbit", n: 9, shape: "sandgrain", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1, 2.2], r: [0.94, 1.22], sz: [1.2, 2.2] },
+    { k: "orbit", n: 4, shape: "sparkle", c: ["#E8C9FF", "#FF9AD5"], w: [0.4, 0.8], r: [1.04, 1.14], sz: [2.2, 3.2], tw: 1 },
+    { k: "orbit", n: 5, shape: "orb", c: ["#B14BFF", "#FF2D6F"], w: [0.5, 0.9], r: [1.1, 1.24], sz: [1.8, 2.6], tw: 1 },
+    { k: "rise", n: 8, shape: "wisp", c: ["#B14BFF", "#6A00FF"], sp: [8, 16], life: [1.6, 2.6], sz: [3, 5], sway: 8, a: 0.5, circle: { n: 0, a: 0 } },
+  ] },
   chud: { spd: 1, glow: 0.48, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.55, 0.55], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "rise", n: 10, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over" }] },
-  rust: { spd: 1.35, glow: 0.45, layers: [{ k: "fall", n: 28, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [18, 34], sz: [1.7, 3.2], drift: 12, spin: 1 }, { k: "rise", n: 12, shape: "sandgrain", c: ["#FFB86B", "#FF7A2D"], sp: [32, 64], life: [0.4, 0.9], sz: [1, 1.7], sway: 18 }] },
+  rust: { spd: 1.35, glow: 0.95, rings: [{ r: 1.14, c: "#C7743A", spin: -0.04, a: 0.55, w: 2, dash: 1 }, { r: 1.08, c: "#F0B07A", spin: 0.05, a: 0.2, w: 10 }], layers: [
+    { k: "orbit", n: 10, shape: "square", c: ["#C7743A", "#E39A5E", "#8B4513"], w: [0.8, 1.4], r: [1.04, 1.16], sz: [3, 4.4], spin: 1 },
+    { k: "orbit", n: 8, shape: "sandgrain", c: ["#FFB86B", "#FF7A2D", "#F0B07A"], w: [1.4, 2.4], r: [1.1, 1.26], sz: [1.6, 2.4], tw: 1 },
+    { k: "orbit", n: 5, shape: "sparkle", c: ["#FFE0B8", "#F0B07A"], w: [0.4, 0.8], r: [1, 1.1], sz: [2, 3], tw: 1 },
+    { k: "orbit", n: 12, shape: "smoke", c: ["#FFE0B8", "#F0B07A"], w: [0.08, 0.18], r: [0.2, 0.6], sz: [7, 10], a: 0.7, blend: "lighter" },
+    { k: "fall", n: 16, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [16, 30], sz: [1.6, 3], drift: 8, spin: 1, xWrap: 1, xFade: 8, circle: { n: 0, a: 0 } },
+  ] },
   thunder: { spd: 1.75, glow: 0.6, bolts: { every: [0.35, 0.9], c: ["#FFF27A", "#7DD3FC", "#FFFFFF"] }, layers: [{ k: "orbit", n: 26, shape: "spark", c: ["#7DD3FC", "#FFF27A", "#FFFFFF"], w: [2.2, 3.4], r: [0.94, 1.2], sz: [1.3, 2.3] }] },
   hollow: { spd: 1.2, glow: 0.52, layers: [{ k: "orbit", n: 16, shape: "chainlink", c: ["#9AA7BD", "#DDE6F2", "#FFFFFF"], w: [0.35, 0.7], r: [1, 1.26], sz: [3.2, 5.2] }, { k: "rise", n: 10, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [6, 12], life: [1.8, 3], sz: [7, 13], sway: 6, a: 0.25, blend: "source-over" }] },
   deep: { spd: 1.4, glow: 0.58, layers: [
@@ -160,9 +172,21 @@ export const AURA_FX = {
   magma: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [18, 38], life: [0.7, 1.4], sz: [3.2, 7], sway: 4, a: 0.88 }, { k: "rise", n: 12, shape: "ember", c: ["#FFE08A", "#FF5A1F"], sp: [28, 55], life: [0.5, 1], sz: [1, 1.8], sway: 12 }] },
   plague: { spd: 1.25, glow: 0.48, layers: [{ k: "rise", n: 12, shape: "smoke", c: ["#8BC34A", "#5E8C2A"], sp: [7, 14], life: [1.8, 3], sz: [7, 13], sway: 8, a: 0.3 }, { k: "bubble", n: 14, c: ["#C6F07A", "#8BC34A"], sp: [12, 22], life: [1.1, 2.2], sz: [1.8, 3.8] }] },
   sand: { spd: 1.65, glow: 0.46, layers: [{ k: "orbit", n: 40, shape: "sandgrain", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.6, 2.8], r: [0.9, 1.38], sz: [1, 2], wave: 0.2, a: 0.92 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [22, 40], sz: [1.2, 2.2], drift: 16, spin: 1 }] },
-  void: { spd: 1.5, glow: 0.66, dark: 1, layers: [{ k: "inward", n: 28, shape: "crescent", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.5, 0.9], life: [1.2, 2.1], sz: [3.2, 7], blend: "source-over", a: 0.9 }, { k: "orbit", n: 22, shape: "star", c: ["#FFFFFF", "#C9A8FF", "#7DF9FF"], w: [0.35, 0.8], r: [1.05, 1.34], sz: [1, 1.8], tw: 1 }] },
+  void: { spd: 1.5, glow: 0.66, dark: 1, rings: [{ r: 1.08, c: "#3A0A6A", spin: -0.03, a: 0.7, w: 1.6 }], layers: [
+    { k: "inward", n: 14, shape: "crescent", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.5, 0.9], life: [1.2, 2.1], sz: [3.2, 7], blend: "source-over", a: 0.9, fit: 1 },
+    { k: "orbit", n: 12, shape: "star", c: ["#FFFFFF", "#C9A8FF", "#7DF9FF"], w: [0.35, 0.8], r: [1.05, 1.3], sz: [1.2, 2], tw: 1 },
+    { k: "orbit", n: 4, shape: "sparkle", c: ["#FFFFFF", "#C9A8FF"], w: [0.5, 0.9], r: [1, 1.12], sz: [2.4, 3.2], tw: 1 },
+    { k: "orbit", n: 5, shape: "dot", c: ["#7DF9FF", "#C9A8FF"], w: [1.6, 2.6], r: [1.16, 1.3], sz: [1.2, 2], tw: 1 },
+    { k: "rise", n: 6, shape: "wisp", c: ["#3A0A6A", "#1A0033"], sp: [6, 12], life: [2, 3.2], sz: [3.5, 5.5], sway: 6, a: 0.55, circle: { n: 0, a: 0 } },
+  ] },
   yogurt: { spd: 0.95, glow: 0.42, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.5, 0.5], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.8, 3.6] }] },
-  vendetta: { spd: 1.7, glow: 0.62, bolts: { every: [0.7, 1.5], c: ["#FF4D6D", "#FFB3C1"] }, layers: [{ k: "inward", n: 20, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.55, 1], life: [1, 1.8], sz: [2.6, 6], blend: "source-over", a: 0.85 }, { k: "rise", n: 22, shape: "drop", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [20, 42], life: [0.7, 1.4], sz: [1.2, 2.2], sway: 8 }, { k: "orbit", n: 12, shape: "shard", c: ["#FF1F4B", "#8A0020"], w: [1.1, 1.8], r: [1, 1.2], sz: [2.6, 4.2] }] },
+  vendetta: { spd: 1.7, glow: 0.45, dark: 1, bolts: { every: [0.7, 1.5], c: ["#FF4D6D", "#FFB3C1"], fit: 1 }, rings: [{ r: 1.26, c: "#8A0020", spin: 0.05, a: 0.5, w: 2.2, dash: 1 }], layers: [
+    { k: "inward", n: 20, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.55, 1], life: [1, 1.8], sz: [2, 3.4], blend: "source-over", a: 0.85, fit: 1 },
+    { k: "orbit", n: 8, shape: "shard", c: ["#FF1F4B", "#FF6B8F", "#8A0020"], w: [1.1, 1.8], r: [1, 1.1], sz: [3.2, 4.2] },
+    { k: "orbit", n: 5, shape: "sparkle", c: ["#FFB3C1", "#FFFFFF"], w: [0.5, 0.9], r: [1.02, 1.12], sz: [2, 2.8], tw: 1 },
+    { k: "orbit", n: 7, shape: "dot", c: ["#FF1F4B", "#FF6B8F"], w: [2, 3.2], r: [1.14, 1.28], sz: [1.4, 2.2], tw: 1 },
+    { k: "rise", n: 14, shape: "drop", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [20, 42], life: [0.7, 1.4], sz: [1.2, 2.2], sway: 8, circle: { n: 0, a: 0 } },
+  ] },
   champion: { spd: 1.45, glow: 0.68, rays: { n: 12, c: "#FFD447", spin: 0.28, len: 1.45, a: 0.18 }, sweep: { c: "#FFD447", a: 0.85, spd: 0.28, r: 1, w: 3.2, span: 0.55 }, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/crown.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.7, 0.7], even: 1, bob: 1, wobble: 0.05, a: 0.98, blend: "source-over", hover: 0.1 },
     { k: "rise", n: 22, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [16, 34], life: [1, 1.8], sz: [1.8, 3.2], sway: 14, spin: 1 },
@@ -250,7 +274,12 @@ export const AURA_FX = {
     { k: "orbit", n: 5, shape: "smoke", c: ["#EAFBFF", "#C9E9FF"], w: [0.08, 0.18], r: [0.35, 0.7], sz: [6, 9], a: 0.3, blend: "source-over" },
     { k: "fall", n: 10, shape: "flake", c: ["#FFFFFF", "#DDF6FF"], sp: [10, 18], sz: [1.6, 2.8], drift: 3, a: 0.8, xWrap: 1, xFade: 8, circle: { n: 0, a: 0 } },
   ] },
-  ninetail: { spd: 0.9, glow: 0.72, art: "ninetail", rays: { n: 9, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.24 }, layers: [{ k: "orbit", n: 9, shape: "ember", c: ["#FFD447", "#FF9340", "#FF4D00"], w: [0.3, 0.55], r: [1.08, 1.22], sz: [2.2, 3.6], even: 1, tw: 1 }] },
+  ninetail: { spd: 0.9, glow: 1, art: "ninetail", rays: { n: 3, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.36, fit: 1 }, layers: [
+    { k: "orbit", n: 9, shape: "ember", c: ["#FFD447", "#FF9340", "#FF4D00"], w: [0.3, 0.55], r: [0.98, 1.06], sz: [3.0, 3.8], even: 1, tw: 1 },
+    { k: "orbit", n: 6, shape: "orb", c: ["#FFE9C2", "#FFB86B"], w: [0.4, 0.7], r: [0.96, 1.06], sz: [2.2, 3], tw: 1 },
+    { k: "orbit", n: 4, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], w: [0.5, 0.9], r: [1.06, 1.16], sz: [2, 3], tw: 1 },
+    { k: "rise", n: 7, shape: "ember", c: ["#FF9340", "#FF4D00", "#FFD447"], sp: [16, 28], life: [0.9, 1.5], sz: [1.6, 2.6], sway: 10, circle: { n: 0, a: 0 } },
+  ] },
   ironbound: { spd: 0.8, glow: 0.45, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.8, 0.8], w: [0, 0], sz: [1.3, 1.3], even: 1, at: 0.25, rot: 0.015, wobble: 0.06, bob: 1, a: 0.95, behind: 1, blend: "source-over" },
     { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.85, 0.85], w: [0, 0], sz: [1.05, 1.05], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.08, bob: 1, a: 0.7, behind: 1, blend: "source-over" },
@@ -839,22 +868,32 @@ export const AURA_ART = {
     for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * rx * 1.35, cy + Math.sin(a) * ry * 1.35); g.lineTo(cx + rx * 0.18, cy - ry * 0.12); g.stroke(); }
     g.restore();
   },
-  ninetail: ({ g, time, cx, cy, rx, ry }) => {
+  ninetail: ({ g, time, cx, cy, rx, ry, mode }) => {
     const palette = ["#FF9340", "#FFD447", "#FF4D00"];
     const R = Math.min(rx, ry);
-    for (let i = 0; i < 9; i++) {
-      const a = Math.PI * 0.42 + (i / 8) * Math.PI * 1.66;
-      const x = cx + Math.cos(a) * rx * 1.02, y = cy + Math.sin(a) * ry * 1.02;
-      const len = (0.55 + (i % 3) * 0.08) * R, wide = 0.2 * R, ph = i * 0.73;
+    // circle canvases are tight — fan the tails from inside the photo ring
+    // so tips peek past the avatar edge instead of clipping the frame
+    const base = mode === "body" ? 1.02 : 0.62;
+    const lenMul = mode === "body" ? 1 : 0.78;
+    // small canvases can't fit nine wide tails inside the frame — draw six
+    // evenly spaced ones instead; the full nine stay on the figure
+    const tn = mode === "body" ? 9 : 4;
+    for (let i = 0; i < tn; i++) {
+      const a = Math.PI * 0.42 + (i / (tn - 1)) * Math.PI * 1.66;
+      const x = cx + Math.cos(a) * rx * base, y = cy + Math.sin(a) * ry * base;
+      const len = (0.55 + (i % 3) * 0.08) * R * lenMul, wide = 0.2 * R, ph = i * 0.73;
       const sway = Math.sin(time * 1.35 + ph) * 0.16 * R;
       const col = palette[i % 3], rgb = hexRgb(col) || [255, 147, 64];
       g.save(); g.translate(x, y); g.rotate(a);
-      const grad = g.createLinearGradient(0, 0, len, sway);
-      grad.addColorStop(0, col); grad.addColorStop(0.72, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.82)`); grad.addColorStop(1, "#FFF6C9");
-      [1.18, 1, 0.78].forEach((band, bi) => {
+      // flat fill on small canvases — a per-tail gradient per frame is the
+      // cost driver, and the colour ramp is invisible at board size anyway
+      const grad = mode === "body" ? g.createLinearGradient(0, 0, len, sway) : null;
+      if (grad) { grad.addColorStop(0, col); grad.addColorStop(0.72, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.82)`); grad.addColorStop(1, "#FFF6C9"); }
+      const bands = mode === "body" ? [1.18, 1, 0.78] : [1.05];
+      bands.forEach((band, bi) => {
         const bw = wide * band, off = (bi - 1) * wide * 0.12;
         g.globalAlpha = bi === 1 ? 0.92 : 0.42;
-        g.fillStyle = grad; g.beginPath(); g.moveTo(0, off - bw / 2);
+        g.fillStyle = grad || col; g.beginPath(); g.moveTo(0, off - bw / 2);
         g.bezierCurveTo(len * 0.34, off - bw * 0.54, len * 0.72, sway - bw * 0.22, len, sway);
         g.bezierCurveTo(len * 0.72, sway + bw * 0.22, len * 0.34, off + bw * 0.54, 0, off + bw / 2);
         g.closePath(); g.fill();
@@ -2280,7 +2319,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       for (let i = 0; i < R.n; i++) {
         const a0 = (i / R.n) * Math.PI * 2 + time * R.spin;
         if (R.fan && Math.sin(a0) > 0.15) continue;
-        const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
+        // fit: opt-in tight clamp — the default 1.15 overshoot lets ray tips
+        // graze the border on small canvases; 0.94 keeps them inside.
+        const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * (R.fit ? 0.94 : 1.15)) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
         const grd = g.createLinearGradient(0, 0, Math.cos(a0) * len, Math.sin(a0) * len);
         const pulse = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7));
         grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, pulse)); grd.addColorStop(1, rgba(R.c, 0));
