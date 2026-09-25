@@ -17,7 +17,7 @@ async function loadChromium() {
 const args = process.argv.slice(2);
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5173";
 const only = args.includes("--shape") ? args[args.indexOf("--shape") + 1].split(",") : null;
-const SHAPES = only || ["dot", "crescent", "pulse", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "bolt", "moth", "lantern", "sparkburst"];
+const SHAPES = only || ["dot", "crescent", "pulse", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst"];
 const N = +(process.env.SHAPE_N || 20);
 const RAW = args.includes("--raw"); // time drawNewParticleShape calls directly — isolates shape cost from aura overhead
 

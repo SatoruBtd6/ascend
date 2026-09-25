@@ -325,27 +325,18 @@ export function softSprite(color) {
 }
 // Glossy-sphere sprite for the `orb` shape: lit core upper-left, colour limb,
 // dark rim. The specular never rotates — it reads as a fixed light source.
-export function orbSprite(color) {
-  const key = `orb${color}`;
-  if (_glowCache.has(key)) return _glowCache.get(key);
-  const c = document.createElement("canvas"); c.width = c.height = 64;
-  const g = c.getContext("2d");
-  const rgb = hexRgb(color) || [180, 180, 180];
+const orbPaint = (g, rgb) => {
   const dim = rgb.map((v) => (v * 0.45) | 0);
-  if (g) {
-    let grd = g.createRadialGradient(25, 24, 2, 32, 32, 30);
-    grd.addColorStop(0, `rgb(${rgb.map((v) => Math.min(255, (v + 90) | 0)).join(",")})`);
-    grd.addColorStop(0.35, `rgb(${rgb.join(",")})`);
-    grd.addColorStop(0.82, `rgb(${dim.join(",")})`);
-    grd.addColorStop(1, `rgba(${dim.join(",")},0)`);
-    g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
-    grd = g.createRadialGradient(23, 21, 0, 23, 21, 8);
-    grd.addColorStop(0, "rgba(255,255,255,0.95)"); grd.addColorStop(1, "rgba(255,255,255,0)");
-    g.fillStyle = grd; g.beginPath(); g.arc(23, 21, 8, 0, Math.PI * 2); g.fill();
-  }
-  _glowCache.set(key, c);
-  return c;
-}
+  let grd = g.createRadialGradient(-7, -8, 2, 0, 0, 30);
+  grd.addColorStop(0, `rgb(${rgb.map((v) => Math.min(255, (v + 90) | 0)).join(",")})`);
+  grd.addColorStop(0.35, `rgb(${rgb.join(",")})`);
+  grd.addColorStop(0.82, `rgb(${dim.join(",")})`);
+  grd.addColorStop(1, `rgba(${dim.join(",")},0)`);
+  g.fillStyle = grd; g.fillRect(-32, -32, 64, 64);
+  grd = g.createRadialGradient(-9, -11, 0, -9, -11, 8);
+  grd.addColorStop(0, "rgba(255,255,255,0.95)"); grd.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grd; g.beginPath(); g.arc(-9, -11, 8, 0, Math.PI * 2); g.fill();
+};
 
 export const _auraImageCache = new Map();
 export const FRAME_ANCHOR_CACHE_LIMIT = 16;
@@ -1125,19 +1116,27 @@ function drawProceduralFlame(g, p, x, y, time, reduced, L = {}) {
 const pSprite = (p, soft) => (p._spC === p.c && p._sp) ? p._sp : (p._spC = p.c, p._sp = soft ? softSprite(p.c) : glowSprite(p.c));
 
 // Baked detail sprites for the richer 7j shapes: multi-element art (ribs,
-// flares, facet shading) paints once per colour at 64px and then costs a
+// flares, facet shading) paints once per colour per size tier and then costs a
 // single drawImage per particle per frame. Painters work in a centred unit
-// space roughly -32..32 px on the sprite.
-const bakeSprite = (key, color, paint) => {
-  const ck = `7j:${key}:${color}`;
+// space roughly -32..32 px on the sprite. `need` is the displayed draw size in
+// device px — the bake resolution scales with it (64px per tier) so a small
+// bake is never stretched to a big size, and a DPR-2 canvas (double device px)
+// gets a double-resolution bake.
+const bakeSprite = (key, color, tier, paint) => {
+  const ck = `7j:${key}:${color}:${tier}`;
   if (_glowCache.has(ck)) return _glowCache.get(ck);
-  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const c = document.createElement("canvas"); c.width = c.height = 64 * tier;
   const g = c.getContext("2d");
-  if (g) { g.translate(32, 32); paint(g, hexRgb(color) || [255, 255, 255]); }
+  if (g) { g.scale(tier, tier); g.translate(32, 32); paint(g, hexRgb(color) || [255, 255, 255]); }
   _glowCache.set(ck, c);
   return c;
 };
-const shapeSprite = (p, key, paint) => (p._spC === p.c && p._sp) ? p._sp : (p._spC = p.c, p._sp = bakeSprite(key, p.c, paint));
+const shapeSprite = (p, key, need, paint) => {
+  const tier = Math.min(8, Math.max(1, Math.ceil(need / 64)));
+  if (p._bspC === p.c && p._bspT === tier && p._bsp) return p._bsp;
+  p._bspC = p.c; p._bspT = tier;
+  return (p._bsp = bakeSprite(key, p.c, tier, paint));
+};
 
 // Path2D is browser-only — the Node unit tests stub the 2d context and have
 // no global for it, so fall back to a no-op recorder (fill/stroke calls still
@@ -1229,7 +1228,7 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     const vx = p.vx || (p.w ? -Math.sin(p.ang || 0) * p.w * 20 : 0), vy = p.vy || (p.w ? Math.cos(p.ang || 0) * p.w * 20 : 1);
     const len = Math.hypot(vx, vy) || 1;
     const stretch = reduced ? 1 : 1 + Math.min(1.5, len * 0.05);
-    const sp = shapeSprite(p, "comet", (sg, rgb) => {
+    const sp = shapeSprite(p, "comet", s * 5.6, (sg, rgb) => {
       let grd = sg.createLinearGradient(10, 0, -30, 0);
       grd.addColorStop(0, `rgba(${rgb.join(",")},0.8)`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
       sg.fillStyle = grd;
@@ -1245,7 +1244,7 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     // four-point star with concave arms, a thin axis flare and a soft core —
     // one baked sprite, twinkle applied as draw size
     const tw = reduced ? 1 : 1 + 0.2 * Math.sin(time * 5 + p.ph);
-    const sp = shapeSprite(p, "sparkle", (sg, rgb) => {
+    const sp = shapeSprite(p, "sparkle", s * 5.2, (sg, rgb) => {
       let grd = sg.createRadialGradient(0, 0, 0, 0, 0, 27);
       grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.3, `rgba(${rgb.join(",")},0.85)`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
       sg.fillStyle = grd; sg.fillRect(-32, -32, 64, 64);
@@ -1265,7 +1264,7 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
   } else if (shape === "orb") {
     // glossy sphere: baked specular highlight and shaded limb, slow breathe
     const k = reduced ? 1 : 1 + 0.07 * Math.sin(time * 1.6 + p.ph);
-    const sp = orbSprite(p.c), r = s * 2.1 * k;
+    const sp = shapeSprite(p, "orb", s * 4.5, orbPaint), r = s * 2.1 * k;
     g.drawImage(sp, x - r, y - r, r * 2, r * 2);
   } else if (shape === "crystal") {
     // hex shard split into lit, shaded and top-glint facets
@@ -1280,17 +1279,20 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.restore();
   } else if (shape === "wisp") {
     // curling ribbon of light rising from a bright head — baked sprite, swayed
-    const sp = shapeSprite(p, "wisp", (sg, rgb) => {
-      let grd = sg.createRadialGradient(-6, 9, 0, -6, 9, 11);
-      grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.35, `rgb(${rgb.join(",")})`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
-      sg.fillStyle = grd; sg.beginPath(); sg.arc(-6, 9, 11, 0, Math.PI * 2); sg.fill();
+    const sp = shapeSprite(p, "wisp", s * 4.2, (sg, rgb) => {
+      let grd = sg.createRadialGradient(-6, 9, 0, -6, 9, 12);
+      grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.45, `rgb(${rgb.join(",")})`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
+      sg.fillStyle = grd; sg.beginPath(); sg.arc(-6, 9, 12, 0, Math.PI * 2); sg.fill();
       grd = sg.createLinearGradient(-6, 8, 20, -24);
-      grd.addColorStop(0, `rgba(${rgb.join(",")},0.85)`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
+      grd.addColorStop(0, `rgb(${rgb.join(",")})`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
       sg.fillStyle = grd; sg.beginPath();
-      sg.moveTo(-10, 6);
-      sg.bezierCurveTo(6, 6, 4, -14, 20, -24);
-      sg.bezierCurveTo(11, -18, 8, -2, -4, 12);
+      sg.moveTo(-11, 7);
+      sg.bezierCurveTo(6, 7, 4, -14, 20, -24);
+      sg.bezierCurveTo(10, -17, 8, -2, -3, 13);
       sg.closePath(); sg.fill();
+      // bright filament along the ribbon spine — carries the shape at board-32
+      sg.strokeStyle = "rgba(255,255,255,0.8)"; sg.lineWidth = 1.6; sg.lineCap = "round";
+      sg.beginPath(); sg.moveTo(-6, 8); sg.bezierCurveTo(2, 2, 6, -10, 17, -20); sg.stroke();
     });
     const sway = reduced ? 0 : Math.sin(time * 1.4 + p.ph) * 0.3;
     g.save(); g.translate(x, y); g.rotate(p.rot + sway);
@@ -1308,7 +1310,7 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.16); g.stroke(mark);
     if (s >= 2.4) { g.fillStyle = p.c; g.beginPath(); g.arc(0, 0, s * 0.14, 0, Math.PI * 2); g.fill(); }
     g.restore();
-  } else if (shape === "bolt") {
+  } else if (shape === "zap") {
     // tiny jagged spark of light — no flash, never touches the flash budget
     const alt = (p.i ?? Math.floor(p.ph * 7)) % 2;
     const zig = shapePath(p, alt ? "b" : "a", s, (P, v) => {
@@ -1316,7 +1318,11 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
       else { P.moveTo(v * 0.35, -v * 1.35); P.lineTo(-v * 0.2, -v * 0.3); P.lineTo(v * 0.28, -v * 0.02); P.lineTo(-v * 0.38, v * 1.35); }
       return P;
     });
-    const fl = reduced ? 0.85 : 0.6 + 0.4 * Math.max(0, Math.sin(time * 9 + p.ph * 3));
+    // flicker ~1.4 Hz. Phase is spread across particles by golden angle on the
+    // slot index (+ spawn phase) so a layer never brightens in sync — worst
+    // case a few particles peak together, the rest sit mid-cycle.
+    const phase = (p.i == null ? p.ph * 2.1 : (p.i * 2.399963 + p.ph * 0.5)) % (Math.PI * 2);
+    const fl = reduced ? 0.85 : 0.62 + 0.38 * Math.max(0, Math.sin(time * 9 + phase));
     g.save(); g.translate(x, y); g.rotate(p.rot + (alt ? 0.5 : -0.2));
     g.globalAlpha *= fl;
     g.strokeStyle = p.c; g.lineWidth = Math.max(0.9, s * 0.5); g.lineCap = "round"; g.stroke(zig);
@@ -1336,12 +1342,13 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
       return P;
     });
     g.save(); g.translate(x, y); g.rotate(p.rot);
-    g.save(); g.scale(flap, 1); g.fillStyle = p.c; g.globalAlpha *= 0.85; g.fill(wings); g.restore();
+    g.save(); g.scale(flap, 1); g.fillStyle = p.c; g.fill(wings);
+    g.strokeStyle = "rgba(255,255,255,0.6)"; g.lineWidth = Math.max(0.6, s * 0.13); g.stroke(wings); g.restore();
     g.fillStyle = "#ffffff"; g.beginPath(); g.ellipse(0, -s * 0.12, s * 0.15, s * 0.5, 0, 0, Math.PI * 2); g.fill();
     g.restore();
   } else if (shape === "lantern") {
     // warm hanging lantern: glow halo, ribbed body, cap and hanger — one sprite
-    const sp = shapeSprite(p, "lantern", (sg, rgb) => {
+    const sp = shapeSprite(p, "lantern", s * 4.8, (sg, rgb) => {
       let grd = sg.createRadialGradient(0, 4, 0, 0, 4, 24);
       grd.addColorStop(0, `rgba(${rgb.join(",")},0.5)`); grd.addColorStop(1, `rgba(${rgb.join(",")},0)`);
       sg.fillStyle = grd; sg.fillRect(-32, -32, 64, 64);
@@ -1361,7 +1368,7 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.restore();
   } else if (shape === "sparkburst") {
     // six tapered rays around a bright core — one sprite, spun and pulsed
-    const sp = shapeSprite(p, "sparkburst", (sg, rgb) => {
+    const sp = shapeSprite(p, "sparkburst", s * 4.6, (sg, rgb) => {
       sg.fillStyle = `rgba(${rgb.join(",")},0.9)`;
       for (let i = 0; i < 6; i++) {
         sg.save(); sg.rotate((i / 6) * Math.PI * 2 + 0.26);
@@ -1844,7 +1851,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         drawNewParticleShape(g, L.shape, p, x, y, time, api.reduce, L); break;
       }
       case "ash": case "feather": case "bonechip": case "coin": case "crescent": case "pulse": case "sandgrain": case "chainlink":
-      case "comet": case "sparkle": case "orb": case "crystal": case "wisp": case "rune": case "bolt": case "moth": case "lantern": case "sparkburst": {
+      case "comet": case "sparkle": case "orb": case "crystal": case "wisp": case "rune": case "zap": case "moth": case "lantern": case "sparkburst": {
         drawNewParticleShape(g, L.shape, p, x, y, time, api.reduce, L); break;
       }
       default: { // bubble ring

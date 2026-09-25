@@ -49,7 +49,7 @@ const SHAPE_SHEET = {
   crystal: "#A5F3FC",
   wisp: "#6EE7B7",
   rune: "#F0ABFC",
-  bolt: "#FDE68A",
+  zap: "#FDE68A",
   moth: "#F9A8D4",
   lantern: "#FDBA74",
   sparkburst: "#93C5FD",
@@ -240,7 +240,7 @@ const SHAPE_NAMES = {
   feather: "Feathers", bonechip: "Bone chips", coin: "Coins", crescent: "Crescents",
   pulse: "Pulses", sandgrain: "Sand grains", chainlink: "Chain links", page: "Pages",
   comet: "Comets", sparkle: "Sparkles", orb: "Orbs", crystal: "Crystals",
-  wisp: "Wisps", rune: "Runes", bolt: "Mini bolts", moth: "Moths",
+  wisp: "Wisps", rune: "Runes", zap: "Mini bolts", moth: "Moths",
   lantern: "Lanterns", sparkburst: "Spark bursts",
   emoji: "Icons", img: "Image art", flame: "Flames",
 };
@@ -1004,7 +1004,7 @@ export function isDeadField(layer, key, { view = "figure", overCount = 0 } = {})
   return false;
 }
 export const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
-export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink", "page", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "bolt", "moth", "lantern", "sparkburst"];
+export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink", "page", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst"];
 export const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
 
 // The exact field list SpecEditor renders for a spec — exported so the

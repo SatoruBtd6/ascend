@@ -189,7 +189,7 @@ test("all eight new particle shapes draw non-empty output without throwing", () 
 
 test("all ten 7j particle shapes draw distinct painted output without throwing", () => {
   installStubDocument();
-  const shapes = ["comet", "sparkle", "orb", "crystal", "wisp", "rune", "bolt", "moth", "lantern", "sparkburst"];
+  const shapes = ["comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst"];
   const mk = (over = {}) => ({ sz: 4, c: "#abcdef", rot: 0.4, ph: 0.7, age: 0.4, life: 1.5, ang: 0.3, w: 0.2, i: 3, vx: 10, vy: -6, ...over });
   const sig = (shape, t, reduced, p) => {
     const { ctx, output } = stubCanvas();
@@ -218,15 +218,15 @@ test("7j particle shapes animate over time and hold still under reduced motion",
     assert.notEqual(sig(shape, 0.5, false), sig(shape, 1.3, false), `${shape} does not animate`);
     assert.equal(sig(shape, 0.5, true), sig(shape, 1.3, true), `${shape} still animates under reduced motion`);
   }
-  // bolt flickers through globalAlpha, which the stub records as a property
+  // zap flickers through globalAlpha, which the stub records as a property
   // set — read the final value rather than the op stream
-  const boltAlpha = (t, reduced) => {
+  const zapAlpha = (t, reduced) => {
     const { ctx } = stubCanvas();
-    renderer.drawNewParticleShape(ctx, "bolt", { ...p }, 20, 20, t, reduced);
+    renderer.drawNewParticleShape(ctx, "zap", { ...p }, 20, 20, t, reduced);
     return ctx.globalAlpha;
   };
-  assert.notEqual(boltAlpha(0.5, false), boltAlpha(0.62, false), "bolt does not flicker");
-  assert.equal(boltAlpha(0.5, true), boltAlpha(0.62, true), "bolt still flickers under reduced motion");
+  assert.notEqual(zapAlpha(0.5, false), zapAlpha(0.62, false), "zap does not flicker");
+  assert.equal(zapAlpha(0.5, true), zapAlpha(0.62, true), "zap still flickers under reduced motion");
   // comet has no internal clock — its tail follows velocity; reduced motion shortens it
   const cometScale = (reduced) => {
     const { ctx, output } = stubCanvas();
@@ -234,6 +234,32 @@ test("7j particle shapes animate over time and hold still under reduced motion",
     return output.find(([op]) => op === "scale")?.[1];
   };
   assert.ok(cometScale(true) < cometScale(false), "comet tail is not shorter under reduced motion");
+});
+
+test("zap flicker phases are staggered so a layer never brightens in sync", () => {
+  installStubDocument();
+  const N = 30;
+  const layerAlpha = (t) => {
+    let sum = 0;
+    for (let i = 0; i < N; i++) {
+      const { ctx } = stubCanvas();
+      // slot index staggers the phase (golden angle); ph varies per spawn
+      renderer.drawNewParticleShape(ctx, "zap", { sz: 3, c: "#abcdef", rot: 0, ph: i * 0.217 + 0.1, age: 0.4, life: 1.5, ang: 0.3, w: 0.2, i, vx: 0, vy: 0 }, 20, 20, t, false);
+      sum += ctx.globalAlpha;
+    }
+    return sum;
+  };
+  // sweep well past one flicker period (9 rad/s ≈ 0.7s) at fine steps
+  const vals = [];
+  for (let t = 0; t <= 0.9; t += 0.0087) vals.push(layerAlpha(t));
+  const mx = Math.max(...vals), mn = Math.min(...vals);
+  assert.ok(mx > mn, "zap layer brightness never changes at all");
+  // a flash-like swing would be >>2x; golden-angle stagger keeps it near mean
+  assert.ok(mx / mn < 1.12, `zap layer brightness swings like a flash (max/min = ${(mx / mn).toFixed(3)})`);
+  // per-particle flicker still spans a real range — stagger isn't flattening
+  const one = (t) => { const c = stubCanvas().ctx; renderer.drawNewParticleShape(c, "zap", { sz: 3, c: "#abcdef", rot: 0, ph: 0.7, i: 3 }, 20, 20, t, false); return c.globalAlpha; };
+  const singles = []; for (let t = 0; t <= 0.9; t += 0.011) singles.push(one(t));
+  assert.ok(Math.max(...singles) - Math.min(...singles) > 0.2, "per-particle zap flicker is flat");
 });
 
 test("ash geometry is stable across frames and only its transform changes", () => {

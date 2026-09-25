@@ -22,7 +22,7 @@ mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2);
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5174";
 
-const SHAPES = ["crescent", "pulse", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "bolt", "moth", "lantern", "sparkburst"];
+const SHAPES = ["crescent", "pulse", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst"];
 const GEOMS = [["board32", "circle", 59, 59], ["profile76", "circle", 141, 141], ["figure160", "body", 128, 163]];
 const FRAMES = [90, 120]; // t0 ≈1.5s, t1 ≈2s — second sheet shows animation
 
