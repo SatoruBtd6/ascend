@@ -145,11 +145,23 @@ export const AURA_FX = {
   ] },
   wyrm: { spd: 1.5, glow: 0.64, layers: [{ k: "orbit", n: 24, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.1, 2], r: [0.94, 1.22], sz: [2.6, 4.6] }, { k: "rise", n: 16, shape: "ember", c: ["#3DF08A", "#FFD447"], sp: [22, 48], life: [0.7, 1.4], sz: [1.2, 2.1], sway: 12 }] },
   frost: { spd: 1.25, glow: 0.58, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [16, 32], sz: [2.2, 4.2], drift: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.4, 0.8], r: [1, 1.18], sz: [2.6, 4.2] }] },
-  abyss: { spd: 1.6, glow: 0.62, dark: 1, layers: [
+  // Abyss moment: a black hole opens behind the avatar — a pinpoint of
+  // darkness grows to a black disc with a spinning violet-magenta accretion
+  // ring, the orbit layers speed up and spiral into it (mSpin/mR), then it
+  // collapses inward and vanishes with a gated flash.
+  abyss: { spd: 1.6, glow: 0.62, dark: 1, art: "abyss", moment: {
+    every: [24, 34], dur: 3,
+    flash: { at: 0.8, flashPeak: 0.5, flashLife: 0.1, flashC: ["#E8C9FF", "#B14BFF"], anchor: "center" },
+    shake: { at: 0.8, amp: 0.11, dur: 0.4 },
+    bursts: [{ at: 0.82, path: "shockring", c: "#B14BFF", a: 0.8, lw: 2.4, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "center", aspect: 1 }],
+  }, layers: [
     { k: "inward", n: 10, shape: "dot", c: ["#6A00FF", "#B14BFF", "#FF2D6F"], sp: [0.55, 1.05], life: [1, 1.9], sz: [1.8, 3.2], fit: 1 },
-    { k: "orbit", n: 9, shape: "sandgrain", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1, 2.2], r: [0.94, 1.22], sz: [1.2, 2.2] },
-    { k: "orbit", n: 4, shape: "sparkle", c: ["#E8C9FF", "#FF9AD5"], w: [0.4, 0.8], r: [1.04, 1.14], sz: [2.2, 3.2], tw: 1 },
-    { k: "orbit", n: 5, shape: "orb", c: ["#B14BFF", "#FF2D6F"], w: [0.5, 0.9], r: [1.1, 1.24], sz: [1.8, 2.6], tw: 1 },
+    { k: "orbit", n: 9, shape: "sandgrain", c: ["#B14BFF", "#FF2D6F", "#38C6FF"], w: [1, 2.2], r: [0.94, 1.22], sz: [1.2, 2.2],
+      mSpin: [[0, 0], [0.15, 0.6], [0.5, 4], [0.75, 7], [0.85, 0], [1, 0]], mR: [[0, 1], [0.5, 1], [0.72, 0.6], [0.8, 0.22], [0.92, 1], [1, 1]] },
+    { k: "orbit", n: 4, shape: "sparkle", c: ["#E8C9FF", "#FF9AD5"], w: [0.4, 0.8], r: [1.04, 1.14], sz: [2.2, 3.2], tw: 1,
+      mSpin: [[0, 0], [0.15, 0.6], [0.5, 4], [0.75, 7], [0.85, 0], [1, 0]], mR: [[0, 1], [0.5, 1], [0.72, 0.6], [0.8, 0.22], [0.92, 1], [1, 1]] },
+    { k: "orbit", n: 5, shape: "orb", c: ["#B14BFF", "#FF2D6F"], w: [0.5, 0.9], r: [1.1, 1.24], sz: [1.8, 2.6], tw: 1,
+      mSpin: [[0, 0], [0.15, 0.6], [0.5, 4], [0.75, 7], [0.85, 0], [1, 0]], mR: [[0, 1], [0.5, 1], [0.72, 0.6], [0.8, 0.22], [0.92, 1], [1, 1]] },
     { k: "rise", n: 8, shape: "wisp", c: ["#B14BFF", "#6A00FF"], sp: [8, 16], life: [1.6, 2.6], sz: [3, 5], sway: 8, a: 0.5, circle: { n: 0, a: 0 } },
   ] },
   chud: { spd: 1, glow: 0.48, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.55, 0.55], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "rise", n: 10, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over" }] },
@@ -172,18 +184,32 @@ export const AURA_FX = {
   magma: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [18, 38], life: [0.7, 1.4], sz: [3.2, 7], sway: 4, a: 0.88 }, { k: "rise", n: 12, shape: "ember", c: ["#FFE08A", "#FF5A1F"], sp: [28, 55], life: [0.5, 1], sz: [1, 1.8], sway: 12 }] },
   plague: { spd: 1.25, glow: 0.48, layers: [{ k: "rise", n: 12, shape: "smoke", c: ["#8BC34A", "#5E8C2A"], sp: [7, 14], life: [1.8, 3], sz: [7, 13], sway: 8, a: 0.3 }, { k: "bubble", n: 14, c: ["#C6F07A", "#8BC34A"], sp: [12, 22], life: [1.1, 2.2], sz: [1.8, 3.8] }] },
   sand: { spd: 1.65, glow: 0.46, layers: [{ k: "orbit", n: 40, shape: "sandgrain", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.6, 2.8], r: [0.9, 1.38], sz: [1, 2], wave: 0.2, a: 0.92 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [22, 40], sz: [1.2, 2.2], drift: 16, spin: 1 }] },
-  void: { spd: 1.5, glow: 0.66, dark: 1, rings: [{ r: 1.08, c: "#3A0A6A", spin: -0.03, a: 0.7, w: 1.6 }], layers: [
-    { k: "inward", n: 14, shape: "crescent", c: ["#0B0014", "#1A0033", "#3A0A6A"], sp: [0.5, 0.9], life: [1.2, 2.1], sz: [3.2, 7], blend: "source-over", a: 0.9, fit: 1 },
-    { k: "orbit", n: 12, shape: "star", c: ["#FFFFFF", "#C9A8FF", "#7DF9FF"], w: [0.35, 0.8], r: [1.05, 1.3], sz: [1.2, 2], tw: 1 },
-    { k: "orbit", n: 4, shape: "sparkle", c: ["#FFFFFF", "#C9A8FF"], w: [0.5, 0.9], r: [1, 1.12], sz: [2.4, 3.2], tw: 1 },
-    { k: "orbit", n: 5, shape: "dot", c: ["#7DF9FF", "#C9A8FF"], w: [1.6, 2.6], r: [1.16, 1.3], sz: [1.2, 2], tw: 1 },
-    { k: "rise", n: 6, shape: "wisp", c: ["#3A0A6A", "#1A0033"], sp: [6, 12], life: [2, 3.2], sz: [3.5, 5.5], sway: 6, a: 0.55, circle: { n: 0, a: 0 } },
+  // Void is the starfield aura: a deep indigo/midnight field with a dense
+  // constellation of white and pale-gold stars and shooting-star comets —
+  // bright, not dark-banded, and clearly different from abyss's violet
+  // nebula. Moment: an indigo portal spirals open behind the avatar, stars
+  // stream out (bursts), then it spirals shut.
+  void: { spd: 1.5, glow: 1.2, art: "void", moment: {
+    every: [24, 34], dur: 3,
+    flash: { at: 0.3, flashPeak: 0.4, flashLife: 0.09, flashC: ["#EAF0FF", "#7C8FE8"], anchor: "center" },
+    bursts: [
+      { at: 0.32, path: "radial", shape: "star", n: 10, c: ["#FFFFFF", "#FFE9A8", "#B9C8FF"], anchor: "center", sp: [16, 30], sz: [1.6, 2.6], life: [0.45, 0.65], grav: 0, a: 0.95 },
+      { at: 0.5, path: "radial", shape: "comet", n: 3, c: ["#FFFFFF", "#FFE9A8"], anchor: "center", sp: [18, 28], sz: [1.3, 1.8], life: [0.4, 0.6], grav: 0, a: 0.95 },
+      { at: 0.58, path: "radial", shape: "sparkle", n: 8, c: ["#FFFFFF", "#FFE9A8", "#7C8FE8"], anchor: "center", sp: [16, 28], sz: [1.4, 2.4], life: [0.4, 0.6], grav: 0, a: 0.9 },
+    ] }, layers: [
+    { k: "orbit", n: 8, shape: "smoke", c: ["#2B3A8F", "#3F51B5", "#4A5FC8"], w: [0.05, 0.12], r: [0.15, 0.66], sz: [8, 11], a: 0.75, blend: "source-over" },
+    { k: "orbit", n: 9, shape: "star", c: ["#FFFFFF", "#FFE9A8", "#B9C8FF"], w: [0.3, 0.7], r: [0.96, 1.12], sz: [1.8, 3], tw: 1,
+      mSpin: [[0, 0], [0.2, 0.4], [0.55, 2.5], [0.72, 4], [0.9, 0], [1, 0]] },
+    { k: "orbit", n: 5, shape: "sparkle", c: ["#FFFFFF", "#FFE9A8"], w: [0.5, 0.9], r: [1.0, 1.14], sz: [2.2, 3.2], tw: 1,
+      mSpin: [[0, 0], [0.2, 0.4], [0.55, 2.5], [0.72, 4], [0.9, 0], [1, 0]] },
+    { k: "orbit", n: 6, shape: "dot", c: ["#7C8FE8", "#B9C8FF", "#FFFFFF"], w: [1.4, 2.4], r: [1.1, 1.22], sz: [1.2, 2], tw: 1 },
+    { k: "orbit", n: 3, shape: "comet", c: ["#FFFFFF", "#FFE9A8", "#7C8FE8"], w: [0.9, 1.5], r: [1.05, 1.16], sz: [1.2, 1.7] },
   ] },
   yogurt: { spd: 0.95, glow: 0.42, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.5, 0.5], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.8, 3.6] }] },
   vendetta: { spd: 1.7, glow: 0.45, dark: 1, bolts: { every: [0.7, 1.5], c: ["#FF4D6D", "#FFB3C1"], fit: 1 }, rings: [{ r: 1.26, c: "#8A0020", spin: 0.05, a: 0.5, w: 2.2, dash: 1 }], layers: [
     { k: "inward", n: 20, shape: "dot", c: ["#3A0010", "#5A0018", "#1A0008"], sp: [0.55, 1], life: [1, 1.8], sz: [2, 3.4], blend: "source-over", a: 0.85, fit: 1 },
-    { k: "orbit", n: 8, shape: "shard", c: ["#FF1F4B", "#FF6B8F", "#8A0020"], w: [1.1, 1.8], r: [1, 1.1], sz: [3.2, 4.2] },
-    { k: "orbit", n: 5, shape: "sparkle", c: ["#FFB3C1", "#FFFFFF"], w: [0.5, 0.9], r: [1.02, 1.12], sz: [2, 2.8], tw: 1 },
+    { k: "orbit", n: 6, shape: "shard", c: ["#FF1F4B", "#FF6B8F", "#8A0020"], w: [1.1, 1.8], r: [1, 1.1], sz: [3.2, 4.2] },
+    { k: "orbit", n: 4, shape: "sparkle", c: ["#FFB3C1", "#FFFFFF"], w: [0.5, 0.9], r: [1.02, 1.12], sz: [2, 2.8], tw: 1 },
     { k: "orbit", n: 7, shape: "dot", c: ["#FF1F4B", "#FF6B8F"], w: [2, 3.2], r: [1.14, 1.28], sz: [1.4, 2.2], tw: 1 },
     { k: "rise", n: 14, shape: "drop", c: ["#FF1F4B", "#FF6B8F", "#FFB3C1"], sp: [20, 42], life: [0.7, 1.4], sz: [1.2, 2.2], sway: 8, circle: { n: 0, a: 0 } },
   ] },
@@ -902,6 +928,96 @@ export const AURA_ART = {
       g.beginPath(); g.arc(len, sway, Math.max(1.5, wide * 0.22 * 1.25), 0, Math.PI * 2); g.fill();
       g.restore();
     }
+  },
+  // Abyss moment: a black hole opens behind the avatar — a near-black disc
+  // with a spinning violet-magenta accretion ring riding the rim, then
+  // collapses inward and vanishes. Draws only while the moment is live.
+  abyss: ({ g, cx, cy, rx, ry, w, h, moment, time, unit, reduce }) => {
+    if (!moment) return null;
+    const t = moment.t, R = Math.min(rx, ry);
+    const open = t < 0.14 ? t / 0.14 : t < 0.78 ? 1 : Math.max(0, 1 - (t - 0.78) / 0.08);
+    const ease = open * open * (3 - 2 * open);
+    const discR = R * 1.0 * ease;
+    const accR = R * (0.5 + 0.56 * ease);
+    // drawn under a ry/rx vertical stretch — cap radii to the local-space
+    // margin so figure-height ellipses can't graze the canvas border
+    const lim = Math.min(cx, w - cx, (Math.min(cy, h - cy) * rx) / ry) * 0.92;
+    g.save();
+    g.translate(cx, cy); g.scale(1, ry / rx);
+    if (discR > 0.5) {
+      g.globalCompositeOperation = "source-over";
+      const dg = g.createRadialGradient(0, 0, discR * 0.4, 0, 0, discR * 1.12);
+      dg.addColorStop(0, "rgba(2,0,8,0.98)");
+      dg.addColorStop(0.8, "rgba(4,0,14,0.95)");
+      dg.addColorStop(1, "rgba(10,0,26,0)");
+      g.fillStyle = dg;
+      g.beginPath(); g.arc(0, 0, Math.min(discR * 1.12, lim), 0, Math.PI * 2); g.fill();
+    }
+    g.globalCompositeOperation = "lighter";
+    g.lineCap = "round";
+    const spin = time * (reduce ? 2 : 7);
+    const cols = ["#B14BFF", "#FF2D6F", "#E8C9FF"];
+    const accRim = Math.min(accR, lim);
+    for (let i = 0; i < 3; i++) {
+      const a0 = spin + (i * Math.PI * 2) / 3;
+      g.strokeStyle = cols[i]; g.globalAlpha = 0.8 * ease;
+      g.lineWidth = Math.max(1, unit * 1.7);
+      g.beginPath(); g.arc(0, 0, accRim, a0, a0 + 1.9); g.stroke();
+    }
+    for (let i = 0; i < 5; i++) {
+      const a0 = -spin * 0.7 + (i * Math.PI * 2) / 5;
+      g.strokeStyle = i % 2 ? "#FF2D6F" : "#B14BFF";
+      g.globalAlpha = 0.35 * ease;
+      g.lineWidth = Math.max(0.7, unit * 0.9);
+      g.beginPath();
+      for (let s = 0; s <= 8; s++) {
+        const aa = a0 + s * 0.14, rr = Math.min(accRim * (1 + s / 16), lim);
+        const x = Math.cos(aa) * rr, y = Math.sin(aa) * rr;
+        if (s) g.lineTo(x, y); else g.moveTo(x, y);
+      }
+      g.stroke();
+    }
+    g.restore();
+    return null;
+  },
+  // Void moment: an indigo portal spirals open behind the avatar while stars
+  // stream out (spec bursts), then spirals shut. Draws only while the moment
+  // is live.
+  void: ({ g, cx, cy, rx, ry, w, h, moment, time, unit, reduce }) => {
+    if (!moment) return null;
+    const t = moment.t, R = Math.min(rx, ry);
+    const open = t < 0.22 ? t / 0.22 : t < 0.72 ? 1 : Math.max(0, 1 - (t - 0.72) / 0.2);
+    const ease = open * open * (3 - 2 * open);
+    const lim = Math.min(cx, w - cx, (Math.min(cy, h - cy) * rx) / ry) * 0.92;
+    const pr = Math.min(R * 0.92 * ease, lim);
+    if (pr < 0.5) return null;
+    g.save();
+    g.translate(cx, cy); g.scale(1, ry / rx);
+    g.globalCompositeOperation = "source-over";
+    const pg = g.createRadialGradient(0, 0, pr * 0.15, 0, 0, pr);
+    pg.addColorStop(0, "rgba(10,14,44,0.96)");
+    pg.addColorStop(0.55, "rgba(26,35,126,0.9)");
+    pg.addColorStop(0.85, "rgba(63,81,181,0.75)");
+    pg.addColorStop(1, "rgba(124,143,232,0)");
+    g.globalAlpha = 1; g.fillStyle = pg;
+    g.beginPath(); g.arc(0, 0, pr, 0, Math.PI * 2); g.fill();
+    g.globalCompositeOperation = "lighter"; g.lineCap = "round";
+    const spin = time * (reduce ? 1.8 : 5.5);
+    const cols = ["#7C8FE8", "#FFFFFF", "#FFE9A8"];
+    for (let i = 0; i < 3; i++) {
+      const a0 = spin + (i * Math.PI * 2) / 3;
+      g.strokeStyle = cols[i]; g.globalAlpha = 0.75 * ease;
+      g.lineWidth = Math.max(1, unit * 1.5);
+      g.beginPath();
+      for (let s = 0; s <= 10; s++) {
+        const aa = a0 + s * 0.16, rr = pr * (1 - s / 15);
+        const x = Math.cos(aa) * rr, y = Math.sin(aa) * rr;
+        if (s) g.lineTo(x, y); else g.moveTo(x, y);
+      }
+      g.stroke();
+    }
+    g.restore();
+    return null;
   },
   bonewright: (opts) => { if (opts.pass === "over") drawBoneEyes(opts.over || opts.g, opts); },
   nullpoint: (opts) => {

@@ -29,6 +29,7 @@ const tag = args.includes("--tag") ? args[args.indexOf("--tag") + 1] : "shot";
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5174";
 const specFile = args.includes("--spec") ? JSON.parse(readFileSync(args[args.indexOf("--spec") + 1], "utf8")) : null;
 const PERF = args.includes("--perf");
+const MOMENT = args.includes("--moment"); // --perf --moment: measure frames inside the forced moment
 const FRAMES = [90, 120];
 
 const chromium = await loadChromium();
@@ -130,23 +131,26 @@ for (const [aura, cells] of Object.entries(res.out)) {
 
 if (PERF) {
   for (const aura of auras) {
-    const r = await page.evaluate(async (aura) => {
+    const r = await page.evaluate(async ({ aura, MOMENT }) => {
       const mod = window.__mod;
       const cv = document.createElement("canvas"); cv.width = cv.height = 59;
       const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 59;
       const inst = mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 17.2, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
       for (let f = 0; f < 60; f++) inst.frame(1 / 60);
+      if (MOMENT) inst.forceMoment?.();
+      // Quiet per-frame timing: one tight loop, no awaits — the old batched
+      // loop yielded via setTimeout(0) between samples and landed scheduling
+      // debt in the p95 tail.
       const times = [];
-      for (let b = 0; b < 40; b++) {
+      for (let f = 0; f < 400; f++) {
         const t0 = performance.now();
-        for (let f = 0; f < 10; f++) inst.frame(1 / 60);
-        times.push((performance.now() - t0) / 10);
-        await new Promise((r) => setTimeout(r, 0));
+        inst.frame(1 / 60);
+        times.push(performance.now() - t0);
       }
       times.sort((a, b) => a - b);
       return { avg: +(times.reduce((s, v) => s + v, 0) / times.length).toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3) };
-    }, aura);
-    console.log(`  p95 ${aura}: avg=${r.avg} p95=${r.p95}${r.p95 > 0.8 ? "  <-- OVER 0.8ms" : ""}`);
+    }, { aura, MOMENT });
+    console.log(`  p95 ${aura}${MOMENT ? " (moment)" : ""}: avg=${r.avg} p95=${r.p95}${r.p95 > 0.8 ? "  <-- OVER 0.8ms" : ""}`);
   }
 }
 await browser.close();
