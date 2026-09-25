@@ -9,7 +9,12 @@ export { FACE_REGION, HEAD_FROM_EYE, resolveAuraAnchors } from "./anchors.js";
 export { setFlashPageClock } from "./boltClock.js";
 /* Particle recipes. Easy unlocks stay simple; rare ones stack more motion. Never shrink the ring so small that studio tiles go blank. */
 export const AURA_FX = {
-  ember: { spd: 1, glow: 0.6, layers: [{ k: "rise", n: 22, shape: "ember", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [18, 38], life: [1, 2.2], sz: [1.4, 2.6], sway: 10 }, { k: "rise", n: 8, shape: "dot", c: ["#FF9340", "#FF4D6D"], sp: [10, 20], life: [1.2, 2], sz: [3.2, 6], sway: 6, a: 0.55 }] },
+  ember: { spd: 1, glow: 0.78, layers: [
+    { k: "orbit", n: 12, shape: "ember", c: ["#FFB86B", "#FF9340", "#FF4D6D"], w: [0.25, 0.5], r: [0.96, 1.1], sz: [2.2, 3.4], tw: 1 },
+    { k: "orbit", n: 6, shape: "orb", c: ["#FFE9C2", "#FFB86B"], w: [0.15, 0.3], r: [1.06, 1.18], sz: [2.5, 3.4], a: 0.8, tw: 1 },
+    { k: "rise", n: 16, shape: "ember", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [14, 26], life: [0.8, 1.4], sz: [1.6, 3], sway: 10, circle: { n: 0, a: 0 } },
+    { k: "rise", n: 6, shape: "wisp", c: ["#FF9340", "#FF6A3C"], sp: [10, 18], life: [1.2, 2], sz: [2.8, 4.4], sway: 8, a: 0.55, circle: { n: 0, a: 0 } },
+  ] },
   tide: { spd: 1, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2.4, 5.2] }, { k: "orbit", n: 16, shape: "dot", c: ["#38C6FF", "#2F6BFF"], w: [0.7, 1.2], r: [0.95, 1.18], sz: [1.8, 3.2], wave: 0.08 }] },
   storm: { spd: 1.35, glow: 0.58, bolts: { every: [0.8, 1.8], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 28, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.8, 2.8], r: [0.9, 1.22], sz: [1.3, 2.4] }, { k: "rise", n: 10, shape: "dot", c: ["#B14BFF", "#38C6FF"], sp: [16, 30], life: [0.8, 1.5], sz: [2, 4], sway: 8, a: 0.6 }] },
   inferno: { spd: 1.55, glow: 0.72, layers: [
@@ -211,7 +216,12 @@ export const AURA_FX = {
   ] },
   steadybreath: { spd: 0.75, glow: 0.38, rings: [{ r: 1.14, c: "#DFFBFF", spin: 0.02, a: 0.68, w: 2.2 }], layers: [{ k: "orbit", n: 8, shape: "pulse", c: ["#DFFBFF", "#7DF9FF"], w: [0.18, 0.3], r: [1.08, 1.2], sz: [1.2, 2], tw: 1 }] },
   iaidraw: { spd: 0.55, glow: 0.32, sweep: { c: "#FFFFFF", a: 1, spd: 6.5, r: 1.16, w: 3.4, span: 0.35 }, layers: [{ k: "orbit", n: 5, shape: "shard", c: ["#FFFFFF", "#38C6FF"], w: [0.12, 0.22], r: [1.1, 1.22], sz: [1, 1.6], tw: 1 }] },
-  stormstep: { spd: 1.2, glow: 0.62, bolts: { every: [0.35, 0.45], c: ["#FFFFFF", "#7DD3FC"], flash: 1 }, layers: [{ k: "orbit", n: 18, shape: "spark", c: ["#FFFFFF", "#7DD3FC"], w: [1.4, 2.4], r: [1.08, 1.3], sz: [1, 1.8] }] },
+  stormstep: { spd: 1.2, glow: 1.05, bolts: { every: [0.35, 0.45], c: ["#FFFFFF", "#7DD3FC"], flash: 1 }, layers: [
+    { k: "orbit", n: 10, shape: "zap", c: ["#FFFFFF", "#7DD3FC"], w: [1.6, 2.6], r: [1, 1.14], sz: [2.8, 4.4] },
+    { k: "orbit", n: 10, shape: "spark", c: ["#FFFFFF", "#7DD3FC", "#38BDF8"], w: [2.6, 3.8], r: [1.14, 1.28], sz: [1, 1.8] },
+    { k: "orbit", n: 5, shape: "sparkle", c: ["#FFFFFF", "#B3ECFF"], w: [0.4, 0.7], r: [1.02, 1.12], sz: [2.4, 3.2], tw: 1 },
+    { k: "rise", n: 8, shape: "spark", c: ["#7DD3FC", "#B3ECFF"], sp: [20, 36], life: [0.8, 1.5], sz: [1.4, 2.4], sway: 14, a: 0.7, circle: { n: 0, a: 0 } },
+  ] },
   zeropoint: { spd: 0.55, glow: 0.55, rings: [{ r: 1.1, c: "#DDF6FF", spin: 0.05, a: 0.65, w: 3, dash: 1 }], layers: [{ k: "orbit", n: 6, shape: "shard", c: ["#DDF6FF", "#7DF9FF"], w: [0.22, 0.22], r: [1.2, 1.2], sz: [3, 4.5], even: 1 }] },
   ninetail: { spd: 0.9, glow: 0.72, art: "ninetail", rays: { n: 9, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.24 }, layers: [{ k: "orbit", n: 9, shape: "ember", c: ["#FFD447", "#FF9340", "#FF4D00"], w: [0.3, 0.55], r: [1.08, 1.22], sz: [2.2, 3.6], even: 1, tw: 1 }] },
   ironbound: { spd: 0.8, glow: 0.45, layers: [

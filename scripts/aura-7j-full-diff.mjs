@@ -28,6 +28,7 @@ const ONLY = args.includes("--aura") ? args[args.indexOf("--aura") + 1].split(",
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", args: process.env.JS_FLAGS ? [`--js-flags=${process.env.JS_FLAGS}`] : [] });
 const FRESH = args.includes("--fresh"); // new page per aura — kills accumulated GPU/canvas state
+const SPECFILE = args.includes("--spec") ? JSON.parse(readFileSync(args[args.indexOf("--spec") + 1], "utf8")) : null;
 let page, ctx;
 
 async function newPage() {
@@ -35,17 +36,22 @@ async function newPage() {
   ctx = await browser.newContext();
   page = await ctx.newPage();
   await page.goto(`${base}/?auras=1`, { waitUntil: "domcontentloaded" });
-  await page.evaluate(() => Promise.all([import("/src/auras/AuraCanvas.jsx"), import("/src/auras/catalog.js")]).then(([m, cat]) => {
+  await page.evaluate((SPECFILE) => Promise.all([import("/src/auras/AuraCanvas.jsx"), import("/src/auras/catalog.js")]).then(([m, cat]) => {
     if (m.AuraLoop.raf) cancelAnimationFrame(m.AuraLoop.raf);
     m.AuraLoop.raf = null; m.AuraLoop.set.clear();
     window.__mod = m; window.__cat = cat;
+    if (SPECFILE) for (const [id, spec] of Object.entries(SPECFILE)) m.AURA_FX[id] = spec;
     let fakeNow = 0;
     m.setFlashPageClock(() => fakeNow);
     window.__fakeStep = () => { fakeNow += 1 / 60; };
+    // Per-cell reset: noteStrikeFlash's page budget (pageFlash.last) is
+    // module-level and shared across cells — left to accumulate, one aura's
+    // strikes would gate later auras' flashes and leak spec diffs downstream.
+    window.__flashReset = () => m.setFlashPageClock(() => fakeNow);
     let rs = 0;
     window.__seed = (v) => { rs = v; Math.random = () => (rs = (Math.imul(rs, 1664525) + 1013904223) >>> 0) / 4294967296; };
     window.__b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
-  }));
+  }), SPECFILE);
 }
 await newPage();
 
@@ -57,8 +63,9 @@ async function warmPage() {
     const AURAS = window.__cat.AURAS;
     const cv = document.createElement("canvas"); cv.width = 128; cv.height = 164;
     const ov = document.createElement("canvas"); ov.width = 128; ov.height = 164;
-    window.__seed(0x111);
+    let wi = 0;
     for (const a of AURAS) {
+      window.__seed(0x111 + wi++); // per-aura stream: a spec change in one aura must not shift warmup RNG for the rest
       const i = mod.makeAura(cv, { aura: a.id, w: 128, h: 164, mode: "body", ringR: 40, overCanvas: ov, figure: "/avatars/E.webp" });
       if (i) { i.frame(1 / 60); i.frame(1 / 60); }
     }
@@ -79,14 +86,25 @@ const captureCell = (aura, label, mode, w, h) => page.evaluate(async ({ aura, la
   const mod = window.__mod;
   const px = (c) => window.__b64(c.getContext("2d").getImageData(0, 0, c.width, c.height).data);
   window.__seed(0x9e3779b9);
+  window.__flashReset();
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const cv2 = document.createElement("canvas"); cv2.width = w; cv2.height = h;
   const hasOver = mod.auraNeedsOver(aura);
-  const inst = mod.makeAura(cv, { aura, w, h, mode, ringR: Math.min(w, h) / 3.456, overCanvas: hasOver ? cv2 : null, figure: mode === "body" ? "/avatars/E.webp" : undefined });
+  const mk = () => mod.makeAura(cv, { aura, w, h, mode, ringR: Math.min(w, h) / 3.456, overCanvas: hasOver ? cv2 : null, figure: mode === "body" ? "/avatars/E.webp" : undefined });
+  let inst = mk();
   if (!inst) return { aura, label, skipped: true };
   inst.frame(1 / 60); window.__fakeStep(); // registers lazy image records
-  // the wait loop consumes no RNG — the seeded stream stays continuous
   for (let t = 0; t < 400; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
+  // Kill ambient ticking: gallery components mounted by ?auras=1 hold live
+  // instances that fire on real RAF during our awaits, consuming the seeded
+  // RNG and claiming the shared page flash budget between cells.
+  mod.AuraLoop.set.clear();
+  if (mod.AuraLoop.raf) { cancelAnimationFrame(mod.AuraLoop.raf); mod.AuraLoop.raf = 0; }
+  // Rebuild post-warm: the registration frame above runs against unloaded
+  // images and any state it bakes would leak into every captured frame.
+  window.__seed(0x9e3779b9);
+  window.__flashReset();
+  inst = mk();
   const caps = {}; const got = new Set();
   const snap = (tag) => { caps[tag] = { main: px(cv), over: hasOver ? px(cv2) : null }; };
   for (let i = 0; i < 30; i++) { inst.frame(1 / 60); window.__fakeStep(); if (i === 9) snap("f10"); if (i === 29) snap("f30"); }

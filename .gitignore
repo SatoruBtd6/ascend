@@ -9,3 +9,4 @@ tmp-diag/
 !/docs/baselines/
 !/docs/baselines/**
 .vercel
+evidence/
