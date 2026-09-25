@@ -15,8 +15,24 @@ export const AURA_FX = {
     { k: "rise", n: 16, shape: "ember", c: ["#FFB86B", "#FF9340", "#FF4D6D"], sp: [14, 26], life: [0.8, 1.4], sz: [1.6, 3], sway: 10, circle: { n: 0, a: 0 } },
     { k: "rise", n: 6, shape: "wisp", c: ["#FF9340", "#FF6A3C"], sp: [10, 18], life: [1.2, 2], sz: [2.8, 4.4], sway: 8, a: 0.55, circle: { n: 0, a: 0 } },
   ] },
-  tide: { spd: 1, glow: 0.55, layers: [{ k: "bubble", n: 16, c: ["#9BE7FF", "#38C6FF"], sp: [12, 24], life: [1.6, 3], sz: [2.4, 5.2] }, { k: "orbit", n: 16, shape: "dot", c: ["#38C6FF", "#2F6BFF"], w: [0.7, 1.2], r: [0.95, 1.18], sz: [1.8, 3.2], wave: 0.08 }] },
-  storm: { spd: 1.35, glow: 0.58, bolts: { every: [0.8, 1.8], c: ["#E6BFFF", "#B3ECFF"] }, layers: [{ k: "orbit", n: 28, shape: "spark", c: ["#B14BFF", "#38C6FF", "#E6BFFF"], w: [1.8, 2.8], r: [0.9, 1.22], sz: [1.3, 2.4] }, { k: "rise", n: 10, shape: "dot", c: ["#B14BFF", "#38C6FF"], sp: [16, 30], life: [0.8, 1.5], sz: [2, 4], sway: 8, a: 0.6 }] },
+  // Tide: gentle ocean water — glossy orb droplets riding a slow wave orbit,
+  // rising bubbles, wave-like wisps curling around the figure. Aqua/teal
+  // over the blue disc; calm T1 ring with no signature mechanic.
+  tide: { spd: 0.95, glow: 0.8, layers: [
+    { k: "orbit", n: 8, shape: "orb", c: ["#9BE7FF", "#5EEAD4", "#38C6FF"], w: [0.35, 0.6], r: [1.02, 1.14], sz: [2.7, 3.8], wave: 0.1, tw: 1 },
+    { k: "orbit", n: 12, shape: "dot", c: ["#38C6FF", "#5EEAD4", "#9BE7FF"], w: [0.8, 1.3], r: [1.12, 1.24], sz: [1.4, 2.2], wave: 0.06, tw: 1 },
+    { k: "bubble", n: 14, c: ["#9BE7FF", "#5EEAD4"], sp: [10, 18], life: [1.6, 2.4], sz: [2, 4.2], low: 1 },
+    { k: "rise", n: 6, shape: "wisp", c: ["#9BE7FF", "#38C6FF"], sp: [6, 12], life: [2.4, 3.6], sz: [3.5, 5.5], sway: 9, a: 0.5, circle: { n: 0, a: 0 } },
+  ] },
+  // Storm: a classic moody rainstorm — slate-grey cloud wisps drifting,
+  // steady rain (figure + board fall), pale droplets, and occasional
+  // slate-white bolts. Muted, not electric-cyan.
+  storm: { spd: 1.1, glow: 1, bolts: { every: [1.4, 2.4], c: ["#E8EEF7", "#9FB4CC"], fit: 1 }, layers: [
+    { k: "orbit", n: 8, shape: "smoke", c: ["#2E3A4C", "#42506A", "#556678"], w: [0.06, 0.14], r: [0.2, 0.7], sz: [8, 11], a: 0.7, blend: "source-over" },
+    { k: "orbit", n: 8, shape: "orb", c: ["#C9D4E0", "#E8EEF7"], w: [0.5, 0.9], r: [1.04, 1.16], sz: [2.6, 3.8], tw: 1 },
+    { k: "fall", n: 22, shape: "drop", c: ["#C9D4E0", "#E8EEF7", "#9FB4CC"], sp: [60, 100], sz: [1, 1.7], drift: 8, a: 0.8, xWrap: 1, xFade: 8, tailPad: 17 },
+    { k: "rise", n: 5, shape: "wisp", c: ["#9FB4CC", "#556678"], sp: [5, 10], life: [2.6, 3.8], sz: [4, 6], sway: 10, a: 0.45, circle: { n: 0, a: 0 } },
+  ] },
   inferno: { spd: 1.55, glow: 0.72, layers: [
     { k: "orbit", n: 1, shape: "flame", c: ["#2F7BFF", "#7DD3FC", "#FFFFFF"], w: [0, 0], r: [1.05, 1.05], even: 1, at: 0.25, sz: [29.4, 29.4], tongues: [7, 7], flicker: 0.3, a: 0.68, behind: 1, circle: { sz: [1.25, 1.25], r: [1.3, 1.3] } },
     { k: "rise", n: 32, shape: "dot", c: ["#BFE9FF", "#7DD3FC", "#FFFFFF"], sp: [28, 54], life: [0.55, 1.15], sz: [3.2, 7.5], sway: 5, a: 0.85 },
@@ -34,7 +50,15 @@ export const AURA_FX = {
     { k: "orbit", n: 18, shape: "spark", c: ["#FFFFFF", "#7DF9FF"], w: [0.8, 1.6], r: [1, 1.28], sz: [1.2, 2.2] },
   ] },
   smolder: { spd: 1.1, glow: 0.6, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [8, 16], life: [2.2, 3.4], sz: [8, 15], sway: 8, a: 0.35, blend: "source-over" }, { k: "rise", n: 26, shape: "ash", c: ["#FF6A2B", "#FFB070", "#FF8A3D"], sp: [12, 26], life: [1.4, 2.6], sz: [1.3, 2.3], sway: 12, flick: 1 }, { k: "orbit", n: 8, shape: "dot", c: ["#C2361A", "#FF6A2B"], w: [0.25, 0.45], r: [0.98, 1.08], sz: [2.2, 4], tw: 1 }] },
-  stormborn: { spd: 1.45, glow: 0.4, bolts: { every: [1, 2.2], c: ["#FFFFFF", "#BFD6FF"], flash: 1 }, layers: [{ k: "fall", n: 34, shape: "drop", c: ["#BFD6FF", "#8FB8FF", "#E6F0FF"], sp: [90, 150], sz: [1, 1.7], drift: -16, a: 0.75 }, { k: "orbit", n: 8, shape: "spark", c: ["#FFFFFF", "#8FB8FF"], w: [1.2, 2], r: [1.05, 1.22], sz: [1, 1.8] }] },
+  // Stormborn: a wind-and-rain runner — teal-green, everything drives
+  // sideways: rain streaks fall with heavy drift, comet streaks whip around
+  // the ring, and a fast drop orbit reads as speed lines. Signature: comets.
+  stormborn: { spd: 1.7, glow: 0.95, layers: [
+    { k: "orbit", n: 5, shape: "comet", c: ["#5EEAD4", "#34D3BE", "#E6F0FF"], w: [1.6, 2.4], r: [1.02, 1.14], sz: [1.3, 2] },
+    { k: "orbit", n: 10, shape: "dot", c: ["#5EEAD4", "#8FB8FF", "#E6F0FF"], w: [2.2, 3.4], r: [1.14, 1.26], sz: [1.2, 2], tw: 1 },
+    { k: "fall", n: 24, shape: "drop", c: ["#5EEAD4", "#8FB8FF", "#E6F0FF"], sp: [80, 130], sz: [1, 1.7], drift: -26, a: 0.75, xWrap: 1, xFade: 8, tailPad: 17 },
+    { k: "orbit", n: 5, shape: "wisp", c: ["#34D3BE", "#8FB8FF"], w: [0.9, 1.4], r: [0.9, 1.05], sz: [2.4, 3.6], a: 0.5 },
+  ] },
   dawn: { spd: 1, glow: 0.62, rays: { n: 9, c: "#FFB978", spin: 0.1, len: 1.4, a: 0.2, fan: 1 }, layers: [{ k: "rise", n: 18, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFE9C2"], sp: [10, 20], life: [1.6, 2.8], sz: [1.5, 2.8], sway: 6, tw: 1 }] },
   wanderer: { spd: 0.95, glow: 0.4, layers: [{ k: "orbit", n: 14, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.5, 0.95], r: [1, 1.28], sz: [2.6, 4.2], wave: 0.12 }, { k: "rise", n: 10, shape: "dot", c: ["#E0B872", "#F3DDB0"], sp: [8, 16], life: [1.5, 2.6], sz: [1.3, 2.4], sway: 10, a: 0.75 }] },
   standardbearer: { spd: 0.85, glow: 0.5, layers: [
@@ -144,7 +168,17 @@ export const AURA_FX = {
     { k: "rise", n: 10, shape: "smoke", c: ["#9FE8B8", "#6FBF8F"], sp: [10, 20], life: [1.6, 2.8], sz: [5, 9], sway: 10, a: 0.28, blend: "source-over" },
   ] },
   wyrm: { spd: 1.5, glow: 0.64, layers: [{ k: "orbit", n: 24, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.1, 2], r: [0.94, 1.22], sz: [2.6, 4.6] }, { k: "rise", n: 16, shape: "ember", c: ["#3DF08A", "#FFD447"], sp: [22, 48], life: [0.7, 1.4], sz: [1.2, 2.1], sway: 12 }] },
-  frost: { spd: 1.25, glow: 0.58, layers: [{ k: "fall", n: 26, shape: "flake", c: ["#FFFFFF", "#DDF6FF", "#B3ECFF"], sp: [16, 32], sz: [2.2, 4.2], drift: 10 }, { k: "orbit", n: 12, shape: "shard", c: ["#B3ECFF", "#FFFFFF"], w: [0.4, 0.8], r: [1, 1.18], sz: [2.6, 4.2] }] },
+  // Frostbite: sharp, aggressive ice — deep blue and white, jagged crystal
+  // shards that periodically burst outward off the ring (eject), fast
+  // ice-spark streaks and a dark glacial core. Calm snow belongs to
+  // zeropoint; this one bites.
+  frost: { spd: 1.5, glow: 1, layers: [
+    { k: "orbit", n: 7, shape: "smoke", c: ["#0A2A6B", "#14406B", "#1E5EFF"], w: [0.08, 0.16], r: [0.2, 0.66], sz: [8, 11], a: 0.7, blend: "source-over" },
+    { k: "orbit", n: 9, shape: "crystal", c: ["#3D8BFF", "#B3ECFF", "#FFFFFF"], w: [0.5, 0.9], r: [1.02, 1.16], sz: [2.8, 4], tw: 1,
+      eject: { every: [3, 6], sp: [0.28, 0.42], life: 0.7 } },
+    { k: "orbit", n: 8, shape: "spark", c: ["#FFFFFF", "#B3ECFF"], w: [2.4, 3.8], r: [1.08, 1.22], sz: [1.2, 2] },
+    { k: "orbit", n: 6, shape: "shard", c: ["#1E5EFF", "#DDF6FF"], w: [1.2, 2], r: [1.14, 1.26], sz: [2, 3] },
+  ] },
   // Abyss moment: a black hole opens behind the avatar — a pinpoint of
   // darkness grows to a black disc with a spinning violet-magenta accretion
   // ring, the orbit layers speed up and spiral into it (mSpin/mR), then it
@@ -172,7 +206,15 @@ export const AURA_FX = {
     { k: "orbit", n: 12, shape: "smoke", c: ["#FFE0B8", "#F0B07A"], w: [0.08, 0.18], r: [0.2, 0.6], sz: [7, 10], a: 0.7, blend: "lighter" },
     { k: "fall", n: 16, shape: "square", c: ["#C7743A", "#E39A5E", "#F0B07A"], sp: [16, 30], sz: [1.6, 3], drift: 8, spin: 1, xWrap: 1, xFade: 8, circle: { n: 0, a: 0 } },
   ] },
-  thunder: { spd: 1.75, glow: 0.6, bolts: { every: [0.35, 0.9], c: ["#FFF27A", "#7DD3FC", "#FFFFFF"] }, layers: [{ k: "orbit", n: 26, shape: "spark", c: ["#7DD3FC", "#FFF27A", "#FFFFFF"], w: [2.2, 3.4], r: [0.94, 1.2], sz: [1.3, 2.3] }] },
+  // Thunderhead: a boss thunderstorm — heavy dark cloud bank, gold-yellow
+  // lightning as the signature (multi-strike bursts, fitted), gold sparks
+  // and white-hot motes in the churn.
+  thunder: { spd: 1.5, glow: 1, bolts: { burst: [2, 3], burstSpan: 0.3, gap: [1.8, 3.2], c: ["#FFF27A", "#FFE9A8"], flash: 1, fit: 1 }, layers: [
+    { k: "orbit", n: 9, shape: "smoke", c: ["#141821", "#232B3A", "#3A3226"], w: [0.06, 0.14], r: [0.18, 0.7], sz: [8, 12], a: 0.8, blend: "source-over" },
+    { k: "orbit", n: 10, shape: "zap", c: ["#FFF27A", "#FFE9A8"], w: [1, 1.8], r: [1.02, 1.16], sz: [2.6, 3.8], tw: 1 },
+    { k: "orbit", n: 8, shape: "spark", c: ["#FFE9A8", "#FFFFFF"], w: [2.4, 3.6], r: [1.1, 1.24], sz: [1.2, 2] },
+    { k: "rise", n: 5, shape: "smoke", c: ["#232B3A", "#3A3226"], sp: [4, 9], life: [2.6, 3.8], sz: [4, 7], sway: 8, a: 0.4, blend: "source-over", circle: { n: 0, a: 0 } },
+  ] },
   hollow: { spd: 1.2, glow: 0.52, layers: [{ k: "orbit", n: 16, shape: "chainlink", c: ["#9AA7BD", "#DDE6F2", "#FFFFFF"], w: [0.35, 0.7], r: [1, 1.26], sz: [3.2, 5.2] }, { k: "rise", n: 10, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [6, 12], life: [1.8, 3], sz: [7, 13], sway: 6, a: 0.25, blend: "source-over" }] },
   deep: { spd: 1.4, glow: 0.58, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.18, 1.18], w: [0, 0], sz: [1, 1], even: 1, at: 0.38, rot: 0.1, wobble: 0.09, a: 0.85, behind: 1, blend: "source-over" },
@@ -1713,7 +1755,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         p.image = auraImage(p.src, { edgeAnchors: wantsShadow });
       }
       if (L.k === "rise" || L.k === "bubble") {
-        const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (Math.random() < 0.35 ? Math.PI : 0);
+        // low: opt-in — spawn only on the lower arc so risers fade before
+        // they can reach the top border on small canvases
+        const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (!L.low && Math.random() < 0.35 ? Math.PI : 0);
         [p.x, p.y] = onRing(ang, rnd(1.05, 1.18)); p.vy = -rnd(...(L.sp || [6, 12])) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
         if (fresh) p.age = rnd(0, p.life);
       } else if (L.k === "fall") {
@@ -2495,13 +2539,19 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             if (p.age >= p.life) spawn(p);
           } else if (L.k === "fall") {
             p.y += p.vy * layerDt; p.x += p.vx * layerDt + Math.sin(time + p.ph) * 0.2; x = p.x; y = p.y;
-            const edge = Math.min(1, (p.y - (cy - ry * 1.6)) / 20, (cy + ry * 1.5 - p.y) / 20);
+            // tailPad: opt-in — drop streaks draw s·9px BEHIND the particle,
+            // so the fade-in must wait until the tail is inside the canvas
+            const edge = Math.min(1, (p.y - (cy - ry * 1.6 + (L.tailPad || 0) * unit)) / 20, (cy + ry * 1.5 - p.y) / 20);
             alpha = Math.max(0, edge);
             // xWrap/xFade: opt-in horizontal containment for narrow canvases
             // (body mode) — wrap drifted particles to the far side and fade
             // near left/right borders; absent fields keep old behavior.
+            // The fade must reach zero at least one sprite-extent inside the
+            // border, so alpha is 0 out to the margin and ramps over a second
+            // margin's width — fading to 0 exactly AT the border still lets
+            // the sprite's outer pixels paint the edge.
             if (L.xWrap && p.x > cx + rx * 1.45) p.x = cx - rx * 1.45;
-            if (L.xFade) alpha *= Math.max(0, Math.min(1, x / (L.xFade * 2 * unit), (w - x) / (L.xFade * 2 * unit)));
+            if (L.xFade) { const fm = L.xFade * unit; alpha *= Math.max(0, Math.min(1, (x - fm) / fm, (w - x - fm) / fm)); }
             if (p.y > cy + ry * 1.5) spawn(p);
           } else if (L.k === "inward") {
             const k = p.age / p.life; const r = p.r0 - (p.r0 - 1.05) * k; p.ang += p.spd * layerDt;
