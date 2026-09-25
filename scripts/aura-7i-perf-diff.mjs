@@ -37,6 +37,10 @@ await page.evaluate(() => import("/src/auras/AuraCanvas.jsx").then((m) => {
 const dump = await page.evaluate(async (auras) => {
   const mod = window.__mod;
   const out = {};
+  // The page-wide flash budget consults a wall clock — drive it with a fake
+  // deterministic clock so capture and compare gate flashes identically.
+  let fakeNow = 0;
+  mod.setFlashPageClock(() => fakeNow);
   for (const aura of auras) {
     // deterministic RNG per aura so capture/compare run the same particle set
     let state = 0x9e3779b9;
@@ -50,9 +54,9 @@ const dump = await page.evaluate(async (auras) => {
     Math.random = realRandom;
     for (let t = 0; t < 200; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
     Math.random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
-    for (let i = 0; i < 60; i++) inst.frame(1 / 60);
+    for (let i = 0; i < 60; i++) { inst.frame(1 / 60); fakeNow += 1 / 60; }
     inst.forceMoment && inst.forceMoment();
-    for (let i = 0; i < 120; i++) inst.frame(1 / 60);
+    for (let i = 0; i < 120; i++) { inst.frame(1 / 60); fakeNow += 1 / 60; }
     Math.random = realRandom;
     const px = (c) => Array.from(c.getContext("2d").getImageData(0, 0, c.width, c.height).data);
     out[aura] = { main: px(cv), over: over ? px(cv2) : null };

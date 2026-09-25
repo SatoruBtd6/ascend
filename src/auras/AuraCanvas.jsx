@@ -824,19 +824,19 @@ export const AURA_ART = {
   // Atlas base loop: a soft violet ambience around the figure, a halo and
   // faint rim light behind the sphere, and a few slow rotating light rays.
   // All low alpha — the moment's explosion must still feel like a big jump.
-  atlas: ({ g, time, cx, cy, rx, ry, w, h, unit, anchors, anchor, moment, orbitXY, reduce, pass, fx }) => {
+  atlas: ({ g, time, cx, cy, rx, ry, w, h, unit, anchors, anchor, moment, orbitXY, reduce, pass, cc }) => {
     if (pass !== "main") return null;
     const aS = Math.min(1, (w * h) / (100 * 100)); // lighter on board-size
     g.save();
     // ambient violet band hugging the figure silhouette — geometry and stops
     // are fixed per canvas size, so the gradient is built once per instance
     g.translate(cx, cy); g.scale(1, ry / rx);
-    const amb = fx?._ambAtlas || (() => {
+    const amb = cc?._ambAtlas || (() => {
       const gr = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * 1.32);
       gr.addColorStop(0, "rgba(139,92,246,0)");
       gr.addColorStop(0.55, `rgba(139,92,246,${(0.07 * aS).toFixed(3)})`);
       gr.addColorStop(1, "rgba(139,92,246,0)");
-      if (fx) fx._ambAtlas = gr;
+      if (cc) cc._ambAtlas = gr;
       return gr;
     })();
     g.fillStyle = amb; g.beginPath(); g.arc(0, 0, rx * 1.32, 0, Math.PI * 2); g.fill();
@@ -912,17 +912,17 @@ export const AURA_ART = {
   },
   // Ossuary: a soft spectral green ambience around the figure and a faint
   // green gleam breathing inside the crown's fissures — eerie, not bright.
-  ossuary: ({ g, time, cx, cy, rx, ry, w, h, anchors, anchor, flash, reduce, pass, fx }) => {
+  ossuary: ({ g, time, cx, cy, rx, ry, w, h, anchors, anchor, flash, reduce, pass, cc }) => {
     if (pass !== "main") return null;
     const aS = Math.min(1, (w * h) / (100 * 100));
     g.save();
     g.translate(cx, cy); g.scale(1, ry / rx);
-    const amb = fx?._ambOss || (() => {
+    const amb = cc?._ambOss || (() => {
       const gr = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * 1.3);
       gr.addColorStop(0, "rgba(74,222,128,0)");
       gr.addColorStop(0.55, `rgba(74,222,128,${(0.055 * aS).toFixed(3)})`);
       gr.addColorStop(1, "rgba(74,222,128,0)");
-      if (fx) fx._ambOss = gr;
+      if (cc) cc._ambOss = gr;
       return gr;
     })();
     g.fillStyle = amb; g.beginPath(); g.arc(0, 0, rx * 1.3, 0, Math.PI * 2); g.fill();
@@ -1249,6 +1249,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   let momentAt = fx.moment ? rnd(0.4, (fx.moment.every || [6, 10])[1]) : 0;
   let flareAt = fx.flare ? rnd(...fx.flare.every) : 0;
   let momentT = null, momentFired = null, momentParts = [];
+  // Per-instance render cache: gradients/paths that embed this canvas's
+  // geometry must never live on the shared AURA_FX spec — two instances of
+  // the same aura can be mounted at different sizes at once.
+  const cc = {};
   api.momentWait = momentAt;
   api.forceMoment = () => { if (fx.moment && momentT == null) momentAt = Math.min(momentAt, 0.001); };
   const c1 = base?.colors?.[0] || "#00D9FF", c2 = base?.colors?.[1] || c1;
@@ -1944,7 +1948,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
-    const aa = { g, over: overG, fx, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass: "main", mode, anchors, anchor: anchorOrigin, moment: null, orbitXY: api.orbitXY, flash: null, reduce: !!api.reduce, paulShift };
+    const aa = { g, over: overG, fx, cc, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass: "main", mode, anchors, anchor: anchorOrigin, moment: null, orbitXY: api.orbitXY, flash: null, reduce: !!api.reduce, paulShift };
     const aaMoment = { t: 0, spec: fx.moment }, aaFlash = { k: 0, spec: null };
     const artArgs = (pass) => {
       aa.time = time; aa.clock = clock; aa.strike = strike; aa.pass = pass; aa.orbitXY = api.orbitXY;
@@ -2016,32 +2020,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     }
     g.globalCompositeOperation = "source-over";
     if (fx.rays) {
-      const R = fx.rays;
-      // Each ray is a unit wedge under rotate(a0)·scale(len) with a unit
-      // linear gradient — the per-ray pulse folds into globalAlpha (gradient
-      // alphas lerp linearly, so scaling post-composite is identical).
-      if (!fx._rayWedges) {
-        fx._rayWedges = [];
-        for (let i = 0; i < R.n; i++) {
-          const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
-          const P = new Path2DImpl();
-          P.moveTo(0, 0); P.lineTo(Math.cos(-wd), Math.sin(-wd)); P.lineTo(Math.cos(wd), Math.sin(wd)); P.closePath();
-          fx._rayWedges.push(P);
-        }
-        const grd = g.createLinearGradient(0, 0, 1, 0);
-        grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, 1)); grd.addColorStop(1, rgba(R.c, 0));
-        fx._rayGrad = grd;
-      }
-      const lenBase = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15);
-      g.save(); g.translate(cx, cy); g.fillStyle = fx._rayGrad;
+      const R = fx.rays; g.save(); g.translate(cx, cy);
       for (let i = 0; i < R.n; i++) {
         const a0 = (i / R.n) * Math.PI * 2 + time * R.spin;
         if (R.fan && Math.sin(a0) > 0.15) continue;
-        const len = lenBase * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
-        g.globalAlpha = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7));
-        g.save(); g.rotate(a0); g.scale(len, len);
-        g.fill(fx._rayWedges[i]);
-        g.restore();
+        const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
+        const grd = g.createLinearGradient(0, 0, Math.cos(a0) * len, Math.sin(a0) * len);
+        const pulse = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7));
+        grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, pulse)); grd.addColorStop(1, rgba(R.c, 0));
+        g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0);
+        const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
+        g.lineTo(Math.cos(a0 - wd) * len, Math.sin(a0 - wd) * len); g.lineTo(Math.cos(a0 + wd) * len, Math.sin(a0 + wd) * len); g.closePath(); g.fill();
       }
       g.restore();
     }
@@ -2059,7 +2048,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         state._rMul = mtL != null && L.mR ? (keyAt(L.mR, mtL) ?? 1) : 1;
         const mk = mtL != null && L.shape === "img" ? state._mk || (state._mk = {}) : null;
         state._mk = mk;
-        const ixy = L.shape === "img" ? ((api.imgXY ||= {})[L.src] || (api.imgXY[L.src] = {})) : null;
+        // imgXY slots must stay lazily created — anchor() falls back to the
+        // canvas centre only while no img particle has ever written one, so
+        // an eagerly-created empty {} would poison anchor reads (NaN radius).
+        let ixy = L.shape === "img" ? (api.imgXY ||= {})[L.src] : undefined;
         if (mk) {
           mk.x = (keyAt(L.mX, mtL) || 0) * mAmp * rx;
           mk.y = (keyAt(L.mY, mtL) || 0) * mAmp * ry;
@@ -2158,7 +2150,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             if (L.frontOnly && Math.sin(p.ang) < 0.15) alpha = 0;
           }
           if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
-          if (ixy) { ixy.x = x; ixy.y = y; ixy.z = p.wz; }
+          if (L.shape === "img") { if (!ixy) ixy = api.imgXY[L.src] = {}; ixy.x = x; ixy.y = y; ixy.z = p.wz; }
           drawP(ctx, state, p, alpha, x, y);
         }
       }
