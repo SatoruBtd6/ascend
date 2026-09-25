@@ -216,7 +216,7 @@ export const AURA_FX = {
   ] },
   steadybreath: { spd: 0.75, glow: 0.38, rings: [{ r: 1.14, c: "#DFFBFF", spin: 0.02, a: 0.68, w: 2.2 }], layers: [{ k: "orbit", n: 8, shape: "pulse", c: ["#DFFBFF", "#7DF9FF"], w: [0.18, 0.3], r: [1.08, 1.2], sz: [1.2, 2], tw: 1 }] },
   iaidraw: { spd: 0.55, glow: 0.32, sweep: { c: "#FFFFFF", a: 1, spd: 6.5, r: 1.16, w: 3.4, span: 0.35 }, layers: [{ k: "orbit", n: 5, shape: "shard", c: ["#FFFFFF", "#38C6FF"], w: [0.12, 0.22], r: [1.1, 1.22], sz: [1, 1.6], tw: 1 }] },
-  stormstep: { spd: 1.2, glow: 1.05, bolts: { every: [0.35, 0.45], c: ["#FFFFFF", "#7DD3FC"], flash: 1 }, layers: [
+  stormstep: { spd: 1.2, glow: 1.05, bolts: { every: [0.35, 0.45], c: ["#FFFFFF", "#7DD3FC"], flash: 1, fit: 1 }, layers: [
     { k: "orbit", n: 10, shape: "zap", c: ["#FFFFFF", "#7DD3FC"], w: [1.6, 2.6], r: [1, 1.14], sz: [2.8, 4.4] },
     { k: "orbit", n: 10, shape: "spark", c: ["#FFFFFF", "#7DD3FC", "#38BDF8"], w: [2.6, 3.8], r: [1.14, 1.28], sz: [1, 1.8] },
     { k: "orbit", n: 5, shape: "sparkle", c: ["#FFFFFF", "#B3ECFF"], w: [0.4, 0.7], r: [1.02, 1.12], sz: [2.4, 3.2], tw: 1 },
@@ -1875,6 +1875,15 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     // Bolts live ~0.26s and re-stroke the same polyline 3x per frame at
     // different widths — the Path2D and stroke specs are built once here.
     const finish = (pts, c) => {
+      if (fx.bolts.fit) {
+        // keep every stroke vertex (plus the widest halo's half-width) inside
+        // the canvas — small boards would otherwise clip strike ends flat
+        const rMax = Math.min(w, h) / 2 - 2 * unit - 1.5;
+        for (const pt of pts) {
+          const dx = pt[0] - cx, dy = pt[1] - cy, r = Math.hypot(dx, dy);
+          if (r > rMax) { const s = rMax / r; pt[0] = cx + dx * s; pt[1] = cy + dy * s; }
+        }
+      }
       const path = new Path2DImpl();
       path.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);
