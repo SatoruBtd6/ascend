@@ -11,7 +11,7 @@ const browserGlobals = [
   "performance", "crypto", "atob", "btoa", "alert", "confirm", "prompt", "structuredClone",
   "TextEncoder", "TextDecoder", "CompressionStream", "DecompressionStream", "AbortController", "ReadableStream",
   "IntersectionObserver", "ResizeObserver", "MutationObserver", "matchMedia", "getComputedStyle",
-  "CustomEvent", "Event", "DOMParser", "HTMLElement", "Node", "CanvasRenderingContext2D", "OffscreenCanvas",
+  "CustomEvent", "Event", "DOMParser", "HTMLElement", "Node", "CanvasRenderingContext2D", "OffscreenCanvas", "Path2D",
   "geolocation", "Notification", "caches", "indexedDB", "Worker", "WebSocket", "queueMicrotask", "reportError",
 ];
 const nodeGlobals = ["process", "Buffer", "__dirname", "__filename", "global"];

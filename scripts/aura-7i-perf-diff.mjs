@@ -22,7 +22,7 @@ const args = process.argv.slice(2);
 const cmd = args[0] || "capture";
 const file = args[1] || join(process.env.TEMP || ".", "aura-7i-perf-base.json");
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5173";
-const AURAS = "atlas forge fallenlight ossuary ironbound standardbearer ascended bonewright nullpoint inferno".split(" ");
+const AURAS = (args.includes("--stress") ? args[args.indexOf("--stress") + 1] : "atlas forge fallenlight ossuary ironbound standardbearer ascended bonewright nullpoint inferno").split(/[ ,]+/).filter(Boolean);
 
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });

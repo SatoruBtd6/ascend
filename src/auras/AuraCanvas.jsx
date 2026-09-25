@@ -824,16 +824,21 @@ export const AURA_ART = {
   // Atlas base loop: a soft violet ambience around the figure, a halo and
   // faint rim light behind the sphere, and a few slow rotating light rays.
   // All low alpha — the moment's explosion must still feel like a big jump.
-  atlas: ({ g, time, cx, cy, rx, ry, w, h, unit, anchors, anchor, moment, orbitXY, reduce, pass }) => {
+  atlas: ({ g, time, cx, cy, rx, ry, w, h, unit, anchors, anchor, moment, orbitXY, reduce, pass, fx }) => {
     if (pass !== "main") return null;
     const aS = Math.min(1, (w * h) / (100 * 100)); // lighter on board-size
     g.save();
-    // ambient violet band hugging the figure silhouette
+    // ambient violet band hugging the figure silhouette — geometry and stops
+    // are fixed per canvas size, so the gradient is built once per instance
     g.translate(cx, cy); g.scale(1, ry / rx);
-    const amb = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * 1.32);
-    amb.addColorStop(0, "rgba(139,92,246,0)");
-    amb.addColorStop(0.55, `rgba(139,92,246,${(0.07 * aS).toFixed(3)})`);
-    amb.addColorStop(1, "rgba(139,92,246,0)");
+    const amb = fx?._ambAtlas || (() => {
+      const gr = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * 1.32);
+      gr.addColorStop(0, "rgba(139,92,246,0)");
+      gr.addColorStop(0.55, `rgba(139,92,246,${(0.07 * aS).toFixed(3)})`);
+      gr.addColorStop(1, "rgba(139,92,246,0)");
+      if (fx) fx._ambAtlas = gr;
+      return gr;
+    })();
     g.fillStyle = amb; g.beginPath(); g.arc(0, 0, rx * 1.32, 0, Math.PI * 2); g.fill();
     g.restore();
     // sphere halo + rim light + rotating rays — all anchored to the live
@@ -907,15 +912,19 @@ export const AURA_ART = {
   },
   // Ossuary: a soft spectral green ambience around the figure and a faint
   // green gleam breathing inside the crown's fissures — eerie, not bright.
-  ossuary: ({ g, time, cx, cy, rx, ry, w, h, anchors, anchor, flash, reduce, pass }) => {
+  ossuary: ({ g, time, cx, cy, rx, ry, w, h, anchors, anchor, flash, reduce, pass, fx }) => {
     if (pass !== "main") return null;
     const aS = Math.min(1, (w * h) / (100 * 100));
     g.save();
     g.translate(cx, cy); g.scale(1, ry / rx);
-    const amb = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * 1.3);
-    amb.addColorStop(0, "rgba(74,222,128,0)");
-    amb.addColorStop(0.55, `rgba(74,222,128,${(0.055 * aS).toFixed(3)})`);
-    amb.addColorStop(1, "rgba(74,222,128,0)");
+    const amb = fx?._ambOss || (() => {
+      const gr = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * 1.3);
+      gr.addColorStop(0, "rgba(74,222,128,0)");
+      gr.addColorStop(0.55, `rgba(74,222,128,${(0.055 * aS).toFixed(3)})`);
+      gr.addColorStop(1, "rgba(74,222,128,0)");
+      if (fx) fx._ambOss = gr;
+      return gr;
+    })();
     g.fillStyle = amb; g.beginPath(); g.arc(0, 0, rx * 1.3, 0, Math.PI * 2); g.fill();
     g.restore();
     const o = anchor("img:/aura/crown-bone.webp");
@@ -1054,13 +1063,13 @@ function drawProceduralFlame(g, p, x, y, time, reduced, L = {}) {
   g.translate(x, y);
   g.rotate(p.rot || 0);
   g.globalCompositeOperation = "lighter";
-  g.save();
-  g.globalAlpha *= 0.28;
+  const a0 = g.globalAlpha;
+  g.globalAlpha = a0 * 0.28;
   g.fillStyle = flameFill(outer, 0.55);
   g.beginPath();
   g.ellipse(0, -s * 0.08, s * 0.86, s * 0.36, 0, 0, Math.PI * 2);
   g.fill();
-  g.restore();
+  g.globalAlpha = a0;
   for (const tongue of tongues) {
     const wave = Math.sin(time * tongue.f1 + tongue.p1) + Math.sin(time * tongue.f2 + tongue.p2) * 0.55 + Math.sin(time * tongue.f3 + tongue.p3) * 0.25;
     const stretch = 1 + (Math.sin(time * tongue.f2 + tongue.p2) * 0.07 + Math.sin(time * tongue.f3 + tongue.p3) * 0.04) * (reduced ? 0.35 : 1);
@@ -1076,18 +1085,37 @@ function drawProceduralFlame(g, p, x, y, time, reduced, L = {}) {
     const shimmerCount = Math.max(0, Math.round(L.shimmerN ?? 3));
     for (let i = 0; i < shimmerCount; i += 1) {
       const phase = time * (1.7 + i * 0.61) + p.ph + i * 1.9;
-      g.save();
-      g.globalAlpha *= 0.09 + 0.08 * (0.5 + 0.5 * Math.sin(phase));
+      g.globalAlpha = a0 * (0.09 + 0.08 * (0.5 + 0.5 * Math.sin(phase)));
       g.strokeStyle = flameFill(inner, 0.9);
       g.lineWidth = Math.max(0.6, s * (0.035 + i * 0.012));
       g.beginPath();
       g.arc((i - (shimmerCount - 1) / 2) * s * 0.22, -s * 0.05, s * (0.58 + i * 0.18), Math.PI * 1.1, Math.PI * 1.9);
       g.stroke();
-      g.restore();
     }
+    g.globalAlpha = a0;
   }
   g.restore();
 }
+
+// Per-particle sprite memo: a particle only ever uses one sprite kind and its
+// colour only changes on respawn — skips a Map lookup per particle per frame.
+const pSprite = (p, soft) => (p._spC === p.c && p._sp) ? p._sp : (p._spC = p.c, p._sp = soft ? softSprite(p.c) : glowSprite(p.c));
+
+// Path2D is browser-only — the Node unit tests stub the 2d context and have
+// no global for it, so fall back to a no-op recorder (fill/stroke calls still
+// reach the stub with a placeholder path object).
+const Path2DImpl = typeof Path2D !== "undefined" ? Path2D : class {
+  moveTo() {} lineTo() {} closePath() {} arc() {} ellipse() {} rect() {} quadraticCurveTo() {} bezierCurveTo() {}
+};
+
+// Static-geometry particle paths are cached on the particle as Path2D objects
+// — the same geometry re-issued every frame rasterizes identically, so this is
+// a pure call-count cut. The cache rebuilds if the drawn size ever changes.
+const shapePath = (p, key, s, build) => {
+  const cache = p._p2 || (p._p2 = { _s: s });
+  if (cache._s !== s) { for (const k in cache) delete cache[k]; cache._s = s; }
+  return cache[key] || (cache[key] = build(new Path2DImpl(), s));
+};
 
 export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = false, L = {}) {
   const s = p.sz;
@@ -1098,51 +1126,62 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     for (const blob of p.ashBlobs || [[0, 0, 0.4]]) { g.beginPath(); g.arc(blob[0] * s, blob[1] * s, blob[2] * s, 0, Math.PI * 2); g.fill(); }
     g.restore();
   } else if (shape === "feather") {
+    const body = shapePath(p, "b", s, (P, v) => { P.moveTo(0, -v * 1.7); P.bezierCurveTo(v * 0.9, -v * 0.7, v * 0.45, v * 0.75, -v * 0.1, v * 1.25); P.bezierCurveTo(-v * 0.35, v * 0.35, -v * 0.45, -v * 0.8, 0, -v * 1.7); return P; });
+    const spine = shapePath(p, "sp", s, (P, v) => { P.moveTo(0, -v * 1.45); P.quadraticCurveTo(v * 0.12, 0, -v * 0.15, v * 1.45); return P; });
     g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
-    g.beginPath(); g.moveTo(0, -s * 1.7); g.bezierCurveTo(s * 0.9, -s * 0.7, s * 0.45, s * 0.75, -s * 0.1, s * 1.25); g.bezierCurveTo(-s * 0.35, s * 0.35, -s * 0.45, -s * 0.8, 0, -s * 1.7); g.fill();
-    g.strokeStyle = "rgba(15,23,42,0.42)"; g.lineWidth = Math.max(0.5, s * 0.14); g.beginPath(); g.moveTo(0, -s * 1.45); g.quadraticCurveTo(s * 0.12, 0, -s * 0.15, s * 1.45); g.stroke(); g.restore();
+    g.fill(body);
+    g.strokeStyle = "rgba(15,23,42,0.42)"; g.lineWidth = Math.max(0.5, s * 0.14); g.stroke(spine); g.restore();
   } else if (shape === "bonechip") {
+    const chip = shapePath(p, "c", s, (P, v) => { P.moveTo(0, -v); P.lineTo(v * 0.48, -v * 0.18); P.lineTo(v * 0.24, v * 0.62); P.lineTo(-v * 0.3, v * 0.48); P.lineTo(-v * 0.42, -v * 0.12); P.closePath(); return P; });
+    const glint = shapePath(p, "g", s, (P, v) => { P.moveTo(0, -v); P.lineTo(v * 0.48, -v * 0.18); P.lineTo(0, 0); P.closePath(); return P; });
     g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
-    g.beginPath(); g.moveTo(0, -s); g.lineTo(s * 0.48, -s * 0.18); g.lineTo(s * 0.24, s * 0.62); g.lineTo(-s * 0.3, s * 0.48); g.lineTo(-s * 0.42, -s * 0.12); g.closePath(); g.fill();
-    g.globalAlpha *= 0.35; g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(0, -s); g.lineTo(s * 0.48, -s * 0.18); g.lineTo(0, 0); g.closePath(); g.fill(); g.restore();
+    g.fill(chip);
+    g.globalAlpha *= 0.35; g.fillStyle = "#ffffff"; g.fill(glint); g.restore();
   } else if (shape === "coin") {
     g.save(); g.translate(x, y); g.rotate(p.rot); const flip = Math.sin(time * 8 + p.ph); const width = Math.max(s * 0.08, s * 0.75 * Math.abs(flip));
     g.fillStyle = p.c; g.beginPath(); g.ellipse(0, 0, width, s * 0.7, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = Math.max(0.5, s * 0.1); g.stroke(); g.restore();
   } else if (shape === "crescent") {
+    const moon = shapePath(p, "m", s, (P, v) => { P.arc(-v * 0.18, 0, v, -1.05, 1.05); P.arc(v * 0.28, 0, v * 0.82, 1.05, -1.05, true); P.closePath(); return P; });
     g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
-    g.beginPath(); g.arc(-s * 0.18, 0, s, -1.05, 1.05); g.arc(s * 0.28, 0, s * 0.82, 1.05, -1.05, true); g.closePath(); g.fill(); g.restore();
+    g.fill(moon); g.restore();
   } else if (shape === "pulse") {
     const period = 1.35;
     const progress = (((time + p.ph) % period) + period) % period / period;
     g.save(); g.translate(x, y); g.globalAlpha *= 1 - progress; g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.beginPath(); g.arc(0, 0, s * (0.35 + progress * 1.4), 0, Math.PI * 2); g.stroke(); g.restore();
   } else if (shape === "sandgrain") {
     const vx = p.vx || (p.w ? -Math.sin(p.ang || 0) * p.w : 0), vy = p.vy || (p.w ? Math.cos(p.ang || 0) * p.w : 1);
-    g.save(); g.translate(x, y); g.rotate(Math.atan2(vy, vx)); g.fillStyle = p.c; g.globalAlpha *= 0.32; g.beginPath(); g.ellipse(0, 0, s * 0.75, s * 0.35, 0, 0, Math.PI * 2); g.fill(); g.restore();
+    const grain = shapePath(p, "g", s, (P, v) => { P.ellipse(0, 0, v * 0.75, v * 0.35, 0, 0, Math.PI * 2); return P; });
+    g.save(); g.translate(x, y); g.rotate(Math.atan2(vy, vx)); g.fillStyle = p.c; g.globalAlpha *= 0.32; g.fill(grain); g.restore();
   } else if (shape === "shard") {
+    const shard = shapePath(p, "s", s, (P, v) => { P.moveTo(0, -v * 1.4); P.lineTo(v * 0.55, 0); P.lineTo(0, v * 1.1); P.lineTo(-v * 0.55, 0); P.closePath(); return P; });
+    const glint = shapePath(p, "g", s, (P, v) => { P.moveTo(0, -v * 1.4); P.lineTo(v * 0.2, -v * 0.2); P.lineTo(0, 0); P.closePath(); return P; });
     g.save(); g.translate(x, y); g.rotate(p.rot);
     g.fillStyle = p.c;
-    g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.55, 0); g.lineTo(0, s * 1.1); g.lineTo(-s * 0.55, 0); g.closePath();
-    g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = Math.max(1.1, s * 0.28); g.stroke(); g.fill();
-    g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.2, -s * 0.2); g.lineTo(0, 0); g.closePath(); g.fill();
+    g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = Math.max(1.1, s * 0.28); g.stroke(shard); g.fill(shard);
+    g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.fill(glint);
     g.restore();
   } else if (shape === "smoke") {
-    const sp = softSprite(p.c), k = Math.min(1.28, 1 + Math.min(p.age || 0, 2.4) * 0.1);
+    const sp = pSprite(p, true), k = Math.min(1.28, 1 + Math.min(p.age || 0, 2.4) * 0.1);
     g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k);
   } else if (shape === "chainlink") {
-    g.save(); g.translate(x, y); g.rotate(p.rot); g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.beginPath(); g.ellipse(0, 0, s * 0.8, s * 0.4, 0, 0, Math.PI * 2); g.stroke(); g.restore();
+    const link = shapePath(p, "l", s, (P, v) => { P.ellipse(0, 0, v * 0.8, v * 0.4, 0, 0, Math.PI * 2); return P; });
+    g.save(); g.translate(x, y); g.rotate(p.rot); g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.stroke(link); g.restore();
   } else if (shape === "page") {
     // a page of the record: pale rectangle tumbling, one in three carries a
     // name inked in red
-    g.save(); g.translate(x, y); g.rotate(p.rot + Math.sin(time * 0.7 + p.ph) * 0.15);
     const pw = s * 1.05, phh = s * 1.45;
-    g.fillStyle = p.c; g.beginPath(); g.rect(-pw / 2, -phh / 2, pw, phh); g.fill();
-    g.strokeStyle = "rgba(20,12,8,0.5)"; g.lineWidth = Math.max(0.5, s * 0.09); g.stroke();
+    const body = shapePath(p, "b", s, (P) => { P.rect(-pw / 2, -phh / 2, pw, phh); return P; });
+    const ink = shapePath(p, "i", s, (P) => {
+      P.moveTo(-pw * 0.3, -phh * 0.14); P.quadraticCurveTo(-pw * 0.05, -phh * 0.22, pw * 0.28, -phh * 0.12);
+      P.moveTo(-pw * 0.3, phh * 0.04); P.quadraticCurveTo(-pw * 0.1, phh * 0.1, pw * 0.14, phh * 0.05);
+      return P;
+    });
+    g.save(); g.translate(x, y); g.rotate(p.rot + Math.sin(time * 0.7 + p.ph) * 0.15);
+    g.fillStyle = p.c; g.fill(body);
+    g.strokeStyle = "rgba(20,12,8,0.5)"; g.lineWidth = Math.max(0.5, s * 0.09); g.stroke(body);
     if (((p.i ?? Math.floor(p.ph * 10)) % 3) === 0) {
       g.strokeStyle = "#A3151F"; g.lineWidth = Math.max(0.5, s * 0.1); g.lineCap = "round";
-      g.beginPath();
-      g.moveTo(-pw * 0.3, -phh * 0.14); g.quadraticCurveTo(-pw * 0.05, -phh * 0.22, pw * 0.28, -phh * 0.12);
-      g.moveTo(-pw * 0.3, phh * 0.04); g.quadraticCurveTo(-pw * 0.1, phh * 0.1, pw * 0.14, phh * 0.05);
-      g.stroke();
+      g.stroke(ink);
     }
     g.restore();
   }
@@ -1190,6 +1229,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const ry = Math.max(10, (mode === "body" ? h * 0.36 : ringR) * fit);
   const anchors = resolveAuraAnchors(mode, { w, h, cx, cy, rx, ry }, figure);
   const gR = Math.min(1.45, (Math.min(cx, w - cx) / rx) * 0.97, (Math.min(cy, h - cy) / ry) * 0.97);
+  // base-glow discs are static geometry — the gradients pulse, the path doesn't
+  const glowPath = new Path2DImpl(); glowPath.arc(0, 0, rx * gR, 0, Math.PI * 2);
+  const darkGlowPath = new Path2DImpl(); darkGlowPath.arc(cx, cy, rx * gR, 0, Math.PI * 2);
   const scale = Math.max(0.7, Math.min(1.25, (w * h) / (140 * 140)));
   const unit = Math.max(w < 110 ? 1.15 : 0.75, Math.min(rx, ry) / 48);
   const onRing = (ang, k = 1) => [cx + Math.cos(ang) * rx * k, cy + Math.sin(ang) * ry * k];
@@ -1227,6 +1269,23 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       });
     }
   });
+  const shadowSpec = (L) => {
+    if (!L.shadow) return null;
+    const s = L.shadow === true ? {} : L.shadow;
+    return {
+      max: Math.max(0, Math.round(s.max ?? 24)),
+      rate: Math.max(0, s.rate ?? 10),
+      life: s.life || [0.8, 1.6],
+      sp: s.sp || [4, 12],
+      sz: s.sz || [3, 8],
+      c: s.c || "#111827",
+      a: s.a ?? 0.38,
+      blend: s.blend || "source-over",
+      anchors: Math.max(1, Math.round(s.anchors ?? 48)),
+      jit: s.jit ?? 0.35,
+    };
+  };
+
   const layers = layerSpecs.map((L) => {
     const n = Math.min(particleBudget, Math.max(L.even ? L.n : L.shape === "flame" ? 1 : 3, Math.round(L.n * (L.even ? 1 : scale))));
     particleBudget -= n;
@@ -1275,25 +1334,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       p.e = L.e ? L.e[p.i % L.e.length] : null;
     };
     const ps = Array.from({ length: n }, (_, i) => { const p = { i }; spawn(p, true); return p; });
-    return { L, ps, spawn, wisps: [], wispAcc: 0, wantsShadow };
+    return { L, ps, spawn, wisps: [], wispAcc: 0, wantsShadow, shadow: wantsShadow ? shadowSpec(L) : null, aMul: L.a ?? 1 };
   });
-
-  const shadowSpec = (L) => {
-    if (!L.shadow) return null;
-    const s = L.shadow === true ? {} : L.shadow;
-    return {
-      max: Math.max(0, Math.round(s.max ?? 24)),
-      rate: Math.max(0, s.rate ?? 10),
-      life: s.life || [0.8, 1.6],
-      sp: s.sp || [4, 12],
-      sz: s.sz || [3, 8],
-      c: s.c || "#111827",
-      a: s.a ?? 0.38,
-      blend: s.blend || "source-over",
-      anchors: Math.max(1, Math.round(s.anchors ?? 48)),
-      jit: s.jit ?? 0.35,
-    };
-  };
 
   const frameSize = (img, s) => {
     const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
@@ -1350,8 +1392,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   };
 
   const updateShadowWisps = (state, dt) => {
-    const S = shadowSpec(state.L);
-    if (!S || !state.wantsShadow || Math.min(w, h) < 56) return;
+    if (!state.wantsShadow || Math.min(w, h) < 56) return;
+    const S = state.shadow;
+    if (!S) return;
     const sizeScale = Math.min(1, Math.min(w, h) / 160);
     const sizeMax = Math.ceil(S.max * sizeScale);
     const max = api.reduce ? Math.ceil(sizeMax * 0.35) : sizeMax;
@@ -1404,27 +1447,27 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const L = state.L;
     const g = ctx;
     if (alpha <= 0.01) return;
-    g.globalAlpha = Math.min(1, alpha * (L.a ?? 1));
+    g.globalAlpha = Math.min(1, alpha * state.aMul);
     const s = p.sz;
     switch (L.shape) {
       case "img": {
         const isFrameAnim = L.frames && L.frames.length > 0;
         const rec = isFrameAnim ? null : p.image;
-        const S = state.wantsShadow ? shadowSpec(L) : null;
+        const S = state.shadow;
         if (!isFrameAnim && (!rec?.ready || rec.failed)) break;
         const breathe = L.breathe ? 1 + 0.03 * Math.sin(time * (Math.PI * 2 / 4) + p.ph) : 1;
         const wob = L.wobble ? Math.sin(time * (Math.PI * 2 / (6.8 + (p.ph % 2.2))) + p.ph) * L.wobble : 0;
         const bob = L.bob ? Math.sin(time * (Math.PI * 2 / 2.5) + p.ph) * s * (L.bobAmp ?? 0.1) * (L.bobAmp != null && api.reduce ? 0.35 : 1) : 0;
         const ox = (L.x || 0) * rx;
         const oy = (L.y || 0) * ry;
-        const mt = api.moment, mAmp = api.reduce ? 0.45 : 1;
-        let mdx = mt != null ? (keyAt(L.mX, mt) || 0) * mAmp * rx : 0;
-        let mdy = mt != null ? (keyAt(L.mY, mt) || 0) * mAmp * ry : 0;
-        const mrot = mt != null ? (keyAt(L.mRot, mt) || 0) * mAmp : 0;
-        const msc = mt != null ? 1 + ((keyAt(L.mScale, mt) ?? 1) - 1) * mAmp : 1;
-        const mshake = mt != null ? 1 + ((keyAt(L.mShake, mt) ?? 1) - 1) * mAmp : 1;
+        const mt = api.moment, mkL = state._mk;
+        let mdx = mkL ? mkL.x : 0;
+        let mdy = mkL ? mkL.y : 0;
+        const mrot = mkL ? mkL.rot : 0;
+        const msc = mkL ? mkL.sc : 1;
+        const mshake = mkL ? mkL.shake : 1;
         const trem = (L.tremble || 0) * mshake * (api.reduce ? 0.3 : 1);
-        const mDim = mt != null ? (keyAt(L.mDim, mt) ?? 1) : 1;
+        const mDim = mkL ? mkL.dim : 1;
         const mo = L.mOrbit;
         let absX = null, absY = null;
         g.save(); if (mDim < 1) g.globalAlpha *= mDim;
@@ -1457,7 +1500,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
               const ga = (T.a ?? 0.45) * (1 - j / (tn + 1)) * Math.min(1, (os2.u ?? 1) / 0.45);
               if (ga <= 0.02) continue;
               g.save(); g.globalAlpha *= ga;
-              g.translate(os2.x, os2.y); g.rotate(p.rot + wob + mrot * Math.PI * 2); g.scale(msc * (L.flip ? -1 : 1), msc);
+              g.translate(os2.x, os2.y); g.rotate(p.rot + wob + mrot * Math.PI * 2); if (msc !== 1 || L.flip) g.scale(msc * (L.flip ? -1 : 1), msc);
               g.drawImage(timg, -tiw / 2, -tih / 2, tiw, tih); g.restore();
             }
           }
@@ -1472,12 +1515,18 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           api.orbitXY = api.orbitXY || {};
           if (wvis <= 0.01) { api.orbitXY[wantNear ? "near" : "far"] = null; g.restore(); break; }
           // record the live wander position so the art's halo/rays follow it
-          api.orbitXY[wantNear ? "near" : "far"] = { x: x + ox, y: y + bob + oy };
+          const wslot = wantNear ? "near" : "far", we = api.orbitXY[wslot] || (api.orbitXY[wslot] = {});
+          we.x = x + ox; we.y = y + bob + oy;
           g.globalAlpha *= wvis;
         }
         if (absX != null) { mdx = absX - x - ox; mdy = absY - y - bob - oy; }
-        if (mo) { api.orbitXY = api.orbitXY || {}; api.orbitXY[L.mside === "near" ? "near" : "far"] = { x: x + ox + mdx, y: y + bob + oy + mdy }; }
-        g.translate(x + ox + mdx, y + bob + oy + mdy); g.rotate(p.rot + wob + mrot * Math.PI * 2 + trem * Math.PI * 2 * Math.sin(time * 41 + p.ph * 9.7)); g.scale(msc * (L.flip ? -1 : 1), msc);
+        if (mo) {
+          api.orbitXY = api.orbitXY || {};
+          const slot = L.mside === "near" ? "near" : "far", e = api.orbitXY[slot] || (api.orbitXY[slot] = {});
+          e.x = x + ox + mdx; e.y = y + bob + oy + mdy;
+        }
+        g.translate(x + ox + mdx, y + bob + oy + mdy); g.rotate(p.rot + wob + mrot * Math.PI * 2 + trem * Math.PI * 2 * Math.sin(time * 41 + p.ph * 9.7));
+        if (msc !== 1 || L.flip) g.scale(msc * (L.flip ? -1 : 1), msc);
         if (S) drawShadowWisps(g, state, p, S, breathe);
         if (isFrameAnim) {
           if (p.frameStarted == null && p.frameImages.every((frame) => frame.ready || frame.failed)) p.frameStarted = time;
@@ -1505,7 +1554,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
               const k = cycle / 0.28;
               g.beginPath(); g.rect(-iw / 2, -ih / 2, iw, ih); g.clip();
               g.globalCompositeOperation = "lighter";
-              g.globalAlpha = Math.min(1, alpha * (L.a ?? 1)) * Math.sin(k * Math.PI);
+              g.globalAlpha = Math.min(1, alpha * state.aMul) * Math.sin(k * Math.PI);
               g.strokeStyle = "#ffffff"; g.lineWidth = Math.max(1.1, s * 0.07);
               g.beginPath(); g.moveTo(-iw / 2, -ih / 2 + ih * k); g.lineTo(iw / 2, -ih / 2 + ih * k + ih * 0.18); g.stroke();
               const hs = Math.max(4, s * 0.28);
@@ -1515,15 +1564,15 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         }
         g.restore(); break;
       }
-      case "dot": { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2, y - s * 2, s * 4, s * 4); break; }
-      case "ember": { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2.6, y - s * 2.6, s * 5.2, s * 5.2); break; }
-      case "smoke": { const sp = softSprite(p.c); const k = Math.min(1.28, 1 + Math.min(p.age, 2.4) * 0.1); g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k); break; }
+      case "dot": { const sp = pSprite(p); g.drawImage(sp, x - s * 2, y - s * 2, s * 4, s * 4); break; }
+      case "ember": { const sp = pSprite(p); g.drawImage(sp, x - s * 2.6, y - s * 2.6, s * 5.2, s * 5.2); break; }
+      case "smoke": { const sp = pSprite(p, true); const k = Math.min(1.28, 1 + Math.min(p.age, 2.4) * 0.1); g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k); break; }
       case "spark": case "drop": {
         const orb = p.vy === undefined; const vx = orb ? -Math.sin(p.ang) * p.w * 20 : (p.vx || 0), vy = orb ? Math.cos(p.ang) * p.w * 20 : p.vy;
         const len = Math.hypot(vx, vy) || 1, l = L.shape === "drop" ? s * 9 : s * 5;
         g.strokeStyle = p.c; g.lineWidth = s; g.lineCap = "round";
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - (vx / len) * l, y - (vy / len) * l); g.stroke();
-        if (L.shape === "spark") { const sp = glowSprite(p.c); g.drawImage(sp, x - s * 2.5, y - s * 2.5, s * 5, s * 5); }
+        if (L.shape === "spark") { const sp = pSprite(p); g.drawImage(sp, x - s * 2.5, y - s * 2.5, s * 5, s * 5); }
         break;
       }
       case "flake": {
@@ -1532,55 +1581,63 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.restore(); break;
       }
       case "shard": {
+        const shard = shapePath(p, "s", s, (P, v) => { P.moveTo(0, -v * 1.4); P.lineTo(v * 0.55, 0); P.lineTo(0, v * 1.1); P.lineTo(-v * 0.55, 0); P.closePath(); return P; });
+        const glint = shapePath(p, "g", s, (P, v) => { P.moveTo(0, -v * 1.4); P.lineTo(v * 0.2, -v * 0.2); P.lineTo(0, 0); P.closePath(); return P; });
         g.save(); g.translate(x, y); g.rotate(p.rot);
         g.fillStyle = p.c;
-        g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.55, 0); g.lineTo(0, s * 1.1); g.lineTo(-s * 0.55, 0); g.closePath();
-        g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = Math.max(1.1, s * 0.28); g.stroke(); g.fill();
-        g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.beginPath(); g.moveTo(0, -s * 1.4); g.lineTo(s * 0.2, -s * 0.2); g.lineTo(0, 0); g.closePath(); g.fill();
+        g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = Math.max(1.1, s * 0.28); g.stroke(shard); g.fill(shard);
+        g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.fill(glint);
         g.restore(); break;
       }
       case "leaf": {
+        const blade = shapePath(p, "b", s, (P, v) => { P.ellipse(0, 0, v * 1.3, v * 0.55, 0, 0, Math.PI * 2); return P; });
+        const vein = shapePath(p, "v", s, (P, v) => { P.moveTo(-v * 1.2, 0); P.lineTo(v * 1.2, 0); return P; });
         g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c;
-        g.beginPath(); g.ellipse(0, 0, s * 1.3, s * 0.55, 0, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 0.6; g.beginPath(); g.moveTo(-s * 1.2, 0); g.lineTo(s * 1.2, 0); g.stroke();
+        g.fill(blade);
+        g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 0.6; g.stroke(vein);
         g.restore(); break;
       }
       case "square": { g.save(); g.translate(x, y); g.rotate(p.rot); g.fillStyle = p.c; g.fillRect(-s / 2, -s * 0.8, s, s * 1.6); g.restore(); break; }
       case "star": {
-        const sp = glowSprite(p.c); g.drawImage(sp, x - s * 3, y - s * 3, s * 6, s * 6);
-        g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.35); g.beginPath(); g.moveTo(x - s * 2.4, y); g.lineTo(x + s * 2.4, y); g.moveTo(x, y - s * 2.4); g.lineTo(x, y + s * 2.4); g.stroke();
+        const sp = pSprite(p); g.drawImage(sp, x - s * 3, y - s * 3, s * 6, s * 6);
+        const cross = shapePath(p, "x", s, (P, v) => { P.moveTo(-v * 2.4, 0); P.lineTo(v * 2.4, 0); P.moveTo(0, -v * 2.4); P.lineTo(0, v * 2.4); return P; });
+        g.save(); g.translate(x, y);
+        g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.35); g.stroke(cross);
+        g.restore();
         break;
       }
       case "emoji": { const px = Math.max(10, Math.min(w, h) * p.sz); g.font = `${px}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(p.e, x, y + (L.bob ? Math.sin(time * 2.4 + p.ph) * px * 0.12 : 0)); break; }
       case "eye": {
+        const outline = shapePath(p, "o", s, (P, v) => { P.ellipse(0, 0, v * 1.85, v * 1.05, 0, 0, Math.PI * 2); return P; });
+        const io = Math.sin(time * 3 + p.ph) * s * 0.2;
         g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.4);
-        g.fillStyle = "#F4FBFF"; g.beginPath(); g.ellipse(0, 0, s * 1.85, s * 1.05, 0, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = "#FFD447"; g.lineWidth = Math.max(0.7, s * 0.2); g.stroke();
-        g.fillStyle = "#1A6DFF"; g.beginPath(); g.arc(Math.sin(time * 3 + p.ph) * s * 0.2, 0, s * 0.58, 0, Math.PI * 2); g.fill();
-        g.fillStyle = "#061018"; g.beginPath(); g.arc(Math.sin(time * 3 + p.ph) * s * 0.2, 0, s * 0.24, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#F4FBFF"; g.fill(outline);
+        g.strokeStyle = "#FFD447"; g.lineWidth = Math.max(0.7, s * 0.2); g.stroke(outline);
+        g.fillStyle = "#1A6DFF"; g.beginPath(); g.arc(io, 0, s * 0.58, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#061018"; g.beginPath(); g.arc(io, 0, s * 0.24, 0, Math.PI * 2); g.fill();
         g.fillStyle = "#ffffff"; g.beginPath(); g.arc(-s * 0.28, -s * 0.22, s * 0.16, 0, Math.PI * 2); g.fill();
         g.restore(); break;
       }
       case "glyph": {
+        const mark = shapePath(p, "m", s, (P, v) => { P.rect(-v, -v, v * 2, v * 2); P.moveTo(0, -v * 1.35); P.lineTo(0, v * 1.35); P.moveTo(-v * 1.35, 0); P.lineTo(v * 1.35, 0); return P; });
         g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.6);
         g.lineJoin = "round";
-        g.strokeStyle = "rgba(18,10,4,0.55)"; g.lineWidth = Math.max(1.6, s * 0.42);
-        g.strokeRect(-s, -s, s * 2, s * 2);
-        g.beginPath(); g.moveTo(0, -s * 1.35); g.lineTo(0, s * 1.35); g.moveTo(-s * 1.35, 0); g.lineTo(s * 1.35, 0); g.stroke();
-        g.strokeStyle = p.c; g.lineWidth = Math.max(0.85, s * 0.3);
-        g.strokeRect(-s, -s, s * 2, s * 2);
-        g.beginPath(); g.moveTo(0, -s * 1.35); g.lineTo(0, s * 1.35); g.moveTo(-s * 1.35, 0); g.lineTo(s * 1.35, 0); g.stroke();
+        g.strokeStyle = "rgba(18,10,4,0.55)"; g.lineWidth = Math.max(1.6, s * 0.42); g.stroke(mark);
+        g.strokeStyle = p.c; g.lineWidth = Math.max(0.85, s * 0.3); g.stroke(mark);
         g.restore(); break;
       }
       case "gem": {
+        const facet = shapePath(p, "f", s, (P, v) => { P.moveTo(0, -v * 1.65); P.lineTo(v, -v * 0.15); P.lineTo(v * 0.55, v * 1.2); P.lineTo(-v * 0.55, v * 1.2); P.lineTo(-v, -v * 0.15); P.closePath(); return P; });
+        const glint = shapePath(p, "g", s, (P, v) => { P.moveTo(0, -v * 1.65); P.lineTo(v * 0.38, -v * 0.2); P.lineTo(0, 0); P.closePath(); return P; });
         g.save(); g.translate(x, y); g.rotate(p.rot);
-        g.fillStyle = p.c; g.beginPath(); g.moveTo(0, -s * 1.65); g.lineTo(s, -s * 0.15); g.lineTo(s * 0.55, s * 1.2); g.lineTo(-s * 0.55, s * 1.2); g.lineTo(-s, -s * 0.15); g.closePath(); g.fill();
-        g.fillStyle = "#ffffff"; g.globalAlpha *= 0.5; g.beginPath(); g.moveTo(0, -s * 1.65); g.lineTo(s * 0.38, -s * 0.2); g.lineTo(0, 0); g.closePath(); g.fill();
+        g.fillStyle = p.c; g.fill(facet);
+        g.fillStyle = "#ffffff"; g.globalAlpha *= 0.5; g.fill(glint);
         g.restore(); break;
       }
       case "petal": {
+        const petal = shapePath(p, "p", s, (P, v) => { P.ellipse(0, 0, v * 0.42, v * 1.55, 0, 0, Math.PI * 2); return P; });
         g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.4);
-        g.fillStyle = p.c; g.beginPath(); g.ellipse(0, 0, s * 0.42, s * 1.55, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = p.c; g.fill(petal);
         g.restore(); break;
       }
       case "flame": {
@@ -1597,6 +1654,21 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   };
 
   const makeBolt = () => {
+    // Bolts live ~0.26s and re-stroke the same polyline 3x per frame at
+    // different widths — the Path2D and stroke specs are built once here.
+    const finish = (pts, c) => {
+      const path = new Path2DImpl();
+      path.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);
+      return {
+        pts, t: 0, c, path,
+        strokes: [[4 * unit, `${c}55`], [1.6 * unit, c], [0.7, "#ffffff"]],
+        burst: {
+          calm: [[6 * unit, "#FFD447"], [2.6 * unit, c], [0.9, "#FFFFFF"]],
+          hot: [[11 * unit, "#FFD447"], [4.6 * unit, c], [1.5 * unit, "#FFFFFF"]],
+        },
+      };
+    };
     if (fx.bolts.from === "above") {
       const ang = -Math.PI / 2 + rnd(-0.65, 0.65);
       const endAng = ang + rnd(-0.08, 0.08);
@@ -1613,13 +1685,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       }
       // short-circuit a single-colour palette: pick() would consume an RNG
       // value and shift the whole stream even though the colour can't vary
-      return { pts, t: 0, c: Array.isArray(fx.bolts.c) && fx.bolts.c.length === 1 ? fx.bolts.c[0] : pick(fx.bolts.c) };
+      return finish(pts, Array.isArray(fx.bolts.c) && fx.bolts.c.length === 1 ? fx.bolts.c[0] : pick(fx.bolts.c));
     }
     const ang = rnd(0, Math.PI * 2), segs = 7, pts = [];
     let [x, y] = onRing(ang, 0.95);
     const [ex, ey] = onRing(ang + rnd(-0.5, 0.5), rnd(1.45, 1.7));
     for (let i = 0; i <= segs; i++) { const k = i / segs; pts.push([x + (ex - x) * k + (i && i < segs ? rnd(-6, 6) * unit : 0), y + (ey - y) * k + (i && i < segs ? rnd(-6, 6) * unit : 0)]); }
-    return { pts, t: 0, c: pick(fx.bolts.c) };
+    return finish(pts, pick(fx.bolts.c));
   };
 
   // Named canvas points a burst can anchor to — without one it uses the ring
@@ -1636,40 +1708,51 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   // circles the orbit centre faster and faster (ease>1), then dives into the
   // centre. Pure function of the moment phase so trails and fling spawns can
   // evaluate past positions. z < 0 = far side (behind), z > 0 = near (front).
+  // Callers alternate between two scratch objects so a result stays valid
+  // until the next call — callers must copy anything they need to keep (the
+  // mOrbit fling check holds fp while evaluating fp2, hence two slots).
+  const _opA = {}, _opB = {};
+  let _opFlip = false;
   const orbitPos = (o, mt, restX, restY) => {
+    const out = (_opFlip = !_opFlip) ? _opA : _opB;
     const oc = anchorOrigin(o.center || "center");
     const rScale = api.reduce ? 0.55 : 1;
     const oRX = (o.rX ?? 1.15) * rx * rScale, oRY = (o.rY ?? 0.8) * ry * rScale;
     const hit = o.hit ?? 0.72;
-    if (mt < o.from) return { x: restX, y: restY, z: -1, u: 0, phase: "rest" };
+    if (mt < o.from) { out.x = restX; out.y = restY; out.z = -1; out.u = 0; out.phase = "rest"; return out; }
     if (mt <= o.to) {
       const u = (mt - o.from) / Math.max(0.001, o.to - o.from);
       const ang = -Math.PI / 2 + (o.revs ?? 2.5) * Math.PI * 2 * Math.pow(u, o.ease ?? 1.7);
       const bl = Math.min(1, u / (o.blend ?? 0.1));
       const px = oc.x + Math.cos(ang) * oRX, py = oc.y + Math.sin(ang) * oRY;
-      return { x: restX + (px - restX) * bl, y: restY + (py - restY) * bl, z: Math.sin(ang), u, ang, phase: "orbit" };
+      out.x = restX + (px - restX) * bl; out.y = restY + (py - restY) * bl; out.z = Math.sin(ang); out.u = u; out.ang = ang; out.phase = "orbit"; return out;
     }
     if (mt < hit) {
       const end = orbitPos(o, o.to, restX, restY);
       const e = Math.min(1, (mt - o.to) / Math.max(0.001, hit - o.to)) ** 2;
-      return { x: end.x + (oc.x - end.x) * e, y: end.y + (oc.y - end.y) * e, z: 1, u: 1, phase: "dive" };
+      out.x = end.x + (oc.x - end.x) * e; out.y = end.y + (oc.y - end.y) * e; out.z = 1; out.u = 1; out.phase = "dive"; return out;
     }
     const ref = o.reform;
-    if (ref && mt >= ref[0]) return { x: restX, y: restY, z: -1, u: 0, phase: "rest" };
-    return { x: oc.x, y: oc.y, z: 1, phase: "gone" };
+    if (ref && mt >= ref[0]) { out.x = restX; out.y = restY; out.z = -1; out.u = 0; out.phase = "rest"; return out; }
+    out.x = oc.x; out.y = oc.y; out.z = 1; out.phase = "gone"; return out;
   };
   // One-shot moment burst: n scales with canvas size, paths give the burst
   // shape (cone spray, radial dust, expanding shock ring). `dir` aims the cone
   // in turns (0=right, .25=down, -.25=up); `flat` flattens the ring to a
   // ground shockwave.
-  const burstFire = (b) => {
-    const n = Math.max(1, Math.round((b.n ?? 8) * mScale * (b.nScale ?? 1) * (b.over ? 1 : scale)));
-    const o = b.absX != null ? { x: b.absX, y: b.absY } : anchorOrigin(b.anchor);
-    const ox = o.x + (b.x ?? 0) * rx, oy = o.y + (b.y ?? 0) * ry;
+  // Optional trailing args let the fling paths aim/place a shower without
+  // allocating a spread object per spawn step: absolute origin (absX/absY),
+  // cone direction in turns (dir), and target canvas (over).
+  const burstFire = (b, absX, absY, dir, over) => {
+    const n = Math.max(1, Math.round((b.n ?? 8) * mScale * (b.nScale ?? 1) * ((over ?? b.over) ? 1 : scale)));
+    const ax = absX ?? b.absX, ay = absY ?? b.absY;
+    let ox, oy;
+    if (ax != null) { ox = ax + (b.x ?? 0) * rx; oy = ay + (b.y ?? 0) * ry; }
+    else { const o = anchorOrigin(b.anchor); ox = o.x + (b.x ?? 0) * rx; oy = o.y + (b.y ?? 0) * ry; }
     api.lastBurst = { x: ox, y: oy, anchor: b.anchor || null };
     for (let i = 0; i < n; i++) {
       const p = {
-        b, over: !!b.over, x: ox, y: oy, age: 0, i,
+        b, over: over ?? !!b.over, x: ox, y: oy, age: 0, i,
         life: b.life ? rnd(...b.life) : 0.8,
         sz: (b.sz ? rnd(...b.sz) : 1.4) * unit,
         c: Array.isArray(b.c) ? pick(b.c) : (b.c || c1), rot: rnd(0, Math.PI * 2), vr: rnd(-2, 2),
@@ -1683,8 +1766,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       } else if (b.path === "shockring") {
         p.ring = true; p.aspect = b.aspect ?? (b.flat ? 0.16 : ry / rx); p.r = (b.r0 ?? 0.4) * Math.min(rx, ry); p.rv = (b.v ?? 2) * Math.min(rx, ry);
       } else {
-        const cone = b.path === "shower" || b.dir != null;
-        const base = b.dir != null ? b.dir * Math.PI * 2 : -Math.PI / 2;
+        const cone = absX != null || dir != null || b.path === "shower" || b.dir != null;
+        const bd = dir ?? b.dir;
+        const base = bd != null ? bd * Math.PI * 2 : -Math.PI / 2;
         const ang = cone ? base + rnd(-(b.spread ?? 1), b.spread ?? 1) : rnd(0, Math.PI * 2);
         const v = (b.sp ? rnd(...b.sp) : 70) * unit;
         p.vx = Math.cos(ang) * v; p.vy = Math.sin(ang) * v;
@@ -1694,12 +1778,14 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     }
   };
   const paintMoment = (ctx, wantOver) => {
+    // One save/composite for the whole pass instead of per particle — every
+    // branch sets absolute state anyway, so the draw calls are identical.
+    let open = false;
     for (const p of momentParts) {
       if (!!p.over !== wantOver) continue;
       const k = p.age / p.life, a = (p.b.a ?? 0.9) * (1 - k);
       if (a <= 0.01) continue;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
+      if (!open) { ctx.save(); ctx.globalCompositeOperation = "lighter"; open = true; }
       if (p.beam) {
         const tx = p.x + Math.cos(p.ang) * p.len, ty = p.y + Math.sin(p.ang) * p.len;
         const grd = ctx.createLinearGradient(p.x, p.y, tx, ty);
@@ -1715,7 +1801,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         ctx.globalAlpha = Math.max(0, Math.min(1, a));
         const shape = p.b.shape || "spark";
         if (shape === "spark" || shape === "dot" || shape === "ember") {
-          const gs = glowSprite(p.c), r = p.sz * (shape === "ember" ? 2.2 : shape === "dot" ? 1.7 : 1.3);
+          const gs = pSprite(p), r = p.sz * (shape === "ember" ? 2.2 : shape === "dot" ? 1.7 : 1.3);
           ctx.drawImage(gs, p.x - r * 2, p.y - r * 2, r * 4, r * 4);
           if (shape === "spark") {
             ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.5, p.sz * 0.4); ctx.lineCap = "round";
@@ -1725,10 +1811,12 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           drawNewParticleShape(ctx, shape, p, p.x, p.y, time);
         }
       }
-      ctx.restore();
     }
+    if (open) ctx.restore();
   };
 
+  const paul = fx.layers?.find((L) => L.placed === "shoulders");
+  const paulShift = paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null;
   const frame = (dt) => {
     time += dt * spd;
     clock += dt;
@@ -1758,9 +1846,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
               if (api.flashTimes.length > 40) api.flashTimes.shift();
             }
           }
-          (fx.moment.bursts || []).forEach((b, i) => {
-            if (!momentFired.has(i) && mt >= b.at) { momentFired.add(i); burstFire(b); }
-          });
+          const mbs = fx.moment.bursts || [];
+          for (let i = 0; i < mbs.length; i++) {
+            if (!momentFired.has(i) && mt >= mbs[i].at) { momentFired.add(i); burstFire(mbs[i]); }
+          }
           // Orbit flings: dust/pebbles shed tangentially while the sphere spins
           // up. Spawned at the sphere's position at each scheduled phase.
           for (const st of layers) {
@@ -1772,7 +1861,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
                 if (fp.phase === "orbit" && fp.ang != null) {
                   const fp2 = orbitPos(o, Math.min(o.to, st.flingAt + 0.002), 0, 0);
                   const tdir = Math.atan2(fp2.y - fp.y, fp2.x - fp.x) / (Math.PI * 2);
-                  burstFire({ ...fl2, path: "shower", dir: tdir, absX: fp.x, absY: fp.y, over: fp.z > 0 });
+                  burstFire(fl2, fp.x, fp.y, tdir, fp.z > 0);
                 }
                 st.flingAt += fl2.every ?? 0.05;
               }
@@ -1786,8 +1875,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
               while (st.mflAt <= mt) {
                 const rMul = st.L.mR ? (keyAt(st.L.mR, st.mflAt) ?? 1) : 1;
                 for (const p of st.ps) {
-                  const [px, py] = onRing(p.ang, p.r * rMul);
-                  burstFire({ ...fl3, path: "shower", absX: px, absY: py });
+                  const pr = p.r * rMul;
+                  burstFire(fl3, cx + Math.cos(p.ang) * rx * pr, cy + Math.sin(p.ang) * ry * pr);
                 }
                 st.mflAt += fl3.every ?? 0.08;
               }
@@ -1796,13 +1885,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         }
       }
     }
-    momentParts = momentParts.filter((p) => {
+    let wmp = 0;
+    for (let i = 0; i < momentParts.length; i++) {
+      const p = momentParts[i];
       p.age += dt;
-      if (p.age >= p.life) return false;
-      if (p.ring) p.r += p.rv * dt;
-      else { p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; p.vy += (p.grav || 0) * dt; p.rot += (p.vr || 0) * dt; }
-      return true;
-    });
+      if (p.age < p.life) {
+        if (p.ring) p.r += p.rv * dt;
+        else { p.x += (p.vx || 0) * dt; p.y += (p.vy || 0) * dt; p.vy += (p.grav || 0) * dt; p.rot += (p.vr || 0) * dt; }
+        momentParts[wmp++] = p;
+      }
+    }
+    momentParts.length = wmp;
     api.momentParts = momentParts.length;
     // Recurring flare (Fallen Light's halo flicker): one gated flash per event,
     // same noteStrikeFlash gate as moment/bolt flashes — <=3/s, none under
@@ -1835,12 +1928,12 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     if (fx.dark) {
       const grd = g.createRadialGradient(cx, cy, rx * 0.7, cx, cy, rx * gR);
       grd.addColorStop(0, "rgba(10,0,20,0)"); grd.addColorStop(0.35, `rgba(20,0,40,${0.75 * breathe})`); grd.addColorStop(0.55, rgba(c1, 0.66)); grd.addColorStop(1, "rgba(10,0,20,0)");
-      g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy); g.beginPath(); g.arc(cx, cy, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
+      g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy); g.fill(darkGlowPath); g.restore();
     } else {
       g.save(); g.translate(cx, cy); g.scale(1, ry / rx);
       const grd = g.createRadialGradient(0, 0, rx * 0.45, 0, 0, rx * gR);
       grd.addColorStop(0, rgba(c1, 0)); grd.addColorStop(0.32, rgba(c1, fx.glow * breathe * 0.55)); grd.addColorStop(0.62, rgba(c2, fx.glow * 0.42)); grd.addColorStop(1, rgba(c2, 0));
-      g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rx * gR, 0, Math.PI * 2); g.fill(); g.restore();
+      g.fillStyle = grd; g.fill(glowPath); g.restore();
     }
     if (fx.corona) {
       const pulse = 0.55 + 0.45 * Math.sin(time * 2.3);
@@ -1851,13 +1944,19 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
-    const paul = fx.layers?.find((L) => L.placed === "shoulders");
-    const artArgs = (pass) => ({ g, over: overG, fx, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass, mode, anchors, anchor: anchorOrigin, moment: api.moment != null ? { t: api.moment, spec: fx.moment } : null, orbitXY: api.orbitXY, flash: flashLeft > 0 && flashSpec ? { k: flashLeft / (flashSpec.flashLife || 0.09), spec: flashSpec } : null, reduce: !!api.reduce, paulShift: paul ? { x: (paul.x || 0) * rx, y: (paul.y || 0) * ry } : null });
+    const aa = { g, over: overG, fx, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass: "main", mode, anchors, anchor: anchorOrigin, moment: null, orbitXY: api.orbitXY, flash: null, reduce: !!api.reduce, paulShift };
+    const aaMoment = { t: 0, spec: fx.moment }, aaFlash = { k: 0, spec: null };
+    const artArgs = (pass) => {
+      aa.time = time; aa.clock = clock; aa.strike = strike; aa.pass = pass; aa.orbitXY = api.orbitXY;
+      aa.moment = api.moment != null ? (aaMoment.t = api.moment, aaMoment) : null;
+      aa.flash = flashLeft > 0 && flashSpec ? (aaFlash.k = flashLeft / (flashSpec.flashLife || 0.09), aaFlash.spec = flashSpec, aaFlash) : null;
+      return aa;
+    };
     const artState = AURA_ART[fx.art]?.(artArgs("main")) || null;
     if (fx.rings) {
       g.save(); g.globalCompositeOperation = "source-over";
       g.translate(cx, cy); g.scale(1, ry / rx);
-      fx.rings.forEach((R) => {
+      for (const R of fx.rings) {
         const rr = rx * (R.r || 1.08);
         const rot = time * (R.spin || 0.3);
         const lw = Math.max(w < 80 ? (R.w >= 3 ? 3.6 : 1.85) : 1.2, (R.w || 1.3) * unit);
@@ -1872,7 +1971,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.strokeStyle = rgba(ringColor, a);
         g.lineWidth = lw;
         g.beginPath(); g.ellipse(0, 0, rr, rr, rot, 0, Math.PI * 2); g.stroke();
-        g.setLineDash([]);
+        if (R.dash) g.setLineDash([]);
         if (R.filigree) {
           const ticks = R.filigree;
           for (let i = 0; i < ticks; i++) {
@@ -1888,7 +1987,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
           }
         }
-      });
+      }
       g.restore();
     }
     if (fx.sweep) {
@@ -1917,27 +2016,58 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     }
     g.globalCompositeOperation = "source-over";
     if (fx.rays) {
-      const R = fx.rays; g.save(); g.translate(cx, cy);
+      const R = fx.rays;
+      // Each ray is a unit wedge under rotate(a0)·scale(len) with a unit
+      // linear gradient — the per-ray pulse folds into globalAlpha (gradient
+      // alphas lerp linearly, so scaling post-composite is identical).
+      if (!fx._rayWedges) {
+        fx._rayWedges = [];
+        for (let i = 0; i < R.n; i++) {
+          const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
+          const P = new Path2DImpl();
+          P.moveTo(0, 0); P.lineTo(Math.cos(-wd), Math.sin(-wd)); P.lineTo(Math.cos(wd), Math.sin(wd)); P.closePath();
+          fx._rayWedges.push(P);
+        }
+        const grd = g.createLinearGradient(0, 0, 1, 0);
+        grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, 1)); grd.addColorStop(1, rgba(R.c, 0));
+        fx._rayGrad = grd;
+      }
+      const lenBase = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15);
+      g.save(); g.translate(cx, cy); g.fillStyle = fx._rayGrad;
       for (let i = 0; i < R.n; i++) {
         const a0 = (i / R.n) * Math.PI * 2 + time * R.spin;
         if (R.fan && Math.sin(a0) > 0.15) continue;
-        const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * 1.15) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
-        const grd = g.createLinearGradient(0, 0, Math.cos(a0) * len, Math.sin(a0) * len);
-        const pulse = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7));
-        grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, pulse)); grd.addColorStop(1, rgba(R.c, 0));
-        g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0);
-        const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
-        g.lineTo(Math.cos(a0 - wd) * len, Math.sin(a0 - wd) * len); g.lineTo(Math.cos(a0 + wd) * len, Math.sin(a0 + wd) * len); g.closePath(); g.fill();
+        const len = lenBase * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
+        g.globalAlpha = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7));
+        g.save(); g.rotate(a0); g.scale(len, len);
+        g.fill(fx._rayWedges[i]);
+        g.restore();
       }
       g.restore();
     }
     const paintLayers = (ctx, wantOver) => {
-      layers.forEach((state) => {
+      for (const state of layers) {
         const { L, ps, spawn } = state;
-        if (!!L.over !== wantOver) return;
+        if (!!L.over !== wantOver) continue;
         const layerDt = artState?.freeze && L.shape !== "img" ? 0 : dt;
-        updateShadowWisps(state, layerDt);
+        if (state.shadow) updateShadowWisps(state, layerDt);
         ctx.globalCompositeOperation = L.blend || (L.shape === "emoji" || L.shape === "img" ? "source-over" : "lighter");
+        // moment keyframes are constant for the whole layer this frame —
+        // evaluate once rather than per particle
+        const mtL = api.moment, mAmp = api.reduce ? 0.45 : 1;
+        state._swirl = mtL != null && L.mSpin ? (keyAt(L.mSpin, mtL) || 0) : 0;
+        state._rMul = mtL != null && L.mR ? (keyAt(L.mR, mtL) ?? 1) : 1;
+        const mk = mtL != null && L.shape === "img" ? state._mk || (state._mk = {}) : null;
+        state._mk = mk;
+        const ixy = L.shape === "img" ? ((api.imgXY ||= {})[L.src] || (api.imgXY[L.src] = {})) : null;
+        if (mk) {
+          mk.x = (keyAt(L.mX, mtL) || 0) * mAmp * rx;
+          mk.y = (keyAt(L.mY, mtL) || 0) * mAmp * ry;
+          mk.rot = (keyAt(L.mRot, mtL) || 0) * mAmp;
+          mk.sc = 1 + ((keyAt(L.mScale, mtL) ?? 1) - 1) * mAmp;
+          mk.shake = 1 + ((keyAt(L.mShake, mtL) ?? 1) - 1) * mAmp;
+          mk.dim = keyAt(L.mDim, mtL) ?? 1;
+        }
         if (L.eject) {
           state.ejectAt = (state.ejectAt ?? rnd(...(L.eject.every || [4, 8]))) - layerDt;
           if (state.ejectAt <= 0) {
@@ -1949,8 +2079,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             }
           }
         }
-        ps.forEach((p) => {
-          if (L.shape === "img" && p.image?.failed) return;
+        for (const p of ps) {
+          if (L.shape === "img" && p.image?.failed) continue;
           p.age += layerDt; p.rot += p.vr * layerDt;
           let x, y, alpha = 1;
           if (L.k === "rise" || L.k === "bubble") {
@@ -1965,14 +2095,12 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             if (p.y > cy + ry * 1.5) spawn(p);
           } else if (L.k === "inward") {
             const k = p.age / p.life; const r = p.r0 - (p.r0 - 1.05) * k; p.ang += p.spd * layerDt;
-            [x, y] = onRing(p.ang, r); alpha = Math.min(1, k * 4) * (1 - k * k);
+            x = cx + Math.cos(p.ang) * rx * r; y = cy + Math.sin(p.ang) * ry * r; alpha = Math.min(1, k * 4) * (1 - k * k);
             if (p.age >= p.life) spawn(p);
           } else {
             // mSpin/mR: moment-driven swirl — orbit speed multiplier and orbit
             // radius multiplier keyed to the moment phase (Ossuary's spiral).
-            const mt = api.moment;
-            const swirl = mt != null && L.mSpin ? (keyAt(L.mSpin, mt) || 0) : 0;
-            const rMul = mt != null && L.mR ? (keyAt(L.mR, mt) ?? 1) : 1;
+            const swirl = state._swirl, rMul = state._rMul;
             p.ang += p.w * layerDt * (1 + swirl); const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
             if (p.ej) {
               p.ej.t += layerDt;
@@ -1980,9 +2108,13 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             }
             if (p.ej) {
               const k = p.ej.t / p.ej.life;
-              [x, y] = onRing(p.ang + p.ej.spin * p.ej.t, p.r + wob + p.ej.sp * p.ej.t);
+              const er = p.r + wob + p.ej.sp * p.ej.t, ea = p.ang + p.ej.spin * p.ej.t;
+              x = cx + Math.cos(ea) * rx * er; y = cy + Math.sin(ea) * ry * er;
               alpha *= (1 - k) * (1 - k);
-            } else [x, y] = onRing(p.ang, p.r * rMul + wob);
+            } else {
+              const or2 = p.r * rMul + wob;
+              x = cx + Math.cos(p.ang) * rx * or2; y = cy + Math.sin(p.ang) * ry * or2;
+            }
             if (L.placed === "head") {
               if (mode !== "body" && L.rim) {
                 // rim: circle mode wears the piece on the photo frame's top
@@ -2026,10 +2158,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             if (L.frontOnly && Math.sin(p.ang) < 0.15) alpha = 0;
           }
           if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
-          if (L.shape === "img") (api.imgXY ||= {})[L.src] = { x, y, z: p.wz };
+          if (ixy) { ixy.x = x; ixy.y = y; ixy.z = p.wz; }
           drawP(ctx, state, p, alpha, x, y);
-        });
-      });
+        }
+      }
     };
     // Explosion shake: decays over moment.shake.dur, skipped entirely when no
     // moment spec exists so non-moment auras keep identical pixels.
@@ -2069,20 +2201,21 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         boltT = burstLeft > 0 ? burstGap : rnd(...(calm ? [5.5, 8] : (fx.bolts.gap || [3, 5])));
       }
       const calmDraw = !!(api.reduce && fx.bolts.calm);
-      liveBolts = liveBolts.filter((b) => {
+      let wb = 0;
+      for (let i = 0; i < liveBolts.length; i++) {
+        const b = liveBolts[i];
         b.t += dt; const life = 0.26, k = b.t / life;
-        if (k >= 1) return false;
+        if (k >= 1) continue;
         g.globalCompositeOperation = "lighter";
         g.globalAlpha = calmDraw ? (1 - k) * 0.8 : (1 - k) * (0.82 + 0.18 * Math.sin(b.t * 46));
-        const strokes = calmDraw
-          ? [[6 * unit, "#FFD447"], [2.6 * unit, b.c], [0.9, "#FFFFFF"]]
-          : [[11 * unit, "#FFD447"], [4.6 * unit, b.c], [1.5 * unit, "#FFFFFF"]];
-        strokes.forEach(([lw, col]) => {
-          g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath();
-          b.pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
-        });
-        return true;
-      });
+        g.lineJoin = "round"; g.lineCap = "round";
+        const strokes = calmDraw ? b.burst.calm : b.burst.hot;
+        for (const [lw, col] of strokes) {
+          g.strokeStyle = col; g.lineWidth = lw; g.stroke(b.path);
+        }
+        liveBolts[wb++] = b;
+      }
+      liveBolts.length = wb;
     } else if (fx.bolts) {
       boltT -= dt;
       if (boltT <= 0) {
@@ -2119,14 +2252,18 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           flash.addColorStop(0, `rgba(200,220,255,${0.14 * (1 - k / 0.3)})`); flash.addColorStop(1, "rgba(0,0,0,0)");
           g.fillStyle = flash; g.beginPath(); g.arc(cx, cy, Math.max(rx, ry) * 1.25, 0, Math.PI * 2); g.fill();
         }
-        [[4 * unit, `${b.c}55`], [1.6 * unit, b.c], [0.7, "#ffffff"]].forEach(([lw, col]) => {
-          g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = "round"; g.beginPath();
-          b.pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
-        });
+        g.lineJoin = "round";
+        for (const [lw, col] of b.strokes) {
+          g.strokeStyle = col; g.lineWidth = lw; g.stroke(b.path);
+        }
         return true;
       };
       if (bolt && !strokeBolt(bolt)) bolt = null;
-      if (fx.bolts.overlap) liveBolts = liveBolts.filter(strokeBolt);
+      if (fx.bolts.overlap) {
+        let wb = 0;
+        for (let i = 0; i < liveBolts.length; i++) if (strokeBolt(liveBolts[i])) liveBolts[wb++] = liveBolts[i];
+        liveBolts.length = wb;
+      }
     }
     const paintWash = (ctx) => {
       if (!(flashLeft > 0) || !flashSpec) return;
