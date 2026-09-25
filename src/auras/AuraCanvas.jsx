@@ -205,10 +205,11 @@ export const AURA_FX = {
     { k: "orbit", n: 5, shape: "sparkle", c: ["#FFFFFF", "#FFF3C9"], w: [0.4, 0.7], r: [1, 1.1], sz: [2.2, 3], tw: 1 },
     { k: "rise", n: 10, shape: "rune", c: ["#FFB86B", "#FFD447"], sp: [8, 14], life: [1.2, 2], sz: [1.8, 2.6], sway: 5, circle: { n: 0, a: 0 } },
   ] },
-  glassfire: { spd: 1.1, glow: 1.05, rings: [{ r: 1.1, c: "#EC4899", spin: 0.06, a: 0.5, w: 2, dash: 1 }], layers: [
+  glassfire: { spd: 1.1, glow: 1.05, rings: [{ r: 1.1, c: "#EC4899", spin: 0.06, a: 0.5, w: 2, dash: 1 }, { r: 1.15, c: "#FFB3D1", spin: -0.04, a: 0.22, w: 14 }], layers: [
     { k: "orbit", n: 8, shape: "crystal", c: ["#A855F7", "#EC4899", "#FFFFFF"], w: [0.8, 1.4], r: [1, 1.1], sz: [3.4, 4.6] },
-    { k: "orbit", n: 12, shape: "ember", c: ["#EC4899", "#FFB3D1", "#A855F7"], w: [2, 3.2], r: [1.08, 1.18], sz: [1.8, 2.8], tw: 1 },
+    { k: "orbit", n: 12, shape: "ember", c: ["#F78BD0", "#FFD9EE", "#C77DFF"], w: [2, 3.2], r: [1.08, 1.18], sz: [1.8, 2.8], tw: 1 },
     { k: "orbit", n: 6, shape: "sparkle", c: ["#FFFFFF", "#FFB3D1"], w: [0.5, 0.9], r: [1, 1.1], sz: [2.4, 3.4], tw: 1 },
+    { k: "orbit", n: 18, shape: "smoke", c: ["#FFF0F8", "#F5D0FF"], w: [0.08, 0.18], r: [0.15, 0.62], sz: [8, 11], a: 0.9, blend: "lighter" },
     { k: "rise", n: 14, shape: "ember", c: ["#EC4899", "#A855F7", "#FFB3D1"], sp: [14, 26], life: [0.8, 1.3], sz: [1.6, 2.8], sway: 8, circle: { n: 0, a: 0 } },
   ] },
   redline: { spd: 1.3, glow: 0.88, bolts: { every: [0.9, 1.4], c: ["#FFD447", "#FFF6C9"] }, rings: [{ r: 1.08, c: "#160000", spin: 0.08, a: 0.95, w: 4 }], layers: [
@@ -224,17 +225,17 @@ export const AURA_FX = {
     { k: "rise", n: 5, shape: "smoke", c: ["#E8C56A", "#C9A56A"], sp: [4, 9], life: [2.4, 3.4], sz: [4.5, 7.5], sway: 9, a: 0.22, blend: "source-over" },
     { k: "rise", n: 8, shape: "dot", c: ["#FFF6C9", "#FFD447"], sp: [6, 12], life: [1.8, 2.8], sz: [1.4, 2.2], sway: 6, a: 0.85, tw: 1, blend: "source-over" },
   ] },
-  steadybreath: { spd: 0.8, glow: 0.75, rings: [{ r: 1.14, c: "#DFFBFF", spin: 0.02, a: 0.68, w: 2.2 }], layers: [
+  steadybreath: { spd: 0.8, glow: 0.75, rings: [{ r: 1.14, c: "#DFFBFF", spin: 0.02, a: 0.68, w: 2.2, breath: 0.12, breathS: 5 }], layers: [
     { k: "orbit", n: 8, shape: "pulse", c: ["#DFFBFF", "#7DF9FF", "#FFFFFF"], w: [0.18, 0.35], r: [1.06, 1.16], sz: [2.4, 3.4], tw: 1 },
     { k: "orbit", n: 6, shape: "wisp", c: ["#7DF9FF", "#DFFBFF"], w: [0.5, 0.9], r: [1.06, 1.16], sz: [2.8, 3.8], a: 0.7 },
     { k: "orbit", n: 6, shape: "sparkle", c: ["#FFFFFF", "#DFFBFF"], w: [0.6, 1], r: [0.98, 1.08], sz: [1.8, 2.6], tw: 1 },
     { k: "rise", n: 8, shape: "wisp", c: ["#7DF9FF", "#DFFBFF"], sp: [6, 12], life: [2.4, 3.8], sz: [3.5, 5.5], sway: 6, a: 0.6, circle: { n: 0, a: 0 } },
   ] },
-  iaidraw: { spd: 0.9, glow: 0.78, sweep: { c: "#FFFFFF", a: 1, spd: 4.5, r: 1.16, w: 3.4, span: 0.35 }, layers: [
-    { k: "orbit", n: 7, shape: "shard", c: ["#FFFFFF", "#B3ECFF", "#38C6FF"], w: [0.5, 0.9], r: [1.06, 1.16], sz: [2.6, 3.4] },
-    { k: "orbit", n: 6, shape: "sparkle", c: ["#FFFFFF", "#B3ECFF"], w: [1.2, 2], r: [1, 1.1], sz: [2, 3], tw: 1 },
-    { k: "orbit", n: 8, shape: "dot", c: ["#38C6FF", "#B3ECFF"], w: [2.2, 3.4], r: [1.14, 1.26], sz: [1.4, 2.2], tw: 1 },
-    { k: "rise", n: 6, shape: "shard", c: ["#B3ECFF", "#38C6FF"], sp: [16, 28], life: [0.8, 1.4], sz: [1.6, 2.6], sway: 10, circle: { n: 0, a: 0 } },
+  iaidraw: { spd: 1, glow: 0.78, sweep: { c: "#FFFFFF", a: 1, spd: 5.5, r: 1.16, w: 2.6, span: 0.28 }, layers: [
+    { k: "orbit", n: 7, shape: "shard", c: ["#FFFFFF", "#E8ECF4", "#C2001F"], w: [0.9, 1.6], r: [1.06, 1.16], sz: [2.6, 3.4] },
+    { k: "orbit", n: 5, shape: "sparkle", c: ["#FF3A3A", "#FFB3C1"], w: [1.4, 2.2], r: [1, 1.1], sz: [2, 3], tw: 1 },
+    { k: "orbit", n: 8, shape: "dot", c: ["#C2001F", "#FF6B7A"], w: [2.4, 3.6], r: [1.14, 1.26], sz: [1.4, 2.2], tw: 1 },
+    { k: "rise", n: 6, shape: "shard", c: ["#E8ECF4", "#C2001F"], sp: [16, 28], life: [0.8, 1.4], sz: [1.6, 2.6], sway: 10, circle: { n: 0, a: 0 } },
   ] },
   stormstep: { spd: 1.2, glow: 1.05, bolts: { every: [0.35, 0.45], c: ["#FFFFFF", "#7DD3FC"], flash: 1, fit: 1 }, layers: [
     { k: "orbit", n: 10, shape: "zap", c: ["#FFFFFF", "#7DD3FC"], w: [1.6, 2.6], r: [1, 1.14], sz: [2.8, 4.4] },
@@ -242,11 +243,12 @@ export const AURA_FX = {
     { k: "orbit", n: 5, shape: "sparkle", c: ["#FFFFFF", "#B3ECFF"], w: [0.4, 0.7], r: [1.02, 1.12], sz: [2.4, 3.2], tw: 1 },
     { k: "rise", n: 8, shape: "spark", c: ["#7DD3FC", "#B3ECFF"], sp: [20, 36], life: [0.8, 1.5], sz: [1.4, 2.4], sway: 14, a: 0.7, circle: { n: 0, a: 0 } },
   ] },
-  zeropoint: { spd: 0.9, glow: 1.05, rings: [{ r: 1.1, c: "#DDF6FF", spin: 0.05, a: 0.65, w: 3, dash: 1 }], layers: [
-    { k: "orbit", n: 7, shape: "crystal", c: ["#DDF6FF", "#7DF9FF", "#FFFFFF"], w: [0.3, 0.6], r: [1.04, 1.14], sz: [3.4, 4.6], even: 1 },
-    { k: "orbit", n: 8, shape: "orb", c: ["#7DF9FF", "#DDF6FF"], w: [1, 1.8], r: [1.12, 1.24], sz: [2, 3] },
-    { k: "orbit", n: 5, shape: "sparkle", c: ["#FFFFFF", "#B3ECFF"], w: [0.6, 1.1], r: [1, 1.1], sz: [2.2, 3], tw: 1 },
-    { k: "rise", n: 10, shape: "dot", c: ["#7DF9FF", "#DDF6FF"], sp: [10, 18], life: [1.4, 2.2], sz: [1.6, 2.6], sway: 6, a: 0.7, circle: { n: 0, a: 0 } },
+  zeropoint: { spd: 0.8, glow: 1.05, rings: [{ r: 1.12, c: "#DDF6FF", spin: 0.04, a: 0.6, w: 2.4, filigree: 6 }], layers: [
+    { k: "orbit", n: 4, shape: "crystal", c: ["#EAFBFF", "#B3ECFF", "#FFFFFF"], w: [0.2, 0.45], r: [1.04, 1.14], sz: [3.4, 4.6], even: 1 },
+    { k: "orbit", n: 4, shape: "flake", c: ["#FFFFFF", "#DDF6FF"], w: [0.5, 0.9], r: [1.1, 1.24], sz: [1.8, 2.8], tw: 1 },
+    { k: "orbit", n: 3, shape: "sparkle", c: ["#FFFFFF", "#B3ECFF"], w: [0.4, 0.8], r: [1, 1.1], sz: [2.2, 3], tw: 1 },
+    { k: "orbit", n: 5, shape: "smoke", c: ["#EAFBFF", "#C9E9FF"], w: [0.08, 0.18], r: [0.35, 0.7], sz: [6, 9], a: 0.3, blend: "source-over" },
+    { k: "fall", n: 10, shape: "flake", c: ["#FFFFFF", "#DDF6FF"], sp: [10, 18], sz: [1.6, 2.8], drift: 3, a: 0.8, xWrap: 1, xFade: 8, circle: { n: 0, a: 0 } },
   ] },
   ninetail: { spd: 0.9, glow: 0.72, art: "ninetail", rays: { n: 9, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.24 }, layers: [{ k: "orbit", n: 9, shape: "ember", c: ["#FFD447", "#FF9340", "#FF4D00"], w: [0.3, 0.55], r: [1.08, 1.22], sz: [2.2, 3.6], even: 1, tw: 1 }] },
   ironbound: { spd: 0.8, glow: 0.45, layers: [
@@ -1564,6 +1566,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         if (fresh) p.y = rnd(cy - ry * 1.6, cy + ry * 1.5);
       } else if (L.k === "inward") {
         p.ang = rnd(0, Math.PI * 2); p.r0 = rnd(1.35, 1.6); p.life = rnd(...(L.life || [1.5, 2.5])); p.spd = rnd(...(L.sp || [0.4, 0.9]));
+        // fit: opt-in spawn-radius clamp that keeps the particle footprint
+        // inside the canvas — the default 1.35–1.6 start radius overflows
+        // narrow body-mode canvases. Absent field = byte-identical behavior.
+        if (L.fit) { const pad = p.sz * 2.2 + 2; p.r0 = Math.min(p.r0, Math.max(1.05, Math.min((Math.min(cx, w - cx) - pad) / rx, (Math.min(cy, h - cy) - pad) / ry))); }
         if (fresh) p.age = rnd(0, p.life);
       } else { // orbit
         p.ang = L.at != null ? L.at * Math.PI * 2 : L.even ? (p.i / n) * Math.PI * 2 + (L.jit ? rnd(-L.jit, L.jit) : 0) : rnd(0, Math.PI * 2);
@@ -2209,7 +2215,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.save(); g.globalCompositeOperation = "source-over";
       g.translate(cx, cy); g.scale(1, ry / rx);
       for (const R of fx.rings) {
-        const rr = rx * (R.r || 1.08);
+        // breath: slow radius in/out on a breathS-second cycle — size motion,
+        // not a brightness swing; holds still under reduced motion
+        const rr = rx * (R.r || 1.08) * (R.breath && !api.reduce ? 1 + R.breath * Math.sin((time * Math.PI * 2) / (R.breathS || 5)) : 1);
         const rot = time * (R.spin || 0.3);
         const lw = Math.max(w < 80 ? (R.w >= 3 ? 3.6 : 1.85) : 1.2, (R.w || 1.3) * unit);
         const a = Math.min(1, (R.a || 0.35) * breathe);
@@ -2332,6 +2340,11 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             p.y += p.vy * layerDt; p.x += p.vx * layerDt + Math.sin(time + p.ph) * 0.2; x = p.x; y = p.y;
             const edge = Math.min(1, (p.y - (cy - ry * 1.6)) / 20, (cy + ry * 1.5 - p.y) / 20);
             alpha = Math.max(0, edge);
+            // xWrap/xFade: opt-in horizontal containment for narrow canvases
+            // (body mode) — wrap drifted particles to the far side and fade
+            // near left/right borders; absent fields keep old behavior.
+            if (L.xWrap && p.x > cx + rx * 1.45) p.x = cx - rx * 1.45;
+            if (L.xFade) alpha *= Math.max(0, Math.min(1, x / (L.xFade * 2 * unit), (w - x) / (L.xFade * 2 * unit)));
             if (p.y > cy + ry * 1.5) spawn(p);
           } else if (L.k === "inward") {
             const k = p.age / p.life; const r = p.r0 - (p.r0 - 1.05) * k; p.ang += p.spd * layerDt;

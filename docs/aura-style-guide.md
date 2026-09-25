@@ -53,6 +53,10 @@ Ring-first composition; board-32 and figure share the same spec.
   tier signal. Set it first, then tune particles against it.
 - **Palette:** keep the aura's existing identity colours; brighten within
   them rather than adding new hues. One light/white accent max.
+- **Distinctness:** every aura must have its own colour theme and
+  signature, and must be instantly tellable apart from every other aura at
+  ring size. If two auras read as "the same" at ring size, one of them
+  needs a different palette, shape vocabulary, or signature.
 - **Motion:** `spd` 0.9–1.35 typical; orbit `w` staggered so layers don't
   move in lockstep; twinkles staggered (`tw`) so nothing blinks in sync.
 
@@ -82,4 +86,8 @@ Ring-first composition; board-32 and figure share the same spec.
 - Metrics vs the ladder: ring px / lit% / glow / layers.
 - p95 at board-32 / 4× CPU.
 - Edge scan across sampled frames.
+- **Look-alike strip:** a side-by-side ring-size strip showing each changed
+  aura next to its 2–3 closest visual look-alikes, including approved auras
+  such as `stormstep` — proves the distinctness rule at the size that
+  matters.
 - `evidence/` is gitignored — shots and JSONL never get committed.
