@@ -592,13 +592,14 @@ export const AURA_FX = {
   carve: { spd: 0.85, glow: 0.78, dark: 1, art: "carve", overArt: "carve",
     rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }],
     sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 },
-    moment: { every: [16, 24], dur: 3.2,
-      flash: { at: 0.2, flashPeak: 0.36, flashLife: 0.08, flashC: ["#F9A8D4", "#ec4899"], anchor: "center" },
-      shake: { at: 0.2, amp: 0.05, dur: 0.3 },
+    moment: { every: [16, 24], dur: 3.4,
+      flash: { at: 0.62, flashPeak: 0.4, flashLife: 0.1, flashC: ["#F9A8D4", "#ec4899"], anchor: "center" },
+      shake: { at: 0.62, amp: 0.045, dur: 0.35 },
       bursts: [
-        { at: 0.2, path: "radial", shape: "crystal", n: 7, c: ["#ec4899", "#F9A8D4", "#F4EAD2"], anchor: "center", sp: [45, 110], sz: [2, 3.4], life: [1, 1.6], a: 0.95, over: 1 },
-        { at: 0.2, path: "radial", shape: "spark", n: 8, c: ["#F9A8D4", "#FFFFFF"], anchor: "center", sp: [80, 170], sz: [0.9, 1.6], life: [0.6, 1], a: 0.9, over: 1 },
-        { at: 0.22, path: "shockring", c: "#ec4899", a: 0.8, lw: 2, r0: 0.9, v: 1.2, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.6, path: "radial", shape: "sliver", n: 8, c: ["#ec4899", "#F9A8D4", "#C2001F"], anchor: "center", sp: [90, 190], sz: [2, 3.2], life: [0.5, 0.9], a: 0.95, over: 1, nScale: 0.3, fit: 1 },
+        { at: 0.62, path: "radial", shape: "shard", n: 6, c: ["#ec4899", "#F9A8D4", "#C2001F"], anchor: "center", sp: [45, 110], sz: [2, 3.2], life: [0.8, 1.3], a: 0.95, over: 1, nScale: 0.3, fit: 1 },
+        { at: 0.62, path: "radial", shape: "spark", n: 8, c: ["#F9A8D4", "#FFFFFF"], anchor: "center", sp: [70, 150], sz: [0.9, 1.6], life: [0.5, 0.9], a: 0.9, over: 1, nScale: 0.25, fit: 1 },
+        { at: 0.64, path: "shockring", c: "#ec4899", a: 0.8, lw: 2.2, r0: 0.85, v: 2.4, life: [0.6, 0.6], anchor: "center", aspect: 1, over: 1, fit: 1 },
       ] },
     layers: [
       { k: "orbit", n: 6, shape: "crystal", c: ["#ec4899", "#F9A8D4", "#F4EAD2"], w: [0.35, 0.6], r: [1.02, 1.16], sz: [4.5, 5.8], tw: 1, a: 0.95 },
@@ -1121,38 +1122,120 @@ function drawBrandSear(c, { cx, cy, rx, ry, moment, unit }) {
   c.restore();
 }
 
-// Carve moment: a blade-slash streaks diagonally across the ring, then a
-// chisel tip engraves a glowing sigil arc across the ring's face — hot
-// magenta-white scoring with notch marks, cooling to a dim carve line.
-function drawCarveSigil(c, { cx, cy, rx, ry, unit, t }) {
+// Baked pink bloom for the carve climax — white core to magenta edge.
+let _carveBloom = null;
+function carveBloomSp() {
+  if (_carveBloom) return _carveBloom;
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d");
+  const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grd.addColorStop(0, "rgba(255,255,255,0.65)");
+  grd.addColorStop(0.35, "rgba(249,168,212,0.55)");
+  grd.addColorStop(0.7, "rgba(236,72,153,0.35)");
+  grd.addColorStop(1, "rgba(236,72,153,0)");
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  return (_carveBloom = c);
+}
+// Carve moment: a volley of blade-slashes streaks across the ring —
+// zig-zagging, crossing near the centre, cadence accelerating toward the
+// climax where a pink bloom swells (the spec's gated flash + shard/sliver
+// bursts do the blast) — then a sigil arc is engraved into the ring face,
+// cooling to a dim carve line as the moment settles.
+function drawCarveSigil(c, { cx, cy, rx, ry, unit, w, h, t, small }) {
   const R = Math.min(rx, ry) * 1.14;
   c.save(); c.globalCompositeOperation = "lighter"; c.lineCap = "round";
-  // 1) slash sweep: a short bright blade streak crossing the ring
-  const sk = (t - 0.03) / 0.13;
-  if (sk > 0 && sk < 1.7) {
-    const head = Math.min(1, sk), fade = sk < 1 ? 1 : Math.max(0, 1 - (sk - 1) / 0.7);
-    const a = -0.85, dx = Math.cos(a), dy = Math.sin(a);
-    const span = Math.min(rx, ry) * 2.4;
-    const hx = cx - dx * span / 2 + dx * span * head, hy = cy - dy * span / 2 + dy * span * head;
-    const tail = Math.min(head * span, R * 0.9);
-    c.strokeStyle = `rgba(249,168,212,${(0.9 * fade).toFixed(3)})`; c.lineWidth = Math.max(1.2, unit * 1.1);
-    c.beginPath(); c.moveTo(hx - dx * tail, hy - dy * tail); c.lineTo(hx, hy); c.stroke();
-    const bg = c.createRadialGradient(hx, hy, 0, hx, hy, unit * 5);
-    bg.addColorStop(0, `rgba(255,255,255,${0.9 * fade})`); bg.addColorStop(1, "rgba(236,72,153,0)");
-    c.fillStyle = bg; c.beginPath(); c.arc(hx, hy, unit * 5, 0, Math.PI * 2); c.fill();
+  const W = w ?? cx * 2, H = h ?? cy * 2;
+  const span = Math.hypot(W, H);
+  // 1) slash volley: many streaks shoot across, most zig-zag mid-flight,
+  // all crossing the centre band; later slashes are hotter and closer
+  // together, piling into the climax at t≈0.62
+  const N = small ? 3 : 14, SEG = small ? 5 : 12;
+  // no canvas clip — each slash's sample range is clamped to an inset rect
+  // in param space instead (canvas clips force slow masked stroke paths).
+  // The pad covers the moment's shake + line width + zig-zag amplitude.
+  const pad = 2 + 0.05 * Math.min(rx, ry) + Math.max(1, unit) + unit * 5;
+  if (t < 0.62) {
+    for (let i = 0; i < N; i++) {
+    const st = 0.04 + 0.44 * Math.pow(i / N, 1.45), sd = (0.11 - 0.03 * (i / N)) * (small ? 0.7 : 1);
+    const sk = (t - st) / sd;
+    const skMax = small ? 1.3 : 1.8;
+    if (sk <= 0 || sk >= skMax) continue;
+    const head = Math.min(1, sk), fade = sk <= 1 ? Math.min(1, sk * 4) : Math.max(0, (skMax - sk) / (skMax - 1));
+    // hashed per-slash params — deterministic so frames stay consistent
+    const h1 = ((i * 2654435761 + 97) >>> 0) / 4294967296, h2 = ((i * 2246822519 + 77) >>> 0) / 4294967296;
+    const ang = -0.35 + h1 * Math.PI * 1.7 + (i % 2) * Math.PI * 0.95;
+    const dx = Math.cos(ang), dy = Math.sin(ang), px = -dy, py = dx;
+    const off = (h2 - 0.5) * R * 0.5;                       // crosses the centre band
+    // at board size the zig-zag can't resolve — run plain streaks there
+    const zagA = small ? 0 : (i % 3 === 0 ? 0 : 1) * (0.4 + h2 * 0.6) * unit * 5; // every third runs straight
+    const ox = cx + px * off - dx * span * 0.5, oy = cy + py * off - dy * span * 0.5;
+    // visible s-range: where the untruncated line stays inside the pad rect
+    let sLo = -Infinity, sHi = Infinity;
+    if (dx > 1e-6) { sLo = Math.max(sLo, (pad - ox) / (dx * span)); sHi = Math.min(sHi, (W - pad - ox) / (dx * span)); }
+    else if (dx < -1e-6) { sLo = Math.max(sLo, (W - pad - ox) / (dx * span)); sHi = Math.min(sHi, (pad - ox) / (dx * span)); }
+    if (dy > 1e-6) { sLo = Math.max(sLo, (pad - oy) / (dy * span)); sHi = Math.min(sHi, (H - pad - oy) / (dy * span)); }
+    else if (dy < -1e-6) { sLo = Math.max(sLo, (H - pad - oy) / (dy * span)); sHi = Math.min(sHi, (pad - oy) / (dy * span)); }
+    const heatK = 0.45 + 0.55 * (i / N);                    // later slashes run hotter
+    const tailS = Math.max(0, head - 0.22 - 0.1 * (i / N));
+    const zph = i * 1.3;
+    const s0 = Math.max(tailS, sLo), s1 = Math.min(head, sHi);
+    if (s1 <= s0) continue;
+    c.strokeStyle = `rgba(${i % 4 === 3 ? "194,0,31" : "236,72,153"},${(0.55 * fade * heatK).toFixed(3)})`;
+    c.lineWidth = Math.max(1, unit * (1 + heatK * 0.7));
+    c.beginPath();
+    for (let s = 0; s <= SEG; s++) {
+      const ss = s0 + (s1 - s0) * (s / SEG), zz = Math.sin(ss * Math.PI * 3 + zph) * zagA;
+      s ? c.lineTo(ox + dx * ss * span + px * zz, oy + dy * ss * span + py * zz) : c.moveTo(ox + dx * ss * span + px * zz, oy + dy * ss * span + py * zz);
+    }
+    c.stroke();
+    // the pale hot core + head glow ride the slash head — skipped at board
+    // size where neither can resolve anyway
+    if (!small) {
+      c.strokeStyle = `rgba(249,168,212,${(0.8 * fade).toFixed(3)})`;
+      c.lineWidth = Math.max(0.6, unit * 0.4);
+      const cs = Math.min(s1, Math.max(s0, head - 0.1));
+      c.beginPath();
+      for (let s = 0; s <= SEG; s++) {
+        const ss = cs + (s1 - cs) * (s / SEG), zz = Math.sin(ss * Math.PI * 3 + zph) * zagA;
+        s ? c.lineTo(ox + dx * ss * span + px * zz, oy + dy * ss * span + py * zz) : c.moveTo(ox + dx * ss * span + px * zz, oy + dy * ss * span + py * zz);
+      }
+      c.stroke();
+      const hg = Math.min(head, s1);                    // glow rides the clamped head
+      const zzh = Math.sin(hg * Math.PI * 3 + zph) * zagA;
+      const hx = ox + dx * hg * span + px * zzh, hy = oy + dy * hg * span + py * zzh;
+      const bg = c.createRadialGradient(hx, hy, 0, hx, hy, unit * 4.5);
+      bg.addColorStop(0, `rgba(255,255,255,${0.8 * fade})`); bg.addColorStop(1, "rgba(236,72,153,0)");
+      c.fillStyle = bg; c.beginPath(); c.arc(hx, hy, unit * 4.5, 0, Math.PI * 2); c.fill();
+    }
+    }
   }
-  // 2) engraving: chisel point writes an arc across the ring's upper face
-  const ek = Math.min(1, Math.max(0, (t - 0.2) / 0.34));
-  const hold = t < 0.68 ? 1 : Math.max(0, 1 - (t - 0.68) / 0.28);
+  c.save(); c.globalCompositeOperation = "lighter"; c.lineCap = "round";
+  // 2) climax bloom: a massive pink swell behind the blast — local to the
+  // ring (the page-wide pink wash is the gated flash in the spec); baked
+  // once, drawn scaled — no per-frame gradient allocation
+  const bk = Math.min(1, Math.max(0, (t - 0.56) / 0.1)) * (t < 0.56 ? 0 : t < 0.78 ? 1 : Math.max(0, 1 - (t - 0.78) / 0.2));
+  if (bk > 0.01) {
+    const br = R * (0.7 + 0.75 * bk) * 2;
+    c.globalAlpha = bk * 0.85;
+    c.drawImage(carveBloomSp(), cx - br / 2, cy - br / 2, br, br);
+    c.globalAlpha = 1;
+  }
+  // 3) settle: the engraved sigil arc scores the ring face, cooling dim
+  const ek = Math.min(1, Math.max(0, (t - 0.68) / 0.24));
+  const hold = t < 0.68 ? 0 : t < 0.92 ? 1 : Math.max(0, 1 - (t - 0.92) / 0.08) * 0.35 + 0.65;
   if (ek > 0 && hold > 0) {
     const a0 = Math.PI * 1.12, a1 = a0 - ek * Math.PI * 0.92; // sweeps right across the top
-    c.strokeStyle = `rgba(236,72,153,${(0.32 * hold).toFixed(3)})`; c.lineWidth = Math.max(2.8, unit * 2.8);
-    c.beginPath(); c.arc(cx, cy, R, a0, a1, true); c.stroke();
+    if (!small) {
+      c.strokeStyle = `rgba(236,72,153,${(0.32 * hold).toFixed(3)})`; c.lineWidth = Math.max(2.8, unit * 2.8);
+      c.beginPath(); c.arc(cx, cy, R, a0, a1, true); c.stroke();
+    }
     c.strokeStyle = `rgba(236,72,153,${(0.9 * hold).toFixed(3)})`; c.lineWidth = Math.max(1.7, unit * 1.5);
     c.beginPath(); c.arc(cx, cy, R, a0, a1, true); c.stroke();
-    c.strokeStyle = `rgba(249,168,212,${(0.85 * hold).toFixed(3)})`; c.lineWidth = Math.max(0.7, unit * 0.55);
-    c.beginPath(); c.arc(cx, cy, R, a0 - 0.4 * ek, a1, true); c.stroke();
-    const notches = Math.floor(ek * 6);
+    if (!small) {
+      c.strokeStyle = `rgba(249,168,212,${(0.85 * hold).toFixed(3)})`; c.lineWidth = Math.max(0.7, unit * 0.55);
+      c.beginPath(); c.arc(cx, cy, R, a0 - 0.4 * ek, a1, true); c.stroke();
+    }
+    const notches = Math.floor(ek * (small ? 4 : 6));
     for (let i = 0; i < notches; i++) {
       const a = a0 - (i + 0.5) * Math.PI * 0.92 / 6;
       c.strokeStyle = `rgba(249,168,212,${(0.7 * hold).toFixed(3)})`; c.lineWidth = Math.max(0.8, unit * 0.8);
@@ -1161,7 +1244,7 @@ function drawCarveSigil(c, { cx, cy, rx, ry, unit, t }) {
       c.lineTo(cx + Math.cos(a) * (R + unit * 1.6), cy + Math.sin(a) * (R + unit * 1.6));
       c.stroke();
     }
-    if (ek < 1) {
+    if (ek < 1 && !small) {
       const hx = cx + Math.cos(a1) * R, hy = cy + Math.sin(a1) * R;
       const cg2 = c.createRadialGradient(hx, hy, 0, hx, hy, unit * 5);
       cg2.addColorStop(0, `rgba(255,255,255,${0.9 * hold})`); cg2.addColorStop(1, "rgba(236,72,153,0)");
@@ -1402,8 +1485,8 @@ export const AURA_ART = {
     }
     return null;
   },
-  carve: ({ pass, over, g, time, cx, cy, rx, ry, unit, moment }) => {
-    if (pass === "over") { if (moment) drawCarveSigil(over || g, { cx, cy, rx, ry, unit, t: moment.t }); return; }
+  carve: ({ pass, over, g, time, cx, cy, rx, ry, unit, moment, reduce, w, h }) => {
+    if (pass === "over") { if (moment && !reduce) drawCarveSigil(over || g, { cx, cy, rx, ry, unit, w, h, t: moment.t, small: Math.min(w, h) < 110 }); return; }
     const k = (time % 3.2) / 3.2;
     g.save(); g.strokeStyle = `rgba(236,72,153,${Math.sin(k * Math.PI)})`; g.lineWidth = Math.max(0.8, unit);
     for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * rx * 1.35, cy + Math.sin(a) * ry * 1.35); g.lineTo(cx + rx * 0.18, cy - ry * 0.12); g.stroke(); }
@@ -2405,6 +2488,17 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = Math.max(1.1, s * 0.28); g.stroke(shard); g.fill(shard);
     g.globalAlpha *= 0.6; g.fillStyle = "#ffffff"; g.fill(glint);
     g.restore();
+  } else if (shape === "sliver") {
+    // a slash fragment: long thin blade sliver aligned to its velocity with
+    // a pale hot core — carve's burst debris reads as flying cut-lines
+    const vx = p.vx || (p.w ? -Math.sin(p.ang || 0) * p.w : 0), vy = p.vy || (p.w ? Math.cos(p.ang || 0) * p.w : 1);
+    g.save(); g.translate(x, y); g.rotate(Math.atan2(vy, vx));
+    const len = s * 3.2, wd = Math.max(0.7, s * 0.45);
+    g.fillStyle = p.c;
+    g.beginPath(); g.moveTo(len, 0); g.lineTo(-len * 0.35, -wd); g.lineTo(-len, 0); g.lineTo(-len * 0.35, wd); g.closePath(); g.fill();
+    g.globalAlpha *= 0.75; g.strokeStyle = "#FFF0F8"; g.lineWidth = Math.max(0.5, wd * 0.4); g.lineCap = "round";
+    g.beginPath(); g.moveTo(len * 0.65, 0); g.lineTo(-len * 0.5, 0); g.stroke();
+    g.restore();
   } else if (shape === "smoke") {
     const sp = pSprite(p, true), k = Math.min(1.28, 1 + Math.min(p.age || 0, 2.4) * 0.1);
     g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k);
@@ -3302,7 +3396,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           // edge: cap life at the earliest border crossing so they fade out
           // mid-flight. Only sub-3px specks (sparks, dots, grains) still fly
           // off — those are the sanctioned moment flings.
-          const half = p.sz * ({ spark: 2.6, dot: 3.4, ember: 4.4, wisp: 2.2, smoke: 2.6, feather: 1.9, leaf: 1.9, shard: 1.7, bonechip: 1.2, sandgrain: 1.5, page: 2.2, crystal: 1.7 }[b.shape] ?? 2.2);
+          const half = p.sz * ({ spark: 2.6, dot: 3.4, ember: 4.4, wisp: 2.2, smoke: 2.6, feather: 1.9, leaf: 1.9, shard: 1.7, sliver: 3.2, bonechip: 1.2, sandgrain: 1.5, page: 2.2, crystal: 1.7 }[b.shape] ?? 2.2);
           if (!(b.shape === "spark" || b.shape === "dot" || b.shape === "sandgrain") || half > 4.5) {
             const t = burstBorderHit(ox, oy, p.vx, p.vy, p.grav || 0, half + 3 + shakePad, w, h);
             if (t < p.life) p.life = Math.max(0.06, t);
