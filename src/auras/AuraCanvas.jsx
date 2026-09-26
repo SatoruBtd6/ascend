@@ -435,7 +435,7 @@ export const AURA_FX = {
     { k: "orbit", n: 5, shape: "smoke", c: ["#EAFBFF", "#C9E9FF"], w: [0.08, 0.18], r: [0.35, 0.7], sz: [6, 9], a: 0.3, blend: "source-over" },
     { k: "fall", n: 10, shape: "flake", c: ["#FFFFFF", "#DDF6FF"], sp: [10, 18], sz: [1.6, 2.8], drift: 3, a: 0.8, xWrap: 1, xFade: 8, circle: { n: 0, a: 0 } },
   ] },
-  ninetail: { spd: 0.9, glow: 1, art: "ninetail", rays: { n: 3, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.36, fit: 1 }, layers: [
+  ninetail: { spd: 0.9, glow: 1, art: "ninetail", tailVariant: "C", rays: { n: 3, c: "#FF9340", spin: 0.08, len: 1.5, a: 0.36, fit: 1 }, layers: [
     { k: "orbit", n: 9, shape: "ember", c: ["#FFD447", "#FF9340", "#FF4D00"], w: [0.3, 0.55], r: [0.98, 1.06], sz: [3.0, 3.8], even: 1, tw: 1 },
     { k: "orbit", n: 6, shape: "orb", c: ["#FFE9C2", "#FFB86B"], w: [0.4, 0.7], r: [0.96, 1.06], sz: [2.2, 3], tw: 1 },
     { k: "orbit", n: 4, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], w: [0.5, 0.9], r: [1.06, 1.16], sz: [2, 3], tw: 1 },
@@ -1038,7 +1038,63 @@ export const AURA_ART = {
     for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * rx * 1.35, cy + Math.sin(a) * ry * 1.35); g.lineTo(cx + rx * 0.18, cy - ry * 0.12); g.stroke(); }
     g.restore();
   },
-  ninetail: ({ g, time, cx, cy, rx, ry, mode }) => {
+  // Ninetail: nine foxtail.webp tails as one tight, TALL bunch rising from
+  // a single root — like a real fox's brush, not a spread fan. ~60deg total
+  // spread, overlapping tails, varied length/curl/mirror, gentle out-of-
+  // phase sway. Ring: root hidden behind the photo's lower half, tips clear
+  // the photo's upper edge. Figure: root behind the hips, tips above the
+  // head. Tips are margin-clamped; small embers run outward along spines.
+  // Proposal-only: used when fx.tailVariant is set ("C"|"D"); production
+  // ninetail keeps the procedural art until a layout is picked.
+  ninetailFox: ({ g, time, cx, cy, rx, ry, mode, w, h, unit, reduce, fx }) => {
+    const rec = auraImage("/aura/foxtail.webp");
+    if (!rec.ready || rec.failed) return null;
+    const img = rec.img, aspect = img.naturalHeight / Math.max(1, img.naturalWidth);
+    const R = Math.min(rx, ry);
+    const variant = fx?.tailVariant || "C";
+    const swayAmp = reduce ? 0 : 1;
+    const body = mode === "body";
+    // C: centred upright bunch. D: root shifted right, bunch leans left and
+    // the tallest tails curl over the photo's upper-left edge.
+    const root = variant === "D"
+      ? { x: cx + rx * (body ? 0.16 : 0.34), y: cy + ry * (body ? 0.52 : 0.6) }
+      : { x: cx, y: cy + ry * (body ? 0.52 : 0.62) };
+    const midA = -Math.PI / 2 + (variant === "D" ? -0.28 : 0); // D leans left
+    const spread = Math.PI / 3;                                // ~60deg total
+    const ember = glowSprite("#FFB86B");
+    const embPerTail = w < 110 ? 0 : 2;                        // perf: board-32 budget
+    for (let i = 0; i < 9; i++) {
+      const t = i / 8, ph = i * 0.83;
+      // centre tails longest, outer tails shorter — the bunch reads pointed
+      // up, tips splaying around the photo's upper arc
+      const a = midA + (t - 0.5) * spread + Math.sin(time * 1.15 + ph) * 0.04 * swayAmp;
+      let len = R * (body ? 2.5 : 1.75) * (0.82 + 0.36 * (1 - Math.abs(t - 0.5) * 1.6) + 0.06 * Math.sin(ph * 3));
+      const dx = Math.cos(a), dy = Math.sin(a);
+      // clamp length so the tip (+ half the tail width) stays inside the
+      // canvas — geometric edge safety, no scan needed
+      const pad = len * aspect * 0.55 + 2 * unit;
+      const lx = dx > 1e-3 ? (w - pad - root.x) / dx : dx < -1e-3 ? (pad - root.x) / dx : Infinity;
+      const ly = dy > 1e-3 ? (h - pad - root.y) / dy : dy < -1e-3 ? (pad - root.y) / dy : Infinity;
+      len = Math.max(R * 0.4, Math.min(len, lx, ly));
+      const curl = (i % 2 ? 1 : -1) * (0.06 + Math.sin(time * 0.9 + ph) * 0.04 * swayAmp);
+      g.save();
+      g.translate(root.x, root.y); g.rotate(a + curl); if (i % 2) g.scale(1, -1);
+      g.globalAlpha = 0.96;
+      g.drawImage(img, 0, -len * aspect * 0.5, len, len * aspect);
+      g.globalCompositeOperation = "lighter";
+      for (let e = 0; e < embPerTail; e++) {
+        const et = ((time * (reduce ? 0.1 : 0.35 + e * 0.09) + ph) % 1), ex = et * len, es = (1.6 + e * 0.5) * unit * (1 - et * 0.5);
+        g.globalAlpha = 0.85 * (1 - et);
+        g.drawImage(ember, ex - es, Math.sin(ph + et * 4) * len * 0.06 - es, es * 2, es * 2);
+      }
+      g.restore();
+    }
+    g.globalAlpha = 1;
+    return null;
+  },
+  ninetail: (opts) => {
+    if (opts.fx?.tailVariant) return AURA_ART.ninetailFox(opts);
+    const { g, time, cx, cy, rx, ry, mode } = opts;
     const palette = ["#FF9340", "#FFD447", "#FF4D00"];
     const R = Math.min(rx, ry);
     // circle canvases are tight — fan the tails from inside the photo ring
