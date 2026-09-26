@@ -189,11 +189,12 @@ test("all eight new particle shapes draw non-empty output without throwing", () 
 
 test("all ten 7j particle shapes draw distinct painted output without throwing", () => {
   installStubDocument();
-  const shapes = ["comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst"];
+  const shapes = ["comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst", "glyphring", "sliver"];
   const mk = (over = {}) => ({ sz: 4, c: "#abcdef", rot: 0.4, ph: 0.7, age: 0.4, life: 1.5, ang: 0.3, w: 0.2, i: 3, vx: 10, vy: -6, ...over });
+  const L_FOR = { glyphring: { ringN: 6, glyph: "eye", glyphS: 1.1 } };
   const sig = (shape, t, reduced, p) => {
     const { ctx, output } = stubCanvas();
-    renderer.drawNewParticleShape(ctx, shape, p || mk(), 20, 20, t, reduced);
+    renderer.drawNewParticleShape(ctx, shape, p || mk(), 20, 20, t, reduced, L_FOR[shape]);
     return JSON.stringify(output);
   };
   const seen = new Set();
@@ -234,6 +235,28 @@ test("7j particle shapes animate over time and hold still under reduced motion",
     return output.find(([op]) => op === "scale")?.[1];
   };
   assert.ok(cometScale(true) < cometScale(false), "comet tail is not shorter under reduced motion");
+  // glyphring: one baked ring of glyphs — turns with the particle's orbit
+  // angle plus the layer's rotW self-spin; rotW freezes under reduced motion
+  const grL = { ringN: 6, glyph: "eye", glyphS: 1.1, rotW: 0.9 };
+  const gr = (t, reduced, ang = 0.3) => {
+    const { ctx, output } = stubCanvas();
+    renderer.drawNewParticleShape(ctx, "glyphring", { ...p, ang }, 20, 20, t, reduced, grL);
+    return JSON.stringify(output);
+  };
+  assert.notEqual(gr(0.5, false), gr(1.3, false), "glyphring does not spin with time");
+  assert.notEqual(gr(0.5, false, 0.3), gr(0.5, false, 1.1), "glyphring ignores its orbit angle");
+  assert.equal(gr(0.5, true), gr(1.3, true), "glyphring still self-spins under reduced motion");
+  // sliver: a velocity-aligned blade fragment — no internal clock; it
+  // animates through the particle's vx/vy (which the burst updates), so its
+  // op stream is identical at any time and under reduced motion
+  const sl = (t, reduced, vx = 10, vy = -6) => {
+    const { ctx, output } = stubCanvas();
+    renderer.drawNewParticleShape(ctx, "sliver", { ...p, vx, vy }, 20, 20, t, reduced);
+    return JSON.stringify(output);
+  };
+  assert.notEqual(sl(0.5, false, 10, -6), sl(0.5, false, -8, 4), "sliver does not align to its velocity");
+  assert.equal(sl(0.5, false), sl(1.3, false), "sliver drifts on an internal clock");
+  assert.equal(sl(0.5, true), sl(1.3, true), "sliver still animates under reduced motion");
 });
 
 test("zap flicker phases are staggered so a layer never brightens in sync", () => {

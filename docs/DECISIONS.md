@@ -56,6 +56,8 @@ The leaderboard worst-case stress test must stay under 16 ms p95 at 4x CPU: all 
 
 Per-aura budget: average loop time at or under 0.6 ms at board-32 / 4x CPU (quiet --perf, 400 frames, moments forced for moment auras), median of 3 runs. p95 is reported for information only. Revamp stress: after every aura batch, run a board-32 stress with the 10 heaviest revamped auras (by average), circle mode, 4x CPU, moments forced; p95 must stay under 16 ms.
 
+`docs/aura-style-guide.md` is the standard for new and reworked auras: the approved rarity ladder, ring-first sizing recipe, and per-view particle sizes live there.
+
 ## Worn pieces must end inside the canvas
 
 A worn piece anchored to the figure or photo (cloak, blindfold, hat) must never read as chopped by the canvas edge. Pieces that hang to the bottom edge — Ledger's cloak — fade out over their last stretch and report their smallest clearance in pixels, measured on a cloak-isolated render so full-canvas backdrops don't fake a 0 px margin (`scripts/aura-7i-p3-shots.mjs`). Sides and top get the same rule: the piece either stops short or fades.

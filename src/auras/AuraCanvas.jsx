@@ -2614,7 +2614,7 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
       }
     });
     const d = s * 1.31;
-    const spin = (L.dir ?? 1) * p.ang + time * (L.rotW || 0);
+    const spin = (L.dir ?? 1) * p.ang + time * (L.rotW || 0) * (reduced ? 0 : 1);
     // mStreak (opt-in): while the moment spin-up whips the ring fast, paint
     // ghost copies at angular lags behind the live rotation — the eyes smear
     // into afterimages near the climax. The lag scales with angular velocity,
