@@ -701,20 +701,28 @@ let _ophSprites = null;
 function ophanimSprites(img) {
   if (_ophSprites) return _ophSprites;
   const S = 448, c = S / 2;
-  const bake = (src, r0, r1, zoom = 1) => {
+  const bake = (src, r0, r1, zoom = 1, ey = 1) => {
     const cv = document.createElement("canvas"); cv.width = cv.height = S;
     const g2 = cv.getContext("2d");
     g2.drawImage(src, (S - S * zoom) / 2, (S - S * zoom) / 2, S * zoom, S * zoom);
     g2.globalCompositeOperation = "destination-in";
+    g2.save(); g2.translate(c, c); g2.scale(1, ey); g2.translate(-c, -c);
     const mask = g2.createRadialGradient(c, c, c * r0, c, c, c * r1);
     mask.addColorStop(0, "#000"); mask.addColorStop(1, "rgba(0,0,0,0)");
     g2.fillStyle = mask; g2.fillRect(0, 0, S, S);
+    g2.restore();
     return cv;
   };
   // fade to a hard zero inside the sprite, so no copy ever carries alpha
   // past `reach` of the drawn half-size. The wing bake zooms ~14% into the
   // art so the feathers read bigger on the canvas.
   const wing = bake(img, 0.9, 1.0, 1.14), echo = bake(img, 0.48, 0.7);
+  // body views (studio/crate/inspect): the old DOM wings painted the raw
+  // square art and overflowed the canvas freely. The body sprite keeps the
+  // art unzoomed and fades on a horizontal ellipse (content still reaches
+  // reach=1.0 only at the ±x tips), so the wing silhouette stays wide and
+  // feathery instead of collapsing into a disc.
+  const bodyWing = bake(img, 0.82, 1.0, 1.0, 0.82);
   // hero halo: blurred golden silhouette behind the sharp copy — replaces
   // the DOM version's per-frame drop-shadow filters with one baked sprite.
   // Re-masked after blurring so the blur can't bleed alpha to the edge.
@@ -729,7 +737,7 @@ function ophanimSprites(img) {
   const gm = gg.createRadialGradient(c, c, c * 0.82, c, c, c * 0.96);
   gm.addColorStop(0, "#000"); gm.addColorStop(1, "rgba(0,0,0,0)");
   gg.fillStyle = gm; gg.fillRect(0, 0, S, S);
-  _ophSprites = { wing, glow, echo };
+  _ophSprites = { wing, glow, echo, bodyWing };
   return _ophSprites;
 }
 // Living Wheel eye art: public/aura/wheel-eye.webp is an ornate golden eye
@@ -1522,13 +1530,12 @@ export const AURA_ART = {
   // scans and frame timing, and frozen in the gallery where App.jsx's
   // keyframes never mount. Same art, same motion — 20s spin, 11s counter-
   // spin, 4s rock — driven by wall clock so the speeds match the old CSS.
-  ophanim: ({ g, clock, cx, cy, rx, ry, w, h, reduce, moment }) => {
+  ophanim: ({ g, clock, cx, cy, rx, ry, w, h, reduce, moment, mode, anchors }) => {
     const rec = ophWingRec();
     if (!rec?.ready || rec.failed) return null;
     const spr = ophanimSprites(rec.img);
     const m = Math.min(w, h);
     const t = reduce ? 1.7 : clock;
-    const clear = Math.min(cx, w - cx, cy, h - cy);
     // moment "ascension" — atlas-style build: slow start, accelerating hard.
     // Wings swell outward (×1.5 requested — saturates at the border cap since
     // the base wings already span ~0.9 of the frame), eyes spin up (mSpin +
@@ -1556,26 +1563,36 @@ export const AURA_ART = {
       draw(spr.echo, 0.7, 1.1, t * (Math.PI / 10), 0, bloom * 0.85, 1 + bloom * 0.55);
       if (w >= 110) draw(spr.echo, 0.7, 1.1, -t * (Math.PI * 2 / 11) + 0.5, 0, bloom * 0.6, 1 + bloom * 0.35);
     }
+    // body views use the ellipse-masked bake — wider silhouette, same reach
+    const wArt = mode === "body" ? spr.bodyWing : spr.wing;
     // ophpulse 2.2s: opacity .35 -> .7 on the big spinner
     const pulse = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 2.2));
-    draw(spr.wing, 1.0, 1.02, t * (Math.PI / 10), 0, (0.35 + 0.35 * pulse) * (1 + 0.3 * bloom), exp);
-    draw(spr.wing, 1.0, 0.92, -t * (Math.PI * 2 / 11), 0, 0.32 * (1 + 0.3 * bloom), exp);
+    draw(wArt, 1.0, 1.02, t * (Math.PI / 10), 0, (0.35 + 0.35 * pulse) * (1 + 0.3 * bloom), exp);
+    draw(wArt, 1.0, 0.92, -t * (Math.PI * 2 / 11), 0, 0.32 * (1 + 0.3 * bloom), exp);
     // ophfloat 4s: rock -7deg -> 7deg, lift 8% of the img, scale +6%;
     // the baked halo pass is skipped at board size — it smears to ~2px there
     const rock = reduce ? -1 : Math.sin(t * (Math.PI / 2) - Math.PI / 2);
     const rk = 0.5 + 0.5 * rock, cw = 0.9 * (1 + 0.06 * rk);
     if (w >= 110) draw(spr.glow, 0.97, cw, rock * 0.122, -0.08 * cw * rk, 0.6 * (1 + 0.5 * bloom), exp);
-    draw(spr.wing, 1.0, cw, rock * 0.122, -0.08 * cw * rk, 0.95, exp);
-    // ornate gilded band on top of the wing roots — the webp's inner hole
-    // (0.672 of its half-width) sits right at the photo's edge: 0.8·rx
-    // matches the app's ascended Avatar geometry (photo r / ringR), and the
-    // slightly larger evidence composite just tucks the inner filigree under
-    // the photo. Spike tips (0.98 of half) clamp short of the border.
+    draw(wArt, 1.0, cw, rock * 0.122, -0.08 * cw * rk, 0.95, exp);
+    // ornate gilded band on top of the wing roots — in circle view the
+    // webp's inner hole (0.672 of its half-width) sits right at the photo's
+    // edge: 0.8·rx matches the app's ascended Avatar geometry (photo r /
+    // ringR), and the slightly larger evidence composite just tucks the
+    // inner filigree under the photo. In body view it becomes a halo behind
+    // the head, centred on the head anchor with the hole a touch wider than
+    // the head itself. Spike tips (0.98 of half) clamp short of the border.
     const ringRec = auraImage(ASC_RING_SRC);
     if (ringRec.ready) {
-      const hd = Math.min((rx * 0.8) / ASC_RING_HOLE, (clear - 1.5) / ASC_RING_TIP);
+      const hx = mode === "body" && anchors?.face ? anchors.face.x : cx;
+      const hy = mode === "body" && anchors?.face ? anchors.face.y : cy;
+      const hole = mode === "body" && anchors?.face
+        ? anchors.face.eyeX * HEAD_FROM_EYE * 1.7
+        : rx * 0.8;
+      const hclear = Math.min(hx, w - hx, hy, h - hy);
+      const hd = Math.min(hole / ASC_RING_HOLE, (hclear - 1.5) / ASC_RING_TIP);
       if (hd > 6) {
-        g.save(); g.translate(cx, cy);
+        g.save(); g.translate(hx, hy);
         if (!reduce) g.rotate(clock * 0.04); // ~157s/rev — a very slow turn
         g.drawImage(ringRec.img, -hd, -hd, hd * 2, hd * 2);
         g.restore();

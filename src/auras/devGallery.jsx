@@ -178,8 +178,8 @@ function geometry(mode, w, h, aura, ringR) {
 
 function bodyBox(px, aura) {
   const height = px / 0.8;
-  const aw = Math.round(height * (aura === "ascended" ? 0.48 : 0.8));
-  const ah = Math.round(height * (aura === "ascended" ? 0.66 : 1.02));
+  const aw = Math.round(height * 0.8);
+  const ah = Math.round(height * 1.02);
   return { height, aw, ah, top: -height * 0.02 };
 }
 

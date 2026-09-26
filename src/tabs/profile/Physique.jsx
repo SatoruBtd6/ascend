@@ -12,8 +12,8 @@ export function Physique({ tier = 0, height = 220, aura, caption, sex }) {
   const [fail, setFail] = useState(false);
   const [overSlot, setOverSlot] = useState(null);
   useEffect(() => { setFail(false); }, [src]);
-  const aw = Math.round(height * (aura === "ascended" ? 0.48 : 0.8));
-  const ah = Math.round(height * (aura === "ascended" ? 0.66 : 1.02));
+  const aw = Math.round(height * 0.8);
+  const ah = Math.round(height * 1.02);
   const place = { left: "50%", top: -height * 0.02, width: aw, height: ah, transform: "translateX(-50%)" };
   const showOver = aura && aura !== "none" && auraNeedsOver(aura);
   return (
