@@ -77,6 +77,11 @@ Ring-first composition; board-32 and figure share the same spec.
 
 ## Hard rules
 
+- **Ring view is primary:** the ring (profile photo) view is the most
+  important view. Every aura and every moment is designed for the ring
+  first and must look complete and impressive there. Anything a moment
+  shows on the figure needs a ring equivalent (for example, behind the
+  photo and around its edge). Evidence always shows the ring view first.
 - **Budget:** average loop time at or under 0.6 ms at board-32 / 4× CPU
   (quiet `--perf`, 400 frames, moments forced for moment auras), median of
   3 runs. p95 is reported for information only. Revamp stress: after every

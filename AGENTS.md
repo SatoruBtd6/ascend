@@ -65,6 +65,10 @@ In addition:
 - **Edges:** nothing is cut off by the canvas edge at any size (border alpha scan = 0). This
   includes bolt strikes: use `bolts.fit` / `rays.fit` / `inward.fit`. Only transient burst debris
   may leave the frame.
+- **Ring view is primary:** the ring (profile photo) view is the most important view. Every aura
+  and every moment is designed for the ring first and must look complete and impressive there.
+  Anything a moment shows on the figure needs a ring equivalent (for example, behind the photo
+  and around its edge). Evidence always shows the ring view first.
 - **Per-aura budget:** average loop time at or under 0.6 ms at board-32 / 4x CPU (quiet --perf,
   400 frames, moments forced for moment auras), median of 3 runs. p95 is reported for
   information only. Revamp stress: after every aura batch, run a board-32 stress with the 10
