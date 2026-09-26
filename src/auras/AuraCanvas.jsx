@@ -430,23 +430,28 @@ export const AURA_FX = {
     { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.8, 1.4], r: [1.04, 1.2], sz: [1.1, 1.9], tw: 1 },
   ] },
   // Ascended: reigning #1 — divine radiant ring. Few, huge watching eyes and
-  // big feathers in golden-white light; moment "ascension": a pillar of light
-  // rises through the photo while every eye snaps open blazing (mScale).
+  // big feathers in golden-white light; moment "ascension": the wings expand
+  // and the eyes spin faster and faster through a rising pillar of light,
+  // then a massive GOLDEN blast (gated gold wash + feather/light burst),
+  // then it settles.
   ascended: { spd: 1.25, glow: 0.92, art: "ophanim", overArt: "ascended",
     rings: [{ r: 1.18, c: "#FFD447", spin: 0.05, a: 0.92, w: 2.6, filigree: 8 }],
-    moment: { every: [14, 20], dur: 3.4,
-      flash: { at: 0.3, flashPeak: 0.42, flashLife: 0.1, flashC: ["#FFF6C9", "#FFD447"], anchor: "center" },
-      shake: { at: 0.3, amp: 0.04, dur: 0.4 },
+    moment: { every: [14, 20], dur: 4.2,
+      flash: { at: 0.64, flashPeak: 0.5, flashLife: 0.11, flashC: ["#FFF6C9", "#FFD447", "#FFB43C"], anchor: "center" },
+      shake: { at: 0.64, amp: 0.05, dur: 0.5 },
       bursts: [
-        { at: 0.3, path: "shockring", c: "#FFD447", a: 0.85, lw: 2.8, r0: 0.9, v: 1.1, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
-        { at: 0.32, path: "radial", shape: "feather", n: 8, c: ["#FFFFFF", "#FFD447", "#7DF9FF"], anchor: "center", sp: [35, 85], sz: [2, 3.4], life: [1.1, 1.8], a: 0.95, over: 1 },
-        { at: 0.32, path: "radial", shape: "star", n: 7, c: ["#FFFFFF", "#FFD447"], anchor: "center", sp: [50, 110], sz: [1.5, 2.6], life: [0.8, 1.4], a: 0.9, over: 1 },
+        { at: 0.64, path: "shockring", c: "#FFD447", a: 0.9, lw: 3.2, r0: 0.8, v: 2.8, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1, fit: 1 },
+        { at: 0.64, path: "radial", shape: "feather", n: 18, nScale: 0.5, c: ["#FFF6C9", "#FFD447", "#FFB43C"], anchor: "center", sp: [45, 110], sz: [2.2, 4], life: [0.9, 1.4], a: 0.95, over: 1, fit: 1 },
+        { at: 0.66, path: "radial", shape: "star", n: 12, nScale: 0.5, c: ["#FFF6C9", "#FFD447"], anchor: "center", sp: [55, 120], sz: [1.4, 2.6], life: [0.7, 1.1], a: 0.9, over: 1, fit: 1 },
+        { at: 0.7, path: "radial", shape: "feather", n: 8, nScale: 0.5, c: ["#FFD447", "#FFF6C9"], anchor: "center", sp: [15, 40], sz: [2, 3.4], life: [0.9, 1.3], a: 0.9, over: 1, fit: 1 },
       ] },
     layers: [
       { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 6, glyphS: 1.15, c: ["#7DF9FF"], w: [0.16, 0.16], r: [0, 0], sz: [1, 1], even: 1, a: 0.95,
-        mScale: [[0, 0.95], [0.08, 0.78], [0.26, 1.15], [0.55, 1.08], [0.85, 1], [1, 1]] },
+        mSpin: [[0, 0], [0.12, 0], [0.4, 3.5], [0.64, 8], [0.85, 0.4], [1, 0]],
+        mScale: [[0, 0.95], [0.5, 0.92], [0.62, 0.85], [0.68, 1.2], [0.84, 1.08], [0.95, 1], [1, 1]] },
       { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 4, glyphS: 1.25, c: ["#FFD447"], w: [-0.24, -0.24], r: [0, 0], sz: [0.9, 0.9], even: 1, dir: -1, a: 0.95,
-        mScale: [[0, 0.95], [0.11, 0.78], [0.3, 1.18], [0.58, 1.08], [0.88, 1], [1, 1]] },
+        mSpin: [[0, 0], [0.12, 0], [0.42, -3.5], [0.64, -8], [0.85, -0.4], [1, 0]],
+        mScale: [[0, 0.95], [0.52, 0.92], [0.63, 0.85], [0.7, 1.22], [0.86, 1.08], [0.96, 1], [1, 1]] },
       { k: "orbit", n: 4, shape: "feather", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.3, 0.45], r: [1.0, 1.14], sz: [3.8, 5.2], spin: 1, a: 0.95 },
       { k: "orbit", n: 4, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.5, 1], r: [0.98, 1.08], sz: [1.8, 2.8], tw: 1 },
       { k: "rise", n: 3, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], sp: [10, 18], life: [1.6, 2.6], sz: [1.8, 2.8], sway: 8, tw: 1, low: 1 },
@@ -1318,44 +1323,59 @@ export const AURA_ART = {
   // scans and frame timing, and frozen in the gallery where App.jsx's
   // keyframes never mount. Same art, same motion — 20s spin, 11s counter-
   // spin, 4s rock — driven by wall clock so the speeds match the old CSS.
-  ophanim: ({ g, clock, cx, cy, w, h, reduce }) => {
+  ophanim: ({ g, clock, cx, cy, w, h, reduce, moment }) => {
     const rec = ophWingRec();
     if (!rec?.ready || rec.failed) return null;
     const spr = ophanimSprites(rec.img);
     const m = Math.min(w, h);
     const t = reduce ? 1.7 : clock;
+    // moment "ascension": wings swell outward through the charge, the eyes
+    // spin up (mSpin on the glyphring layers), the blast lands at t≈0.64
+    // with a wing-shaped echo blooming past the wings, then all settles
+    const mt = !reduce && moment ? moment.t : null;
+    const exp = mt == null ? 1
+      : 1 + 0.3 * (keyAt([[0, 0], [0.1, 0], [0.42, 0.6], [0.64, 1], [0.72, 1], [0.88, 0.3], [1, 0]], mt) ?? 0);
+    const bloom = mt == null ? 0
+      : (keyAt([[0, 0], [0.52, 0], [0.66, 1], [0.8, 0.75], [0.92, 0]], mt) ?? 0);
     // per-copy edge safety: sprite content reaches `reach` of the drawn
     // half-size, so side + vertical shift must stay short of the border
-    const draw = (img, reach, k, rot, dyF, alpha) => {
+    const draw = (img, reach, k, rot, dyF, alpha, sc = 1) => {
       const dy0 = dyF * m;
-      const d = Math.min(m * k, (m / 2 - Math.abs(dy0) - 2) * 2 / reach);
+      const d = Math.min(m * k * sc, (m / 2 - Math.abs(dy0) - 2) * 2 / reach);
       if (d <= 4 || alpha <= 0.01) return;
       const dy = Math.sign(dy0) * Math.min(Math.abs(dy0), m / 2 - reach * d / 2 - 2);
       g.save(); g.translate(cx, cy + dy); g.rotate(rot);
       g.globalAlpha = Math.min(1, alpha);
       g.drawImage(img, -d / 2, -d / 2, d, d); g.restore();
     };
+    // climax bloom: the tight-masked echo sprite can safely draw ~40% past
+    // the wings' reach — the wing apparition swelling into the blast
+    if (bloom > 0.01) {
+      draw(spr.echo, 0.7, 1.1, t * (Math.PI / 10), 0, bloom * 0.85, 1 + bloom * 0.55);
+      if (w >= 110) draw(spr.echo, 0.7, 1.1, -t * (Math.PI * 2 / 11) + 0.5, 0, bloom * 0.6, 1 + bloom * 0.35);
+    }
     // ophpulse 2.2s: opacity .35 -> .7 on the big spinner
     const pulse = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 2.2));
-    draw(spr.wing, 1.0, 1.02, t * (Math.PI / 10), 0, 0.35 + 0.35 * pulse);
-    draw(spr.wing, 1.0, 0.78, -t * (Math.PI * 2 / 11), 0, 0.32);
-    // ophfloat 4s: rock -7deg -> 7deg, lift 8% of the img, scale +6%
+    draw(spr.wing, 1.0, 1.02, t * (Math.PI / 10), 0, (0.35 + 0.35 * pulse) * (1 + 0.3 * bloom), exp);
+    draw(spr.wing, 1.0, 0.78, -t * (Math.PI * 2 / 11), 0, 0.32 * (1 + 0.3 * bloom), exp);
+    // ophfloat 4s: rock -7deg -> 7deg, lift 8% of the img, scale +6%;
+    // the baked halo pass is skipped at board size — it smears to ~2px there
     const rock = reduce ? -1 : Math.sin(t * (Math.PI / 2) - Math.PI / 2);
     const rk = 0.5 + 0.5 * rock, cw = 0.8 * (1 + 0.06 * rk);
-    draw(spr.glow, 0.97, cw, rock * 0.122, -0.08 * cw * rk, 0.6);
-    draw(spr.wing, 1.0, cw, rock * 0.122, -0.08 * cw * rk, 0.95);
+    if (w >= 110) draw(spr.glow, 0.97, cw, rock * 0.122, -0.08 * cw * rk, 0.6 * (1 + 0.5 * bloom), exp);
+    draw(spr.wing, 1.0, cw, rock * 0.122, -0.08 * cw * rk, 0.95, exp);
     return null;
   },
   // Ascended "ascension": a soft-edged pillar of light rises from the ring's
   // base through the photo; the white-hot leading edge climbs then holds,
   // the whole column fading out late in the moment.
-  ascended: ({ pass, over, g, cx, cy, rx, ry, moment, h }) => {
+  ascended: ({ pass, over, g, cx, cy, rx, ry, moment, h, w }) => {
     if (pass !== "over" || !moment) return;
     const c = over || g;
     const t = moment.t;
     const R = Math.min(rx, ry);
-    const rise = Math.min(1, t / 0.34);
-    const fade = t < 0.62 ? 1 : Math.max(0, 1 - (t - 0.62) / 0.3);
+    const rise = Math.min(1, t / 0.5);
+    const fade = t < 0.7 ? 1 : Math.max(0, 1 - (t - 0.7) / 0.28);
     if (rise <= 0 || fade <= 0) return;
     const yB = cy + ry * 1.28, yT = yB - ry * 2.56 * rise;
     const ww = R * 0.52, hh = Math.max(1, (yB - yT) / 2);
@@ -1367,6 +1387,9 @@ export const AURA_ART = {
     grd.addColorStop(1, "rgba(255,214,90,0)");
     c.fillStyle = grd; c.beginPath(); c.arc(0, 0, ww, 0, Math.PI * 2); c.fill();
     c.restore();
+    // small canvases can't resolve the leading-edge blob — the column alone
+    // carries it (and saves a second gradient fill per frame)
+    if (Math.min(w || Infinity, h || Infinity) < 110) return;
     c.save(); c.globalCompositeOperation = "lighter";
     const hr = ww * 1.15;
     const hy = Math.min(Math.max(yT, hr + 2), (h || cy * 2) - hr - 2); // keep the leading-edge glow inside the frame
@@ -3094,7 +3117,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         if (mode === "circle") p.len = Math.min(p.len, Math.max(8, edge - p.lw * 0.5 - 2.5 - shakePad));
       } else if (b.path === "shockring") {
         p.ring = true; p.aspect = b.aspect ?? (b.flat ? 0.16 : ry / rx); p.r = (b.r0 ?? 0.4) * Math.min(rx, ry); p.rv = (b.v ?? 2) * Math.min(rx, ry);
-        if (mode === "circle") {
+        if (mode === "circle" || b.fit) {
           // the ring must never paint across the frame edge — cap its radius
           // at the nearest border minus the stroke's half-width; it keeps
           // expanding to that wall and dissolves there instead of clipping
@@ -3109,7 +3132,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const v = (b.sp ? rnd(...b.sp) : 70) * unit;
         p.vx = Math.cos(ang) * v; p.vy = Math.sin(ang) * v;
         p.grav = (b.grav ?? 1.8) * 150 * unit;
-        if (mode === "circle") {
+        if (mode === "circle" || b.fit) {
           // objects bigger than a small spark must dissolve before the frame
           // edge: cap life at the earliest border crossing so they fade out
           // mid-flight. Only sub-3px specks (sparks, dots, grains) still fly
