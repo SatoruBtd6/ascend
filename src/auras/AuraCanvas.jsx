@@ -491,7 +491,7 @@ export const AURA_FX = {
       { k: "orbit", n: 1, shape: "glyphring", glyph: "gem", ringN: 9, glyphS: 0.8, c: ["#FFD447"], w: [-0.14, -0.14], r: [0, 0], sz: [1.14, 1.14], even: 1, dir: -1, a: 0.9,
         mSpin: [[0, 0], [0.15, 0], [0.45, 2.5], [0.7, 5.5], [0.88, 0.8], [1, 0]] },
       { k: "orbit", n: 4, shape: "star", c: ["#FFF6C9", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.28], sz: [1.5, 2.4], tw: 1 },
-      { k: "inward", n: 4, shape: "dot", c: ["#FFD447", "#FFFFFF"], sp: [0.5, 1], life: [1.4, 2.4], sz: [1.5, 2.4] },
+      { k: "inward", n: 4, shape: "dot", c: ["#FFD447", "#FFFFFF"], sp: [0.5, 1], life: [1.4, 2.4], sz: [1.5, 2.4], fit: 1 },
     ] },
   sigil: { spd: 0.9, glow: 0.78, layers: [
     { k: "orbit", n: 7, shape: "rune", c: ["#FFD447", "#FFB86B", "#FFF3C9"], w: [0.5, 0.9], r: [1.05, 1.16], sz: [2.6, 3.4] },
@@ -733,12 +733,14 @@ function ophanimSprites(img) {
   return _ophSprites;
 }
 // Living Wheel eye art: public/aura/wheel-eye.webp is an ornate golden eye
-// on a black field — black adds nothing under "lighter" compositing, so the
-// webp bakes straight into ring sprites. Two counter-rotating rings of big
-// eyes with glowing vein arcs baked along them, a slow-drifting vein web
-// bridging the annulus, and "hot" variants (ember glow behind each eye,
-// hotter veins) for the brake-disc heat moment. If the webp fails, the
-// eyes fall back to a small procedural eye so the aura never goes bare.
+// with an alpha'd silhouette (gold frame, ruby gems, veined iris; eye fills
+// ~0.92 x 0.74 of the half-width). The eyes bake into ring sprites drawn
+// source-over at full opacity so the art reads as-is; veins, the bridging
+// web, and the moment's heat glow live on separate additive sprites that
+// sit BEHIND the eyes, so the eyes stay crisp while the wheel heats up.
+// Fewer, bigger eyes than the first pass so the iris reads at 76px. If the
+// webp fails, eyes fall back to a small procedural eye so the aura never
+// goes bare.
 const WHEEL_EYE_SRC = "/aura/wheel-eye.webp";
 let _wheelSp = null;
 function wheelSprites() {
@@ -746,6 +748,7 @@ function wheelSprites() {
   const rec = auraImage(WHEEL_EYE_SRC);
   if (!rec.ready && !rec.failed) return null;
   const S = 288, c = S / 2, img = rec.ready ? rec.img : null;
+  // ew/eh is the IMAGE box; the visible eye fills ~0.92 x 0.74 of it
   const eye = (g2, x, y, rot, ew, eh) => {
     g2.save(); g2.translate(x, y); g2.rotate(rot);
     if (img) g2.drawImage(img, -ew / 2, -eh / 2, ew, eh);
@@ -757,7 +760,7 @@ function wheelSprites() {
     }
     g2.restore();
   };
-  // wobbling vein arc between neighbouring glyphs along the ring, plus
+  // wobbling vein arc between neighbouring eyes along the ring, plus
   // short radial veinlets — two passes: a wide dim vessel, a thin hot core
   const veinArcs = (g2, n, ro, seed, boost) => {
     for (let i = 0; i < n; i++) {
@@ -779,20 +782,32 @@ function wheelSprites() {
     }
     g2.globalAlpha = 1;
   };
-  const ring = (n, ro, ew, eh, hot) => {
+  // eyes only — drawn source-over at full alpha on top of the glow passes
+  const eyes = (n, ro, ew, eh) => {
+    const cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const g2 = cv.getContext("2d"); g2.translate(c, c);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      eye(g2, Math.cos(a) * ro, Math.sin(a) * ro, a + Math.PI / 2, ew, eh);
+    }
+    return cv;
+  };
+  // additive pass under the eyes: vein arcs along the ring; `hot` adds an
+  // ember glow behind each eye socket and runs the veins hotter
+  const veil = (n, ro, ew, hot) => {
     const cv = document.createElement("canvas"); cv.width = cv.height = S;
     const g2 = cv.getContext("2d"); g2.translate(c, c);
     veinArcs(g2, n, ro, hot ? 0.5 : 0, hot ? 1 : 0);
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2, ex = Math.cos(a) * ro, ey = Math.sin(a) * ro;
-      if (hot) {
-        g2.globalCompositeOperation = "lighter";
-        const grd = g2.createRadialGradient(ex, ey, 1, ex, ey, ew * 0.7);
-        grd.addColorStop(0, "rgba(255,140,40,0.8)"); grd.addColorStop(1, "rgba(255,60,10,0)");
-        g2.fillStyle = grd; g2.beginPath(); g2.arc(ex, ey, ew * 0.7, 0, Math.PI * 2); g2.fill();
-        g2.globalCompositeOperation = "source-over";
+    if (hot) {
+      // ember socket glow hugging each eye — kept tight (ew·0.5) so the
+      // fading edge can never reach the canvas border; the draw clamp uses
+      // rVeil* which accounts for ro + ew·0.5
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2, ex = Math.cos(a) * ro, ey = Math.sin(a) * ro;
+        const grd = g2.createRadialGradient(ex, ey, 1, ex, ey, ew * 0.5);
+        grd.addColorStop(0, "rgba(255,140,40,0.85)"); grd.addColorStop(1, "rgba(255,60,10,0)");
+        g2.fillStyle = grd; g2.beginPath(); g2.arc(ex, ey, ew * 0.5, 0, Math.PI * 2); g2.fill();
       }
-      eye(g2, ex, ey, a + Math.PI / 2, ew, eh);
     }
     return cv;
   };
@@ -815,14 +830,17 @@ function wheelSprites() {
     return cv;
   };
   _wheelSp = {
-    out: ring(7, 104, 64, 34, false), outHot: ring(7, 104, 64, 34, true),
-    inner: ring(5, 70, 52, 28, false), inHot: ring(5, 70, 52, 28, true),
+    eyeO: eyes(5, 100, 92, 74), eyeI: eyes(4, 60, 66, 54),
+    veilO: veil(5, 100, 92, false), veilI: veil(4, 60, 66, false),
+    hotO: veil(5, 100, 92, true), hotI: veil(4, 60, 66, true),
     web: web(false), webHot: web(true),
     // orbit radius / content reach, as fractions of the drawn half-size —
-    // draw code uses them to place the eye orbits and clamp to the border
-    oO: 104 / 144, rO: (104 + 18) / 144,
-    oI: 70 / 144, rI: (70 + 15) / 144,
-    oW: 82 / 144, rW: 128 / 144,
+    // draw code uses them to place the eye orbits and clamp to the border.
+    // Veil/hot sprites reach further than the eyes (veinlets, ember glow).
+    oO: 100 / 144, oI: 60 / 144, oW: 82 / 144,
+    rEyeO: (100 + 32) / 144, rVeilO: (100 + 47) / 144,
+    rEyeI: (60 + 26) / 144, rVeilI: (60 + 34) / 144,
+    rW: 130 / 144,
   };
   return _wheelSp;
 }
@@ -1646,6 +1664,12 @@ export const AURA_ART = {
       }
       g.restore();
     }
+    const small = Math.min(w, h) < 110;
+    const veinPulse = reduce ? 0.55 : 0.5 + 0.3 * Math.sin(time * 1.9) * Math.sin(time * 0.7 + 2);
+    const hk = Math.min(1, Math.max(0, (heat - 0.25) / 0.6));
+    // Glow passes paint additive UNDER the eyes (veins, web, ember sockets);
+    // the eyes themselves draw source-over at full alpha on top, so the art
+    // reads as-is and the heat glow goes around/behind them, never over.
     const put = (img, orbitF, reachF, orbitR, rot, alpha) => {
       if (alpha <= 0.01) return;
       const half = Math.min(orbitR / orbitF, (clear - 1.5) / reachF);
@@ -1654,20 +1678,20 @@ export const AURA_ART = {
       g.drawImage(img, -half, -half, half * 2, half * 2);
       g.restore();
     };
-    const small = Math.min(w, h) < 110;
-    const veinPulse = reduce ? 0.55 : 0.5 + 0.3 * Math.sin(time * 1.9) * Math.sin(time * 0.7 + 2);
-    // vein web drifting between the rings, then the two eye rings; the web
-    // blurs to noise at board size — skip it there and save the draws
-    if (!small) put(spr.web, spr.oW, spr.rW, R * 1.04, (reduce ? 0.4 : time * 0.13), 0.4 + veinPulse * 0.35 + heat * 0.3);
-    put(spr.inner, spr.oI, spr.rI, R * 0.95, cc._phI, 0.92);
-    put(spr.out, spr.oO, spr.rO, R * 1.06, cc._phO, 0.95);
-    // hot passes: ember-lit eyes + hotter veins as the disc heats up
-    const hk = Math.min(1, Math.max(0, (heat - 0.25) / 0.6));
+    const webRot = reduce ? 0.4 : time * 0.13;
+    // the web blurs to noise at board size — skip it there and save the draws
+    if (!small) put(spr.web, spr.oW, spr.rW, R * 1.04, webRot, 0.4 + veinPulse * 0.35 + heat * 0.3);
+    if (!small && hk > 0.01) put(spr.webHot, spr.oW, spr.rW, R * 1.04, webRot, hk * 0.7);
+    // veil strokes shrink to sub-pixel at board size — skip them there
+    if (!small) put(spr.veilI, spr.oI, spr.rVeilI, R * 0.95, cc._phI, 0.9);
+    if (!small) put(spr.veilO, spr.oO, spr.rVeilO, R * 1.14, cc._phO, 0.9);
     if (hk > 0.01) {
-      if (!small) put(spr.webHot, spr.oW, spr.rW, R * 1.04, (reduce ? 0.4 : time * 0.13), hk * 0.7);
-      if (!small) put(spr.inHot, spr.oI, spr.rI, R * 0.95, cc._phI, hk * 0.75);
-      put(spr.outHot, spr.oO, spr.rO, R * 1.06, cc._phO, hk * 0.8);
+      if (!small) put(spr.hotI, spr.oI, spr.rVeilI, R * 0.95, cc._phI, hk * 0.75);
+      put(spr.hotO, spr.oO, spr.rVeilO, R * 1.14, cc._phO, hk * 0.8);
     }
+    g.globalCompositeOperation = "source-over";
+    put(spr.eyeI, spr.oI, spr.rEyeI, R * 0.95, cc._phI, 1);
+    put(spr.eyeO, spr.oO, spr.rEyeO, R * 1.14, cc._phO, 1);
     g.restore();
     return null;
   },
