@@ -53,7 +53,10 @@ export const AURA_FX = {
   // Stormborn: a wind-and-rain runner — teal-green, everything drives
   // sideways: rain streaks fall with heavy drift, comet streaks whip around
   // the ring, and a fast drop orbit reads as speed lines. Signature: comets.
-  stormborn: { spd: 1.7, glow: 0.95, layers: [
+  stormborn: { spd: 1.7, glow: 0.95, art: "stormborn", overArt: "stormborn", moment: {
+    every: [26, 36], dur: 3,
+    flash: { at: 0.3, flashPeak: 0.5, flashLife: 0.1, flashC: ["#E6FFFB", "#5EEAD4"], anchor: "center" },
+  }, layers: [
     { k: "orbit", n: 5, shape: "comet", c: ["#5EEAD4", "#34D3BE", "#E6F0FF"], w: [1.6, 2.4], r: [1.02, 1.14], sz: [1.3, 2] },
     { k: "orbit", n: 10, shape: "dot", c: ["#5EEAD4", "#8FB8FF", "#E6F0FF"], w: [2.2, 3.4], r: [1.14, 1.26], sz: [1.2, 2], tw: 1 },
     { k: "fall", n: 24, shape: "drop", c: ["#5EEAD4", "#8FB8FF", "#E6F0FF"], sp: [80, 130], sz: [1, 1.7], drift: -26, a: 0.75, xWrap: 1, xFade: 8, tailPad: 17 },
@@ -1032,13 +1035,16 @@ export const AURA_ART = {
   // Void moment: an indigo portal spirals open behind the avatar while stars
   // stream out (spec bursts), then spirals shut. Draws only while the moment
   // is live.
-  void: ({ g, cx, cy, rx, ry, w, h, moment, time, unit, reduce }) => {
+  void: ({ g, cx, cy, rx, ry, w, h, mode, moment, time, unit, reduce }) => {
     if (!moment) return null;
     const t = moment.t, R = Math.min(rx, ry);
     const open = t < 0.22 ? t / 0.22 : t < 0.72 ? 1 : Math.max(0, 1 - (t - 0.72) / 0.2);
     const ease = open * open * (3 - 2 * open);
     const lim = Math.min(cx, w - cx, (Math.min(cy, h - cy) * rx) / ry) * 0.92;
-    const pr = Math.min(R * 0.92 * ease, lim);
+    // ring view is the primary view: the portal must be wider than the
+    // photo (ringR ~= R) so its rim and spiral arms swirl out around the
+    // photo edge; on the figure it stays inside the body silhouette
+    const pr = Math.min(R * (mode === "body" ? 0.92 : 1.32) * ease, lim);
     if (pr < 0.5) return null;
     g.save();
     g.translate(cx, cy); g.scale(1, ry / rx);
@@ -1065,6 +1071,89 @@ export const AURA_ART = {
       }
       g.stroke();
     }
+    g.restore();
+    return null;
+  },
+  // Stormborn moment (~3s): two storm-grey/teal clouds fly in around the
+  // aura (main canvas, behind the photo), then a massive teal-white bolt
+  // drops straight down the centre on the over-canvas so the strike reads
+  // clearly at ring size. The wash is spec-gated (noteStrikeFlash, none
+  // under reduced motion); the bolt is a dimmer static stroke when reduced.
+  stormborn: (opts) => {
+    const mo = opts.moment;
+    if (!mo) return null;
+    const { cx, cy, rx, ry, w, h, unit, time, reduce } = opts;
+    const t = mo.t, pad = 3 * unit + 2;
+    if (opts.pass === "main") {
+      const g = opts.g;
+      const inK = Math.min(1, t / 0.22), ease = inK * inK * (3 - 2 * inK);
+      const outK = t > 0.74 ? Math.max(0, 1 - (t - 0.74) / 0.2) : 1;
+      if (ease <= 0 || outK <= 0) return null;
+      // cloud targets hover just off the ring's upper corners; they fly in
+      // from outside the canvas, then drift out on exit
+      const tops = [[-1, "#42506A", "#2E4A54"], [1, "#2E4A54", "#42506A"]];
+      g.save();
+      for (let c = 0; c < 2; c++) {
+        const [side, c0, c1] = tops[c];
+        const drift = reduce ? 0 : Math.sin(time * 0.9 + c * 2.4) * unit * 2;
+        const tx = cx + side * rx * 0.72, ty = cy - ry * 0.52 + side * unit * 2;
+        const px = tx + side * (1 - ease) * (w * 0.62) + side * (1 - outK) * (w * 0.5) + drift;
+        const py = ty + (1 - ease) * -ry * 0.2;
+        const cr = Math.min(rx, ry) * 0.5 * (0.7 + 0.3 * ease);
+        // clouds must never paint across the border: they fade in as their
+        // footprint clears the canvas edge, then fade out on the way back
+        const cl = Math.min(px, w - px, py, h - py) - cr * 1.5;
+        const cA = Math.max(0, Math.min(1, cl / (cr * 0.6)));
+        if (cA <= 0.01) continue;
+        g.globalCompositeOperation = "source-over";
+        g.globalAlpha = 0.85 * ease * outK * cA;
+        for (let bIdx = 0; bIdx < 4; bIdx++) {
+          const bx = px + Math.cos(bIdx * 1.9 + c) * cr * 0.55, by = py + Math.sin(bIdx * 2.3) * cr * 0.3;
+          const br = cr * (0.55 + (bIdx % 2) * 0.3);
+          g.fillStyle = bIdx % 2 ? c0 : c1;
+          g.beginPath(); g.ellipse(bx, by, br, br * 0.62, 0, 0, Math.PI * 2); g.fill();
+        }
+        // teal rim under each cloud — stormborn's teal, not thunder's gold
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = 0.3 * ease * outK * cA;
+        g.fillStyle = "#5EEAD4";
+        g.beginPath(); g.ellipse(px, py + cr * 0.34, cr * 0.8, cr * 0.2, 0, 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
+      return null;
+    }
+    if (opts.pass !== "over") return null;
+    const g = opts.over || opts.g;
+    if (!g) return null;
+    // bolt lives t 0.28-0.62: slams down, holds with a flicker, dies out
+    const bIn = Math.min(1, Math.max(0, (t - 0.28) / 0.03));
+    const bOut = t > 0.5 ? Math.max(0, 1 - (t - 0.5) / 0.12) : 1;
+    const bA = bIn * bOut;
+    if (bA <= 0.01) return null;
+    const flick = reduce ? 0.75 : 0.72 + 0.28 * Math.sin(time * 60) * Math.sin(time * 23);
+    // deterministic zigzag: fixed per-segment jitter, clamped inside margins
+    const haloW = Math.min(11 * unit, pad * 2 - 1);
+    const xPad = pad + haloW / 2 + 1;             // widest stroke's half-width
+    const yTop = pad + haloW / 2, yBot = h - pad - haloW / 2;
+    const pts = [];
+    const segs = 9;
+    for (let i = 0; i <= segs; i++) {
+      const k = i / segs;
+      const j = (i === 0 || i === segs) ? 0 : Math.sin(i * 127.1) * unit * 3.2 * Math.sin(Math.PI * k);
+      pts.push([Math.max(xPad, Math.min(w - xPad, cx + j)), yTop + (yBot - yTop) * k]);
+    }
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    g.lineJoin = "round"; g.lineCap = "round";
+    g.globalAlpha = bA * flick * 0.45;
+    g.strokeStyle = "#5EEAD4"; g.lineWidth = haloW;
+    g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+    g.globalAlpha = bA * flick * 0.9;
+    g.strokeStyle = "#B9FFF4"; g.lineWidth = 3.4 * unit;
+    g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+    g.globalAlpha = bA * flick;
+    g.strokeStyle = "#FFFFFF"; g.lineWidth = 1.1;
+    g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
     g.restore();
     return null;
   },
