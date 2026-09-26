@@ -200,7 +200,7 @@ export const AURA_FX = {
     { k: "orbit", n: 8, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6 },
   ] },
   fallenlight: { spd: 0.9, glow: 0.42, art: "fallenlight",
-    bolts: { every: [0.12, 0.22], calmEvery: [1.2, 2], overlap: 1, flashEvery: 2.4, c: ["#FF4D5A", "#FF8A7A", "#D92B2B"] },
+    bolts: { every: [0.12, 0.22], calmEvery: [1.2, 2], overlap: 1, flashEvery: 2.4, c: ["#FF4D5A", "#FF8A7A", "#D92B2B"], fit: "circle" },
     flare: { every: [4, 8], bolt: 1, anchor: "img:/aura/halo-cracked.webp", flashPeak: 0.34, flashLife: 0.09, flashC: ["#FFEAE0", "#FF7A5A"] },
     moment: { every: [18, 26], dur: 4.2,
       flash: { at: 0.3, flashPeak: 0.55, flashLife: 0.1, flashC: ["#FFEFE8", "#FF8A6A"], anchor: "img:/aura/halo-cracked.webp" },
@@ -260,14 +260,17 @@ export const AURA_FX = {
     { k: "orbit", n: 1, shape: "img", src: "/aura/bone-shard-1.webp", r: [1.18, 1.18], w: [0.05, 0.05], sz: [0.42, 0.42], even: 1, rot: 0.3, spin: 0.01, tremble: 0.012, behind: 1, a: 0.92, blend: "source-over",
       mY: [[0, 0], [0.28, -0.3], [0.5, -0.4], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.28, 0.4], [0.7, 0.9], [0.92, 0], [1, 0]],
       mSpin: [[0, 0], [0.25, 0], [0.5, 3.5], [0.72, 7], [0.88, 1], [1, 0]], mR: [[0, 1], [0.3, 1], [0.55, 0.82], [0.72, 0.72], [0.9, 1], [1, 1]],
+      circle: { mY: [[0, 0], [0.28, -0.2], [0.5, -0.26], [0.85, 0], [1, 0]], mR: [[0, 1], [0.3, 1], [0.55, 0.8], [0.72, 0.76], [0.9, 1], [1, 1]] },
       mFlings: { from: 0.34, to: 0.82, every: 0.09, shape: "smoke", n: 1, c: ["#7CE8A8", "#4ADE80"], spread: 1.4, sp: [4, 16], sz: [3, 5], life: [0.4, 0.7], a: 0.4 } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/bone-shard-2.webp", r: [1.3, 1.3], w: [-0.04, -0.04], sz: [0.5, 0.5], even: 1, rot: -0.15, spin: -0.008, tremble: 0.012, behind: 1, a: 0.9, blend: "source-over",
       mY: [[0, 0], [0.3, -0.26], [0.55, -0.38], [0.86, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.4], [0.7, -0.8], [0.94, 0], [1, 0]],
       mSpin: [[0, 0], [0.28, 0], [0.52, 3.2], [0.74, 6.5], [0.9, 0.8], [1, 0]], mR: [[0, 1], [0.32, 1], [0.58, 0.8], [0.74, 0.7], [0.92, 1], [1, 1]],
-      mFlings: { from: 0.36, to: 0.82, every: 0.1, shape: "smoke", n: 1, c: ["#7CE8A8"], spread: 1.4, sp: [4, 14], sz: [3, 5], life: [0.4, 0.7], a: 0.38 } },
+      mFlings: { from: 0.36, to: 0.82, every: 0.1, shape: "smoke", n: 1, c: ["#7CE8A8"], spread: 1.4, sp: [4, 14], sz: [3, 5], life: [0.4, 0.7], a: 0.38 },
+      circle: { mY: [[0, 0], [0.3, -0.16], [0.55, -0.22], [0.86, 0], [1, 0]], mR: [[0, 1], [0.32, 1], [0.58, 0.74], [0.74, 0.68], [0.92, 1], [1, 1]] } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/bone-shard-3.webp", r: [1.12, 1.12], w: [0.06, 0.06], sz: [0.44, 0.44], even: 1, tremble: 0.012, a: 0.94, over: 1, frontOnly: 1, blend: "source-over",
       mY: [[0, 0], [0.32, -0.28], [0.58, -0.4], [0.88, 0], [1, 0]], mRot: [[0, 0], [0.32, 0.5], [0.72, 1.1], [0.95, 0], [1, 0]],
       mSpin: [[0, 0], [0.26, 0], [0.5, 4], [0.74, 8], [0.9, 1], [1, 0]], mR: [[0, 1], [0.3, 1], [0.56, 0.78], [0.74, 0.68], [0.9, 1], [1, 1]],
+      circle: { mY: [[0, 0], [0.32, -0.18], [0.58, -0.24], [0.88, 0], [1, 0]], mR: [[0, 1], [0.3, 1], [0.56, 0.74], [0.74, 0.66], [0.9, 1], [1, 1]] },
       mFlings: { from: 0.34, to: 0.82, every: 0.09, shape: "smoke", n: 1, c: ["#7CE8A8", "#4ADE80"], spread: 1.4, sp: [4, 16], sz: [3, 5], life: [0.4, 0.7], a: 0.4, over: 1 } },
     { k: "orbit", n: 9, shape: "bonechip", c: ["#F2EAD6", "#D8CDB2", "#B9AE93"], w: [0.1, 0.22], r: [1.06, 1.24], sz: [2, 3.6], a: 0.85,
       mSpin: [[0, 0], [0.3, 0], [0.55, 3], [0.74, 5.5], [0.9, 0.8], [1, 0]] },
@@ -2626,7 +2629,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     // Bolts live ~0.26s and re-stroke the same polyline 3x per frame at
     // different widths — the Path2D and stroke specs are built once here.
     const finish = (pts, c) => {
-      if (fx.bolts.fit) {
+      if (fx.bolts.fit === "circle" ? mode === "circle" : fx.bolts.fit === "body" ? mode === "body" : fx.bolts.fit) {
         // keep every stroke vertex (plus the widest halo's half-width) inside
         // the canvas — small boards would otherwise clip strike ends flat
         const rMax = Math.min(w, h) / 2 - 2 * unit - 1.5;
@@ -2721,7 +2724,33 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   // Optional trailing args let the fling paths aim/place a shower without
   // allocating a spread object per spawn step: absolute origin (absX/absY),
   // cone direction in turns (dir), and target canvas (over).
+  // Earliest time a particle starting at (ox,oy) with velocity (vx,vy) and
+  // downward acceleration g crosses the frame border inset by m. x moves
+  // linearly; y follows oy + vy·t + ½g·t² — solve each wall, take the
+  // smallest positive root.
+  const burstBorderHit = (ox, oy, vx, vy, g, m, w, h) => {
+    let t = Infinity;
+    if (vx > 0) t = Math.min(t, (w - m - ox) / vx);
+    else if (vx < 0) t = Math.min(t, (ox - m) / -vx);
+    for (const target of [m, h - m]) {
+      const c = oy - target;
+      if (Math.abs(g) < 1e-4) {
+        const tt = -c / vy;
+        if (tt > 0 && tt < t) t = tt;
+        continue;
+      }
+      const disc = vy * vy - 2 * g * c;
+      if (disc <= 0) continue;
+      const sq = Math.sqrt(disc);
+      for (const tt of [(-vy + sq) / g, (-vy - sq) / g]) if (tt > 0 && tt < t) t = tt;
+    }
+    return t;
+  };
   const burstFire = (b, absX, absY, dir, over) => {
+    // moment.shake translates the whole paint pass by up to amp·min(rx,ry) —
+    // ring-mode containment margins must reserve that headroom or the shake
+    // pushes clamped geometry into the frame edge anyway.
+    const shakePad = mode === "circle" && fx.moment?.shake ? (fx.moment.shake.amp ?? 0.04) * Math.min(rx, ry) : 0;
     const n = Math.max(1, Math.round((b.n ?? 8) * mScale * (b.nScale ?? 1) * ((over ?? b.over) ? 1 : scale)));
     const ax = absX ?? b.absX, ay = absY ?? b.absY;
     let ox, oy;
@@ -2741,8 +2770,16 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const edge = Math.min(ox, oy, w - ox, h - oy);
         p.len = rnd(...(b.len || [0.6, 0.9])) * Math.max(8, edge * 0.92);
         p.lw = (b.lw ? rnd(...b.lw) : 3) * unit;
+        if (mode === "circle") p.len = Math.min(p.len, Math.max(8, edge - p.lw * 0.5 - 2.5 - shakePad));
       } else if (b.path === "shockring") {
         p.ring = true; p.aspect = b.aspect ?? (b.flat ? 0.16 : ry / rx); p.r = (b.r0 ?? 0.4) * Math.min(rx, ry); p.rv = (b.v ?? 2) * Math.min(rx, ry);
+        if (mode === "circle") {
+          // the ring must never paint across the frame edge — cap its radius
+          // at the nearest border minus the stroke's half-width; it keeps
+          // expanding to that wall and dissolves there instead of clipping
+          const lwH = (b.lw ?? 2) * unit * 0.5 + 2.5 + shakePad, asp = Math.max(p.aspect, 0.05);
+          p.rMax = Math.max(4, Math.min(ox - lwH, w - ox - lwH, (oy - lwH) / asp, (h - oy - lwH) / asp));
+        }
       } else {
         const cone = absX != null || dir != null || b.path === "shower" || b.dir != null;
         const bd = dir ?? b.dir;
@@ -2751,6 +2788,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const v = (b.sp ? rnd(...b.sp) : 70) * unit;
         p.vx = Math.cos(ang) * v; p.vy = Math.sin(ang) * v;
         p.grav = (b.grav ?? 1.8) * 150 * unit;
+        if (mode === "circle") {
+          // objects bigger than a small spark must dissolve before the frame
+          // edge: cap life at the earliest border crossing so they fade out
+          // mid-flight. Only sub-3px specks (sparks, dots, grains) still fly
+          // off — those are the sanctioned moment flings.
+          const half = p.sz * ({ spark: 2.6, dot: 3.4, ember: 4.4, wisp: 2.2, smoke: 2.6, feather: 1.9, leaf: 1.9, shard: 1.7, bonechip: 1.2, sandgrain: 1.5, page: 2.2, crystal: 1.7 }[b.shape] ?? 2.2);
+          if (!(b.shape === "spark" || b.shape === "dot" || b.shape === "sandgrain") || half > 4.5) {
+            const t = burstBorderHit(ox, oy, p.vx, p.vy, p.grav || 0, half + 3 + shakePad, w, h);
+            if (t < p.life) p.life = Math.max(0.06, t);
+          }
+        }
       }
       momentParts.push(p);
     }
@@ -2774,7 +2822,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       } else if (p.ring) {
         ctx.globalAlpha = Math.max(0, a);
         ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(0.7, (p.b.lw ?? 2) * unit * (1 - k * 0.5));
-        ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * p.aspect, 0, 0, Math.PI * 2); ctx.stroke();
+        const rr = p.rMax != null ? Math.min(p.r, p.rMax) : p.r;
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, rr, rr * p.aspect, 0, 0, Math.PI * 2); ctx.stroke();
       } else {
         ctx.globalAlpha = Math.max(0, Math.min(1, a));
         const shape = p.b.shape || "spark";
@@ -2875,6 +2924,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     }
     momentParts.length = wmp;
     api.momentParts = momentParts.length;
+    api._parts = momentParts;
     // Recurring flare (Fallen Light's halo flicker): one gated flash per event,
     // same noteStrikeFlash gate as moment/bolt flashes — <=3/s, none under
     // reduced motion.
