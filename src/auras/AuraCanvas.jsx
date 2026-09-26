@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { hexRgb } from "../theme.js";
 import { AURAS, resolveAuraId } from "./catalog.js";
@@ -449,7 +449,7 @@ export const AURA_FX = {
         mScale: [[0, 0.95], [0.11, 0.78], [0.3, 1.18], [0.58, 1.08], [0.88, 1], [1, 1]] },
       { k: "orbit", n: 4, shape: "feather", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.3, 0.45], r: [1.0, 1.14], sz: [3.8, 5.2], spin: 1, a: 0.95 },
       { k: "orbit", n: 4, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.5, 1], r: [0.98, 1.08], sz: [1.8, 2.8], tw: 1 },
-      { k: "rise", n: 3, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], sp: [10, 18], life: [1.6, 2.6], sz: [1.8, 2.8], sway: 8, tw: 1 },
+      { k: "rise", n: 3, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], sp: [10, 18], life: [1.6, 2.6], sz: [1.8, 2.8], sway: 8, tw: 1, low: 1 },
     ] },
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
@@ -665,17 +665,62 @@ export function loadOphanimSrc() {
   }
   return ophanimPromise;
 }
-export function OphanimWings({ w, h }) {
-  const [src, setSrc] = useState(ophanimSrc);
-  useEffect(() => { loadOphanimSrc().then(setSrc); }, []);
-  const box = { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", objectFit: "contain", pointerEvents: "none", mixBlendMode: "normal" };
-  return (
-    <>
-      <img src={src} alt="" style={{ ...box, width: w * 1.02, height: h * 1.02, opacity: 0.42, animation: "ophspin 20s linear infinite, ophpulse 2.2s ease-in-out infinite" }} />
-      <img src={src} alt="" style={{ ...box, width: w * 0.78, height: h * 0.78, opacity: 0.32, animation: "ophspinrev 11s linear infinite" }} />
-      <img src={src} alt="" style={{ ...box, width: w * 0.86, height: h * 0.86, animation: "ophfloat 4s ease-in-out infinite", filter: "drop-shadow(0 0 10px rgba(255,212,71,.95)) drop-shadow(0 0 14px rgba(125,249,255,.45))" }} />
-    </>
-  );
+// The processed wing art, registered in _auraImageCache under a fixed key so
+// the diff/perf warmups await it like any other aura image.
+const OPH_SRC = "__ophanim";
+export function ophWingRec() {
+  let rec = _auraImageCache.get(OPH_SRC);
+  if (rec) return rec;
+  rec = { img: new Image(), ready: false, failed: false };
+  _auraImageCache.set(OPH_SRC, rec);
+  loadOphanimSrc().then((src) => {
+    // only the processed (white-stripped) art may paint — the raw jpeg's
+    // white field would square off the aura and light the border scan
+    if (typeof src !== "string" || !src.startsWith("data:")) { rec.failed = true; return; }
+    rec.img.onload = () => { rec.ready = true; };
+    rec.img.onerror = () => { rec.failed = true; };
+    rec.img.src = src;
+  });
+  return rec;
+}
+// The wing art reaches the image corners (opaque content out to r=1.31 of
+// the half-size), so each sprite gets a content-space disc mask — rotating
+// copies can then never lay alpha on the canvas border. `echo` is masked
+// tighter: it stays border-safe drawn ~25% past the frame's inscribed circle,
+// which is what lets the moment's wing-expansion bloom out past the wings.
+let _ophSprites = null;
+function ophanimSprites(img) {
+  if (_ophSprites) return _ophSprites;
+  const S = 448, c = S / 2;
+  const bake = (src, r0, r1) => {
+    const cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const g2 = cv.getContext("2d");
+    g2.drawImage(src, 0, 0, S, S);
+    g2.globalCompositeOperation = "destination-in";
+    const mask = g2.createRadialGradient(c, c, c * r0, c, c, c * r1);
+    mask.addColorStop(0, "#000"); mask.addColorStop(1, "rgba(0,0,0,0)");
+    g2.fillStyle = mask; g2.fillRect(0, 0, S, S);
+    return cv;
+  };
+  // fade to a hard zero inside the sprite, so no copy ever carries alpha
+  // past `reach` of the drawn half-size
+  const wing = bake(img, 0.86, 1.0), echo = bake(img, 0.48, 0.7);
+  // hero halo: blurred golden silhouette behind the sharp copy — replaces
+  // the DOM version's per-frame drop-shadow filters with one baked sprite.
+  // Re-masked after blurring so the blur can't bleed alpha to the edge.
+  const glow = document.createElement("canvas"); glow.width = glow.height = S;
+  const gg = glow.getContext("2d");
+  try { gg.filter = `blur(${Math.round(S * 0.03)}px)`; } catch (e) { /* no filter support */ }
+  gg.drawImage(wing, 0, 0);
+  try { gg.filter = "none"; } catch (e) { /* reset best-effort */ }
+  gg.globalCompositeOperation = "source-in";
+  gg.fillStyle = "#FFD447"; gg.fillRect(0, 0, S, S);
+  gg.globalCompositeOperation = "destination-in";
+  const gm = gg.createRadialGradient(c, c, c * 0.82, c, c, c * 0.96);
+  gm.addColorStop(0, "#000"); gm.addColorStop(1, "rgba(0,0,0,0)");
+  gg.fillStyle = gm; gg.fillRect(0, 0, S, S);
+  _ophSprites = { wing, glow, echo };
+  return _ophSprites;
 }
 export function glowSprite(color) {
   if (_glowCache.has(color)) return _glowCache.get(color);
@@ -1267,6 +1312,39 @@ export const AURA_ART = {
     g.save(); g.strokeStyle = `rgba(236,72,153,${Math.sin(k * Math.PI)})`; g.lineWidth = Math.max(0.8, unit);
     for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * rx * 1.35, cy + Math.sin(a) * ry * 1.35); g.lineTo(cx + rx * 0.18, cy - ry * 0.12); g.stroke(); }
     g.restore();
+  },
+  // Ascended's wings, drawn on the aura canvas — they used to be three DOM
+  // <img>s behind the canvas (OphanimWings): invisible to pixel diffs, edge
+  // scans and frame timing, and frozen in the gallery where App.jsx's
+  // keyframes never mount. Same art, same motion — 20s spin, 11s counter-
+  // spin, 4s rock — driven by wall clock so the speeds match the old CSS.
+  ophanim: ({ g, clock, cx, cy, w, h, reduce }) => {
+    const rec = ophWingRec();
+    if (!rec?.ready || rec.failed) return null;
+    const spr = ophanimSprites(rec.img);
+    const m = Math.min(w, h);
+    const t = reduce ? 1.7 : clock;
+    // per-copy edge safety: sprite content reaches `reach` of the drawn
+    // half-size, so side + vertical shift must stay short of the border
+    const draw = (img, reach, k, rot, dyF, alpha) => {
+      const dy0 = dyF * m;
+      const d = Math.min(m * k, (m / 2 - Math.abs(dy0) - 2) * 2 / reach);
+      if (d <= 4 || alpha <= 0.01) return;
+      const dy = Math.sign(dy0) * Math.min(Math.abs(dy0), m / 2 - reach * d / 2 - 2);
+      g.save(); g.translate(cx, cy + dy); g.rotate(rot);
+      g.globalAlpha = Math.min(1, alpha);
+      g.drawImage(img, -d / 2, -d / 2, d, d); g.restore();
+    };
+    // ophpulse 2.2s: opacity .35 -> .7 on the big spinner
+    const pulse = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 2.2));
+    draw(spr.wing, 1.0, 1.02, t * (Math.PI / 10), 0, 0.35 + 0.35 * pulse);
+    draw(spr.wing, 1.0, 0.78, -t * (Math.PI * 2 / 11), 0, 0.32);
+    // ophfloat 4s: rock -7deg -> 7deg, lift 8% of the img, scale +6%
+    const rock = reduce ? -1 : Math.sin(t * (Math.PI / 2) - Math.PI / 2);
+    const rk = 0.5 + 0.5 * rock, cw = 0.8 * (1 + 0.06 * rk);
+    draw(spr.glow, 0.97, cw, rock * 0.122, -0.08 * cw * rk, 0.6);
+    draw(spr.wing, 1.0, cw, rock * 0.122, -0.08 * cw * rk, 0.95);
+    return null;
   },
   // Ascended "ascension": a soft-edged pillar of light rises from the ring's
   // base through the photo; the white-hot leading edge climbs then holds,
@@ -2414,6 +2492,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   }
   if (aura === "brandmark") { auraImage("/aura/cape.webp"); auraImage("/aura/brand.png"); auraImage("/aura/pauldron.webp"); }
   if (aura === "ledger") { auraImage("/aura/robe-ledger.webp"); auraImage("/aura/mask-ledger.webp"); }
+  if (fx.art === "ophanim") ophWingRec();
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
   const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
@@ -3640,7 +3719,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
   ) : null;
   return (
     <div aria-hidden="true" className="absolute pointer-events-none" style={{ width: w, height: h, zIndex: 0, ...style }}>
-      {aura === "ascended" && <OphanimWings w={w} h={h} />}
+
       <canvas ref={ref} className="absolute pointer-events-none" style={{ left: 0, top: 0, width: w, height: h }} />
       {children ? <div className="absolute pointer-events-none" style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 1 }}>{children}</div> : null}
       {needs && overSlot ? createPortal(overCanvas, overSlot) : overCanvas}

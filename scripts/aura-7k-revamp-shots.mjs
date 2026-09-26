@@ -81,6 +81,11 @@ const res = await page.evaluate(async ({ auras, FRAMES }) => {
   const out = {};
   const stats = {};
   for (const aura of auras) {
+    // register + warm lazy images (ophanim wings, img layers) so captures
+    // match what users see — frames run synchronously, so loading needs a
+    // real wait between makeAura and the captures
+    render(aura, "circle", 141, 141, 5, false);
+    for (let t = 0; t < 400; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
     const cells = {};
     for (const f of FRAMES) {
       const rd = render(aura, "circle", 141, 141, f, false);
