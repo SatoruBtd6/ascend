@@ -470,28 +470,25 @@ export const AURA_FX = {
       { k: "fall", n: 7, shape: "drop", c: ["#C2001F", "#7A0018"], sp: [26, 44], drift: 1.5, sz: [0.9, 1.6], blend: "source-over", a: 0.9 },
       { k: "orbit", n: 6, shape: "spark", c: ["#E4E8F2", "#FFFFFF"], w: [1.6, 2.4], r: [1, 1.18], sz: [1.1, 1.9], even: 1 },
     ] },
-  // Living Wheel: wheels inside wheels — two counter-rotating eye rings and
-  // an outer gem ring around the photo. Moment: the wheels spin up to a blur
-  // (mSpin) and every eye snaps open blazing (mScale), then settles.
-  wheel: { spd: 0.9, glow: 1,
+  // Living Wheel: wheels inside wheels — two counter-rotating rings of big
+  // ornate golden eyes (wheel-eye.webp, baked by AURA_ART.wheel) laced with
+  // glowing veins, around an outer gem ring. Moment: the wheel spins up
+  // faster and faster and heats like an overworked brake disc — dull red
+  // creeping rim-to-hub through orange to blazing gold — then cools back.
+  // The heat is a slow ramp driven by moment.t in the art, never a flash;
+  // the peak releases brake sparks and a heat shockring.
+  wheel: { spd: 0.9, glow: 1, art: "wheel",
     rings: [{ r: 1.34, c: "#7DF9FF", spin: -0.06, a: 0.75, w: 1.2, dash: 1 }, { r: 1.16, c: "#FFD447", spin: 0.09, a: 0.96, w: 3.2, filigree: 10, ink: 1 }, { r: 0.98, c: "#FFFFFF", spin: -0.14, a: 0.7, w: 1 }],
-    moment: { every: [16, 24], dur: 4,
-      flash: { at: 0.62, flashPeak: 0.4, flashLife: 0.1, flashC: ["#FFF6C9", "#7DF9FF"], anchor: "center" },
-      shake: { at: 0.62, amp: 0.03, dur: 0.5 },
+    moment: { every: [16, 24], dur: 4.4,
+      shake: { at: 0.7, amp: 0.022, dur: 0.4 },
       bursts: [
-        { at: 0.62, path: "shockring", c: "#FFD447", a: 0.8, lw: 2.6, r0: 0.9, v: 1.2, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
-        { at: 0.62, path: "radial", shape: "star", n: 8, c: ["#FFF6C9", "#FFD447", "#7DF9FF"], anchor: "center", sp: [40, 100], sz: [1.6, 2.8], life: [0.9, 1.5], a: 0.9, over: 1 },
-        { at: 0.64, path: "radial", shape: "gem", n: 6, c: ["#FFD447", "#7DF9FF"], anchor: "center", sp: [30, 70], sz: [1.8, 2.8], life: [1, 1.6], a: 0.9, over: 1 },
+        { at: 0.66, path: "radial", shape: "spark", n: 8, c: ["#FF6A1E", "#FFB43C", "#FFD447"], anchor: "center", sp: [45, 95], sz: [1.2, 2], life: [0.4, 0.75], a: 0.9, over: 1, nScale: 0.4, fit: 1 },
+        { at: 0.71, path: "radial", shape: "ember", n: 8, c: ["#FFD447", "#FFF6C9", "#FF8A3D"], anchor: "center", sp: [30, 80], sz: [1.6, 2.6], life: [0.8, 1.4], a: 0.85, over: 1, nScale: 0.5, fit: 1 },
+        { at: 0.7, path: "shockring", c: "#FFD447", a: 0.65, lw: 2.2, r0: 0.85, v: 2.6, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1, fit: 1 },
       ] },
     layers: [
-      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 8, glyphS: 0.85, c: ["#FFFFFF"], w: [0.22, 0.22], r: [0, 0], sz: [1.08, 1.08], even: 1, a: 0.95,
-        mSpin: [[0, 0], [0.12, 0], [0.4, 3.5], [0.62, 7], [0.8, 0], [1, 0]],
-        mScale: [[0, 0.9], [0.5, 0.9], [0.6, 0.82], [0.68, 1.18], [0.82, 1.1], [0.95, 1], [1, 1]] },
-      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 5, glyphS: 0.9, c: ["#7DF9FF"], w: [-0.4, -0.4], r: [0, 0], sz: [0.94, 0.94], even: 1, dir: -1, a: 0.9,
-        mSpin: [[0, 0], [0.12, 0], [0.4, 3.5], [0.62, 7], [0.8, 0], [1, 0]],
-        mScale: [[0, 0.9], [0.52, 0.9], [0.62, 0.82], [0.7, 1.18], [0.84, 1.08], [0.96, 1], [1, 1]] },
       { k: "orbit", n: 1, shape: "glyphring", glyph: "gem", ringN: 9, glyphS: 0.8, c: ["#FFD447"], w: [-0.14, -0.14], r: [0, 0], sz: [1.14, 1.14], even: 1, dir: -1, a: 0.9,
-        mSpin: [[0, 0], [0.12, 0], [0.4, 2.5], [0.62, 5], [0.8, 0], [1, 0]] },
+        mSpin: [[0, 0], [0.15, 0], [0.45, 2.5], [0.7, 5.5], [0.88, 0.8], [1, 0]] },
       { k: "orbit", n: 4, shape: "star", c: ["#FFF6C9", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.28], sz: [1.5, 2.4], tw: 1 },
       { k: "inward", n: 4, shape: "dot", c: ["#FFD447", "#FFFFFF"], sp: [0.5, 1], life: [1.4, 2.4], sz: [1.5, 2.4] },
     ] },
@@ -726,6 +723,100 @@ function ophanimSprites(img) {
   gg.fillStyle = gm; gg.fillRect(0, 0, S, S);
   _ophSprites = { wing, glow, echo };
   return _ophSprites;
+}
+// Living Wheel eye art: public/aura/wheel-eye.webp is an ornate golden eye
+// on a black field — black adds nothing under "lighter" compositing, so the
+// webp bakes straight into ring sprites. Two counter-rotating rings of big
+// eyes with glowing vein arcs baked along them, a slow-drifting vein web
+// bridging the annulus, and "hot" variants (ember glow behind each eye,
+// hotter veins) for the brake-disc heat moment. If the webp fails, the
+// eyes fall back to a small procedural eye so the aura never goes bare.
+const WHEEL_EYE_SRC = "/aura/wheel-eye.webp";
+let _wheelSp = null;
+function wheelSprites() {
+  if (_wheelSp) return _wheelSp;
+  const rec = auraImage(WHEEL_EYE_SRC);
+  if (!rec.ready && !rec.failed) return null;
+  const S = 288, c = S / 2, img = rec.ready ? rec.img : null;
+  const eye = (g2, x, y, rot, ew, eh) => {
+    g2.save(); g2.translate(x, y); g2.rotate(rot);
+    if (img) g2.drawImage(img, -ew / 2, -eh / 2, ew, eh);
+    else {
+      g2.fillStyle = "#F4FBFF"; g2.beginPath(); g2.ellipse(0, 0, ew / 2, eh / 2, 0, 0, Math.PI * 2); g2.fill();
+      g2.strokeStyle = "#FFD447"; g2.lineWidth = Math.max(1.5, eh * 0.09); g2.stroke();
+      g2.fillStyle = "#B8860B"; g2.beginPath(); g2.arc(0, 0, eh * 0.26, 0, Math.PI * 2); g2.fill();
+      g2.fillStyle = "#180D04"; g2.beginPath(); g2.arc(0, 0, eh * 0.12, 0, Math.PI * 2); g2.fill();
+    }
+    g2.restore();
+  };
+  // wobbling vein arc between neighbouring glyphs along the ring, plus
+  // short radial veinlets — two passes: a wide dim vessel, a thin hot core
+  const veinArcs = (g2, n, ro, seed, boost) => {
+    for (let i = 0; i < n; i++) {
+      const a0 = (i / n) * Math.PI * 2 + seed, span = Math.PI * 2 / n;
+      for (const [wpx, col, al] of [[5.5, "#6B2410", 0.5], [1.7, "#FFB43C", 0.4 + 0.35 * boost]]) {
+        g2.strokeStyle = col; g2.globalAlpha = al; g2.lineWidth = wpx; g2.lineCap = "round";
+        g2.beginPath();
+        for (let s = 0; s <= 6; s++) {
+          const aa = a0 + span * (0.14 + 0.72 * (s / 6)), rr = ro * (1 + Math.sin(s * 2.3 + i * 1.7) * 0.045);
+          s ? g2.lineTo(Math.cos(aa) * rr, Math.sin(aa) * rr) : g2.moveTo(Math.cos(aa) * rr, Math.sin(aa) * rr);
+        }
+        g2.stroke();
+        const am = a0 + span * (0.3 + 0.4 * ((i * 0.37) % 1));
+        const x0 = Math.cos(am) * ro * 0.99, y0 = Math.sin(am) * ro * 0.99;
+        g2.beginPath(); g2.moveTo(x0, y0);
+        g2.quadraticCurveTo(Math.cos(am + 0.1) * ro * 1.1, Math.sin(am + 0.1) * ro * 1.1, Math.cos(am + 0.16) * ro * 1.18, Math.sin(am + 0.16) * ro * 1.18);
+        g2.stroke();
+      }
+    }
+    g2.globalAlpha = 1;
+  };
+  const ring = (n, ro, ew, eh, hot) => {
+    const cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const g2 = cv.getContext("2d"); g2.translate(c, c);
+    veinArcs(g2, n, ro, hot ? 0.5 : 0, hot ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, ex = Math.cos(a) * ro, ey = Math.sin(a) * ro;
+      if (hot) {
+        g2.globalCompositeOperation = "lighter";
+        const grd = g2.createRadialGradient(ex, ey, 1, ex, ey, ew * 0.7);
+        grd.addColorStop(0, "rgba(255,140,40,0.8)"); grd.addColorStop(1, "rgba(255,60,10,0)");
+        g2.fillStyle = grd; g2.beginPath(); g2.arc(ex, ey, ew * 0.7, 0, Math.PI * 2); g2.fill();
+        g2.globalCompositeOperation = "source-over";
+      }
+      eye(g2, ex, ey, a + Math.PI / 2, ew, eh);
+    }
+    return cv;
+  };
+  // vein web bridging the rings: S-curve strands crossing the annulus with
+  // an occasional cross-link, on its own drift phase so it reads alive
+  const web = (hot) => {
+    const cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const g2 = cv.getContext("2d"); g2.translate(c, c); g2.lineCap = "round";
+    for (let i = 0; i < 10; i++) {
+      const a0 = (i / 10) * Math.PI * 2 + i * 0.37, sw = (i % 2 ? 1 : -1) * 0.3;
+      for (const [wpx, col, al] of [[4.5, "#6B2410", 0.45], [1.4, "#FFB43C", 0.35 + 0.4 * (hot ? 1 : 0)]]) {
+        g2.strokeStyle = col; g2.globalAlpha = al; g2.lineWidth = wpx;
+        g2.beginPath();
+        g2.moveTo(Math.cos(a0) * 52, Math.sin(a0) * 52);
+        g2.bezierCurveTo(Math.cos(a0 + sw) * 78, Math.sin(a0 + sw) * 78, Math.cos(a0 - sw) * 98, Math.sin(a0 - sw) * 98, Math.cos(a0 + sw * 0.4) * 124, Math.sin(a0 + sw * 0.4) * 124);
+        g2.stroke();
+      }
+    }
+    g2.globalAlpha = 1;
+    return cv;
+  };
+  _wheelSp = {
+    out: ring(7, 104, 64, 34, false), outHot: ring(7, 104, 64, 34, true),
+    inner: ring(5, 70, 52, 28, false), inHot: ring(5, 70, 52, 28, true),
+    web: web(false), webHot: web(true),
+    // orbit radius / content reach, as fractions of the drawn half-size —
+    // draw code uses them to place the eye orbits and clamp to the border
+    oO: 104 / 144, rO: (104 + 18) / 144,
+    oI: 70 / 144, rI: (70 + 15) / 144,
+    oW: 82 / 144, rW: 128 / 144,
+  };
+  return _wheelSp;
 }
 export function glowSprite(color) {
   if (_glowCache.has(color)) return _glowCache.get(color);
@@ -1398,6 +1489,79 @@ export const AURA_ART = {
     hg.addColorStop(1, "rgba(255,214,90,0)");
     c.fillStyle = hg; c.beginPath(); c.arc(cx, hy, hr, 0, Math.PI * 2); c.fill();
     c.restore();
+  },
+  // Living Wheel: the baked eye rings (big ornate golden eyes + vein arcs),
+  // the vein web between them, and the brake-disc heat moment. Heat is a
+  // slow ramp — dull red at the rim creeping inward through orange to
+  // blazing gold at the peak, then cooling — driven by moment.t, never a
+  // flash. Rings spin up on per-instance accumulated phases so the speed-up
+  // is smooth and settles without an angular snap.
+  wheel: ({ pass, g, time, cx, cy, rx, ry, w, h, moment, reduce, cc }) => {
+    if (pass !== "main") return null;
+    const spr = wheelSprites();
+    if (!spr) return null;
+    const R = Math.min(rx, ry);
+    const mt = !reduce && moment ? moment.t : null;
+    const dt = Math.max(0, Math.min(0.12, time - (cc._wt ?? time)));
+    cc._wt = time;
+    // extra rad/s layered over each ring's base spin through the moment
+    const boost = mt == null ? 0 : (keyAt([[0, 0], [0.15, 0], [0.35, 1.6], [0.52, 5], [0.68, 9], [0.8, 3], [0.9, 0.6], [1, 0]], mt) || 0);
+    cc._phO = (cc._phO || 0) + (reduce ? 0.05 : 0.19 + boost) * dt;
+    cc._phI = (cc._phI || 0) - (reduce ? 0.04 : 0.27 + boost * 1.15) * dt;
+    // brake-disc heat: level drives colour (dull red -> orange -> gold),
+    // front drives the rim->inward creep of the hot zone
+    const heat = mt == null ? 0 : (keyAt([[0, 0], [0.14, 0], [0.4, 0.45], [0.58, 0.8], [0.68, 1], [0.78, 1], [0.92, 0.35], [1, 0]], mt) || 0) * (reduce ? 0.5 : 1);
+    const front = keyAt([[0, 1.28], [0.16, 1.28], [0.4, 1.1], [0.56, 0.95], [0.68, 0.8], [1, 0.8]], mt ?? 0);
+    const clear = Math.min(cx, w - cx, cy, h - cy);
+    g.save(); g.globalCompositeOperation = "lighter";
+    // hot zone = radii past `front`; a brighter ridge rides the front line
+    if (heat > 0.02) {
+      const col = heat < 0.4 ? [110 + heat * 275 | 0, 12 + heat * 55 | 0, 6]
+        : heat < 0.75 ? [232 + (heat - 0.4) * 60 | 0, 90 + (heat - 0.4) * 140 | 0, 25]
+          : [255, 140 + (heat - 0.75) * 400 | 0, 60];
+      const rIn = Math.max(2, (front - 0.05) * rx), rOut = 1.32 * rx;
+      g.save(); g.translate(cx, cy); g.scale(1, ry / rx);
+      let grd = g.createRadialGradient(0, 0, rIn, 0, 0, rOut);
+      grd.addColorStop(0, `rgba(${col.join(",")},0)`);
+      grd.addColorStop(0.22, `rgba(${col.join(",")},${0.5 * heat})`);
+      grd.addColorStop(0.75, `rgba(${col.join(",")},${0.34 * heat})`);
+      grd.addColorStop(1, `rgba(${col.join(",")},0)`);
+      g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rOut, 0, Math.PI * 2); g.fill();
+      // the front line is the brightest — the visible edge of the heat
+      // creep; skipped at board size where it can't resolve anyway
+      if (Math.min(w, h) >= 110) {
+        grd = g.createRadialGradient(0, 0, Math.max(1, rIn - rx * 0.04), 0, 0, rIn + rx * 0.09);
+        grd.addColorStop(0, `rgba(${col.join(",")},0)`);
+        grd.addColorStop(0.55, `rgba(${col.join(",")},${0.5 * heat})`);
+        grd.addColorStop(1, `rgba(${col.join(",")},0)`);
+        g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rIn + rx * 0.09, 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
+    }
+    const put = (img, orbitF, reachF, orbitR, rot, alpha) => {
+      if (alpha <= 0.01) return;
+      const half = Math.min(orbitR / orbitF, (clear - 1.5) / reachF);
+      if (half < 6) return;
+      g.save(); g.translate(cx, cy); g.rotate(rot); g.globalAlpha = Math.min(1, alpha);
+      g.drawImage(img, -half, -half, half * 2, half * 2);
+      g.restore();
+    };
+    const small = Math.min(w, h) < 110;
+    const veinPulse = reduce ? 0.55 : 0.5 + 0.3 * Math.sin(time * 1.9) * Math.sin(time * 0.7 + 2);
+    // vein web drifting between the rings, then the two eye rings; the web
+    // blurs to noise at board size — skip it there and save the draws
+    if (!small) put(spr.web, spr.oW, spr.rW, R * 1.04, (reduce ? 0.4 : time * 0.13), 0.4 + veinPulse * 0.35 + heat * 0.3);
+    put(spr.inner, spr.oI, spr.rI, R * 0.95, cc._phI, 0.92);
+    put(spr.out, spr.oO, spr.rO, R * 1.06, cc._phO, 0.95);
+    // hot passes: ember-lit eyes + hotter veins as the disc heats up
+    const hk = Math.min(1, Math.max(0, (heat - 0.25) / 0.6));
+    if (hk > 0.01) {
+      if (!small) put(spr.webHot, spr.oW, spr.rW, R * 1.04, (reduce ? 0.4 : time * 0.13), hk * 0.7);
+      if (!small) put(spr.inHot, spr.oI, spr.rI, R * 0.95, cc._phI, hk * 0.75);
+      put(spr.outHot, spr.oO, spr.rO, R * 1.06, cc._phO, hk * 0.8);
+    }
+    g.restore();
+    return null;
   },
   // Ninetail: nine foxtail.webp tails as one tight, TALL bunch rising from
   // a single root — like a real fox's brush, not a spread fan. ~60deg total
@@ -2516,6 +2680,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   if (aura === "brandmark") { auraImage("/aura/cape.webp"); auraImage("/aura/brand.png"); auraImage("/aura/pauldron.webp"); }
   if (aura === "ledger") { auraImage("/aura/robe-ledger.webp"); auraImage("/aura/mask-ledger.webp"); }
   if (fx.art === "ophanim") ophWingRec();
+  if (fx.art === "wheel") auraImage(WHEEL_EYE_SRC);
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
   const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
