@@ -49,7 +49,15 @@ export const AURA_FX = {
     { k: "rise", n: 22, shape: "star", c: ["#FFFFFF", "#7DF9FF"], sp: [12, 26], life: [1.2, 2.2], sz: [1.6, 3.2], sway: 4, tw: 1 },
     { k: "orbit", n: 18, shape: "spark", c: ["#FFFFFF", "#7DF9FF"], w: [0.8, 1.6], r: [1, 1.28], sz: [1.2, 2.2] },
   ] },
-  smolder: { spd: 1.1, glow: 0.6, layers: [{ k: "rise", n: 10, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [8, 16], life: [2.2, 3.4], sz: [8, 15], sway: 8, a: 0.35, blend: "source-over" }, { k: "rise", n: 26, shape: "ash", c: ["#FF6A2B", "#FFB070", "#FF8A3D"], sp: [12, 26], life: [1.4, 2.6], sz: [1.3, 2.3], sway: 12, flick: 1 }, { k: "orbit", n: 8, shape: "dot", c: ["#C2361A", "#FF6A2B"], w: [0.25, 0.45], r: [0.98, 1.08], sz: [2.2, 4], tw: 1 }] },
+  // Smoldering Ember: banked coals, not open fire — big dim orb cores
+  // glow like lanterns around the ring, slow heavy embers rise through
+  // dark smoke, ash drifts down. Deep red, heavy, low-key.
+  smolder: { spd: 0.8, glow: 0.55, layers: [
+    { k: "orbit", n: 6, shape: "orb", c: ["#C2361A", "#FF6A2B", "#7A1E0E"], w: [0.08, 0.18], r: [1.0, 1.14], sz: [3.6, 5.2], tw: 1, a: 0.9, circle: { r: [0.9, 1.02], sz: [3, 4.2] } },
+    { k: "rise", n: 14, shape: "ember", c: ["#FF6A2B", "#C2361A", "#FFB070"], sp: [7, 15], life: [2.2, 3.4], sz: [1.4, 2.4], sway: 8, a: 0.8, low: 1, circle: { sway: 3, life: [1.7, 2.5] } },
+    { k: "rise", n: 8, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [6, 12], life: [2.6, 4], sz: [8, 14], sway: 8, a: 0.35, blend: "source-over", low: 1, circle: { n: 0, a: 0 } },
+    { k: "fall", n: 8, shape: "ash", c: ["#8A6A5C", "#5A4A44"], sp: [8, 16], sz: [1.2, 2], drift: 6, a: 0.6, xWrap: 1, xFade: 8 },
+  ] },
   // Stormborn: a wind-and-rain runner — teal-green, everything drives
   // sideways: rain streaks fall with heavy drift, comet streaks whip around
   // the ring, and a fast drop orbit reads as speed lines. Signature: comets.
@@ -62,8 +70,23 @@ export const AURA_FX = {
     { k: "fall", n: 24, shape: "drop", c: ["#5EEAD4", "#8FB8FF", "#E6F0FF"], sp: [80, 130], sz: [1, 1.7], drift: -26, a: 0.75, xWrap: 1, xFade: 8, tailPad: 17 },
     { k: "orbit", n: 5, shape: "wisp", c: ["#34D3BE", "#8FB8FF"], w: [0.9, 1.4], r: [0.9, 1.05], sz: [2.4, 3.6], a: 0.5 },
   ] },
-  dawn: { spd: 1, glow: 0.62, rays: { n: 9, c: "#FFB978", spin: 0.1, len: 1.4, a: 0.2, fan: 1 }, layers: [{ k: "rise", n: 18, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFE9C2"], sp: [10, 20], life: [1.6, 2.8], sz: [1.5, 2.8], sway: 6, tw: 1 }] },
-  wanderer: { spd: 0.95, glow: 0.4, layers: [{ k: "orbit", n: 14, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.5, 0.95], r: [1, 1.28], sz: [2.6, 4.2], wave: 0.12 }, { k: "rise", n: 10, shape: "dot", c: ["#E0B872", "#F3DDB0"], sp: [8, 16], life: [1.5, 2.6], sz: [1.3, 2.4], sway: 10, a: 0.75 }] },
+  // Dawnbreaker: a sunrise behind the ring — warm gold rays fan upward
+  // out from under the photo, soft-pink comet motes ride the edge and
+  // white-gold sparkles twinkle. Hopeful, bright, gentle.
+  dawn: { spd: 0.9, glow: 0.9, rays: { n: 11, c: "#FFC94D", spin: 0.06, len: 1.42, a: 0.24, fan: 1, fit: 1 }, layers: [
+    { k: "orbit", n: 6, shape: "comet", c: ["#FFC94D", "#FF9EBB", "#FFE9C2"], w: [0.5, 0.9], r: [1.04, 1.16], sz: [1.4, 2], a: 0.9 },
+    { k: "orbit", n: 10, shape: "sparkle", c: ["#FFF6D8", "#FFC94D", "#FF9EBB"], w: [0.3, 0.7], r: [1.06, 1.24], sz: [1.2, 2], tw: 1 },
+    { k: "rise", n: 14, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFB3C1"], sp: [10, 20], life: [1.6, 2.8], sz: [1.4, 2.6], sway: 6, tw: 1, low: 1 },
+  ] },
+  // Wanderer: a forest journey — autumn leaves orbit and drift down,
+  // firefly moths blink around the edge, soft wisp trails curl up on
+  // the figure. Warm leaf greens and harvest gold.
+  wanderer: { spd: 0.85, glow: 0.5, layers: [
+    { k: "orbit", n: 10, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.3, 0.6], r: [1.04, 1.24], sz: [2.6, 4], wave: 0.1, spin: 0.5 },
+    { k: "fall", n: 8, shape: "leaf", c: ["#7BC96F", "#C98A4B", "#E0B872"], sp: [14, 26], sz: [2.4, 3.6], drift: 10, spin: 1, a: 0.85, xWrap: 1, xFade: 8 },
+    { k: "orbit", n: 7, shape: "moth", c: ["#F3DDB0", "#E0B872", "#FFF6D8"], w: [0.4, 0.8], r: [1.1, 1.26], sz: [1.6, 2.4], tw: 1 },
+    { k: "rise", n: 5, shape: "wisp", c: ["#7BC96F", "#A7D96C"], sp: [5, 10], life: [2.6, 3.8], sz: [3.5, 5.5], sway: 10, a: 0.4, circle: { n: 0, a: 0 } },
+  ] },
   standardbearer: { spd: 0.85, glow: 0.5, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", r: [0.5, 0.5], w: [0, 0], sz: [1.95, 1.95], even: 1, at: 0.75, y: 0.38, wobble: 0.035, bob: 1, a: 0.95, behind: 1, blend: "source-over" },
     { k: "rise", n: 7, shape: "ember", c: ["#FF6A3C", "#C2001F", "#E8C56A"], sp: [10, 20], life: [1.8, 3], sz: [0.9, 1.7], sway: 9, a: 0.6 },
@@ -262,7 +285,15 @@ export const AURA_FX = {
     { k: "orbit", n: 8, shape: "spark", c: ["#FFE9A8", "#FFFFFF"], w: [2.4, 3.6], r: [1.1, 1.24], sz: [1.2, 2] },
     { k: "rise", n: 5, shape: "smoke", c: ["#232B3A", "#3A3226"], sp: [4, 9], life: [2.6, 3.8], sz: [4, 7], sway: 8, a: 0.4, blend: "source-over", circle: { n: 0, a: 0 } },
   ] },
-  hollow: { spd: 1.2, glow: 0.52, layers: [{ k: "orbit", n: 16, shape: "chainlink", c: ["#9AA7BD", "#DDE6F2", "#FFFFFF"], w: [0.35, 0.7], r: [1, 1.26], sz: [3.2, 5.2] }, { k: "rise", n: 10, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [6, 12], life: [1.8, 3], sz: [7, 13], sway: 6, a: 0.25, blend: "source-over" }] },
+  // Hollow Steel: spectral chains — two counter-rotating runs of
+  // sharp-edged chainlinks in cold steel blue, ghost mist drifting off
+  // the figure and pale spectral glints. Hollow, cold, haunted.
+  hollow: { spd: 1.1, glow: 0.5, layers: [
+    { k: "orbit", n: 10, shape: "chainlink", c: ["#9AA7BD", "#DDE6F2"], w: [0.3, 0.55], r: [1.04, 1.18], sz: [3, 4.6] },
+    { k: "orbit", n: 8, shape: "chainlink", c: ["#7C8AA0", "#B9C6DA"], w: [-0.5, -0.28], r: [1.16, 1.3], sz: [2.4, 3.8], a: 0.85 },
+    { k: "rise", n: 8, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [5, 10], life: [2.4, 3.6], sz: [7, 13], sway: 7, a: 0.3, blend: "source-over", low: 1, circle: { n: 0, a: 0 } },
+    { k: "orbit", n: 6, shape: "sparkle", c: ["#DDE6F2", "#8FB8FF"], w: [0.6, 1.1], r: [1.08, 1.24], sz: [1, 1.8], tw: 1, a: 0.7 },
+  ] },
   deep: { spd: 1.4, glow: 0.58, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.18, 1.18], w: [0, 0], sz: [1, 1], even: 1, at: 0.38, rot: 0.1, wobble: 0.09, a: 0.85, behind: 1, blend: "source-over" },
     { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.1, 1.1], w: [0, 0], sz: [0.8, 0.8], even: 1, at: 0.62, rot: -0.16, flip: 1, wobble: 0.07, a: 0.62, behind: 1, blend: "source-over" },
@@ -271,7 +302,15 @@ export const AURA_FX = {
     { k: "inward", n: 8, shape: "dot", c: ["#2F6BFF", "#00D9FF"], sp: [0.35, 0.65], life: [1.5, 2.4], sz: [1.3, 2.6] },
   ] },
   magma: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [18, 38], life: [0.7, 1.4], sz: [3.2, 7], sway: 4, a: 0.88 }, { k: "rise", n: 12, shape: "ember", c: ["#FFE08A", "#FF5A1F"], sp: [28, 55], life: [0.5, 1], sz: [1, 1.8], sway: 12 }] },
-  plague: { spd: 1.25, glow: 0.48, layers: [{ k: "rise", n: 12, shape: "smoke", c: ["#8BC34A", "#5E8C2A"], sp: [7, 14], life: [1.8, 3], sz: [7, 13], sway: 8, a: 0.3 }, { k: "bubble", n: 14, c: ["#C6F07A", "#8BC34A"], sp: [12, 22], life: [1.1, 2.2], sz: [1.8, 3.8] }] },
+  // Plague: a toxic bloom — sickly acid-green bubbles rising through a
+  // low chemical haze, pale moth motes drifting at the edge. Dirty
+  // yellow-green — nothing like wanderer's warm forest greens.
+  plague: { spd: 0.7, glow: 0.45, layers: [
+    { k: "orbit", n: 8, shape: "smoke", c: ["#3E5F1A", "#5E8C2A", "#2C4210"], w: [0.04, 0.1], r: [0.5, 0.95], sz: [9, 14], a: 0.5, blend: "source-over", circle: { r: [0.35, 0.7], sz: [5, 9], n: 6 } },
+    { k: "bubble", n: 12, c: ["#C6F07A", "#8BC34A", "#E4FF9A"], sp: [8, 16], life: [1.6, 2.8], sz: [2.2, 4.4], low: 1, circle: { sp: [6, 12], life: [1.2, 2.1] } },
+    { k: "orbit", n: 8, shape: "moth", c: ["#C6F07A", "#8BC34A", "#D8E8A0"], w: [0.25, 0.5], r: [1.08, 1.22], sz: [1.5, 2.4], tw: 1, a: 0.75 },
+    { k: "orbit", n: 6, shape: "orb", c: ["#8BC34A", "#5E8C2A"], w: [0.15, 0.3], r: [1.02, 1.12], sz: [2.2, 3.4], tw: 1, a: 0.7 },
+  ] },
   sand: { spd: 1.65, glow: 0.46, layers: [{ k: "orbit", n: 40, shape: "sandgrain", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.6, 2.8], r: [0.9, 1.38], sz: [1, 2], wave: 0.2, a: 0.92 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [22, 40], sz: [1.2, 2.2], drift: 16, spin: 1 }] },
   // Void is the starfield aura: a deep indigo/midnight field with a dense
   // constellation of white and pale-gold stars and shooting-star comets —
