@@ -110,15 +110,16 @@ export const AURA_FX = {
       { at: 0.84, path: "shower", shape: "sandgrain", n: 8, c: ["#F4E3B2", "#E8C878"], anchor: "head", y: -0.1, dir: -0.25, sp: [15, 45], spread: 0.9, sz: [1.2, 2.2], life: [0.6, 1], grav: 1.8, a: 0.8, over: 1 },
     ] },
     // ring view: the sphere sprite sits over the photo centre, so the ring
-    // gets shockrings that start at the photo edge and debris that flies
-    // farther — same colours, timing and flash as the figure view.
+    // burst is rebuilt as a ring of shattered stone and sand — shards and
+    // grains blast out around the photo edge, a sand-brown shockwave sweeps
+    // past it. Same timing and flash as the figure view.
     circle: { moment: { bursts: [
-      { at: 0.72, path: "beams", n: 12, nScale: 0.5, c: ["#FFFDF2", "#FFF6D8", "#F0D090"], a: 0.95, lw: [2.4, 4.6], len: [0.8, 1.05], life: [0.42, 0.62], anchor: "center", over: 1 },
-      { at: 0.72, path: "shockring", c: "#FFF3D0", a: 1, lw: 4, r0: 0.9, v: 1.9, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
-      { at: 0.74, path: "shockring", c: "#E8C878", a: 0.7, lw: 2, r0: 0.8, v: 1.5, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
-      { at: 0.72, path: "radial", shape: "shard", n: 10, c: ["#D9DEE7", "#9AA3B2", "#F4E3B2"], anchor: "center", sp: [130, 260], sz: [2.5, 4.5], life: [0.7, 1.2], grav: 2.6, a: 0.95, over: 1 },
+      { at: 0.72, path: "beams", n: 12, nScale: 0.5, c: ["#FFF6D8", "#F0D090", "#E8C878"], a: 0.95, lw: [2.4, 4.6], len: [0.8, 1.05], life: [0.42, 0.62], anchor: "center", over: 1 },
+      { at: 0.72, path: "shockring", c: "#C89B5A", a: 0.9, lw: 3.6, r0: 0.9, v: 1.9, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
+      { at: 0.74, path: "shockring", c: "#9AA3B2", a: 0.7, lw: 2, r0: 0.8, v: 1.5, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
+      { at: 0.72, path: "radial", shape: "shard", n: 14, c: ["#D9DEE7", "#9AA3B2", "#6B7280"], anchor: "center", sp: [130, 260], sz: [2.4, 4.4], life: [0.7, 1.2], grav: 2.6, a: 0.95, over: 1 },
       { at: 0.72, path: "radial", shape: "smoke", n: 20, c: ["#F4E3B2", "#D9B87A", "#B08D57"], anchor: "center", sp: [45, 110], sz: [5, 10], life: [0.9, 1.5], grav: 0.3, a: 0.7, over: 1 },
-      { at: 0.72, path: "radial", shape: "sandgrain", n: 14, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "center", sp: [90, 190], sz: [1.4, 2.6], life: [0.6, 1], grav: 2.4, a: 0.9, over: 1 },
+      { at: 0.72, path: "radial", shape: "sandgrain", n: 18, c: ["#F4E3B2", "#E8C878", "#C89B5A"], anchor: "center", sp: [90, 200], sz: [1.4, 2.6], life: [0.6, 1], grav: 2.4, a: 0.9, over: 1 },
       { at: 0.84, path: "shower", shape: "sandgrain", n: 8, c: ["#F4E3B2", "#E8C878"], anchor: "head", y: -0.1, dir: -0.25, sp: [15, 45], spread: 0.9, sz: [1.2, 2.2], life: [0.6, 1], grav: 1.8, a: 0.8, over: 1 },
     ] } }, art: "atlas", layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/stone-sphere.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: -0.4, spin: 0.02, tremble: 0.008, a: 0.98, blend: "source-over",
@@ -148,14 +149,14 @@ export const AURA_FX = {
       { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1 },
     ] },
     // ring view: the forge strike anchors at the ground below-right, hidden
-    // behind the photo's lower rim — the ring adds a centred shockring that
-    // sweeps out around the photo edge plus wider sparks.
+    // behind the photo's lower rim — the ring adds a molten-gold splash of
+    // heavy droplets and fast anvil sparks spraying out around the photo edge.
     circle: { moment: { bursts: [
       { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1 },
       { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1 },
       { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.9, lw: 3, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "ground", x: 0.75, flat: 1, over: 1 },
-      { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.85, lw: 2.6, r0: 0.9, v: 1.6, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
-      { at: 0.26, path: "radial", shape: "spark", n: 10, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "center", sp: [60, 140], sz: [0.9, 1.6], life: [0.5, 0.9], grav: 1.4, a: 0.9, over: 1 },
+      { at: 0.26, path: "radial", shape: "ember", n: 12, c: ["#FFD447", "#FF9340", "#FFF6C9"], anchor: "center", sp: [55, 120], sz: [1.8, 3], life: [0.8, 1.4], grav: 2.4, a: 0.95, over: 1 },
+      { at: 0.26, path: "radial", shape: "spark", n: 12, c: ["#FFF6C9", "#FFD447"], anchor: "center", sp: [90, 190], sz: [0.9, 1.5], life: [0.4, 0.8], grav: 1.6, a: 0.9, over: 1 },
       { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1 },
     ] } }, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", r: [1.35, 1.35], w: [0, 0], sz: [1.1, 1.1], even: 1, at: 0.79, rot: 0.12, wobble: 0.02, a: 0.97, over: 1, blend: "source-over",
@@ -178,14 +179,15 @@ export const AURA_FX = {
         { at: 0.34, path: "shockring", c: "#FF8A6A", a: 0.7, lw: 2, r0: 0.1, v: 1.3, life: [0.5, 0.5], anchor: "img:/aura/halo-cracked.webp", aspect: 0.35, over: 1 },
       ] },
       // ring view: the halo anchor sits at the photo's top edge, so the snap
-      // mostly hides behind the photo — the ring adds a centred ring+debris
-      // burst in the same ember palette so the snap reads around the edge.
+      // mostly hides behind the photo — the ring scatters feathers and
+      // ember-red halo shards out around the whole photo edge.
       circle: { moment: { bursts: [
         { at: 0.3, path: "beams", n: 10, nScale: 0.5, c: ["#FFEFE0", "#FFB08A", "#FF6A5A"], a: 0.9, lw: [2, 3.6], len: [0.7, 0.95], life: [0.4, 0.6], anchor: "img:/aura/halo-cracked.webp", over: 1 },
         { at: 0.3, path: "radial", shape: "shard", n: 14, c: ["#E8B04B", "#C0453A", "#FF6A5A"], anchor: "img:/aura/halo-cracked.webp", sp: [80, 160], sz: [1.8, 3.4], life: [0.7, 1.2], grav: 1.6, a: 0.95, over: 1 },
-        { at: 0.3, path: "shockring", c: "#FF8A6A", a: 0.85, lw: 2.6, r0: 0.85, v: 1.7, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.3, path: "radial", shape: "shard", n: 10, c: ["#E8B04B", "#C0453A", "#FF6A5A"], anchor: "center", sp: [90, 180], sz: [1.6, 3], life: [0.7, 1.2], grav: 1.2, a: 0.95, over: 1 },
         { at: 0.3, path: "radial", shape: "ember", n: 8, c: ["#FF5A3C", "#C0392B", "#FF8A5A"], anchor: "center", sp: [70, 140], sz: [0.9, 1.6], life: [0.8, 1.4], grav: 0.8, a: 0.9, over: 1 },
         { at: 0.34, path: "shower", shape: "feather", n: 12, c: ["#C9B8A0", "#9A8878", "#6B5A4C"], anchor: "img:/aura/halo-cracked.webp", dir: 0.25, spread: 0.75, sp: [20, 60], sz: [1.4, 2.4], life: [1.6, 2.6], grav: 0.5, a: 0.9, over: 1 },
+        { at: 0.34, path: "radial", shape: "feather", n: 8, c: ["#C9B8A0", "#FF8A5A", "#9A8878"], anchor: "center", sp: [30, 80], sz: [1.4, 2.4], life: [1.4, 2.4], grav: 0.4, a: 0.9, over: 1 },
         { at: 0.34, path: "shower", shape: "ember", n: 10, c: ["#FF5A3C", "#C0392B", "#FF8A5A"], anchor: "img:/aura/halo-cracked.webp", dir: 0.25, spread: 0.7, sp: [15, 55], sz: [0.9, 1.6], life: [1.2, 2], grav: 0.7, a: 0.9, over: 1 },
         { at: 0.34, path: "shockring", c: "#FF8A6A", a: 0.7, lw: 2, r0: 0.1, v: 1.3, life: [0.5, 0.5], anchor: "img:/aura/halo-cracked.webp", aspect: 0.35, over: 1 },
       ] } }, layers: [
@@ -210,12 +212,12 @@ export const AURA_FX = {
         { at: 0.3, path: "shower", shape: "shard", n: 6, c: ["#E8E0CC", "#7CE8A8"], anchor: "img:/aura/crown-bone.webp", dir: -0.25, spread: 0.35, sp: [50, 110], sz: [1.8, 3.2], life: [0.9, 1.4], grav: 1.3, a: 0.85, over: 1 },
       ] },
       // ring view: the crown anchor sits above the photo top, so only the
-      // upper trails show — the ring adds a green ring sweep and bone chips
-      // radiating around the photo edge in the same palette.
+      // upper trails show — the ring bursts into a ring of bone chips with
+      // green soul-fire wisps swirling out around the photo edge.
       circle: { moment: { bursts: [
         { at: 0.28, path: "shower", shape: "bonechip", n: 12, c: ["#F2EAD6", "#D8CDB2", "#9FE8B8"], anchor: "img:/aura/crown-bone.webp", dir: -0.25, spread: 0.5, sp: [80, 160], sz: [1.6, 3], life: [0.9, 1.5], grav: 1.4, a: 0.9, over: 1 },
-        { at: 0.28, path: "shockring", c: "#7CE8A8", a: 0.8, lw: 2.4, r0: 0.85, v: 1.7, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
-        { at: 0.28, path: "radial", shape: "bonechip", n: 8, c: ["#F2EAD6", "#9FE8B8", "#7CE8A8"], anchor: "center", sp: [70, 150], sz: [1.4, 2.6], life: [0.8, 1.3], grav: 0.9, a: 0.9, over: 1 },
+        { at: 0.28, path: "radial", shape: "bonechip", n: 14, c: ["#F2EAD6", "#D8CDB2", "#9FE8B8"], anchor: "center", sp: [70, 160], sz: [1.4, 2.8], life: [0.8, 1.4], grav: 0.9, a: 0.95, over: 1 },
+        { at: 0.28, path: "radial", shape: "wisp", n: 10, c: ["#7CE8A8", "#9FE8B8", "#4ADE80"], anchor: "center", sp: [45, 110], sz: [2.6, 4.6], life: [0.9, 1.6], grav: -0.3, a: 0.8, over: 1 },
         { at: 0.3, path: "shower", shape: "shard", n: 6, c: ["#E8E0CC", "#7CE8A8"], anchor: "img:/aura/crown-bone.webp", dir: -0.25, spread: 0.35, sp: [50, 110], sz: [1.8, 3.2], life: [0.9, 1.4], grav: 1.3, a: 0.85, over: 1 },
       ] } }, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/crown-bone.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.62, 0.62], even: 1, hover: -0.62, wobble: 0.03, a: 0.97, blend: "source-over",
@@ -463,13 +465,13 @@ export const AURA_FX = {
         { at: 0.76, path: "radial", shape: "page", n: 6, c: ["#E8E0CC", "#C9BFA8"], anchor: "center", x: -0.34, y: 1.02, sp: [35, 85], sz: [1.6, 3], life: [0.9, 1.5], grav: 0.5, a: 0.9, over: 1 },
       ] },
     // ring view: the robe flash anchors below-left of the photo — the ring
-    // adds a centred crimson ring and a page flutter that scatters around
-    // the photo edge, same colours and timing.
+    // gets the seal-stamp: a fat crimson ring stamps around the photo edge
+    // while torn pages fly out around it.
     circle: { moment: { bursts: [
       { at: 0.76, path: "shockring", c: "#C2001F", a: 0.9, lw: 2.4, r0: 0.1, v: 2.3, life: [0.5, 0.5], anchor: "center", x: -0.34, y: 1.02, aspect: 1, over: 1 },
-      { at: 0.76, path: "shockring", c: "#C2001F", a: 0.85, lw: 2.2, r0: 0.9, v: 1.5, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
+      { at: 0.76, path: "shockring", c: "#C2001F", a: 0.85, lw: 3.4, r0: 0.9, v: 1.2, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
       { at: 0.76, path: "radial", shape: "page", n: 6, c: ["#E8E0CC", "#C9BFA8"], anchor: "center", x: -0.34, y: 1.02, sp: [35, 85], sz: [1.6, 3], life: [0.9, 1.5], grav: 0.5, a: 0.9, over: 1 },
-      { at: 0.76, path: "radial", shape: "page", n: 8, c: ["#E8E0CC", "#C9BFA8"], anchor: "center", sp: [55, 120], sz: [1.4, 2.6], life: [1, 1.6], grav: 0.4, a: 0.9, over: 1 },
+      { at: 0.76, path: "radial", shape: "page", n: 10, c: ["#E8E0CC", "#C9BFA8", "#C2001F"], anchor: "center", sp: [55, 130], sz: [1.4, 2.8], life: [1, 1.7], grav: 0.4, a: 0.9, over: 1 },
     ] } },
     layers: [
       { k: "rise", n: 16, shape: "smoke", c: ["#12040a", "#26070e", "#3B0B13"], sp: [5, 12], life: [3, 5.5], sz: [7, 14], sway: 9, blend: "source-over", a: 0.4 },

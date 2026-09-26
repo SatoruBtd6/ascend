@@ -91,6 +91,9 @@ Ring-first composition; board-32 and figure share the same spec.
 - **Flashes:** only through `noteStrikeFlash` (≤ 3/s page-wide, none under
   reduced motion). No whole-aura brightness oscillation faster than 3/s.
   Staggered per-particle twinkle is fine.
+- **Moment bursts are individual:** every moment's burst is built from that
+  aura's own motifs and colours. No shared generic white shockring or white
+  wash. Any wash is tinted to the aura.
 - **Edge scan = 0** at ring, board-32, and figure — except transient burst
   debris (moment flings). Bolt strikes are **not** debris: set
   `bolts.fit: 1` so strike vertices clamp inside the canvas (verified
