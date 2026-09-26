@@ -294,6 +294,7 @@ function installAlphaDocument() {
         drawImage: (img) => { sampled = img; },
         getImageData: () => { calls.reads += 1; return { data: sampled.alphaData }; },
         createRadialGradient: () => ({ addColorStop() {} }),
+        createLinearGradient: () => ({ addColorStop() {} }),
       }, {
         get: (target, key) => key in target ? target[key] : () => {},
         set: (target, key, value) => { target[key] = value; return true; },

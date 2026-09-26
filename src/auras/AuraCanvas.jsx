@@ -273,7 +273,19 @@ export const AURA_FX = {
       mSpin: [[0, 0], [0.3, 0], [0.55, 3], [0.74, 5.5], [0.9, 0.8], [1, 0]] },
     { k: "rise", n: 10, shape: "smoke", c: ["#9FE8B8", "#6FBF8F"], sp: [10, 20], life: [1.6, 2.8], sz: [5, 9], sway: 10, a: 0.28, blend: "source-over" },
   ] },
-  wyrm: { spd: 1.5, glow: 0.64, layers: [{ k: "orbit", n: 24, shape: "shard", c: ["#3DF08A", "#B6FFD9", "#FFD447"], w: [1.1, 2], r: [0.94, 1.22], sz: [2.6, 4.6] }, { k: "rise", n: 16, shape: "ember", c: ["#3DF08A", "#FFD447"], sp: [22, 48], life: [0.7, 1.4], sz: [1.2, 2.1], sway: 12 }] },
+  // Wyrmfire: a dragon coiling around the ring — iron-grey scale shards
+  // and crystals ride two counter-rotating coil bands while small blue-hot
+  // flame tongues lick along the coil; orange ember tips ride the outer
+  // edge. Blue-hot, not ember-orange — and scaly, not inferno's one flame.
+  wyrm: { spd: 1.4, glow: 0.75, layers: [
+    { k: "orbit", n: 10, shape: "crystal", c: ["#8A94A6", "#5F6878", "#DDE6F2"], w: [0.5, 0.9], r: [1.06, 1.24], sz: [2.4, 3.8], spin: 0.4, circle: { n: 7 } },
+    { k: "orbit", n: 8, shape: "shard", c: ["#5F6878", "#3A4250", "#9AA3B2"], w: [-0.65, -0.4], r: [1.1, 1.28], sz: [2, 3.2], spin: 0.6, a: 0.9, circle: { n: 6 } },
+    // procedural flame is per-frame path work — at board size keep only a
+    // few small tongues; the coil reads through the scale shards anyway
+    { k: "orbit", n: 5, shape: "flame", c: ["#7CC4FF", "#38BDF8", "#BFE8FF"], w: [0.4, 0.7], r: [0.98, 1.12], sz: [2.4, 3.4], wave: 0.08, tongues: [3, 4], flicker: 0.5, a: 0.85, circle: { n: 3, sz: [0.045, 0.07], tongues: [2, 3] } },
+    { k: "rise", n: 10, shape: "ember", c: ["#38BDF8", "#7CC4FF", "#FF8A3C"], sp: [14, 26], life: [1, 1.8], sz: [1.1, 1.9], sway: 10, low: 1, circle: { n: 7, sway: 3, sz: [1, 1.6], sp: [12, 20], life: [0.8, 1.4] } },
+    { k: "orbit", n: 6, shape: "ember", c: ["#FF8A3C", "#FFB43C"], w: [0.6, 1], r: [1.16, 1.28], sz: [1, 1.7], tw: 1, a: 0.9, circle: { r: [1.1, 1.22] } },
+  ] },
   // Frostbite: sharp, aggressive ice — deep blue and white, jagged crystal
   // shards that periodically burst outward off the ring (eject), fast
   // ice-spark streaks and a dark glacial core. Calm snow belongs to
@@ -304,7 +316,7 @@ export const AURA_FX = {
       mSpin: [[0, 0], [0.15, 0.6], [0.5, 4], [0.75, 7], [0.85, 0], [1, 0]], mR: [[0, 1], [0.5, 1], [0.72, 0.6], [0.8, 0.22], [0.92, 1], [1, 1]] },
     { k: "rise", n: 8, shape: "wisp", c: ["#B14BFF", "#6A00FF"], sp: [8, 16], life: [1.6, 2.6], sz: [3, 5], sway: 8, a: 0.5, circle: { n: 0, a: 0 } },
   ] },
-  chud: { spd: 1, glow: 0.48, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.55, 0.55], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "rise", n: 10, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over" }] },
+  chud: { spd: 1, glow: 0.5, layers: [{ k: "orbit", n: 5, shape: "emoji", e: ["🍔", "🍟", "🍔", "🥤", "🍔"], w: [0.55, 0.55], r: [1.14, 1.14], sz: [0.2, 0.2], bob: 1, even: 1 }, { k: "rise", n: 10, shape: "smoke", c: ["#E9D9A6", "#C9B98A"], sp: [8, 14], life: [1.6, 2.6], sz: [4, 8], sway: 8, a: 0.35, blend: "source-over", low: 1, circle: { n: 6, sz: [2.5, 5], sway: 2, sp: [6, 10], life: [1.2, 2] } }] },
   rust: { spd: 1.35, glow: 0.95, rings: [{ r: 1.14, c: "#C7743A", spin: -0.04, a: 0.55, w: 2, dash: 1 }, { r: 1.08, c: "#F0B07A", spin: 0.05, a: 0.2, w: 10 }], layers: [
     { k: "orbit", n: 10, shape: "square", c: ["#C7743A", "#E39A5E", "#8B4513"], w: [0.8, 1.4], r: [1.04, 1.16], sz: [3, 4.4], spin: 1 },
     { k: "orbit", n: 8, shape: "sandgrain", c: ["#FFB86B", "#FF7A2D", "#F0B07A"], w: [1.4, 2.4], r: [1.1, 1.26], sz: [1.6, 2.4], tw: 1 },
@@ -330,14 +342,30 @@ export const AURA_FX = {
     { k: "rise", n: 8, shape: "smoke", c: ["#8A94A6", "#5F6878"], sp: [5, 10], life: [2.4, 3.6], sz: [7, 13], sway: 7, a: 0.3, blend: "source-over", low: 1, circle: { n: 0, a: 0 } },
     { k: "orbit", n: 6, shape: "sparkle", c: ["#DDE6F2", "#8FB8FF"], w: [0.6, 1.1], r: [1.08, 1.24], sz: [1, 1.8], tw: 1, a: 0.7 },
   ] },
-  deep: { spd: 1.4, glow: 0.58, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.18, 1.18], w: [0, 0], sz: [1, 1], even: 1, at: 0.38, rot: 0.1, wobble: 0.09, a: 0.85, behind: 1, blend: "source-over" },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.1, 1.1], w: [0, 0], sz: [0.8, 0.8], even: 1, at: 0.62, rot: -0.16, flip: 1, wobble: 0.07, a: 0.62, behind: 1, blend: "source-over" },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.22, 1.22], w: [0, 0], sz: [0.65, 0.65], even: 1, at: 0.08, rot: 0.28, wobble: 0.08, a: 0.5, behind: 1, blend: "source-over" },
-    { k: "bubble", n: 18, c: ["#9BE7FF", "#00D9FF", "#6FA0FF"], sp: [14, 28], life: [1.3, 2.5], sz: [1.8, 5] },
-    { k: "inward", n: 8, shape: "dot", c: ["#2F6BFF", "#00D9FF"], sp: [0.35, 0.65], life: [1.5, 2.4], sz: [1.3, 2.6] },
+  // The Deep: abyssal ocean — dark navy field, the tentacle art stays, and
+  // around it bioluminescent cyan/violet motes pulse like jellyfish while
+  // bubbles rise slowly through the dark. Clearly darker and colder than
+  // tide's bright surf.
+  deep: { spd: 1.05, glow: 0.42, dark: 1, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.18, 1.18], w: [0, 0], sz: [1, 1], even: 1, at: 0.38, rot: 0.1, wobble: 0.09, a: 0.75, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.1, 1.1], w: [0, 0], sz: [0.8, 0.8], even: 1, at: 0.62, rot: -0.16, flip: 1, wobble: 0.07, a: 0.55, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/tentacle.webp", r: [1.22, 1.22], w: [0, 0], sz: [0.65, 0.65], even: 1, at: 0.08, rot: 0.28, wobble: 0.08, a: 0.45, behind: 1, blend: "source-over" },
+    { k: "orbit", n: 9, shape: "orb", c: ["#00E5CC", "#B9A8E8", "#38C6FF"], w: [0.15, 0.35], r: [1.02, 1.22], sz: [2, 3.6], wave: 0.14, tw: 1, a: 0.8 },
+    { k: "orbit", n: 6, shape: "moth", c: ["#7CC4FF", "#B9A8E8"], w: [0.2, 0.45], r: [1.08, 1.26], sz: [1.6, 2.4], tw: 1, a: 0.7 },
+    { k: "bubble", n: 10, c: ["#6FA0FF", "#00B8D9", "#9BE7FF"], sp: [7, 14], life: [2.2, 3.6], sz: [1.6, 4], low: 1 },
+    { k: "inward", n: 6, shape: "dot", c: ["#2F6BFF", "#00B8D9"], sp: [0.3, 0.55], life: [1.6, 2.6], sz: [1.2, 2.2], a: 0.7 },
   ] },
-  magma: { spd: 1.55, glow: 0.72, layers: [{ k: "rise", n: 24, shape: "dot", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [18, 38], life: [0.7, 1.4], sz: [3.2, 7], sway: 4, a: 0.88 }, { k: "rise", n: 12, shape: "ember", c: ["#FFE08A", "#FF5A1F"], sp: [28, 55], life: [0.5, 1], sz: [1, 1.8], sway: 12 }] },
+  // Magma: liquid lava, not flame — fat molten orbs crawl slowly around the
+  // ring, black cracked rock shards ride counter to them, heavy lava drips
+  // sag down and a few hot flecks spark off. Thick and heavy, everything
+  // slow.
+  magma: { spd: 0.9, glow: 0.7, layers: [
+    { k: "orbit", n: 7, shape: "orb", c: ["#FFD447", "#FFB43C", "#FF8A2B"], w: [0.12, 0.25], r: [1.0, 1.16], sz: [4.5, 7], tw: 1, a: 0.95, circle: { r: [0.94, 1.04], sz: [3, 4.2] } },
+    { k: "orbit", n: 8, shape: "shard", c: ["#1A1210", "#2E2620", "#4A3226"], w: [-0.3, -0.15], r: [1.08, 1.26], sz: [2.2, 3.6], a: 0.9, circle: { sz: [1.8, 3], r: [1.02, 1.16] } },
+    { k: "rise", n: 8, shape: "orb", c: ["#FF5A1F", "#FFB43C", "#FFD447"], sp: [4, 9], life: [2.5, 4], sz: [3, 5], sway: 4, a: 0.9, low: 1, circle: { sz: [2, 3.2], sway: 2 } },
+    { k: "fall", n: 5, shape: "drop", c: ["#FF5A1F", "#FFD447"], sp: [6, 12], sz: [1.4, 2.2], drift: 2, a: 0.9, tailPad: 40, circle: { n: 3 } },
+    { k: "rise", n: 6, shape: "ember", c: ["#FF8A3C", "#FFD447"], sp: [10, 20], life: [1.4, 2.4], sz: [0.9, 1.6], sway: 8, a: 0.8, low: 1, circle: { n: 4, sway: 3, sp: [8, 14], life: [1.1, 1.8] } },
+  ] },
   // Plague: a toxic bloom — sickly acid-green bubbles rising through a
   // low chemical haze, pale moth motes drifting at the edge. Dirty
   // yellow-green — nothing like wanderer's warm forest greens.
@@ -347,7 +375,16 @@ export const AURA_FX = {
     { k: "orbit", n: 8, shape: "moth", c: ["#C6F07A", "#8BC34A", "#D8E8A0"], w: [0.25, 0.5], r: [1.08, 1.22], sz: [1.5, 2.4], tw: 1, a: 0.75 },
     { k: "orbit", n: 6, shape: "orb", c: ["#8BC34A", "#5E8C2A"], w: [0.15, 0.3], r: [1.02, 1.12], sz: [2.2, 3.4], tw: 1, a: 0.7 },
   ] },
-  sand: { spd: 1.65, glow: 0.46, layers: [{ k: "orbit", n: 40, shape: "sandgrain", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.6, 2.8], r: [0.9, 1.38], sz: [1, 2], wave: 0.2, a: 0.92 }, { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [22, 40], sz: [1.2, 2.2], drift: 16, spin: 1 }] },
+  // Sandstorm: golden sand sweeping the ring in two counter-rotating arcs,
+  // a low tan dust haze, and buried-gold crystal glints winking through
+  // the storm.
+  sand: { spd: 1.65, glow: 0.5, layers: [
+    { k: "orbit", n: 36, shape: "sandgrain", c: ["#E8C872", "#B8860B", "#F6E3A8"], w: [1.6, 2.8], r: [0.9, 1.38], sz: [1, 2], wave: 0.2, a: 0.92, circle: { n: 28 } },
+    { k: "orbit", n: 14, shape: "sandgrain", c: ["#F6E3A8", "#E8C872"], w: [-1.9, -1.2], r: [1.0, 1.3], sz: [0.9, 1.7], wave: 0.26, a: 0.8, circle: { n: 10 } },
+    { k: "orbit", n: 6, shape: "crystal", c: ["#FFD447", "#FFF3C9", "#C9962E"], w: [0.3, 0.6], r: [1.08, 1.24], sz: [1.8, 2.8], tw: 1, circle: { n: 4 } },
+    { k: "orbit", n: 4, shape: "smoke", c: ["#D9B87A", "#C9A86A"], w: [0.2, 0.4], r: [0.7, 1.1], sz: [7, 11], a: 0.25, blend: "source-over", circle: { n: 3, sz: [4, 7] } },
+    { k: "fall", n: 12, shape: "square", c: ["#E8C872", "#C9962E"], sp: [22, 40], sz: [1.2, 2.2], drift: 16, spin: 1, xWrap: 1, xFade: 10, circle: { n: 6, sz: [1, 1.8] } },
+  ] },
   // Void is the starfield aura: a deep indigo/midnight field with a dense
   // constellation of white and pale-gold stars and shooting-star comets —
   // bright, not dark-banded, and clearly different from abyss's violet
@@ -369,7 +406,7 @@ export const AURA_FX = {
     { k: "orbit", n: 6, shape: "dot", c: ["#7C8FE8", "#B9C8FF", "#FFFFFF"], w: [1.4, 2.4], r: [1.1, 1.22], sz: [1.2, 2], tw: 1 },
     { k: "orbit", n: 3, shape: "comet", c: ["#FFFFFF", "#FFE9A8", "#7C8FE8"], w: [0.9, 1.5], r: [1.05, 1.16], sz: [1.2, 1.7] },
   ] },
-  yogurt: { spd: 0.95, glow: 0.42, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.5, 0.5], r: [1.14, 1.14], sz: [0.18, 0.18], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.8, 3.6] }] },
+  yogurt: { spd: 0.95, glow: 0.45, layers: [{ k: "orbit", n: 3, shape: "emoji", e: ["🥣", "🥛", "🥣"], w: [0.5, 0.5], r: [1.14, 1.14], sz: [0.2, 0.2], bob: 1, even: 1 }, { k: "bubble", n: 12, c: ["#FFFFFF", "#FFF8E7"], sp: [8, 16], life: [1.4, 2.6], sz: [1.8, 3.6], low: 1, circle: { sp: [4, 8], life: [0.9, 1.4], sz: [1.6, 3] } }] },
   // Vendetta moment (~3.5s): an obsidian skull flies in and grows large in
   // front of the avatar (over-canvas), its sockets ignite to glowing red on
   // a ramp, it spews a roaring crimson-orange flame stream through the
