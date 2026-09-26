@@ -52,11 +52,26 @@ export const AURA_FX = {
   // Smoldering Ember: banked coals, not open fire — big dim orb cores
   // glow like lanterns around the ring, slow heavy embers rise through
   // dark smoke, ash drifts down. Deep red, heavy, low-key.
-  smolder: { spd: 0.8, glow: 0.55, layers: [
-    { k: "orbit", n: 6, shape: "orb", c: ["#C2361A", "#FF6A2B", "#7A1E0E"], w: [0.08, 0.18], r: [1.0, 1.14], sz: [3.6, 5.2], tw: 1, a: 0.9, circle: { r: [0.9, 1.02], sz: [3, 4.2] } },
-    { k: "rise", n: 14, shape: "ember", c: ["#FF6A2B", "#C2361A", "#FFB070"], sp: [7, 15], life: [2.2, 3.4], sz: [1.4, 2.4], sway: 8, a: 0.8, low: 1, circle: { sway: 3, life: [1.7, 2.5] } },
-    { k: "rise", n: 8, shape: "smoke", c: ["#5A4A44", "#3A302C"], sp: [6, 12], life: [2.6, 4], sz: [8, 14], sway: 8, a: 0.35, blend: "source-over", low: 1, circle: { n: 0, a: 0 } },
-    { k: "fall", n: 8, shape: "ash", c: ["#8A6A5C", "#5A4A44"], sp: [8, 16], sz: [1.2, 2], drift: 6, a: 0.6, xWrap: 1, xFade: 8 },
+  // Smoldering Ember: a ring of cracked coals that breathe slowly brighter
+  // and dimmer like wind on embers — deep reds, dark rock, heavy smoke,
+  // drifting ash storms and a faint heat shimmer. Signature moment:
+  // "flare-up" — the coals erupt into roaring flame tongues around the
+  // ring, then sink back to a smoulder.
+  smolder: { spd: 0.8, glow: 0.62, art: "smolder", moment: {
+    every: [24, 32], dur: 3.2,
+    flash: { at: 0.3, flashPeak: 0.42, flashLife: 0.14, flashC: ["#FFB070", "#C2361A"], anchor: "center" },
+    shake: { at: 0.3, amp: 0.09, dur: 0.4 },
+    bursts: [
+      { at: 0.3, path: "radial", shape: "ember", n: 9, c: ["#FF6A2B", "#FFB070", "#FFF3C9"], anchor: "center", sp: [60, 130], sz: [1.2, 2.2], life: [0.9, 1.5], grav: -0.4, a: 0.95, over: 1 },
+      { at: 0.32, path: "radial", shape: "dot", n: 5, c: ["#8A6A5C", "#5A4A44"], anchor: "center", sp: [45, 100], sz: [1.4, 2.4], life: [1, 1.6], grav: 0.3, a: 0.8, over: 1 },
+    ] }, layers: [
+    { k: "rise", n: 13, shape: "ember", c: ["#FF6A2B", "#C2361A", "#FFB070"], sp: [8, 17], life: [2, 3.2], sz: [1.5, 2.6], sway: 8, a: 0.85, low: 1, circle: { n: 6, sway: 2, life: [1.5, 2.2], sz: [1.2, 1.9], sp: [7, 13] } },
+    { k: "rise", n: 8, shape: "smoke", c: ["#5A4A44", "#3A302C", "#6B5550"], sp: [6, 12], life: [2.6, 4.2], sz: [9, 15], sway: 8, a: 0.4, blend: "source-over", low: 1, circle: { n: 2, sz: [3, 4.5], a: 0.28, life: [1.8, 2.8], sway: 2 } },
+    // board tiles can't resolve the ash blob texture — soft dots cost a
+    // fraction of the shadowBlur path and read identically at 2 px
+    { k: "orbit", n: 9, shape: "ash", c: ["#9A7A68", "#5A4A44", "#C9A893"], w: [0.5, 0.95], r: [1.06, 1.28], sz: [1.3, 2.4], wave: 0.14, a: 0.65, circle: { n: 4, shape: "dot" } },
+    { k: "fall", n: 7, shape: "ash", c: ["#8A6A5C", "#5A4A44"], sp: [9, 18], sz: [1.2, 2], drift: 8, a: 0.65, xWrap: 1, xFade: 8, circle: { n: 3, shape: "dot" } },
+    { k: "rise", n: 4, shape: "wisp", c: ["#FF8A5A", "#C2361A"], sp: [10, 18], life: [1.6, 2.6], sz: [2.4, 3.6], sway: 12, a: 0.28, low: 1, circle: { n: 2, sway: 3, sz: [1.6, 2.4], life: [1.2, 1.8] } },
   ] },
   // Stormborn: a wind-and-rain runner — teal-green, everything drives
   // sideways: rain streaks fall with heavy drift, comet streaks whip around
@@ -78,13 +93,32 @@ export const AURA_FX = {
     { k: "orbit", n: 10, shape: "sparkle", c: ["#FFF6D8", "#FFC94D", "#FF9EBB"], w: [0.3, 0.7], r: [1.06, 1.24], sz: [1.2, 2], tw: 1 },
     { k: "rise", n: 14, shape: "dot", c: ["#FFD36B", "#FF8A5B", "#FFB3C1"], sp: [10, 20], life: [1.6, 2.8], sz: [1.4, 2.6], sway: 6, tw: 1, low: 1 },
   ] },
-  // Wanderer: a forest journey — autumn leaves orbit and drift down,
-  // firefly moths blink around the edge, soft wisp trails curl up on
-  // the figure. Warm leaf greens and harvest gold.
-  wanderer: { spd: 0.85, glow: 0.5, layers: [
-    { k: "orbit", n: 10, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#E0B872"], w: [0.3, 0.6], r: [1.04, 1.24], sz: [2.6, 4], wave: 0.1, spin: 0.5 },
-    { k: "fall", n: 8, shape: "leaf", c: ["#7BC96F", "#C98A4B", "#E0B872"], sp: [14, 26], sz: [2.4, 3.6], drift: 10, spin: 1, a: 0.85, xWrap: 1, xFade: 8 },
-    { k: "orbit", n: 7, shape: "moth", c: ["#F3DDB0", "#E0B872", "#FFF6D8"], w: [0.4, 0.8], r: [1.1, 1.26], sz: [1.6, 2.4], tw: 1 },
+  // Wanderer: a forest journey — leaves swirl around the ring in two
+  // counter-rotating gusts, varied shapes and sizes; big leaves tumble
+  // close past the photo, firefly moths blink around the edge, and on the
+  // figure soft wisp trails curl up. Signature moment: a trail of
+  // footprints steps across the front of the photo, alternating
+  // left-right, each step kicking up leaves; prints fade behind the walker.
+  wanderer: { spd: 0.85, glow: 0.5, overArt: "wanderer", moment: {
+    every: [24, 32], dur: 3.4,
+    bursts: [
+      // leaves kicked up by each footstep — synced with the over-canvas prints
+      { at: 0.1, path: "shower", shape: "leaf", n: 3, c: ["#7BC96F", "#C98A4B", "#E0B872"], anchor: "center", x: -0.62, y: 0.24, dir: -0.24, spread: 0.32, sp: [45, 95], sz: [1.6, 2.8], life: [0.9, 1.5], grav: 1.4, a: 0.9, over: 1 },
+      { at: 0.22, path: "shower", shape: "leaf", n: 3, c: ["#A7D96C", "#E0B872", "#C98A4B"], anchor: "center", x: -0.36, y: 0.22, dir: -0.26, spread: 0.32, sp: [45, 95], sz: [1.6, 2.8], life: [0.9, 1.5], grav: 1.4, a: 0.9, over: 1 },
+      { at: 0.34, path: "shower", shape: "leaf", n: 3, c: ["#C98A4B", "#7BC96F", "#E0B872"], anchor: "center", x: -0.1, y: 0.2, dir: -0.24, spread: 0.32, sp: [45, 95], sz: [1.6, 2.8], life: [0.9, 1.5], grav: 1.4, a: 0.9, over: 1 },
+      { at: 0.46, path: "shower", shape: "leaf", n: 3, c: ["#E0B872", "#A7D96C", "#7BC96F"], anchor: "center", x: 0.16, y: 0.22, dir: -0.26, spread: 0.32, sp: [45, 95], sz: [1.6, 2.8], life: [0.9, 1.5], grav: 1.4, a: 0.9, over: 1 },
+      { at: 0.58, path: "shower", shape: "leaf", n: 3, c: ["#7BC96F", "#E0B872", "#C98A4B"], anchor: "center", x: 0.42, y: 0.24, dir: -0.24, spread: 0.32, sp: [45, 95], sz: [1.6, 2.8], life: [0.9, 1.5], grav: 1.4, a: 0.9, over: 1 },
+      { at: 0.7, path: "shower", shape: "leaf", n: 3, c: ["#A7D96C", "#C98A4B", "#E0B872"], anchor: "center", x: 0.66, y: 0.26, dir: -0.26, spread: 0.32, sp: [45, 95], sz: [1.6, 2.8], life: [0.9, 1.5], grav: 1.4, a: 0.9, over: 1 },
+    ] }, layers: [
+    { k: "orbit", n: 12, shape: "leaf", c: ["#7BC96F", "#A7D96C", "#C98A4B", "#E0B872"], w: [0.35, 0.7], r: [1.04, 1.26], sz: [2.2, 4.6], wave: 0.12, spin: 0.6, circle: { n: 10, sz: [2, 3.8] } },
+    { k: "orbit", n: 8, shape: "leaf", c: ["#C98A4B", "#E0B872", "#9A5B2E"], w: [-0.55, -0.3], r: [1.12, 1.3], sz: [1.8, 3.4], wave: 0.18, spin: 0.9, a: 0.85, circle: { n: 7, sz: [1.6, 3] } },
+    // big close leaves tumbling past — at ring they ride the gust bands (a
+    // fall layer's spawn can graze the top border at board size); on the
+    // figure they genuinely fall
+    { k: "orbit", n: 4, shape: "leaf", c: ["#E0B872", "#C98A4B", "#7BC96F"], w: [-0.4, -0.22], r: [1.2, 1.34], sz: [4.6, 6.4], wave: 0.16, spin: 1.3, a: 0.9, circle: { sz: [3.4, 4.8] } },
+    { k: "fall", n: 5, shape: "leaf", c: ["#7BC96F", "#C98A4B", "#E0B872"], sp: [18, 30], sz: [4.2, 6], drift: 10, spin: 1.4, a: 0.9, xWrap: 1, xFade: 14, circle: { n: 0, a: 0 } },
+    { k: "fall", n: 8, shape: "leaf", c: ["#A7D96C", "#C98A4B", "#E0B872"], sp: [12, 24], sz: [2.2, 3.4], drift: 10, spin: 1, a: 0.8, xWrap: 1, xFade: 14, circle: { n: 0, a: 0 } },
+    { k: "orbit", n: 7, shape: "moth", c: ["#F3DDB0", "#E0B872", "#FFF6D8"], w: [0.4, 0.8], r: [1.1, 1.26], sz: [1.6, 2.4], tw: 1, circle: { n: 5 } },
     { k: "rise", n: 5, shape: "wisp", c: ["#7BC96F", "#A7D96C"], sp: [5, 10], life: [2.6, 3.8], sz: [3.5, 5.5], sway: 10, a: 0.4, circle: { n: 0, a: 0 } },
   ] },
   standardbearer: { spd: 0.85, glow: 0.5, layers: [
@@ -1304,6 +1338,141 @@ export const AURA_ART = {
     g.globalAlpha = bA * flick;
     g.strokeStyle = "#FFFFFF"; g.lineWidth = 1.1;
     g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+    g.restore();
+    return null;
+  },
+  // Wanderer footstep moment — draws on the over-canvas so the prints land
+  // on the front of the photo/body. Six steps walk left→right across a
+  // gently sagging path, alternating which side of the line they fall on;
+  // each print snaps in, holds, then fades behind the walker.
+  wanderer: (opts) => {
+    const mo = opts.moment;
+    if (!mo || opts.pass !== "over") return null;
+    const g = opts.over || opts.g;
+    if (!g) return null;
+    const { cx, cy, rx, ry } = opts;
+    const t = mo.t, S = Math.min(rx, ry);
+    const steps = 6, stepT = 0.115, t0 = 0.09;
+    g.save();
+    for (let i = 0; i < steps; i++) {
+      const ti = t0 + i * stepT;
+      const inK = Math.min(1, Math.max(0, (t - ti) / 0.025));
+      const outK = Math.max(0, 1 - Math.max(0, t - ti - 0.24) / 0.12);
+      const a = inK * outK;
+      if (a <= 0.01) continue;
+      const k = i / (steps - 1);
+      // path: left→right with a soft downward sag mid-crossing; the walking
+      // direction tilts slightly downhill, feet offset perpendicular L/R
+      const px = cx + (-0.62 + 1.28 * k) * rx;
+      const py = cy + ry * (0.16 + 0.1 * Math.sin(Math.PI * k));
+      const dx = 1, dy = 0.14 * Math.cos(Math.PI * k);
+      const dl = Math.hypot(dx, dy), ux = dx / dl, uy = dy / dl;
+      const side = i % 2 ? 1 : -1;
+      const fx0 = px - uy * side * S * 0.1, fy0 = py + ux * side * S * 0.1;
+      const rot = Math.atan2(uy, ux);
+      const L = S * 0.17, Wd = S * 0.075;
+      g.save();
+      g.translate(fx0, fy0);
+      g.rotate(rot);
+      g.globalAlpha = a * 0.9;
+      g.fillStyle = "#6B4A26";
+      g.beginPath(); g.ellipse(L * 0.18, 0, L * 0.62, Wd, 0, 0, Math.PI * 2); g.fill();       // sole
+      g.beginPath(); g.ellipse(-L * 0.55, 0, L * 0.3, Wd * 0.8, 0, 0, Math.PI * 2); g.fill();  // heel
+      g.strokeStyle = "#E0B872"; g.lineWidth = Math.max(0.6, Wd * 0.28);
+      g.globalAlpha = a * 0.6;
+      g.beginPath(); g.ellipse(L * 0.18, 0, L * 0.62, Wd, 0, 0, Math.PI * 2); g.stroke();      // gold rim
+      g.beginPath(); g.ellipse(-L * 0.55, 0, L * 0.3, Wd * 0.8, 0, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = "#C98A4B";
+      g.globalAlpha = a * 0.55;
+      g.beginPath(); g.ellipse(L * 0.3, 0, L * 0.4, Wd * 0.62, 0, 0, Math.PI * 2); g.fill();   // inner sole highlight
+      g.restore();
+    }
+    g.restore();
+    return null;
+  },
+  // Smolder: a ring of cracked coals sitting just inside the canvas edge —
+  // dark rock chunks with glowing cracks that breathe slowly brighter and
+  // dimmer. During the flare-up moment each coal sprouts a roaring flame
+  // tongue pointing outward, then sinks back. Main canvas: the coals sit
+  // outside the photo disc at ring size and ring the silhouette at figure.
+  smolder: (opts) => {
+    if (opts.pass !== "main") return null;
+    const { g, cx, cy, rx, ry, w, h, unit, time, reduce, mode } = opts;
+    const mo = opts.moment;
+    const t = mo ? mo.t : -1;
+    const R = Math.min(rx, ry);
+    const pad = 2 * unit + 2;
+    const n = w < 110 ? 5 : 9;
+    // flare envelope: ignite 0.22-0.32, roar to 0.5, sink 0.5-0.78
+    const fl = t < 0 ? 0 : Math.min(1, Math.max(0, (t - 0.22) / 0.1)) * (t > 0.5 ? Math.max(0, 1 - (t - 0.5) / 0.28) : 1);
+    g.save();
+    for (let i = 0; i < n; i++) {
+      const ang = i * (Math.PI * 2 / n) + Math.PI / 2 + (reduce ? 0 : time * 0.04);
+      const cr = R * (w < 110 ? 0.075 : 0.095);
+      const d = R - cr - pad - 1;
+      const px = cx + Math.cos(ang) * d, py = cy + Math.sin(ang) * d * (mode === "circle" ? 1 : ry / rx);
+      // breathing glow — slow, like wind on embers; frozen under reduce
+      const br = reduce ? 0.7 : 0.55 + 0.45 * Math.sin(time * 0.7 + i * 2.3);
+      const glow = Math.min(1, br * (1 + fl * 0.9));
+      // dark rock body — lumpy, not round
+      g.globalCompositeOperation = "source-over";
+      g.globalAlpha = 0.95;
+      g.fillStyle = "#1C100B";
+      g.beginPath();
+      g.moveTo(px + cr, py);
+      for (let v = 1; v <= 6; v++) {
+        const va = (v / 6) * Math.PI * 2, vr = cr * (0.82 + 0.22 * Math.sin(i * 13.7 + v * 2.9));
+        g.lineTo(px + Math.cos(va) * vr, py + Math.sin(va) * vr);
+      }
+      g.closePath(); g.fill();
+      // glowing cracks — two strokes across the body plus a hot core
+      g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.55 * glow;
+      g.strokeStyle = "#C2361A"; g.lineWidth = Math.max(0.6, cr * 0.34); g.lineCap = "round";
+      const c0 = i * 1.7;
+      g.beginPath();
+      g.moveTo(px - Math.cos(c0) * cr * 0.7, py - Math.sin(c0) * cr * 0.7);
+      g.lineTo(px + Math.cos(c0) * cr * 0.7, py + Math.sin(c0) * cr * 0.7);
+      if (w >= 110) {
+        g.moveTo(px - Math.sin(c0) * cr * 0.5, py + Math.cos(c0) * cr * 0.5);
+        g.lineTo(px + Math.sin(c0) * cr * 0.5, py - Math.cos(c0) * cr * 0.5);
+      }
+      g.stroke();
+      g.globalAlpha = 0.75 * glow;
+      g.fillStyle = "#FFB070";
+      g.beginPath(); g.arc(px, py, cr * 0.3 * glow + cr * 0.12, 0, Math.PI * 2); g.fill();
+      // flare-up: a roaring tongue rises from the coal — mostly upward like
+      // real flame, leaning outward, so tongues over lower coals still
+      // have room (an outward-pointing tongue would clamp to the border)
+      if (fl > 0.02) {
+        const tv = reduce ? 0.7 : 0.8 + 0.3 * Math.sin(i * 7.3 + time * 9);
+        const ox = Math.cos(ang), oy = Math.sin(ang) * (mode === "circle" ? 1 : ry / rx);
+        const ol = Math.hypot(ox, oy), oxn = ox / ol, oyn = oy / ol;
+        const dx = oxn * 0.45, dy = oyn * 0.45 - 1;
+        const dl = Math.hypot(dx, dy), nx = dx / dl, ny = dy / dl;
+        // clamp the tongue tip inside the canvas border
+        let reach = 1e9;
+        if (nx > 1e-4) reach = Math.min(reach, (w - pad - px) / nx); else if (nx < -1e-4) reach = Math.min(reach, (pad - px) / nx);
+        if (ny > 1e-4) reach = Math.min(reach, (h - pad - py) / ny); else if (ny < -1e-4) reach = Math.min(reach, (pad - py) / ny);
+        const th = Math.max(0, Math.min(R * 0.68 * fl * tv, reach * 0.82 - cr));
+        if (th > 1) {
+          const bx = px - ny * cr * 0.9, by = py + nx * cr * 0.9;
+          const bx2 = px + ny * cr * 0.9, by2 = py - nx * cr * 0.9;
+          const mx = px + nx * th * 0.55 - ny * th * 0.34 * Math.sin(i * 3.1 + time * 7);
+          const my = py + ny * th * 0.55 + nx * th * 0.34 * Math.sin(i * 3.1 + time * 7);
+          const tx = px + nx * th, ty = py + ny * th;
+          for (const [c, kk] of (w < 110 ? [["#FF6A2B", 0.75]] : [["#C2361A", 1], ["#FF6A2B", 0.62], ["#FFF3C9", 0.3]])) {
+            g.globalAlpha = fl * (kk === 1 ? 0.75 : 0.85);
+            g.fillStyle = c;
+            g.beginPath();
+            g.moveTo(px - (bx - px) * kk, py - (by - py) * kk);
+            g.quadraticCurveTo(px - (px - mx) * kk, py - (py - my) * kk, px - (px - tx) * kk, py - (py - ty) * kk);
+            g.quadraticCurveTo(px - (px - mx) * kk * 1.15, py - (py - my) * kk * 1.15, px - (px - bx2) * kk, py - (py - by2) * kk);
+            g.closePath(); g.fill();
+          }
+        }
+      }
+    }
     g.restore();
     return null;
   },
