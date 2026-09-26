@@ -429,12 +429,28 @@ export const AURA_FX = {
     { k: "rise", n: 22, shape: "square", c: ["#FFD447", "#FF9340", "#FFF1B8"], sp: [16, 34], life: [1, 1.8], sz: [1.8, 3.2], sway: 14, spin: 1 },
     { k: "orbit", n: 10, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.8, 1.4], r: [1.04, 1.2], sz: [1.1, 1.9], tw: 1 },
   ] },
-  ascended: { spd: 1.25, glow: 0.28, art: "ophanim", rays: { n: 14, c: "#FFD447", spin: 0.48, len: 1.42, a: 0.2 }, bolts: { every: [0.5, 1.2], c: ["#7DF9FF", "#FFD447", "#FFFFFF"] }, layers: [
-    { k: "orbit", n: 12, shape: "eye", c: ["#7DF9FF"], w: [0.7, 0.7], r: [1.12, 1.12], sz: [2.1, 2.1], even: 1 },
-    { k: "orbit", n: 8, shape: "eye", c: ["#FFD447"], w: [-1.05, -1.05], r: [0.94, 0.94], sz: [2.4, 2.4], even: 1 },
-    { k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.5, 1.3], r: [1.04, 1.28], sz: [0.9, 1.6], tw: 1 },
-    { k: "rise", n: 16, shape: "feather", c: ["#FFD447", "#FFFFFF", "#7DF9FF"], sp: [18, 40], life: [0.7, 1.4], sz: [0.9, 1.6], sway: 12 },
-  ] },
+  // Ascended: reigning #1 — divine radiant ring. Few, huge watching eyes and
+  // big feathers in golden-white light; moment "ascension": a pillar of light
+  // rises through the photo while every eye snaps open blazing (mScale).
+  ascended: { spd: 1.25, glow: 0.92, art: "ophanim", overArt: "ascended",
+    rings: [{ r: 1.18, c: "#FFD447", spin: 0.05, a: 0.92, w: 2.6, filigree: 8 }],
+    moment: { every: [14, 20], dur: 3.4,
+      flash: { at: 0.3, flashPeak: 0.42, flashLife: 0.1, flashC: ["#FFF6C9", "#FFD447"], anchor: "center" },
+      shake: { at: 0.3, amp: 0.04, dur: 0.4 },
+      bursts: [
+        { at: 0.3, path: "shockring", c: "#FFD447", a: 0.85, lw: 2.8, r0: 0.9, v: 1.1, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.32, path: "radial", shape: "feather", n: 8, c: ["#FFFFFF", "#FFD447", "#7DF9FF"], anchor: "center", sp: [35, 85], sz: [2, 3.4], life: [1.1, 1.8], a: 0.95, over: 1 },
+        { at: 0.32, path: "radial", shape: "star", n: 7, c: ["#FFFFFF", "#FFD447"], anchor: "center", sp: [50, 110], sz: [1.5, 2.6], life: [0.8, 1.4], a: 0.9, over: 1 },
+      ] },
+    layers: [
+      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 6, glyphS: 1.15, c: ["#7DF9FF"], w: [0.16, 0.16], r: [0, 0], sz: [1, 1], even: 1, a: 0.95,
+        mScale: [[0, 0.95], [0.08, 0.78], [0.26, 1.15], [0.55, 1.08], [0.85, 1], [1, 1]] },
+      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 4, glyphS: 1.25, c: ["#FFD447"], w: [-0.24, -0.24], r: [0, 0], sz: [0.9, 0.9], even: 1, dir: -1, a: 0.95,
+        mScale: [[0, 0.95], [0.11, 0.78], [0.3, 1.18], [0.58, 1.08], [0.88, 1], [1, 1]] },
+      { k: "orbit", n: 4, shape: "feather", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.3, 0.45], r: [1.0, 1.14], sz: [3.8, 5.2], spin: 1, a: 0.95 },
+      { k: "orbit", n: 4, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.5, 1], r: [0.98, 1.08], sz: [1.8, 2.8], tw: 1 },
+      { k: "rise", n: 3, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], sp: [10, 18], life: [1.6, 2.6], sz: [1.8, 2.8], sway: 8, tw: 1 },
+    ] },
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
   // Hunter's Moon: pale moon behind, crimson mist, cold silver rings, a blade-slash sweep, ash and blood
@@ -449,16 +465,30 @@ export const AURA_FX = {
       { k: "fall", n: 7, shape: "drop", c: ["#C2001F", "#7A0018"], sp: [26, 44], drift: 1.5, sz: [0.9, 1.6], blend: "source-over", a: 0.9 },
       { k: "orbit", n: 6, shape: "spark", c: ["#E4E8F2", "#FFFFFF"], w: [1.6, 2.4], r: [1, 1.18], sz: [1.1, 1.9], even: 1 },
     ] },
-  // Living Wheel: wheels inside wheels, gold filigree, watching eyes on the rim
-  wheel: { spd: 0.9, glow: 0.85,
-    sweep: { c: "#FFF6C9", a: 0.95, spd: 0.7, r: 1.16, w: 3.4, span: 1 },
-    rays: { n: 12, c: "#FFD447", spin: 0.04, len: 1.42, a: 0.26 },
-    rings: [{ r: 1.34, c: "#7DF9FF", spin: -0.06, a: 0.8, w: 1.2, dash: 1, ink: 1 }, { r: 1.16, c: "#FFD447", spin: 0.09, a: 0.96, w: 3.2, filigree: 16, ink: 1 }, { r: 0.98, c: "#FFFFFF", spin: -0.14, a: 0.7, w: 1, ink: 1 }],
+  // Living Wheel: wheels inside wheels — two counter-rotating eye rings and
+  // an outer gem ring around the photo. Moment: the wheels spin up to a blur
+  // (mSpin) and every eye snaps open blazing (mScale), then settles.
+  wheel: { spd: 0.9, glow: 1,
+    rings: [{ r: 1.34, c: "#7DF9FF", spin: -0.06, a: 0.75, w: 1.2, dash: 1 }, { r: 1.16, c: "#FFD447", spin: 0.09, a: 0.96, w: 3.2, filigree: 10, ink: 1 }, { r: 0.98, c: "#FFFFFF", spin: -0.14, a: 0.7, w: 1 }],
+    moment: { every: [16, 24], dur: 4,
+      flash: { at: 0.62, flashPeak: 0.4, flashLife: 0.1, flashC: ["#FFF6C9", "#7DF9FF"], anchor: "center" },
+      shake: { at: 0.62, amp: 0.03, dur: 0.5 },
+      bursts: [
+        { at: 0.62, path: "shockring", c: "#FFD447", a: 0.8, lw: 2.6, r0: 0.9, v: 1.2, life: [0.7, 0.7], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.62, path: "radial", shape: "star", n: 8, c: ["#FFF6C9", "#FFD447", "#7DF9FF"], anchor: "center", sp: [40, 100], sz: [1.6, 2.8], life: [0.9, 1.5], a: 0.9, over: 1 },
+        { at: 0.64, path: "radial", shape: "gem", n: 6, c: ["#FFD447", "#7DF9FF"], anchor: "center", sp: [30, 70], sz: [1.8, 2.8], life: [1, 1.6], a: 0.9, over: 1 },
+      ] },
     layers: [
-      { k: "orbit", n: 4, shape: "eye", c: ["#FFFFFF"], w: [0.22, 0.22], r: [1.16, 1.16], sz: [1.5, 1.5], even: 1, blend: "source-over", a: 0.9 },
-      { k: "orbit", n: 8, shape: "gem", c: ["#FFD447", "#7DF9FF"], w: [-0.5, -0.5], r: [1.34, 1.34], sz: [1.6, 2.2], even: 1, blend: "source-over", a: 0.85 },
-      { k: "orbit", n: 14, shape: "star", c: ["#FFF6C9", "#7DF9FF"], w: [0.5, 0.95], r: [1, 1.26], sz: [1, 1.8], tw: 1 },
-      { k: "inward", n: 10, shape: "dot", c: ["#FFD447", "#FFFFFF"], sp: [0.5, 1.1], life: [1.2, 2.2], sz: [1.4, 2.4] },
+      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 8, glyphS: 0.85, c: ["#FFFFFF"], w: [0.22, 0.22], r: [0, 0], sz: [1.08, 1.08], even: 1, a: 0.95,
+        mSpin: [[0, 0], [0.12, 0], [0.4, 3.5], [0.62, 7], [0.8, 0], [1, 0]],
+        mScale: [[0, 0.9], [0.5, 0.9], [0.6, 0.82], [0.68, 1.18], [0.82, 1.1], [0.95, 1], [1, 1]] },
+      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 5, glyphS: 0.9, c: ["#7DF9FF"], w: [-0.4, -0.4], r: [0, 0], sz: [0.94, 0.94], even: 1, dir: -1, a: 0.9,
+        mSpin: [[0, 0], [0.12, 0], [0.4, 3.5], [0.62, 7], [0.8, 0], [1, 0]],
+        mScale: [[0, 0.9], [0.52, 0.9], [0.62, 0.82], [0.7, 1.18], [0.84, 1.08], [0.96, 1], [1, 1]] },
+      { k: "orbit", n: 1, shape: "glyphring", glyph: "gem", ringN: 9, glyphS: 0.8, c: ["#FFD447"], w: [-0.14, -0.14], r: [0, 0], sz: [1.14, 1.14], even: 1, dir: -1, a: 0.9,
+        mSpin: [[0, 0], [0.12, 0], [0.4, 2.5], [0.62, 5], [0.8, 0], [1, 0]] },
+      { k: "orbit", n: 4, shape: "star", c: ["#FFF6C9", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.28], sz: [1.5, 2.4], tw: 1 },
+      { k: "inward", n: 4, shape: "dot", c: ["#FFD447", "#FFFFFF"], sp: [0.5, 1], life: [1.4, 2.4], sz: [1.5, 2.4] },
     ] },
   sigil: { spd: 0.9, glow: 0.78, layers: [
     { k: "orbit", n: 7, shape: "rune", c: ["#FFD447", "#FFB86B", "#FFF3C9"], w: [0.5, 0.9], r: [1.05, 1.16], sz: [2.6, 3.4] },
@@ -554,11 +584,46 @@ export const AURA_FX = {
     ] },
   bonewright: { spd: 0.7, glow: 0.7, overArt: "bonewright", bolts: { burst: [2, 3], burstSpan: 0.36, gap: [3, 5], c: ["#FFF27A"], flash: 1, flashPeak: 0.35, flashLife: 0.09, from: "above", strike: 1, calm: 1 }, rings: [{ r: 1.12, c: "#F4EAD2", spin: 0.06, a: 0.9, w: 5, dash: 1 }], layers: [{ k: "rise", n: 22, shape: "smoke", c: ["#F4EAD2", "#AAB5C4"], sp: [12, 24], life: [1.4, 2.6], sz: [5, 10], sway: 9, blend: "source-over", a: 0.35 }, { k: "orbit", n: 12, shape: "bonechip", c: ["#FFFFFF", "#DDE6F2"], w: [0.12, 0.28], r: [1.08, 1.2], sz: [2.2, 4.2] }] },
   nullpoint: { spd: 0.62, glow: 0.66, dark: 1, overArt: "nullpoint", foldW: 3.4, foldY: 0.04, foldH: 1, foldTail: 1.6, foldGlow: 0.55, rings: [{ r: 1.15, c: "#38C6FF", spin: -0.03, a: 0.82, w: 2.8 }], layers: [{ k: "inward", n: 64, shape: "dot", c: ["#38C6FF", "#C2001F", "#a855f7"], sp: [0.35, 0.7], life: [2, 4], sz: [1.2, 2.6], fit: 1 }], circle: { foldW: 6.5, foldY: 0.2, foldH: 0.8, foldTail: 1.8 } },
-  carve: { spd: 0.85, glow: 0.58, dark: 1, art: "carve", rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }], sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 }, layers: [{ k: "orbit", n: 36, shape: "shard", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.8, 1.8], r: [1.08, 1.35], sz: [0.8, 1.5], tw: 1 }] },
-  brandmark: { spd: 0.58, glow: 0.5, dark: 1, art: "brandmark", artLate: 1, overArt: "brandmark", sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }], layers: [
-    { k: "orbit", n: 2, shape: "img", src: "/aura/pauldron.webp", placed: "shoulders" },
-    { k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3 },
-  ] },
+  // Carve: magenta spokes + sweep with big glinting crystals in orbit.
+  // Moment: a blade-slash streaks across, then a chisel tip engraves a
+  // glowing sigil arc into the ring (art "over" pass), cooling as it sets.
+  carve: { spd: 0.85, glow: 0.78, dark: 1, art: "carve", overArt: "carve",
+    rings: [{ r: 1.1, c: "#111111", spin: 0.22, a: 0.9, w: 6, dash: 1 }],
+    sweep: { c: "#ec4899", a: 1, spd: 3.2, r: 1.2, w: 2.2, span: 1.6 },
+    moment: { every: [16, 24], dur: 3.2,
+      flash: { at: 0.2, flashPeak: 0.36, flashLife: 0.08, flashC: ["#F9A8D4", "#ec4899"], anchor: "center" },
+      shake: { at: 0.2, amp: 0.05, dur: 0.3 },
+      bursts: [
+        { at: 0.2, path: "radial", shape: "crystal", n: 7, c: ["#ec4899", "#F9A8D4", "#F4EAD2"], anchor: "center", sp: [45, 110], sz: [2, 3.4], life: [1, 1.6], a: 0.95, over: 1 },
+        { at: 0.2, path: "radial", shape: "spark", n: 8, c: ["#F9A8D4", "#FFFFFF"], anchor: "center", sp: [80, 170], sz: [0.9, 1.6], life: [0.6, 1], a: 0.9, over: 1 },
+        { at: 0.22, path: "shockring", c: "#ec4899", a: 0.8, lw: 2, r0: 0.9, v: 1.2, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
+      ] },
+    layers: [
+      { k: "orbit", n: 6, shape: "crystal", c: ["#ec4899", "#F9A8D4", "#F4EAD2"], w: [0.35, 0.6], r: [1.02, 1.16], sz: [4.5, 5.8], tw: 1, a: 0.95 },
+      { k: "orbit", n: 5, shape: "shard", c: ["#C2001F", "#ec4899", "#F4EAD2"], w: [0.9, 1.7], r: [1.08, 1.3], sz: [1.4, 2.4], tw: 1 },
+      { k: "orbit", n: 3, shape: "sparkle", c: ["#FFFFFF", "#F9A8D4"], w: [0.5, 0.9], r: [1.04, 1.18], sz: [1.8, 2.8], tw: 1 },
+      { k: "orbit", n: 3, shape: "dot", c: ["#ec4899", "#C2001F"], w: [1.8, 2.8], r: [1.12, 1.28], sz: [1.2, 2], tw: 1 },
+    ] },
+  // Brandmark: cape/pauldron/sigil art kept; a hot brand-glow ring and
+  // sparkles accent it. Moment "the brand sears": a white-hot sigil arc is
+  // written around the photo, leaving glowing scored rune notches.
+  brandmark: { spd: 0.58, glow: 0.82, dark: 1, art: "brandmark", artLate: 1, overArt: "brandmark",
+    sweep: { c: "#FFFFFF", a: 1, spd: 5.2, r: 1.16, w: 7, span: 0.55, fit: 1 },
+    rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 7 }, { r: 1.2, c: "#FF5A1F", spin: -0.03, a: 0.5, w: 2.2 }],
+    moment: { every: [18, 26], dur: 3.6,
+      flash: { at: 0.52, flashPeak: 0.34, flashLife: 0.09, flashC: ["#FFD447", "#FF5A1F"], anchor: "center" },
+      shake: { at: 0.52, amp: 0.04, dur: 0.3 },
+      bursts: [
+        { at: 0.52, path: "radial", shape: "spark", n: 10, c: ["#FFD447", "#FF9340", "#FFFFFF"], anchor: "center", sp: [60, 140], sz: [1, 1.8], life: [0.7, 1.2], a: 0.9, over: 1 },
+        { at: 0.52, path: "shockring", c: "#FF5A1F", a: 0.7, lw: 2.2, r0: 0.9, v: 1.1, life: [0.6, 0.6], anchor: "center", aspect: 1, over: 1 },
+      ] },
+    circle: { sweep: { w: 5.2 }, rings: [{ r: 1.08, c: "#414141", spin: 0.02, a: 0.95, w: 5 }, { r: 1.2, c: "#FF5A1F", spin: -0.03, a: 0.5, w: 2 }] },
+    layers: [
+      { k: "orbit", n: 2, shape: "img", src: "/aura/pauldron.webp", placed: "shoulders" },
+      { k: "rise", n: 22, shape: "smoke", c: ["#FFFFFF", "#AAB5C4"], sp: [7, 15], life: [2, 3.4], sz: [4, 8], sway: 5, blend: "source-over", a: 0.3, circle: { n: 3, sway: 2, sz: [3.2, 5.5], spawnR: [0.9, 1.0] } },
+      { k: "orbit", n: 3, shape: "sparkle", c: ["#FFD447", "#FFF6C9", "#FF9340"], w: [0.4, 0.8], r: [1.0, 1.08], sz: [1.8, 2.8], tw: 1 },
+      { k: "rise", n: 4, shape: "ember", c: ["#FF5A1F", "#FFD447"], sp: [12, 24], life: [1, 1.8], sz: [1.2, 2], sway: 8, low: 1, a: 0.8, circle: { sway: 3, spawnR: [0.92, 1.0] } },
+    ] },
   blacksun: { spd: 0.32, glow: 0.96, dark: 1, art: "blacksun", rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4, colorCycle: ["#FFFFFF", "#0A0A0A"], cyclePeriod: 4 }], layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over" } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over" } },
@@ -806,9 +871,11 @@ function drawCape(ctx, { clock, anchors }) {
   ctx.restore();
 }
 
-function drawPauldrons(ctx, anchors, shift) {
+function drawPauldrons(ctx, anchors, shift, w) {
   const rec = auraImage("/aura/pauldron.webp");
-  if (!rec.ready || rec.failed || !ctx || !anchors) return;
+  // sub-80px canvases: pauldrons render as ~6px smudges — skip the two image
+  // draws; the cape silhouette still carries the armour read at that size.
+  if (!rec.ready || rec.failed || !ctx || !anchors || (w != null && w < 80)) return;
   const img = rec.img;
   const ih = anchors.pauldronH;
   const iw = ih * (img.naturalWidth / Math.max(1, img.naturalHeight));
@@ -875,6 +942,92 @@ function drawSigil(ctx, { time, clock, unit, sweep, anchors }) {
   ctx.quadraticCurveTo(bx + wob, by + len * 0.55, bx + wob * 0.35, by + len);
   ctx.stroke();
   ctx.restore();
+}
+
+// Brandmark moment: a white-hot sigil sears itself into the ring around the
+// photo — the head writes a full circle leaving cooling ember-orange scoring
+// with rune notches, then the whole brand holds glowing before it fades.
+function drawBrandSear(c, { cx, cy, rx, ry, moment, unit }) {
+  const t = moment.t;
+  const R = Math.min(rx, ry) * 1.12;
+  const write = Math.min(1, Math.max(0, (t - 0.06) / 0.4));
+  const hold = t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.32);
+  if (write <= 0 || hold <= 0) return;
+  const start = -Math.PI / 2, head = start + write * Math.PI * 2;
+  c.save(); c.globalCompositeOperation = "lighter"; c.lineCap = "round";
+  // soft under-glow so the brand reads even under the white sweep
+  c.strokeStyle = `rgba(255,90,31,${(0.3 * hold).toFixed(3)})`; c.lineWidth = Math.max(3, unit * 3.4);
+  c.beginPath(); c.arc(cx, cy, R, start, head); c.stroke();
+  c.strokeStyle = `rgba(255,90,31,${(0.9 * hold).toFixed(3)})`; c.lineWidth = Math.max(1.8, unit * 1.8);
+  c.beginPath(); c.arc(cx, cy, R, start, head); c.stroke();
+  c.strokeStyle = `rgba(255,230,180,${(0.95 * hold).toFixed(3)})`; c.lineWidth = Math.max(0.9, unit * 0.8);
+  c.beginPath(); c.arc(cx, cy, R, head - 0.7 * write, head); c.stroke();
+  c.strokeStyle = `rgba(255,180,80,${(0.95 * hold).toFixed(3)})`; c.lineWidth = Math.max(1.1, unit * 1.1);
+  const notches = Math.floor(write * 9);
+  for (let i = 0; i < notches; i++) {
+    const a = start + (i + 0.5) * Math.PI * 2 / 9;
+    c.beginPath();
+    c.moveTo(cx + Math.cos(a) * (R - unit * 2), cy + Math.sin(a) * (R - unit * 2));
+    c.lineTo(cx + Math.cos(a) * (R + unit * 2), cy + Math.sin(a) * (R + unit * 2));
+    c.stroke();
+  }
+  if (write < 1) {
+    const hx = cx + Math.cos(head) * R, hy = cy + Math.sin(head) * R;
+    const hg = c.createRadialGradient(hx, hy, 0, hx, hy, unit * 7);
+    hg.addColorStop(0, "rgba(255,255,255,0.95)"); hg.addColorStop(0.4, "rgba(255,214,90,0.6)"); hg.addColorStop(1, "rgba(255,90,31,0)");
+    c.fillStyle = hg; c.beginPath(); c.arc(hx, hy, unit * 7, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
+}
+
+// Carve moment: a blade-slash streaks diagonally across the ring, then a
+// chisel tip engraves a glowing sigil arc across the ring's face — hot
+// magenta-white scoring with notch marks, cooling to a dim carve line.
+function drawCarveSigil(c, { cx, cy, rx, ry, unit, t }) {
+  const R = Math.min(rx, ry) * 1.14;
+  c.save(); c.globalCompositeOperation = "lighter"; c.lineCap = "round";
+  // 1) slash sweep: a short bright blade streak crossing the ring
+  const sk = (t - 0.03) / 0.13;
+  if (sk > 0 && sk < 1.7) {
+    const head = Math.min(1, sk), fade = sk < 1 ? 1 : Math.max(0, 1 - (sk - 1) / 0.7);
+    const a = -0.85, dx = Math.cos(a), dy = Math.sin(a);
+    const span = Math.min(rx, ry) * 2.4;
+    const hx = cx - dx * span / 2 + dx * span * head, hy = cy - dy * span / 2 + dy * span * head;
+    const tail = Math.min(head * span, R * 0.9);
+    c.strokeStyle = `rgba(249,168,212,${(0.9 * fade).toFixed(3)})`; c.lineWidth = Math.max(1.2, unit * 1.1);
+    c.beginPath(); c.moveTo(hx - dx * tail, hy - dy * tail); c.lineTo(hx, hy); c.stroke();
+    const bg = c.createRadialGradient(hx, hy, 0, hx, hy, unit * 5);
+    bg.addColorStop(0, `rgba(255,255,255,${0.9 * fade})`); bg.addColorStop(1, "rgba(236,72,153,0)");
+    c.fillStyle = bg; c.beginPath(); c.arc(hx, hy, unit * 5, 0, Math.PI * 2); c.fill();
+  }
+  // 2) engraving: chisel point writes an arc across the ring's upper face
+  const ek = Math.min(1, Math.max(0, (t - 0.2) / 0.34));
+  const hold = t < 0.68 ? 1 : Math.max(0, 1 - (t - 0.68) / 0.28);
+  if (ek > 0 && hold > 0) {
+    const a0 = Math.PI * 1.12, a1 = a0 - ek * Math.PI * 0.92; // sweeps right across the top
+    c.strokeStyle = `rgba(236,72,153,${(0.32 * hold).toFixed(3)})`; c.lineWidth = Math.max(2.8, unit * 2.8);
+    c.beginPath(); c.arc(cx, cy, R, a0, a1, true); c.stroke();
+    c.strokeStyle = `rgba(236,72,153,${(0.9 * hold).toFixed(3)})`; c.lineWidth = Math.max(1.7, unit * 1.5);
+    c.beginPath(); c.arc(cx, cy, R, a0, a1, true); c.stroke();
+    c.strokeStyle = `rgba(249,168,212,${(0.85 * hold).toFixed(3)})`; c.lineWidth = Math.max(0.7, unit * 0.55);
+    c.beginPath(); c.arc(cx, cy, R, a0 - 0.4 * ek, a1, true); c.stroke();
+    const notches = Math.floor(ek * 6);
+    for (let i = 0; i < notches; i++) {
+      const a = a0 - (i + 0.5) * Math.PI * 0.92 / 6;
+      c.strokeStyle = `rgba(249,168,212,${(0.7 * hold).toFixed(3)})`; c.lineWidth = Math.max(0.8, unit * 0.8);
+      c.beginPath();
+      c.moveTo(cx + Math.cos(a) * (R - unit * 1.6), cy + Math.sin(a) * (R - unit * 1.6));
+      c.lineTo(cx + Math.cos(a) * (R + unit * 1.6), cy + Math.sin(a) * (R + unit * 1.6));
+      c.stroke();
+    }
+    if (ek < 1) {
+      const hx = cx + Math.cos(a1) * R, hy = cy + Math.sin(a1) * R;
+      const cg2 = c.createRadialGradient(hx, hy, 0, hx, hy, unit * 5);
+      cg2.addColorStop(0, `rgba(255,255,255,${0.9 * hold})`); cg2.addColorStop(1, "rgba(236,72,153,0)");
+      c.fillStyle = cg2; c.beginPath(); c.arc(hx, hy, unit * 5, 0, Math.PI * 2); c.fill();
+    }
+  }
+  c.restore();
 }
 
 // Crimson ring-sigils printed on the order's cloak, as fractions of
@@ -1108,11 +1261,42 @@ export const AURA_ART = {
     }
     return null;
   },
-  carve: ({ g, time, cx, cy, rx, ry, unit }) => {
+  carve: ({ pass, over, g, time, cx, cy, rx, ry, unit, moment }) => {
+    if (pass === "over") { if (moment) drawCarveSigil(over || g, { cx, cy, rx, ry, unit, t: moment.t }); return; }
     const k = (time % 3.2) / 3.2;
     g.save(); g.strokeStyle = `rgba(236,72,153,${Math.sin(k * Math.PI)})`; g.lineWidth = Math.max(0.8, unit);
     for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * rx * 1.35, cy + Math.sin(a) * ry * 1.35); g.lineTo(cx + rx * 0.18, cy - ry * 0.12); g.stroke(); }
     g.restore();
+  },
+  // Ascended "ascension": a soft-edged pillar of light rises from the ring's
+  // base through the photo; the white-hot leading edge climbs then holds,
+  // the whole column fading out late in the moment.
+  ascended: ({ pass, over, g, cx, cy, rx, ry, moment, h }) => {
+    if (pass !== "over" || !moment) return;
+    const c = over || g;
+    const t = moment.t;
+    const R = Math.min(rx, ry);
+    const rise = Math.min(1, t / 0.34);
+    const fade = t < 0.62 ? 1 : Math.max(0, 1 - (t - 0.62) / 0.3);
+    if (rise <= 0 || fade <= 0) return;
+    const yB = cy + ry * 1.28, yT = yB - ry * 2.56 * rise;
+    const ww = R * 0.52, hh = Math.max(1, (yB - yT) / 2);
+    c.save(); c.globalCompositeOperation = "lighter";
+    c.translate(cx, (yB + yT) / 2); c.scale(1, hh / ww);
+    const grd = c.createRadialGradient(0, 0, 0, 0, 0, ww);
+    grd.addColorStop(0, `rgba(255,252,235,${0.92 * fade})`);
+    grd.addColorStop(0.45, `rgba(255,224,140,${0.5 * fade})`);
+    grd.addColorStop(1, "rgba(255,214,90,0)");
+    c.fillStyle = grd; c.beginPath(); c.arc(0, 0, ww, 0, Math.PI * 2); c.fill();
+    c.restore();
+    c.save(); c.globalCompositeOperation = "lighter";
+    const hr = ww * 1.15;
+    const hy = Math.min(Math.max(yT, hr + 2), (h || cy * 2) - hr - 2); // keep the leading-edge glow inside the frame
+    const hg = c.createRadialGradient(cx, hy, 0, cx, hy, hr);
+    hg.addColorStop(0, `rgba(255,255,255,${0.9 * fade})`);
+    hg.addColorStop(1, "rgba(255,214,90,0)");
+    c.fillStyle = hg; c.beginPath(); c.arc(cx, hy, hr, 0, Math.PI * 2); c.fill();
+    c.restore();
   },
   // Ninetail: nine foxtail.webp tails as one tight, TALL bunch rising from
   // a single root — like a real fox's brush, not a spread fan. ~60deg total
@@ -1738,8 +1922,9 @@ export const AURA_ART = {
     if (opts.pass === "late") drawCape(opts.g, opts);
     else if (opts.pass === "over") {
       const ctx = opts.over || opts.g;
-      drawPauldrons(ctx, opts.anchors, opts.paulShift);
+      drawPauldrons(ctx, opts.anchors, opts.paulShift, opts.w);
       drawSigil(ctx, opts);
+      if (opts.moment) drawBrandSear(ctx, opts);
     }
   },
 };
@@ -1958,6 +2143,55 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
   } else if (shape === "smoke") {
     const sp = pSprite(p, true), k = Math.min(1.28, 1 + Math.min(p.age || 0, 2.4) * 0.1);
     g.drawImage(sp, x - s * k, y - s * k, s * 2 * k, s * 2 * k);
+  } else if (shape === "beye") {
+    // baked eye: the ophanim-eye glyph (white sclera, rim in the particle's
+    // colour, blue iris + glint) painted once per colour+tier — one drawImage
+    // per frame instead of the procedural eye's ~8 path ops.
+    const sp = shapeSprite(p, "beye", s * 5, (sg, rgb) => {
+      sg.fillStyle = "#F4FBFF";
+      sg.beginPath(); sg.ellipse(0, 0, 24, 13.5, 0, 0, Math.PI * 2); sg.fill();
+      sg.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; sg.lineWidth = 4;
+      sg.beginPath(); sg.ellipse(0, 0, 24, 13.5, 0, 0, Math.PI * 2); sg.stroke();
+      sg.fillStyle = "#1A6DFF"; sg.beginPath(); sg.arc(0, 0, 8, 0, Math.PI * 2); sg.fill();
+      sg.fillStyle = "#061018"; sg.beginPath(); sg.arc(0, 0, 3.6, 0, Math.PI * 2); sg.fill();
+      sg.fillStyle = "#ffffff"; sg.beginPath(); sg.arc(-3.6, -3, 2.2, 0, Math.PI * 2); sg.fill();
+    });
+    const d = s * 2.55;
+    g.save(); g.translate(x, y); g.rotate(p.rot + time * 0.4);
+    g.drawImage(sp, -d, -d, d * 2, d * 2);
+    g.restore();
+  } else if (shape === "glyphring") {
+    // a whole ring of glyphs baked into ONE sprite — concentric rings of
+    // eyes/gems at ~1 particle's cost. sz = the ring's radius in px; the
+    // sprite itself is rotated each frame (counter-rotate via L.dir). Glyphs
+    // sit tangentially at ~0.79·sz with their size scaled by L.glyphS.
+    const n = Math.max(3, Math.round(L.ringN || 8)), gs = L.glyphS ?? 1;
+    const key = `glyphring:${L.glyph || "eye"}:${n}:${gs}`;
+    const sp = shapeSprite(p, key, s * 2.6, (sg, rgb) => {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        sg.save(); sg.translate(Math.cos(a) * 25.5, Math.sin(a) * 25.5); sg.rotate(a + Math.PI / 2);
+        if (L.glyph === "gem") {
+          const v = 5.2 * gs;
+          sg.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+          sg.beginPath(); sg.moveTo(0, -v * 1.6); sg.lineTo(v, -v * 0.15); sg.lineTo(v * 0.55, v * 1.2); sg.lineTo(-v * 0.55, v * 1.2); sg.lineTo(-v, -v * 0.15); sg.closePath(); sg.fill();
+          sg.fillStyle = "rgba(255,255,255,0.55)";
+          sg.beginPath(); sg.moveTo(0, -v * 1.6); sg.lineTo(v * 0.4, -v * 0.2); sg.lineTo(0, 0); sg.closePath(); sg.fill();
+        } else {
+          const v = 6.2 * gs;
+          sg.fillStyle = "#F4FBFF"; sg.beginPath(); sg.ellipse(0, 0, v, v * 0.56, 0, 0, Math.PI * 2); sg.fill();
+          sg.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; sg.lineWidth = Math.max(1, v * 0.17); sg.stroke();
+          sg.fillStyle = "#1A6DFF"; sg.beginPath(); sg.arc(0, 0, v * 0.34, 0, Math.PI * 2); sg.fill();
+          sg.fillStyle = "#061018"; sg.beginPath(); sg.arc(0, 0, v * 0.15, 0, Math.PI * 2); sg.fill();
+          sg.fillStyle = "#ffffff"; sg.beginPath(); sg.arc(-v * 0.2, -v * 0.17, v * 0.11, 0, Math.PI * 2); sg.fill();
+        }
+        sg.restore();
+      }
+    });
+    const d = s * 1.31;
+    g.save(); g.translate(x, y); g.rotate((L.dir ?? 1) * p.ang + time * (L.rotW || 0));
+    g.drawImage(sp, -d, -d, d * 2, d * 2);
+    g.restore();
   } else if (shape === "chainlink") {
     const link = shapePath(p, "l", s, (P, v) => { P.ellipse(0, 0, v * 0.8, v * 0.4, 0, 0, Math.PI * 2); return P; });
     g.save(); g.translate(x, y); g.rotate(p.rot); g.strokeStyle = p.c; g.lineWidth = Math.max(0.5, s * 0.2); g.stroke(link); g.restore();
@@ -2264,7 +2498,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const spawn = (p, fresh) => {
       p.c = L.c ? pick(L.c) : "#ffffff";
       const raw = rnd(...range(L.sz, L.shape === "img" ? 0.8 : 2.5));
-      p.sz = L.shape === "emoji" ? raw : L.shape === "img" || (L.shape === "flame" && mode !== "body" && L.circle) ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
+      p.sz = L.shape === "emoji" ? raw : L.shape === "img" || L.shape === "glyphring" || (L.shape === "flame" && mode !== "body" && L.circle) ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
       p.age = 0;
       p.rot = L.shape === "img" || L.shape === "flame" ? (L.rot || 0) * Math.PI * 2 : rnd(0, Math.PI * 2);
       p.vr = L.shape === "img" || L.shape === "flame" ? (L.spin || 0) * Math.PI * 2 : L.spin ? rnd(-3, 3) : rnd(-1, 1);
@@ -2282,7 +2516,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         // low: opt-in — spawn only on the lower arc so risers fade before
         // they can reach the top border on small canvases
         const ang = rnd(Math.PI * 0.05, Math.PI * 0.95) + (!L.low && Math.random() < 0.35 ? Math.PI : 0);
-        [p.x, p.y] = onRing(ang, rnd(1.05, 1.18)); p.vy = -rnd(...(L.sp || [6, 12])) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
+        [p.x, p.y] = onRing(ang, rnd(...(L.spawnR || [1.05, 1.18]))); p.vy = -rnd(...(L.sp || [6, 12])) * unit; p.life = rnd(...(L.life || [1.5, 2.5]));
         if (fresh) p.age = rnd(0, p.life);
       } else if (L.k === "fall") {
         p.x = rnd(cx - rx * 1.5, cx + rx * 1.5); p.y = cy - ry * 1.6 - rnd(0, 20); p.vy = rnd(...(L.sp || [8, 16])) * unit; p.vx = (L.drift || 0) * unit * rnd(0.6, 1.2); p.life = 99;
@@ -2296,7 +2530,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         if (fresh) p.age = rnd(0, p.life);
       } else { // orbit
         p.ang = L.at != null ? L.at * Math.PI * 2 : L.even ? (p.i / n) * Math.PI * 2 + (L.jit ? rnd(-L.jit, L.jit) : 0) : rnd(0, Math.PI * 2);
-        p.r = Math.max(0.5, rnd(...(L.r || [1, 1.1]))); p.w = rnd(...(L.w || [0.1, 0.3])) * (Math.random() < 0.5 && !L.even && L.at == null ? -1 : 1); p.life = 99;
+        // glyphring is a centred ring-sprite, not an orbiting particle — its
+        // radius must be allowed to sit at 0 (the 0.5 floor is for real orbits)
+        p.r = Math.max(L.shape === "glyphring" ? 0 : 0.5, rnd(...(L.r || [1, 1.1]))); p.w = rnd(...(L.w || [0.1, 0.3])) * (Math.random() < 0.5 && !L.even && L.at == null ? -1 : 1); p.life = 99;
         if (L.top && L.at == null) p.ang = rnd(Math.PI * 1.1, Math.PI * 1.9);
       }
       p.e = L.e ? L.e[p.i % L.e.length] : null;
@@ -2411,12 +2647,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     ctx.restore();
   };
 
-  const drawP = (ctx, state, p, alpha, x, y) => {
+  const drawP = (ctx, state, p, alpha, x, y, msc = 1) => {
     const L = state.L;
     const g = ctx;
     if (alpha <= 0.01) return;
     g.globalAlpha = Math.min(1, alpha * state.aMul);
     const s = p.sz;
+    // mScale on non-img layers scales the drawn particle around its centre —
+    // the "eyes snap open" read on the ascended/wheel moments. img layers use
+    // mk.sc inside their own transform instead.
+    const wrap = msc !== 1 && L.shape !== "img";
+    if (wrap) { g.save(); g.translate(x, y); g.scale(msc, msc); g.translate(-x, -y); }
     switch (L.shape) {
       case "img": {
         const isFrameAnim = L.frames && L.frames.length > 0;
@@ -2615,7 +2856,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         drawNewParticleShape(g, L.shape, p, x, y, time, api.reduce, L); break;
       }
       case "ash": case "feather": case "bonechip": case "coin": case "crescent": case "pulse": case "sandgrain": case "chainlink":
-      case "comet": case "sparkle": case "orb": case "crystal": case "wisp": case "rune": case "zap": case "moth": case "lantern": case "sparkburst": {
+      case "comet": case "sparkle": case "orb": case "crystal": case "wisp": case "rune": case "zap": case "moth": case "lantern": case "sparkburst": case "beye": case "glyphring": {
         drawNewParticleShape(g, L.shape, p, x, y, time, api.reduce, L); break;
       }
       default: { // bubble ring
@@ -2623,6 +2864,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.fillStyle = "#ffffff"; g.globalAlpha *= 0.7; g.beginPath(); g.arc(x - s * 0.35, y - s * 0.35, s * 0.25, 0, Math.PI * 2); g.fill();
       }
     }
+    if (wrap) g.restore();
   };
 
   const makeBolt = () => {
@@ -3039,7 +3281,9 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         g.beginPath(); g.arc(0, 0, rr, ang - span * 0.28, ang); g.stroke();
         const hx = Math.cos(ang) * rr, hy = Math.sin(ang) * rr;
         const sp = glowSprite(S.c || "#FFF6C9");
-        const hs = Math.max(6, sw * 1.8);
+        // fit: opt-in — cap the head-glow sprite so it can't paint past the
+        // frame on small canvases (the glow tail still reaches the border).
+        const hs = S.fit ? Math.min(Math.max(6, sw * 1.8), Math.max(3, Math.min(cx, cy, w - cx, h - cy) - rr - 1)) : Math.max(6, sw * 1.8);
         g.globalAlpha = 0.85; g.drawImage(sp, hx - hs, hy - hs, hs * 2, hs * 2);
       }
       g.restore();
@@ -3074,6 +3318,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const mtL = api.moment, mAmp = api.reduce ? 0.45 : 1;
         state._swirl = mtL != null && L.mSpin ? (keyAt(L.mSpin, mtL) || 0) : 0;
         state._rMul = mtL != null && L.mR ? (keyAt(L.mR, mtL) ?? 1) : 1;
+        state._msc = mtL != null && L.mScale && L.shape !== "img" ? (keyAt(L.mScale, mtL) ?? 1) : 1;
         const mk = mtL != null && L.shape === "img" ? state._mk || (state._mk = {}) : null;
         state._mk = mk;
         // imgXY slots must stay lazily created — anchor() falls back to the
@@ -3190,7 +3435,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           }
           if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
           if (L.shape === "img") { if (!ixy) ixy = api.imgXY[L.src] = {}; ixy.x = x; ixy.y = y; ixy.z = p.wz; }
-          drawP(ctx, state, p, alpha, x, y);
+          drawP(ctx, state, p, alpha, x, y, state._msc || 1);
         }
       }
     };
