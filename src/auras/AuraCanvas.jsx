@@ -435,23 +435,24 @@ export const AURA_FX = {
   // then a massive GOLDEN blast (gated gold wash + feather/light burst),
   // then it settles.
   ascended: { spd: 1.25, glow: 0.92, art: "ophanim", overArt: "ascended",
-    rings: [{ r: 1.18, c: "#FFD447", spin: 0.05, a: 0.92, w: 2.6, filigree: 8 }],
+    // the plain gold circle is gone — AURA_ART.ophanim draws the ornate
+    // gilded band (ascended-ring.webp) in its place
     moment: { every: [14, 20], dur: 4.2,
-      flash: { at: 0.64, flashPeak: 0.5, flashLife: 0.11, flashC: ["#FFF6C9", "#FFD447", "#FFB43C"], anchor: "center" },
-      shake: { at: 0.64, amp: 0.05, dur: 0.5 },
+      flash: { at: 0.7, flashPeak: 0.5, flashLife: 0.11, flashC: ["#FFF6C9", "#FFD447", "#FFB43C"], anchor: "center" },
+      shake: { at: 0.7, amp: 0.05, dur: 0.5 },
       bursts: [
-        { at: 0.64, path: "shockring", c: "#FFD447", a: 0.9, lw: 3.2, r0: 0.8, v: 2.8, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1, fit: 1 },
-        { at: 0.64, path: "radial", shape: "feather", n: 18, nScale: 0.5, c: ["#FFF6C9", "#FFD447", "#FFB43C"], anchor: "center", sp: [45, 110], sz: [2.2, 4], life: [0.9, 1.4], a: 0.95, over: 1, fit: 1 },
-        { at: 0.66, path: "radial", shape: "star", n: 12, nScale: 0.5, c: ["#FFF6C9", "#FFD447"], anchor: "center", sp: [55, 120], sz: [1.4, 2.6], life: [0.7, 1.1], a: 0.9, over: 1, fit: 1 },
-        { at: 0.7, path: "radial", shape: "feather", n: 8, nScale: 0.5, c: ["#FFD447", "#FFF6C9"], anchor: "center", sp: [15, 40], sz: [2, 3.4], life: [0.9, 1.3], a: 0.9, over: 1, fit: 1 },
+        { at: 0.7, path: "shockring", c: "#FFD447", a: 0.9, lw: 3.2, r0: 0.8, v: 2.8, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1, fit: 1 },
+        { at: 0.7, path: "radial", shape: "feather", n: 18, nScale: 0.5, c: ["#FFF6C9", "#FFD447", "#FFB43C"], anchor: "center", sp: [45, 110], sz: [2.2, 4], life: [0.9, 1.4], a: 0.95, over: 1, fit: 1 },
+        { at: 0.72, path: "radial", shape: "star", n: 12, nScale: 0.5, c: ["#FFF6C9", "#FFD447"], anchor: "center", sp: [55, 120], sz: [1.4, 2.6], life: [0.7, 1.1], a: 0.9, over: 1, fit: 1 },
+        { at: 0.76, path: "radial", shape: "feather", n: 8, nScale: 0.5, c: ["#FFD447", "#FFF6C9"], anchor: "center", sp: [15, 40], sz: [2, 3.4], life: [0.9, 1.3], a: 0.9, over: 1, fit: 1 },
       ] },
     layers: [
-      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 6, glyphS: 1.15, c: ["#7DF9FF"], w: [0.16, 0.16], r: [0, 0], sz: [1, 1], even: 1, a: 0.95,
-        mSpin: [[0, 0], [0.12, 0], [0.4, 3.5], [0.64, 8], [0.85, 0.4], [1, 0]],
-        mScale: [[0, 0.95], [0.5, 0.92], [0.62, 0.85], [0.68, 1.2], [0.84, 1.08], [0.95, 1], [1, 1]] },
-      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 4, glyphS: 1.25, c: ["#FFD447"], w: [-0.24, -0.24], r: [0, 0], sz: [0.9, 0.9], even: 1, dir: -1, a: 0.95,
-        mSpin: [[0, 0], [0.12, 0], [0.42, -3.5], [0.64, -8], [0.85, -0.4], [1, 0]],
-        mScale: [[0, 0.95], [0.52, 0.92], [0.63, 0.85], [0.7, 1.22], [0.86, 1.08], [0.96, 1], [1, 1]] },
+      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 6, glyphS: 1.15, c: ["#7DF9FF"], w: [0.16, 0.16], r: [0, 0], sz: [1, 1], even: 1, a: 0.7,
+        mSpin: [[0, 0], [0.25, 0], [0.48, 2.5], [0.62, 8], [0.7, 24], [0.82, 1.5], [1, 0]], mStreak: 3,
+        mScale: [[0, 0.95], [0.5, 0.92], [0.66, 0.85], [0.74, 1.2], [0.88, 1.08], [0.97, 1], [1, 1]] },
+      { k: "orbit", n: 1, shape: "glyphring", glyph: "eye", ringN: 4, glyphS: 1.25, c: ["#FFD447"], w: [-0.24, -0.24], r: [0, 0], sz: [0.9, 0.9], even: 1, dir: -1, a: 0.75,
+        mSpin: [[0, 0], [0.26, 0], [0.5, -2.5], [0.63, -8], [0.7, -24], [0.82, -1.5], [1, 0]], mStreak: 3,
+        mScale: [[0, 0.95], [0.52, 0.92], [0.67, 0.85], [0.75, 1.22], [0.9, 1.08], [0.98, 1], [1, 1]] },
       { k: "orbit", n: 4, shape: "feather", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.3, 0.45], r: [1.0, 1.14], sz: [3.8, 5.2], spin: 1, a: 0.95 },
       { k: "orbit", n: 4, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.5, 1], r: [0.98, 1.08], sz: [1.8, 2.8], tw: 1 },
       { k: "rise", n: 3, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], sp: [10, 18], life: [1.6, 2.6], sz: [1.8, 2.8], sway: 8, tw: 1, low: 1 },
@@ -671,6 +672,11 @@ export function loadOphanimSrc() {
 // The processed wing art, registered in _auraImageCache under a fixed key so
 // the diff/perf warmups await it like any other aura image.
 const OPH_SRC = "__ophanim";
+// Ornate gilded band for ascended (512², alpha'd): filigree ring with
+// sapphire gems and outward spikes. Fractions of the image half-width —
+// inner hole edge 0.672, band outer edge ~0.85, spike tips ~0.98.
+const ASC_RING_SRC = "/aura/ascended-ring.webp";
+const ASC_RING_HOLE = 0.672, ASC_RING_TIP = 0.98;
 export function ophWingRec() {
   let rec = _auraImageCache.get(OPH_SRC);
   if (rec) return rec;
@@ -695,10 +701,10 @@ let _ophSprites = null;
 function ophanimSprites(img) {
   if (_ophSprites) return _ophSprites;
   const S = 448, c = S / 2;
-  const bake = (src, r0, r1) => {
+  const bake = (src, r0, r1, zoom = 1) => {
     const cv = document.createElement("canvas"); cv.width = cv.height = S;
     const g2 = cv.getContext("2d");
-    g2.drawImage(src, 0, 0, S, S);
+    g2.drawImage(src, (S - S * zoom) / 2, (S - S * zoom) / 2, S * zoom, S * zoom);
     g2.globalCompositeOperation = "destination-in";
     const mask = g2.createRadialGradient(c, c, c * r0, c, c, c * r1);
     mask.addColorStop(0, "#000"); mask.addColorStop(1, "rgba(0,0,0,0)");
@@ -706,8 +712,9 @@ function ophanimSprites(img) {
     return cv;
   };
   // fade to a hard zero inside the sprite, so no copy ever carries alpha
-  // past `reach` of the drawn half-size
-  const wing = bake(img, 0.86, 1.0), echo = bake(img, 0.48, 0.7);
+  // past `reach` of the drawn half-size. The wing bake zooms ~14% into the
+  // art so the feathers read bigger on the canvas.
+  const wing = bake(img, 0.9, 1.0, 1.14), echo = bake(img, 0.48, 0.7);
   // hero halo: blurred golden silhouette behind the sharp copy — replaces
   // the DOM version's per-frame drop-shadow filters with one baked sprite.
   // Re-masked after blurring so the blur can't bleed alpha to the edge.
@@ -1497,20 +1504,23 @@ export const AURA_ART = {
   // scans and frame timing, and frozen in the gallery where App.jsx's
   // keyframes never mount. Same art, same motion — 20s spin, 11s counter-
   // spin, 4s rock — driven by wall clock so the speeds match the old CSS.
-  ophanim: ({ g, clock, cx, cy, w, h, reduce, moment }) => {
+  ophanim: ({ g, clock, cx, cy, rx, ry, w, h, reduce, moment }) => {
     const rec = ophWingRec();
     if (!rec?.ready || rec.failed) return null;
     const spr = ophanimSprites(rec.img);
     const m = Math.min(w, h);
     const t = reduce ? 1.7 : clock;
-    // moment "ascension": wings swell outward through the charge, the eyes
-    // spin up (mSpin on the glyphring layers), the blast lands at t≈0.64
-    // with a wing-shaped echo blooming past the wings, then all settles
+    const clear = Math.min(cx, w - cx, cy, h - cy);
+    // moment "ascension" — atlas-style build: slow start, accelerating hard.
+    // Wings swell outward (×1.5 requested — saturates at the border cap since
+    // the base wings already span ~0.9 of the frame), eyes spin up (mSpin +
+    // mStreak on the glyphrings), blast lands at t≈0.7 with a wing-shaped
+    // echo blooming past the wings, then all settles.
     const mt = !reduce && moment ? moment.t : null;
     const exp = mt == null ? 1
-      : 1 + 0.3 * (keyAt([[0, 0], [0.1, 0], [0.42, 0.6], [0.64, 1], [0.72, 1], [0.88, 0.3], [1, 0]], mt) ?? 0);
+      : 1 + 0.5 * (keyAt([[0, 0], [0.24, 0], [0.48, 0.15], [0.6, 0.48], [0.7, 1], [0.77, 1], [0.88, 0.3], [1, 0]], mt) ?? 0);
     const bloom = mt == null ? 0
-      : (keyAt([[0, 0], [0.52, 0], [0.66, 1], [0.8, 0.75], [0.92, 0]], mt) ?? 0);
+      : (keyAt([[0, 0], [0.56, 0], [0.72, 1], [0.84, 0.7], [0.95, 0]], mt) ?? 0);
     // per-copy edge safety: sprite content reaches `reach` of the drawn
     // half-size, so side + vertical shift must stay short of the border
     const draw = (img, reach, k, rot, dyF, alpha, sc = 1) => {
@@ -1531,13 +1541,28 @@ export const AURA_ART = {
     // ophpulse 2.2s: opacity .35 -> .7 on the big spinner
     const pulse = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 2.2));
     draw(spr.wing, 1.0, 1.02, t * (Math.PI / 10), 0, (0.35 + 0.35 * pulse) * (1 + 0.3 * bloom), exp);
-    draw(spr.wing, 1.0, 0.78, -t * (Math.PI * 2 / 11), 0, 0.32 * (1 + 0.3 * bloom), exp);
+    draw(spr.wing, 1.0, 0.92, -t * (Math.PI * 2 / 11), 0, 0.32 * (1 + 0.3 * bloom), exp);
     // ophfloat 4s: rock -7deg -> 7deg, lift 8% of the img, scale +6%;
     // the baked halo pass is skipped at board size — it smears to ~2px there
     const rock = reduce ? -1 : Math.sin(t * (Math.PI / 2) - Math.PI / 2);
-    const rk = 0.5 + 0.5 * rock, cw = 0.8 * (1 + 0.06 * rk);
+    const rk = 0.5 + 0.5 * rock, cw = 0.9 * (1 + 0.06 * rk);
     if (w >= 110) draw(spr.glow, 0.97, cw, rock * 0.122, -0.08 * cw * rk, 0.6 * (1 + 0.5 * bloom), exp);
     draw(spr.wing, 1.0, cw, rock * 0.122, -0.08 * cw * rk, 0.95, exp);
+    // ornate gilded band on top of the wing roots — the webp's inner hole
+    // (0.672 of its half-width) sits right at the photo's edge: 0.8·rx
+    // matches the app's ascended Avatar geometry (photo r / ringR), and the
+    // slightly larger evidence composite just tucks the inner filigree under
+    // the photo. Spike tips (0.98 of half) clamp short of the border.
+    const ringRec = auraImage(ASC_RING_SRC);
+    if (ringRec.ready) {
+      const hd = Math.min((rx * 0.8) / ASC_RING_HOLE, (clear - 1.5) / ASC_RING_TIP);
+      if (hd > 6) {
+        g.save(); g.translate(cx, cy);
+        if (!reduce) g.rotate(clock * 0.04); // ~157s/rev — a very slow turn
+        g.drawImage(ringRec.img, -hd, -hd, hd * 2, hd * 2);
+        g.restore();
+      }
+    }
     return null;
   },
   // Ascended "ascension": a soft-edged pillar of light rises from the ring's
@@ -1548,8 +1573,8 @@ export const AURA_ART = {
     const c = over || g;
     const t = moment.t;
     const R = Math.min(rx, ry);
-    const rise = Math.min(1, t / 0.5);
-    const fade = t < 0.7 ? 1 : Math.max(0, 1 - (t - 0.7) / 0.28);
+    const rise = Math.min(1, t / 0.55);
+    const fade = t < 0.78 ? 1 : Math.max(0, 1 - (t - 0.78) / 0.2);
     if (rise <= 0 || fade <= 0) return;
     const yB = cy + ry * 1.28, yT = yB - ry * 2.56 * rise;
     const ww = R * 0.52, hh = Math.max(1, (yB - yT) / 2);
@@ -2548,7 +2573,24 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
       }
     });
     const d = s * 1.31;
-    g.save(); g.translate(x, y); g.rotate((L.dir ?? 1) * p.ang + time * (L.rotW || 0));
+    const spin = (L.dir ?? 1) * p.ang + time * (L.rotW || 0);
+    // mStreak (opt-in): while the moment spin-up whips the ring fast, paint
+    // ghost copies at angular lags behind the live rotation — the eyes smear
+    // into afterimages near the climax. The lag scales with angular velocity,
+    // so the trail only exists while the ring is actually spinning hard.
+    const sw = L.mStreak ? Math.abs(p._sw || 0) : 0;
+    if (sw > 2.5) {
+      const om = (L.dir ?? 1) * p.w * (1 + sw), a0 = g.globalAlpha;
+      const nG = Math.min(L.mStreak, 1 + Math.floor(sw / 8)), fade = Math.min(1, (sw - 2.5) / 8);
+      for (let j = nG; j >= 1; j--) {
+        g.save(); g.translate(x, y); g.rotate(spin - om * 0.03 * j);
+        g.globalAlpha = a0 * fade * 0.5 * (1 - j / (nG + 1));
+        g.drawImage(sp, -d, -d, d * 2, d * 2);
+        g.restore();
+      }
+      g.globalAlpha = a0;
+    }
+    g.save(); g.translate(x, y); g.rotate(spin);
     g.drawImage(sp, -d, -d, d * 2, d * 2);
     g.restore();
   } else if (shape === "chainlink") {
@@ -2773,7 +2815,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   }
   if (aura === "brandmark") { auraImage("/aura/cape.webp"); auraImage("/aura/brand.png"); auraImage("/aura/pauldron.webp"); }
   if (aura === "ledger") { auraImage("/aura/robe-ledger.webp"); auraImage("/aura/mask-ledger.webp"); }
-  if (fx.art === "ophanim") ophWingRec();
+  if (fx.art === "ophanim") { ophWingRec(); auraImage(ASC_RING_SRC); }
   if (fx.art === "wheel") auraImage(WHEEL_EYE_SRC);
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
@@ -3738,7 +3780,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             // mSpin/mR: moment-driven swirl — orbit speed multiplier and orbit
             // radius multiplier keyed to the moment phase (Ossuary's spiral).
             const swirl = state._swirl, rMul = state._rMul;
-            p.ang += p.w * layerDt * (1 + swirl); const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
+            p.ang += p.w * layerDt * (1 + swirl); p._sw = swirl;
+            const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
             if (p.ej) {
               p.ej.t += layerDt;
               if (p.ej.t >= p.ej.life) p.ej = null;
