@@ -65,3 +65,7 @@ A worn piece anchored to the figure or photo (cloak, blindfold, hat) must never 
 ## View-scoped spec overrides
 
 `body:` and `circle:` blocks on an aura spec or a layer override only that render view (`src/auras/specFormat.js` `mergeViewSpec`/`mergeViewLayer`). The merge is one level deep: plain-object values merge key-by-key, scalars and arrays replace wholesale. An override must never be a full copy of the base — only the keys that differ. Gallery "Body figure" / "Avatar ring" edits write these blocks; "Both views" writes the shared value and drops the overrides. Structural layer keys (`VIEW_LOCKED_LAYER_KEYS`: kind, shape, src, frames, shadow, embers, placed, blend…) always stay shared.
+
+## Testing commands are the supported checks
+
+The named commands in `docs/TESTING.md` — `check`, `aura:diff`, `aura:perf`, `aura:stress`, `aura:shots`, `aura:flash`, `aura:contact`, `aura:baseline` — are the supported way to run checks. Changes to how anything is measured (frames, sizes, budgets, thresholds, warm-up) need a proposal first; the implementation follows the decision, not the other way round.

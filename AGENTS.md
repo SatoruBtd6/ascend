@@ -28,12 +28,26 @@ Ascend is a leveling-style gym tracker: React 18 + Vite + Tailwind, Supabase, Ve
 
 ## Scripts
 
-- `scripts/aura-7j-full-diff.mjs`: multi-size pixel diff. Use `--fresh` (a new page per aura) for
-  all pass/fail evidence. Other flags: `--spec <file>` injects alternate specs; `--auras` filters.
-- `scripts/aura-7k-revamp-shots.mjs`: the evidence grid (ring dark/light, board-32, figure, 2
-  frames, reduced motion, edge scan, `--perf`).
-- `scripts/aura-7k-ladder-current.mjs`: the per-aura ladder/spec table.
-- All evidence output goes under `evidence/`, which is gitignored. Never commit it.
+The named commands below are the supported way to run checks — see `docs/TESTING.md` for
+the full table, pass/fail rules, and measurement guidance. Each self-serves the current
+tree on port 5180 (baseline worktree on 5181) and writes evidence to
+`evidence/<command>/<timestamp>/`.
+
+| Command | Job |
+|---|---|
+| `npm.cmd run check` | tests (once) + `eslint src --max-warnings 5` + madge circular check |
+| `npm.cmd run aura:baseline -- <tag>` | re-pin the baseline worktree (`C:\Users\rms76\ascend-baseline`) |
+| `npm.cmd run aura:diff` | multi-size pixel diff vs baseline; `--only`, `--expect`, `--spec` |
+| `npm.cmd run aura:stress` | board-32 stress on the fixed/ledger/revamp sets; `--set`, `--ab` |
+| `npm.cmd run aura:perf` | per-aura frame cost; ratio WARN vs stormstep; `--ab` = the FAIL rule |
+| `npm.cmd run aura:shots` | evidence grid per aura; `--strip a,b,c` = ring-size look-alike strip |
+| `npm.cmd run aura:flash` | bonewright pixel-identical + identical flashTimes |
+| `npm.cmd run aura:contact` | contact sheet + audit.json for all FX auras at ring size |
+
+Helpers in `scripts/` (no phase numbers): `aura-lib.mjs` (servers/evidence), `aura-sets.mjs`
+(frozen sets + perf policy constants), `aura-ladder.mjs`, `aura-spec-probe.mjs`,
+`aura-asset-check.mjs`, `gallery-effects.mjs`, `diag-harness.mjs`. All evidence output goes
+under `evidence/`, which is gitignored. Never commit it.
 
 ## Reports
 
@@ -54,8 +68,8 @@ In addition:
 - `npx eslint src`: 0 errors, no new warnings (baseline 5). Never run `eslint .`.
 - `npx madge --circular --extensions js,jsx,mjs src`: 0 cycles (currently 188 files). Dropping
   `mjs` gives a wrong count.
-- Aura changes: `scripts/aura-7j-full-diff.mjs --fresh` against the baseline worktree. Every aura
-  you didn't intend to change must show 0 differing bytes.
+- Aura changes: `npm.cmd run aura:diff` against the baseline worktree (fresh page per aura).
+  Every aura you didn't intend to change must show 0 differing bytes.
 
 ## Hard rules (never undo)
 
@@ -69,11 +83,16 @@ In addition:
   and every moment is designed for the ring first and must look complete and impressive there.
   Anything a moment shows on the figure needs a ring equivalent (for example, behind the photo
   and around its edge). Evidence always shows the ring view first.
-- **Per-aura budget:** average loop time at or under 0.6 ms at board-32 / 4x CPU (quiet --perf,
-  400 frames, moments forced for moment auras), median of 3 runs. p95 is reported for
-  information only. Revamp stress: after every aura batch, run a board-32 stress with the 10
-  heaviest revamped auras (by average), circle mode, 4x CPU, moments forced; p95 must stay
-  under 16 ms.
+- **Per-aura budget:** `npm.cmd run aura:perf -- --ab` is the FAIL rule — current vs the
+  pinned baseline in one session, alternating per aura, board-32 / 4x CPU, moments forced,
+  400 frames, median of 5 runs; FAIL only if an aura is more than 15% AND more than 0.05 ms
+  slower than its baseline median, and a borderline fail gets one automatic re-run before it
+  may fail. Plain `aura:perf` never fails: an aura over 1.3x stormstep's same-session median
+  prints WARN (provisional budget, ≈0.6 ms on a quiet day), grandfathered ceilings print as
+  info, and carve/wyrm carry the KNOWN_OVER note. p95 is information only. Revamp stress:
+  after every aura batch, run a board-32 stress with the 10 heaviest revamped auras (by
+  average, the frozen set in `scripts/aura-sets.mjs`), circle mode, 4x CPU, moments forced;
+  p95 must stay under 16 ms.
 - **Leaderboard stress:** the set is `atlas forge fallenlight ossuary ironbound standardbearer
   ascended bonewright nullpoint inferno`, run at board-32, circle mode, 4x CPU, with moments
   forced. p95 must stay under 16 ms. Rerun it whenever any of these auras, or shared renderer code,
