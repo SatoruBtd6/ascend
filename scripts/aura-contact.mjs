@@ -3,7 +3,7 @@
 // dark and light), board-32, and body figure. Groups by rarity tier, labels
 // with display names. Also emits a JSON audit row per aura: spec shape/layer
 // summary and ring-view visibility numbers.
-//   node scripts/aura-7k-audit.mjs [--base http://localhost:5174]
+//   node scripts/aura-contact.mjs [--base http://localhost:5174]
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";

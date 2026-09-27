@@ -3,7 +3,7 @@
 // bonewright as a subprocess (it manages its own servers); the flashTimes
 // capture then runs on the baseline (5181) and the current tree (5180) and
 // the JSON must match exactly.
-//   node scripts/aura-7j-flashtimes.mjs <base> <out.json>   legacy single capture
+//   node scripts/aura-flash.mjs <base> <out.json>   legacy single capture
 import { createRequire } from "node:module";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -85,7 +85,7 @@ let fails = 0;
 // 1. pixel check: aura:diff --only bonewright (manages its own servers, so it
 // runs before ours start).
 console.log("--- pixel check: aura:diff --only bonewright");
-const px = spawnSync(process.execPath, [join(REPO, "scripts", "aura-7j-full-diff.mjs"), "--only", "bonewright"], { stdio: "inherit" });
+const px = spawnSync(process.execPath, [join(REPO, "scripts", "aura-diff.mjs"), "--only", "bonewright"], { stdio: "inherit" });
 {
   const line = `${px.status === 0 ? "PASS" : "FAIL"} pixel — bonewright ${px.status === 0 ? "pixel-identical to baseline" : "differs from baseline (see aura:diff output above)"}`;
   lines.push(line); console.log(line);

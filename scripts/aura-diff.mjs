@@ -5,8 +5,8 @@
 // the final frame — mid-moment states are compared, not just the last frame.
 // Results stream as JSONL (base64 pixels) so the node heap stays flat.
 //   npm.cmd run aura:diff [-- --only id,id --expect id,id]   (default: run)
-//   node scripts/aura-7j-full-diff.mjs capture out.jsonl [--base ...] [--aura id,id]
-//   node scripts/aura-7j-full-diff.mjs compare out.jsonl [--base ...] [--aura id,id]
+//   node scripts/aura-diff.mjs capture out.jsonl [--base ...] [--aura id,id]
+//   node scripts/aura-diff.mjs compare out.jsonl [--base ...] [--aura id,id]
 // "run" is the aura:diff command: starts the baseline worktree on 5181 and this
 // tree on 5180, captures from the baseline, compares this tree, prints a
 // verdict per aura, and exits 1 on any FAIL. --spec applies to the current
@@ -27,7 +27,7 @@ async function loadChromium() {
 }
 const args = process.argv.slice(2);
 const cmd = ["capture", "compare", "run"].includes(args[0]) ? args[0] : "run";
-const file = cmd !== "run" && args[1] && !args[1].startsWith("--") ? args[1] : join(process.env.TEMP || ".", "aura-7j-full.jsonl");
+const file = cmd !== "run" && args[1] && !args[1].startsWith("--") ? args[1] : join(process.env.TEMP || ".", "aura-diff.jsonl");
 let base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5174";
 const argList = (flag) => (args.includes(flag) ? args[args.indexOf(flag) + 1].split(",") : null);
 const ONLY = argList("--aura") || argList("--only");

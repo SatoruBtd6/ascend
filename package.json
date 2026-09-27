@@ -10,12 +10,12 @@
     "test": "node --test \"src/**/*.test.mjs\" \"tests/**/*.test.mjs\"",
     "check": "node scripts/check.mjs",
     "aura:baseline": "node scripts/aura-baseline.mjs",
-    "aura:diff": "node scripts/aura-7j-full-diff.mjs",
-    "aura:shots": "node scripts/aura-7k-revamp-shots.mjs shots",
-    "aura:perf": "node scripts/aura-7k-revamp-shots.mjs perf",
-    "aura:stress": "node scripts/aura-7h-stress.mjs",
-    "aura:flash": "node scripts/aura-7j-flashtimes.mjs",
-    "aura:contact": "node scripts/aura-7k-audit.mjs"
+    "aura:diff": "node scripts/aura-diff.mjs",
+    "aura:shots": "node scripts/aura-shots.mjs shots",
+    "aura:perf": "node scripts/aura-shots.mjs perf",
+    "aura:stress": "node scripts/aura-stress.mjs",
+    "aura:flash": "node scripts/aura-flash.mjs",
+    "aura:contact": "node scripts/aura-contact.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

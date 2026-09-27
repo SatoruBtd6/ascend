@@ -5,9 +5,9 @@
 // the 141px ring canvas, r=16 on the 59px board tile), `over` canvas in front.
 // Body mode already contains the figure via anchors; avatar drawn for context.
 // Writes evidence/7k/<aura>-<tag>.png (gitignored).
-//   node scripts/aura-7k-revamp-shots.mjs ember,stormstep --tag before [--spec before.json] [--base ...] [--perf]
-//   node scripts/aura-7k-revamp-shots.mjs shots [--only id,id] [--strip id,id]   (aura:shots)
-//   node scripts/aura-7k-revamp-shots.mjs perf [--only id,id] [--runs N] [--ab]   (aura:perf)
+//   node scripts/aura-shots.mjs ember,stormstep --tag before [--spec before.json] [--base ...] [--perf]
+//   node scripts/aura-shots.mjs shots [--only id,id] [--strip id,id]   (aura:shots)
+//   node scripts/aura-shots.mjs perf [--only id,id] [--runs N] [--ab]   (aura:perf)
 // perf --ab: A = baseline worktree (5181) vs B = current (5180), alternating
 //   per aura in one session; FAIL only if B is >15% AND >0.05 ms above A.
 // --spec file: { "id": <spec> } — replaces AURA_FX[id] in-page before rendering

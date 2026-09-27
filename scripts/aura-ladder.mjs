@@ -11,14 +11,19 @@ async function loadChromium() {
   }
   return (await import("playwright-core")).chromium;
 }
+import { REPO, CURR_URL, CURR_PORT, assertPortFree, startVite, waitReady, stopServers } from "./aura-lib.mjs";
 const chromium = await loadChromium();
+assertPortFree(CURR_PORT);
+startVite(REPO, CURR_PORT);
+await waitReady(CURR_URL);
 const b = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe" });
 const p = await (await b.newContext()).newPage();
-await p.goto("http://localhost:5174/?auras=1", { waitUntil: "domcontentloaded" });
+await p.goto(`${CURR_URL}/?auras=1`, { waitUntil: "domcontentloaded" });
 const rows = await p.evaluate(async () => {
   const [m, cat] = await Promise.all([import("/src/auras/AuraCanvas.jsx"), import("/src/auras/catalog.js")]);
   const { mergeViewSpec, mergeViewLayer } = await import("/src/auras/specFormat.js");
-  const ids = ["ember", "tide", "sigil", "steadybreath", "iaidraw", "storm", "smolder", "stormborn", "dawn", "wanderer", "wyrm", "frost", "abyss", "rust", "thunder", "hollow", "deep", "magma", "plague", "sand", "void", "glassfire", "stormstep", "zeropoint", "ninetail", "vendetta", "ascended", "wheel", "brandmark", "carve", "yogurt", "chud"];
+  const resolve = cat.resolveAuraId || ((id) => id);
+  const ids = cat.AURAS.map((a) => a.id).filter((id) => m.AURA_FX[resolve(id)]);
   return ids.map((id) => {
     const a = cat.AURAS.find((x) => x.id === id);
     const fx = mergeViewSpec(m.AURA_FX[id], "circle");
@@ -34,3 +39,4 @@ const rows = await p.evaluate(async () => {
 });
 for (const r of rows) console.log(JSON.stringify(r));
 await b.close();
+stopServers();

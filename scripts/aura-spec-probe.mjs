@@ -1,6 +1,6 @@
 // Patches AURA_FX entries in-page with candidate specs and reports max border
 // alpha over N frames per view. For tuning 7k specs before committing them.
-//   node scripts/aura-7k-spec-probe.mjs '<json {id: spec}>' [frames]
+//   node scripts/aura-spec-probe.mjs '<json {id: spec}>' [frames]
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";

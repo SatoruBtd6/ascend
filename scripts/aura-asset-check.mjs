@@ -1,7 +1,7 @@
 // 7i Part 0 asset check: verifies the worn-piece WebPs are real RGBA WebP
 // with fully transparent corners (phone downloads can flatten to JPEG).
 // Reports dimensions, byte size, alpha flag, and the four corner alphas.
-// Usage: node scripts/aura-7i-asset-check.mjs [dir]   (default public/aura)
+// Usage: node scripts/aura-asset-check.mjs [dir]   (default public/aura)
 import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";

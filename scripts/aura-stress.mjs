@@ -4,7 +4,7 @@
 //   aura:stress -- --set fixed|ledger|revamp       one set only
 //   aura:stress -- --ab [--set x] [--runs N]       baseline (A) vs current (B),
 //                                                  alternating A B A B A B
-//   node scripts/aura-7h-stress.mjs [--base URL] aura,aura,...   legacy single run
+//   node scripts/aura-stress.mjs [--base URL] aura,aura,...   legacy single run
 // Command mode bakes in board-32, circle mode, 4x CPU, moments forced, and
 // self-serves the current tree on 5180 (baseline on 5181 for --ab) per D4.
 // Set lists live in aura-sets.mjs (D11).
