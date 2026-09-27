@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { hexRgb } from "../theme.js";
 import { AURAS, resolveAuraId } from "./catalog.js";
-import { mergeViewSpec, mergeViewLayer } from "./specFormat.js";
+import { mergeViewSpec, mergeViewLayer, mergeSpecForView, mergeLayerForView, applySmallScale, SMALL_VIEW_PX } from "./specFormat.js";
 import { noteStrikeFlash } from "./boltClock.js";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 export { FACE_REGION, HEAD_FROM_EYE, resolveAuraAnchors } from "./anchors.js";
@@ -983,8 +983,8 @@ export function auraImage(src, opts = {}) {
 export function auraNeedsOver(aura) {
   const fx = AURA_FX[resolveAuraId(aura)];
   if (!fx) return false;
-  // Over-canvas needs can live in either view block — check both merged views.
-  for (const view of ["body", "circle"]) {
+  // Over-canvas needs can live in any view block — check all merged views.
+  for (const view of ["body", "circle", "small"]) {
     const spec = mergeViewSpec(fx, view);
     if (spec.overArt || spec.moment?.bursts?.some((b) => b.over)) return true;
     if ((spec.layers || []).some((L) => mergeViewLayer(L, view).over)) return true;
@@ -2838,9 +2838,12 @@ const keyAt = (frames, t) => {
 export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
   aura = resolveAuraId(aura); // legacy ids from old saves/cards render the renamed spec
   // View-scoped spec overrides: `body:` fields apply only to body/figure
-  // renders, `circle:` only to the avatar ring. Everything else is shared.
-  const viewBlock = mode === "body" ? "body" : "circle";
-  const fx = mergeViewSpec(AURA_FX[aura], viewBlock), base = AURAS.find((a) => a.id === aura);
+  // renders, `circle:` only to the avatar ring, `small:` on top of either when
+  // the canvas is under 110 px wide. Everything else is shared.
+  const smallOn = w < SMALL_VIEW_PX;
+  const fx = mergeSpecForView(AURA_FX[aura], mode, w), base = AURAS.find((a) => a.id === aura);
+  // spec.small.scale — the one-number opt-in — multiplies layer sz/n below.
+  const specScale = smallOn && Number.isFinite(fx?.small?.scale) ? fx.small.scale : 1;
   const g = canvas.getContext("2d");
   if (!fx || !g) return null;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -2897,16 +2900,20 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   let particleBudget = 120;
   const layerSpecs = [];
   fx.layers.filter((L) => L.placed !== "shoulders").forEach((L) => {
-    // Per-view override: `body:` wins in body/figure mode, `circle:` on the
-    // avatar ring — the other view stays pixel-identical to the base layer.
-    const eff = mergeViewLayer(L, viewBlock);
+    // Per-view override chain: base -> body/circle -> small — untouched views
+    // stay pixel-identical to the base layer. layerK is spec.scale x the
+    // layer's own small.scale; explicit small: keys win per field.
+    const merged = mergeLayerForView(L, mode, w);
+    const layerK = smallOn ? specScale * (Number.isFinite(merged.small?.scale) ? merged.small.scale : 1) : 1;
+    const eff = layerK === 1 ? merged : applySmallScale(merged, layerK);
     layerSpecs.push(eff);
     if (eff.shape === "flame" && eff.embers) {
       const embers = eff.embers === true ? {} : eff.embers;
-      layerSpecs.push({
+      const emberLayer = {
         k: "rise", shape: "ember", n: 8, c: ["#FFB43C", "#FFF6C9"], sp: [18, 42], life: [0.5, 1.1], sz: [0.8, 1.6], sway: 10, a: 0.8,
         ...embers, over: eff.over, behind: eff.behind,
-      });
+      };
+      layerSpecs.push(layerK === 1 ? emberLayer : applySmallScale(emberLayer, layerK));
     }
   });
   const shadowSpec = (L) => {
@@ -2942,7 +2949,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const spawn = (p, fresh) => {
       p.c = L.c ? pick(L.c) : "#ffffff";
       const raw = rnd(...range(L.sz, L.shape === "img" ? 0.8 : 2.5));
-      p.sz = L.shape === "emoji" ? raw : L.shape === "img" || L.shape === "glyphring" || (L.shape === "flame" && mode !== "body" && L.circle) ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
+      p.sz = L.shape === "emoji" ? raw : L.shape === "img" || L.shape === "glyphring" || (L.shape === "flame" && mode !== "body" && (L.circle || L.small)) ? raw * Math.min(rx, ry) : Math.max(w < 110 ? 1.35 : 0.9, raw * unit * (mode === "body" ? 1.15 : 1));
       p.age = 0;
       p.rot = L.shape === "img" || L.shape === "flame" ? (L.rot || 0) * Math.PI * 2 : rnd(0, Math.PI * 2);
       p.vr = L.shape === "img" || L.shape === "flame" ? (L.spin || 0) * Math.PI * 2 : L.spin ? rnd(-3, 3) : rnd(-1, 1);

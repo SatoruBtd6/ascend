@@ -1581,3 +1581,57 @@ test("view scope: shipped circle: overrides still render and stay out of body mo
   assert.equal(ring("inferno", "body"), ring("__infernoNoCircle", "body"), "circle: override must not leak into body mode");
   delete renderer.AURA_FX.__infernoNoCircle;
 });
+
+// --- small: view block (7m) — fires under 110px, invisible elsewhere -------
+
+test("small: changes the <110px ring render and never touches larger or body renders", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  const base = () => ({
+    spd: 1,
+    layers: [{ k: "orbit", n: 12, shape: "dot", r: [0.9, 1.1], w: [0.2, 0.2], sz: [3, 3], c: "#FF8800" }],
+  });
+  const withSmall = () => ({ ...base(), small: { scale: 0.2, spd: 0.6 }, layers: [{ ...base().layers[0], small: { n: 3 } }] });
+  const run = async (spec, mode, w, h) => {
+    renderer.AURA_FX.__smallView = spec;
+    seedRng();
+    const canvas = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "__smallView", w, h, mode, ringR: Math.min(w, h) / 3.456, figure: "/avatars/E.webp" });
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const mark = canvas.output.length;
+    for (let i = 0; i < 20; i++) inst.frame(1 / 60);
+    return JSON.stringify(canvas.output.slice(mark), (k, v) => (typeof v === "function" ? "fn" : v));
+  };
+  // board-32 tile: small: applies — the drawn op stream must visibly differ
+  assert.notEqual(await run(withSmall(), "circle", 59, 59), await run(base(), "circle", 59, 59), "small: should change the 59px render");
+  // profile ring: small: never merges at >=110px — identical to the base spec
+  assert.equal(await run(withSmall(), "circle", 141, 141), await run(base(), "circle", 141, 141), "small: must not touch the 141px render");
+  // figure160: orthogonal small: still never merges at real body sizes
+  assert.equal(await run(withSmall(), "body", 128, 163), await run(base(), "body", 128, 163), "small: must not touch the body render");
+  delete renderer.AURA_FX.__smallView;
+});
+
+test("small: n override draws fewer particles on a 59px canvas than on the ring", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installAlphaDocument();
+  renderer.AURA_FX.__smallCount = {
+    glow: 0,
+    layers: [{ k: "orbit", n: 12, shape: "dot", r: [0.9, 1.1], w: [0.2, 0.2], sz: [3, 3], c: "#FF8800", small: { n: 4 } }],
+  };
+  const countDraws = async (w) => {
+    seedRng();
+    const canvas = stubRendererCanvas();
+    const inst = renderer.makeAura(canvas, { aura: "__smallCount", w, h: w, mode: "circle", ringR: w / 3.456 });
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const mark = canvas.output.length;
+    for (let i = 0; i < 10; i++) inst.frame(1 / 60);
+    return canvas.output.slice(mark).filter(([op]) => op === "drawImage").length;
+  };
+  const board = await countDraws(59), ring = await countDraws(141);
+  assert.ok(board < ring, `small canvas should draw fewer particles (59px ${board} vs 141px ${ring})`);
+  delete renderer.AURA_FX.__smallCount;
+});

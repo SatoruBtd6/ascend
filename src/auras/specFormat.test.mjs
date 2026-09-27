@@ -10,6 +10,8 @@ import {
   formatAuraEntry, parseAuraEntry, setDeep, walkPath,
   mergeViewSpec, mergeViewLayer, scopedPath, applyScopedEdit,
   clearScopedOverride, hasScopedOverride, scopedOverrideViews,
+  viewBlocksFor, mergeSpecForView, mergeLayerForView, applySmallScale,
+  validateSpec, SMALL_VIEW_PX,
 } from "./specFormat.js";
 
 async function loadAuraFx() {
@@ -174,4 +176,97 @@ test("hasScopedOverride/scopedOverrideViews report which views hold an override"
   assert.equal(hasScopedOverride(spec, ["layers", 1, "sp"], "body"), false);
   assert.equal(hasScopedOverride(spec, ["layers", 1, "sp"], "both"), true);
   assert.deepEqual(scopedOverrideViews(spec, ["layers", 1, "sp"]), ["circle"]);
+});
+
+// --- small: view block (7m) — a size scope, not a view --------------------
+
+test("viewBlocksFor adds small under 110 px in either mode; boundary at exactly 110", () => {
+  assert.equal(SMALL_VIEW_PX, 110);
+  assert.deepEqual(viewBlocksFor("circle", 109), ["circle", "small"]);
+  assert.deepEqual(viewBlocksFor("circle", 110), ["circle"]);
+  assert.deepEqual(viewBlocksFor("circle", 141), ["circle"]);
+  // orthogonal: body mode inherits small: under 110 px too
+  assert.deepEqual(viewBlocksFor("body", 109), ["body", "small"]);
+  assert.deepEqual(viewBlocksFor("body", 128), ["body"]);
+});
+
+test("small: merges most-specific-last — the view override survives where small is silent", () => {
+  const spec = {
+    spd: 1, glow: 0.8,
+    circle: { spd: 2 },
+    small: { spd: 3 },
+    layers: [{ k: "orbit", n: 6, sz: [2, 3], circle: { n: 10 }, small: { sz: [1, 1] } }],
+  };
+  assert.equal(mergeSpecForView(spec, "circle", 141).spd, 2); // small never merges at >=110
+  assert.equal(mergeSpecForView(spec, "circle", 59).spd, 3);  // small beats circle
+  assert.equal(mergeSpecForView(spec, "circle", 59).glow, 0.8);
+  const L59 = mergeLayerForView(spec.layers[0], "circle", 59);
+  assert.equal(L59.n, 10);            // circle value survives under small
+  assert.deepEqual(L59.sz, [1, 1]);   // small wins on the field it sets
+  assert.equal(mergeLayerForView(spec.layers[0], "circle", 141).n, 10);
+});
+
+test("small: merges in body mode under 110 px, but a real figure render is untouched", () => {
+  const spec = { spd: 1, body: { spd: 4 }, small: { spd: 3 }, layers: [] };
+  assert.equal(mergeSpecForView(spec, "body", 109).spd, 3); // base -> body -> small
+  assert.equal(mergeSpecForView(spec, "body", 128).spd, 4); // figure160 — small never merges
+  // a spec carrying small: is byte-equivalent to a view-only merge at figure size
+  const layered = { ...spec, layers: [{ k: "orbit", n: 6, small: { n: 1 } }] };
+  assert.deepEqual(mergeSpecForView(layered, "body", 128), mergeViewSpec(layered, "body"));
+  assert.deepEqual(mergeLayerForView(layered.layers[0], "body", 128), mergeViewLayer(layered.layers[0], "body"));
+});
+
+test("small scale multiplies n and sz; explicit small keys win per field", () => {
+  const merged = mergeLayerForView({ k: "orbit", n: 12, sz: [4, 8], sp: [5, 9], small: { sz: [2, 2] } }, "circle", 59);
+  const out = applySmallScale(merged, 0.5);
+  assert.equal(out.n, 6);
+  assert.deepEqual(out.sz, [2, 2]);      // explicit small.sz beats scale
+  assert.deepEqual(out.sp, [5, 9]);      // scale never touches speed
+  // spec-level and layer-level scale stack multiplicatively — the caller
+  // (makeAura) combines spec.small.scale x layer.small.scale into one factor
+  const stacked = mergeLayerForView({ k: "orbit", n: 8, sz: [4, 4], small: { scale: 0.5 } }, "circle", 59);
+  assert.equal(applySmallScale(stacked, 0.5 * stacked.small.scale).n, 2); // 0.5 spec x 0.5 layer
+  // factor 1 is a no-op that returns the layer untouched
+  assert.equal(applySmallScale(merged, 1), merged);
+  // even layers keep integer counts so ring distribution stays even
+  const even = mergeLayerForView({ k: "orbit", n: 9, even: true, sz: 2 }, "circle", 59);
+  assert.equal(applySmallScale(even, 0.5).n, 5); // round(4.5)
+  // scalar sz scales; locked shadow sub-spec reaches sz/max but never rate
+  const shadowed = mergeLayerForView({ k: "orbit", n: 4, sz: 2, shadow: { sz: [3, 8], max: 24, rate: 12 } }, "circle", 59);
+  const s = applySmallScale(shadowed, 0.5).shadow;
+  assert.equal(applySmallScale(even, 0.5).sz, 1);
+  assert.deepEqual(s.sz, [1.5, 4]);
+  assert.equal(s.max, 12);
+  assert.equal(s.rate, 12);
+});
+
+test("validateSpec rejects anything in small: that is not size, count or speed", () => {
+  const bad = [
+    { small: { glow: 0.5 } },                                        // brightness
+    { small: { layers: [{ n: 2 }] } },                               // layers live on layer.small
+    { small: { circle: { n: 2 } } },                                 // no nested view blocks
+    { small: { small: { n: 2 } } },
+    { small: { c: "#FF0000" } },                                     // palette
+    { small: { scale: 0 } },                                         // scale must be > 0
+    { layers: [{ k: "orbit", n: 6, small: { a: 0.5 } }] },           // opacity
+    { layers: [{ k: "orbit", n: 6, small: { c: ["#FF0000"] } }] },   // palette, non-numeric
+    { layers: [{ k: "orbit", n: 6, small: { shape: "star" } }] },    // locked key
+    { layers: [{ k: "orbit", n: 6, small: { shadow: { sz: [1, 2] } } }] }, // locked sub-spec
+    { layers: [{ k: "orbit", n: 6, small: { at: 0.5 } }] },          // position
+    { layers: [{ k: "orbit", n: 6, small: { over: true } }] },       // compositing flag, non-numeric
+  ];
+  for (const spec of bad) assert.ok(validateSpec(spec).length > 0, `should reject ${JSON.stringify(spec)}`);
+  const good = [
+    { small: { scale: 0.45, spd: 0.7, bolts: { every: [9, 14] }, moment: { dur: 0.9 } } },
+    { layers: [{ k: "orbit", n: 6, small: { n: 3, sz: [1, 2], sp: [3, 5], scale: 0.5 } }] },
+    { layers: [{ k: "orbit", n: 6, small: { wander: { sx: 0.2, every: 5 } } }] },
+  ];
+  for (const spec of good) assert.deepEqual(validateSpec(spec), [], `should pass ${JSON.stringify(spec)}`);
+});
+
+test("every catalog aura spec passes small: validation", async () => {
+  const AURA_FX = await loadAuraFx();
+  for (const [id, spec] of Object.entries(AURA_FX)) {
+    assert.deepEqual(validateSpec(spec), [], id);
+  }
 });

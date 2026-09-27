@@ -191,10 +191,12 @@ version.
 No aura changes in this part. Nothing should look different anywhere when it ends.
 
 **A. Semantics, pinned in `DECISIONS.md` before coding.** Write and get approval for:
-threshold (`mode === "circle" && w < 110`, matching the existing unit floor); merge order
+threshold (`w < 110`, matching the existing unit floor); merge order
 (base → circle → `small`, most specific last, so circle edits still apply at small sizes);
-whether `small:` applies in body mode (no <110 figure canvas exists today — recommend an
-orthogonal definition and say which); and the three amendments below.
+whether `small:` applies in body mode (**decided, Brodan 2026-09-27: orthogonal** — a size
+scope on top of the active view block, base → `body` → `small`, so a body-mode render at
+≥110 px is byte-identical today, and a future <110 px figure canvas inherits `small:`
+automatically); and the three amendments below.
 
 **B. Amendment 1 — opt in with one number.** `small:` must support a scale multiplier
 (e.g. `small: { scale: 0.45 }`) that scales particle size and count, as well as the explicit

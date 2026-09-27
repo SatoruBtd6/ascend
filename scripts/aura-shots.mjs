@@ -37,6 +37,16 @@ const ONLY = argList("--only");
 const STRIP = argList("--strip");
 const AB = args.includes("--ab"); // perf --ab: baseline (A) vs current (B), alternating per aura
 const RUNS = +(args.find((a) => a.startsWith("--runs="))?.slice(7) || (AB ? 5 : 3));
+// --size ring (7m): measure the loud version at real profile geometry — after
+// small: opt-ins land, board-32 measures the quiet recipe. Ring numbers are a
+// separate series (labelled ring-141), never compared to board-32 medians.
+const SIZE = args.includes("--size") ? args[args.indexOf("--size") + 1] : "board";
+const SIZES = {
+  board: { w: 59, h: 59, ringR: 17.2, label: "board-32 (59px)" },
+  ring: { w: 141, h: 141, ringR: 141 / 3.456, label: "ring-141 (141px)" },
+};
+if (!SIZES[SIZE]) { console.error(`unknown --size "${SIZE}" — board|ring`); process.exit(1); }
+const SZ = SIZES[SIZE];
 // --ab regression guard (D15): FAIL only if current is more than AB_MAX_PCT%
 // AND more than AB_MAX_MS slower than the same-session baseline median.
 const AB_MAX_MS = 0.05, AB_MAX_PCT = 15;
@@ -275,11 +285,11 @@ const warmImages = (pg, list) => pg.evaluate(async (list) => {
 // Quiet per-frame timing: one tight loop, no awaits — the old batched loop
 // yielded via setTimeout(0) between samples and landed scheduling debt in the
 // p95 tail.
-const measureAura = (pg, aura, MOMENT) => pg.evaluate(async ({ aura, MOMENT }) => {
+const measureAura = (pg, aura, MOMENT) => pg.evaluate(async ({ aura, MOMENT, SZ }) => {
   const mod = window.__mod;
-  const cv = document.createElement("canvas"); cv.width = cv.height = 59;
-  const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 59;
-  const inst = mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 17.2, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
+  const cv = document.createElement("canvas"); cv.width = SZ.w; cv.height = SZ.h;
+  const cv2 = document.createElement("canvas"); cv2.width = SZ.w; cv2.height = SZ.h;
+  const inst = mod.makeAura(cv, { aura, w: SZ.w, h: SZ.h, mode: "circle", ringR: SZ.ringR, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
   for (let f = 0; f < 60; f++) inst.frame(1 / 60);
   if (MOMENT) inst.forceMoment?.();
   const times = [];
@@ -291,7 +301,7 @@ const measureAura = (pg, aura, MOMENT) => pg.evaluate(async ({ aura, MOMENT }) =
   }
   times.sort((a, b) => a - b);
   return { avg: +(times.reduce((s, v) => s + v, 0) / times.length).toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3) };
-}, { aura, MOMENT });
+}, { aura, MOMENT, SZ });
 
 let fails = 0;
 if (PERF) {
@@ -300,6 +310,7 @@ if (PERF) {
   const measureList = MODE === "perf" && !list.includes(PERF_REF) ? [...list, PERF_REF] : list;
   if (MODE === "perf") {
     for (const pg of [page, pageA].filter(Boolean)) await warmImages(pg, measureList);
+    hline(`size:     ${SZ.label}${SIZE === "ring" ? " — separate series; not comparable to board-32 medians (ceilings are board numbers)" : ""}`);
     hline(`rounds:   ${RUNS} (median reported; ${pageA ? `A=baseline vs B=current — FAIL if B-A > 0.05 ms AND > 15%, one auto re-run` : `ratio budget >${RATIO_BUDGET}x ${PERF_REF} = WARN`}, p95 info only)`);
   }
   const rounds = MODE === "perf" ? RUNS : 1;
@@ -320,7 +331,7 @@ if (PERF) {
         // budget: avg <= 0.6 ms (median of 3 runs); p95 is informational
         console.log(MODE === "perf"
           ? `  round ${round}: ${aura} avg=${r.avg} p95=${r.p95}`
-          : `  perf ${aura}${MOMENT ? " (moment)" : ""}: avg=${r.avg} p95=${r.p95}${r.avg > 0.6 ? "  <-- OVER 0.6ms avg" : ""}`);
+          : `  perf ${aura}${MOMENT ? " (moment)" : ""}: avg=${r.avg} p95=${r.p95}${SIZE === "board" && r.avg > 0.6 ? "  <-- OVER 0.6ms avg" : ""}`);
       }
     }
   }
@@ -356,7 +367,7 @@ if (PERF) {
       const { aura, avg, p95, aAvg } = s;
       const ratio = refMed > 0 ? avg / refMed : 0;
       const overRatio = aura !== PERF_REF && ratio > RATIO_BUDGET;
-      const knownOver = KNOWN_OVER[aura] != null && avg > 0.6;
+      const knownOver = SIZE === "board" && KNOWN_OVER[aura] != null && avg > 0.6;
       let verdict, note;
       if (aAvg != null) {
         const f = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(3)}`;
@@ -372,7 +383,7 @@ if (PERF) {
         verdict = "PASS";
         note = aura === PERF_REF ? "reference aura" : `ratio=${ratio.toFixed(2)}x ${PERF_REF}`;
       }
-      if (GRANDFATHERED[aura] != null) note += ` — ceiling ${GRANDFATHERED[aura].toFixed(3)} info`;
+      if (GRANDFATHERED[aura] != null) note += ` — ceiling ${GRANDFATHERED[aura].toFixed(3)} info${SIZE === "ring" ? " (board series)" : ""}`;
       if (knownOver) note += ` — revamped in 7k, over 0.6 - trim in next aura phase (v7k median ${KNOWN_OVER[aura].toFixed(3)})`;
       else if (overRatio) note += " — over ratio budget (provisional)";
       if (verdict === "FAIL") fails++;

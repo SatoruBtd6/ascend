@@ -1016,7 +1016,7 @@ export function editorFields(spec, view = "both") {
   // Scoped views edit against the merged spec (base + view block) so every
   // control shows the effective value; "both" edits the shared spec as-is.
   const vSpec = scoped ? mergeViewSpec(spec, view) : spec;
-  const strip = (o) => { const out = { ...o }; delete out.body; delete out.circle; return out; };
+  const strip = (o) => { const out = { ...o }; for (const vb of VIEW_BLOCKS) delete out[vb]; return out; };
   const viewLayers = (vSpec.layers || []).map((l) => strip(scoped ? mergeViewLayer(l, view) : l));
   const imgIndexes = new Set(viewLayers.map((l, i) => (l?.shape === "img" ? i : -1)).filter((i) => i >= 0));
   const flameIndexes = new Set(viewLayers.map((l, i) => (l?.shape === "flame" ? i : -1)).filter((i) => i >= 0));
@@ -1032,7 +1032,7 @@ export function editorFields(spec, view = "both") {
     if (field.path[0] === "flare" && named === "bolt" && !vSpec.bolts) return false;
     if (field.path[0] === "layers") {
       const i = field.path[1], key = field.path[2];
-      if (key === "circle" || key === "body") return false; // view blocks — managed via the Editing scope
+      if (VIEW_BLOCKS.includes(key)) return false; // view blocks — managed via the Editing scope (small: is hand-edited)
       if (scoped && VIEW_LOCKED_LAYER_KEYS.has(key)) return false;
       if (imgIndexes.has(i)) {
         if (DEDICATED_LAYER_FIELDS.has(key) || IMG_PLACEMENT_FIELDS.has(key)) return false;
@@ -1166,7 +1166,7 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
   const scoped = view === "body" || view === "circle";
   // Scoped views edit against a merged view (base + view block) so sliders
   // show effective values; writes are redirected into the view block.
-  const strip = (o) => { const out = { ...o }; delete out.body; delete out.circle; return out; };
+  const strip = (o) => { const out = { ...o }; for (const vb of VIEW_BLOCKS) delete out[vb]; return out; };
   const mergeLayers = (s) => (s.layers || []).map((l) => strip(scoped ? mergeViewLayer(l, view) : l));
   const viewLayers = mergeLayers(spec);
   const origSpec = original || spec;
@@ -1217,7 +1217,7 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
       const merged = v === "both" ? s.layers?.[index] : mergeViewLayer(s.layers?.[index], v);
       let out = s;
       for (const key of Object.keys(nextLayer)) {
-        if (key === "body" || key === "circle") continue;
+        if (VIEW_BLOCKS.includes(key)) continue;
         if (eq(nextLayer[key], merged?.[key])) continue;
         if (v === "both") {
           // shared write wins in every view — drop per-view overrides on it
@@ -1232,7 +1232,7 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
         }
       }
       for (const key of Object.keys(merged || {})) {
-        if (key === "body" || key === "circle" || key in nextLayer) continue;
+        if (VIEW_BLOCKS.includes(key) || key in nextLayer) continue;
         if (walkPath(out, ["layers", index, key]) !== undefined) out = deleteDeep(out, ["layers", index, key]);
         for (const vb of v === "both" ? VIEW_BLOCKS : [v]) {
           if (walkPath(out, ["layers", index, vb, key]) !== undefined) out = deleteDeep(out, ["layers", index, vb, key]);
@@ -1315,7 +1315,7 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
     return (
       <>
         <span
-          title={views.length ? `Overridden for ${views.map((vv) => (vv === "body" ? "body figure" : "avatar ring")).join(" + ")}` : "Inherits shared value"}
+          title={views.length ? `Overridden for ${views.map((vv) => (vv === "body" ? "body figure" : vv === "circle" ? "avatar ring" : "small canvas")).join(" + ")}` : "Inherits shared value"}
           style={{ fontSize: 11, width: 14, textAlign: "center", color: views.length ? C.cyan : C.mute }}
         >{views.length ? "●" : "○"}</span>
         {views.length > 0 && <button type="button" title="Clear override — inherit the shared value" onClick={clear} style={{ ...chip(false), padding: "0 6px", fontSize: 10 }}>×</button>}
@@ -1367,6 +1367,9 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
       <div style={{ fontSize: 11, color: C.cyan, background: C.accentBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px" }}>
         {scopeNote}
       </div>
+      {spec.small && (
+        <FixedNote>small: block — applies under 110 px on top of the active view; hand-edited in the spec (no editor scope).</FixedNote>
+      )}
       {overall.length > 0 && (
         <SpecSection title="Overall">
           <BasicAdv items={groupPairs(overall)} render={(item) => renderItem(item, "overall")} />
@@ -1389,6 +1392,7 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
         const isParticles = !imgIndexes.has(index) && !flameIndexes.has(index);
         const bodyCount = baseLayers[index]?.body ? Object.keys(baseLayers[index].body).length : 0;
         const circleCount = baseLayers[index]?.circle ? Object.keys(baseLayers[index].circle).length : 0;
+        const smallCount = baseLayers[index]?.small ? Object.keys(baseLayers[index].small).length : 0;
         return (
           <div key={index} data-control-group={`layer-${index}`} style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Layer {index + 1} — {describeLayer(layer)}</div>
@@ -1397,6 +1401,9 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
             )}
             {view !== "circle" && circleCount > 0 && (
               <FixedNote>{circleCount} avatar-ring override{circleCount === 1 ? "" : "s"} — switch to “Avatar ring only” to edit.</FixedNote>
+            )}
+            {smallCount > 0 && (
+              <FixedNote>{smallCount} small-canvas override{smallCount === 1 ? "" : "s"} — applies under 110 px; hand-edited in the spec (no editor scope).</FixedNote>
             )}
             {imgIndexes.has(index) && <ImagePlacement layer={layer} index={index} original={origViewLayers[index]} overCount={overCount} onLayer={(next) => writeLayer(index, next)} />}
             {flameIndexes.has(index) && <FlameControls layer={layer} index={index} original={origViewLayers[index]} onLayer={(next) => writeLayer(index, next)} onRemoveLayer={() => onRemoveLayer(index)} />}

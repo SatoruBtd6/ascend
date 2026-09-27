@@ -55,7 +55,7 @@ for (const aura of targets) {
   const res = await page.evaluate(async ({ id, LEGACY }) => {
     const mod = await import("/src/auras/AuraCanvas.jsx");
     const gal = await import("/src/auras/devGallery.jsx");
-    const { specFields, cloneSpec } = await import("/src/auras/specFormat.js");
+    const { specFields, cloneSpec, VIEW_BLOCKS } = await import("/src/auras/specFormat.js");
     const ORIGINAL = cloneSpec(mod.AURA_FX[id]);
     if (!ORIGINAL) return { id, skipped: "no spec" };
 
@@ -195,7 +195,9 @@ for (const aura of targets) {
     function hiddenFields() {
       const visible = new Set();
       for (const v of ["figure", "ring"]) for (const c of controlsFor(v)) visible.add(c.path.join("."));
-      return specFields(ORIGINAL).filter((f) => f.path[2] !== "circle" && f.path[2] !== "body" && f.path[0] !== "circle" && f.path[0] !== "body" && !visible.has(f.path.join(".")))
+      // view-block fields (body/circle/small) are scoped data, not controls —
+      // small: only renders under 110 px, so its leaves would misreport as dead.
+      return specFields(ORIGINAL).filter((f) => !VIEW_BLOCKS.includes(f.path[2]) && !VIEW_BLOCKS.includes(f.path[0]) && !visible.has(f.path.join(".")))
         .map((f) => ({ path: f.path, kind: f.kind, value: f.value, via: "hidden" }));
     }
 

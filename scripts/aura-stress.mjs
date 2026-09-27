@@ -27,18 +27,18 @@ async function loadChromium() {
 // One measurement: build the whole set, wait out lazy images, warm 60 frames,
 // then time 240 frames of all auras stepped together. `revamp` forces moments
 // continuously (re-force whenever idle) so moment auras stay mid-moment.
-const measure = (page, auras, revamp) => page.evaluate(async ({ auras, revamp }) => {
+const measure = (page, auras, revamp, SZ) => page.evaluate(async ({ auras, revamp, SZ }) => {
   const mod = await import("/src/auras/AuraCanvas.jsx");
   if (mod.AuraLoop.raf) cancelAnimationFrame(mod.AuraLoop.raf);
   mod.AuraLoop.raf = null;
   mod.AuraLoop.set.clear();
   const insts = auras.map((aura) => {
     const cv = document.createElement("canvas");
-    const w = 59;
-    cv.width = w; cv.height = w;
+    const w = SZ.w;
+    cv.width = w; cv.height = SZ.h;
     const cv2 = document.createElement("canvas");
-    cv2.width = w; cv2.height = w;
-    return mod.makeAura(cv, { aura, w, h: w, mode: "circle", ringR: (32 * 1.45) / 2.7, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
+    cv2.width = w; cv2.height = SZ.h;
+    return mod.makeAura(cv, { aura, w, h: SZ.h, mode: "circle", ringR: SZ.ringR, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
   }).filter(Boolean);
   for (let tries = 0; tries < 200; tries++) {
     if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break;
@@ -59,7 +59,7 @@ const measure = (page, auras, revamp) => page.evaluate(async ({ auras, revamp })
   times.sort((a, b) => a - b);
   const avg = times.reduce((s, v) => s + v, 0) / times.length;
   return { n: times.length, auras: insts.length, avg: +avg.toFixed(3), p50: +times[Math.floor(times.length * 0.5)].toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3), max: +times[times.length - 1].toFixed(3) };
-}, { auras, revamp });
+}, { auras, revamp, SZ });
 
 const CHROME = process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const throttledPage = async (browser, url) => {
@@ -76,7 +76,16 @@ const argVal = (f) => (args.includes(f) ? args[args.indexOf(f) + 1] : null);
 const SET = argVal("--set");
 const AB = args.includes("--ab");
 const RUNS = +(args.find((a) => a.startsWith("--runs="))?.slice(7) || 3);
-const auras = args.filter((a, i) => !a.startsWith("--") && !["--base", "--set"].includes(args[i - 1])).join(",").split(",").filter(Boolean);
+// --size ring (7m): same sets at real profile geometry so the gate still sees
+// the loud recipe once auras opt into small:. Separate series from board-32.
+const SIZE = argVal("--size") || "board";
+const SIZES = {
+  board: { w: 59, h: 59, ringR: (32 * 1.45) / 2.7, label: "board-32 (59px)" },
+  ring: { w: 141, h: 141, ringR: 141 / 3.456, label: "ring-141 (141px)" },
+};
+if (!SIZES[SIZE]) { console.error(`unknown --size "${SIZE}" — board|ring`); process.exit(1); }
+const SZ = SIZES[SIZE];
+const auras = args.filter((a, i) => !a.startsWith("--") && !["--base", "--set", "--size"].includes(args[i - 1])).join(",").split(",").filter(Boolean);
 
 if (auras.length) {
   // legacy: one run of an explicit aura list against --base
@@ -85,8 +94,8 @@ if (auras.length) {
   const chromium = await loadChromium();
   const browser = await chromium.launch({ headless: true, executablePath: CHROME });
   const page = await throttledPage(browser, base);
-  const stats = await measure(page, auras, revamp);
-  console.log(`${stats.auras} auras @ board-32 (59px): frames=${stats.n} avg=${stats.avg}ms p50=${stats.p50} p95=${stats.p95} max=${stats.max}`);
+  const stats = await measure(page, auras, revamp, SZ);
+  console.log(`${stats.auras} auras @ ${SZ.label}: frames=${stats.n} avg=${stats.avg}ms p50=${stats.p50} p95=${stats.p95} max=${stats.max}`);
   await browser.close();
   process.exit(0);
 }
@@ -114,7 +123,8 @@ if (AB) {
   startVite(bdir, BASE_PORT);
   await waitReady(BASE_URL);
 }
-hline(`sets:     ${names.join(", ")} — board-32 circle, 4x CPU, moments forced, ${RUNS} runs each (median)`);
+hline(`size:     ${SZ.label}${SIZE === "ring" ? " — separate series; not comparable to board-32 medians" : ""}`);
+hline(`sets:     ${names.join(", ")} — circle, 4x CPU, moments forced, ${RUNS} runs each (median)`);
 
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: CHROME });
@@ -129,8 +139,8 @@ for (const name of names) {
   const ids = STRESS_SETS[name];
   const b95 = [], a95 = [];
   for (let r = 0; r < RUNS; r++) {
-    if (AB) a95.push((await measure(pageA, ids, true)).p95); // A = baseline
-    b95.push((await measure(pageB, ids, true)).p95);         // B = current
+    if (AB) a95.push((await measure(pageA, ids, true, SZ)).p95); // A = baseline
+    b95.push((await measure(pageB, ids, true, SZ)).p95);         // B = current
   }
   const medB = med(b95);
   const medA = a95.length ? med(a95) : null;

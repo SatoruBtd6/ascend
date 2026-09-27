@@ -85,11 +85,21 @@ export const walkPath = (root, path) => path.reduce((o, k) => (o == null ? undef
 
 // --- View-scoped overrides -------------------------------------------------
 // `body:` fields apply only to body/figure renders, `circle:` only to the
-// avatar ring. The same merge runs in the renderer (per frame mode) and in
-// the editor (the merged view a scope edits): plain-object fields merge one
-// level deep so a partial override inherits the rest of a nested block
-// (bolts, wander, ...); arrays and scalars replace wholesale.
-export const VIEW_BLOCKS = ["body", "circle"];
+// avatar ring, `small:` on top of the active view block whenever the canvas
+// is under SMALL_VIEW_PX wide (a size scope — it fires in either mode; no
+// <110px body canvas exists today, so body rendering is byte-identical).
+// The same merge runs in the renderer (per frame mode) and in the editor
+// (the merged view a scope edits): plain-object fields merge one level deep
+// so a partial override inherits the rest of a nested block (bolts, wander,
+// ...); arrays and scalars replace wholesale.
+export const VIEW_BLOCKS = ["body", "circle", "small"];
+export const SMALL_VIEW_PX = 110;
+
+// Ordered view blocks for a render: base -> view -> small, most specific last.
+export function viewBlocksFor(mode, w) {
+  const view = mode === "body" ? "body" : "circle";
+  return w < SMALL_VIEW_PX ? [view, "small"] : [view];
+}
 
 const isPlainObject = (v) => v && typeof v === "object" && !Array.isArray(v);
 
@@ -110,16 +120,93 @@ export function mergeViewLayer(layer, view) {
   return isPlainObject(ov) ? mergeViewObject(layer, ov) : layer;
 }
 
+// Full chain for one render: base -> view -> small (small only under 110 px).
+export function mergeSpecForView(spec, mode, w) {
+  let out = spec;
+  for (const v of viewBlocksFor(mode, w)) out = mergeViewSpec(out, v);
+  return out;
+}
+export function mergeLayerForView(layer, mode, w) {
+  let out = layer;
+  for (const v of viewBlocksFor(mode, w)) out = mergeViewLayer(out, v);
+  return out;
+}
+
+// `small: { scale: k }` — the one-number opt-in: multiplies the merged
+// layer's particle size (sz) and count (n), plus shadow sz/max (locked keys
+// scale can't override). Call only when the small block applies; `factor` is
+// spec.small.scale x layer.small.scale combined by the caller. An explicit
+// key inside the layer's own small: block beats scale for that field.
+const mulScaled = (v, k) => (Array.isArray(v) ? v.map((x) => (typeof x === "number" ? x * k : x)) : typeof v === "number" ? v * k : v);
+export function applySmallScale(layer, factor) {
+  if (!isPlainObject(layer) || !Number.isFinite(factor) || factor === 1) return layer;
+  const own = isPlainObject(layer.small) ? layer.small : {};
+  const out = { ...layer };
+  if (out.n != null && !("n" in own)) {
+    out.n = mulScaled(out.n, factor);
+    // even distribution needs integer counts
+    if (out.even) out.n = Array.isArray(out.n) ? out.n.map((x) => Math.max(1, Math.round(x))) : Math.max(1, Math.round(out.n));
+  }
+  if (out.sz != null && !("sz" in own)) out.sz = mulScaled(out.sz, factor);
+  const s = out.shadow;
+  if (isPlainObject(s)) {
+    const s2 = { ...s };
+    for (const f of ["sz", "max"]) if (s2[f] != null) s2[f] = mulScaled(s2[f], factor);
+    out.shadow = s2;
+  }
+  return out;
+}
+
+// What small: may change — size, count and speed only (7m decision). Any
+// other key keeps the aura recognisably the same aura at 52 px as at 141 px.
+export const SMALL_ALLOWED_KEYS = new Set([
+  "n", "max", "anchors", "ringN", // count
+  "sz", "r", "spawnR", "sway", "jit", "headSz", "rimSz", "glyphS", "mR", "mScale", "sx", "sy", // size
+  "sp", "spd", "w", "spin", "rotW", "drift", "life", "every", "gap", "rate", "dur", "period", "cyclePeriod", // speed/timing
+  "scale", // meta: the one-number multiplier
+]);
+
+// Returns a list of violations; empty = valid. Runs over every AURA_FX entry
+// in tests, so a bad small: block fails `check`. Not on the render hot path.
+export function validateSpec(spec) {
+  const violations = [];
+  if (!isPlainObject(spec)) return violations;
+  const walk = (block, path) => {
+    for (const k of Object.keys(block)) {
+      const v = block[k];
+      const p = path.concat(k).join(".");
+      if (k === "layers" || VIEW_LOCKED_LAYER_KEYS.has(k)) {
+        violations.push(`${p}: structural/locked key — not allowed inside small:`);
+        continue;
+      }
+      if (isPlainObject(v)) { walk(v, path.concat(k)); continue; }
+      if (Array.isArray(v) && v.some((x) => isPlainObject(x))) {
+        v.forEach((item, i) => { if (isPlainObject(item)) walk(item, path.concat(k, i)); });
+        continue;
+      }
+      const numeric = typeof v === "number" ? Number.isFinite(v) : Array.isArray(v) && v.every((x) => typeof x === "number" && Number.isFinite(x));
+      if (!numeric) { violations.push(`${p}: small: values must be numbers or numeric ranges`); continue; }
+      if (!SMALL_ALLOWED_KEYS.has(k)) violations.push(`${p}: not a size/count/speed key`);
+      else if (k === "scale" && !(Array.isArray(v) ? v.every((x) => x > 0) : v > 0)) violations.push(`${p}: scale must be > 0`);
+    }
+  };
+  if (isPlainObject(spec.small)) walk(spec.small, ["small"]);
+  (spec.layers || []).forEach((L, i) => {
+    if (isPlainObject(L?.small)) walk(L.small, ["layers", i, "small"]);
+  });
+  return violations;
+}
+
 // Layer keys that stay structural/shared — never written into a view block.
-export const VIEW_LOCKED_LAYER_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "body", "circle"]);
+export const VIEW_LOCKED_LAYER_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "body", "circle", "small"]);
 
 // The override-block path a field writes to in a scoped view — null when the
 // field must write the shared value instead ("both" scope, or a structural
 // layer key). honorLocks=false reports where an override would live even for
 // locked keys, so markers/clear can still find hand-written ones.
 export function scopedPath(path, view, honorLocks = true) {
-  if (view !== "body" && view !== "circle") return null;
-  if (path[0] === "body" || path[0] === "circle") return null;
+  if (!VIEW_BLOCKS.includes(view)) return null;
+  if (VIEW_BLOCKS.includes(path[0])) return null;
   if (path[0] === "layers") {
     if (path.length < 3) return null;
     if (honorLocks && VIEW_LOCKED_LAYER_KEYS.has(path[2])) return null;
