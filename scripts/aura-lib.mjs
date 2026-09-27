@@ -39,8 +39,8 @@ export function portOwner(port) {
 
 function procName(pid) {
   try {
-    const out = execSync(`tasklist /FI "PID eq ${pid}" /NH /FO LIST`, { encoding: "utf8" });
-    const m = out.match(/Image Name:\s+(\S+)/);
+    const out = execSync(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`, { encoding: "utf8" });
+    const m = out.match(/^"([^"]+)"/m);
     return m ? `${m[1]} (pid ${pid})` : `pid ${pid}`;
   } catch { return `pid ${pid}`; }
 }
