@@ -168,3 +168,26 @@ series** — labelled `ring-141`, never averaged or compared against board-32 me
 only on ring runs; the stormstep ratio WARN stays because it is computed same-size.
 This exists because after `small:` opt-ins land, board-32 measures the quiet recipe —
 the gate must keep seeing the loud one. Part 7B consumes the ring-size stress pass.
+
+#### What the ring stress pass measures — realistic concurrency, not a grid
+
+The stress gate must model a screen a user can actually see. An inventory of every
+`AuraRing`/`AuraCanvas` mount (2026-09-27) shows a real screen displays **at most 3
+ring-size (≥110 px) aura canvases**: the profile header avatar (~141 px canvas) plus
+up to two `VersusSide` cards (~119–141 px) in the profile `VersusPanel`. CrateVault's
+160 px preview and the ~116 px duel nemesis card are one-per-screen; every leaderboard
+and crew tile tops out at ~107 px, so the 32-up board belongs to the board-32 series
+and to `small:`.
+
+So `aura:stress --size ring` gates on a dedicated frozen `ring` set — the 4 heaviest
+auras (`STRESS_SETS.ring` in `scripts/aura-sets.mjs`, currently eclipseheart, godray,
+blacksun, huntersmoon) — run at 141 px, 4× CPU, moments forced, p95 < 16 ms. Four
+instances is strictly harder than the real worst screen (three canvases, only one at
+141 px), so the gate keeps margin without inventing a load no user generates.
+
+Running a bigger set at `--size ring` stays available as a synthetic worst case —
+`--set fixed --size ring` measures 10 auras at 141 px — but it reports **INFO, never
+FAIL**, because that configuration cannot occur in the app and must not constrain the
+ladder. (The 13 ms fixed-set ring number from the Part 3 smoke run was this synthetic
+config; it is evidence, not a gate number.) `aura:perf --size ring` stays per-aura and
+informational, same as board.

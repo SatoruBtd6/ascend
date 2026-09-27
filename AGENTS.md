@@ -38,7 +38,7 @@ tree on port 5180 (baseline worktree on 5181) and writes evidence to
 | `npm.cmd run check` | tests (once) + `eslint src --max-warnings 5` + madge circular check |
 | `npm.cmd run aura:baseline -- <tag>` | re-pin the baseline worktree (`C:\Users\rms76\ascend-baseline`) |
 | `npm.cmd run aura:diff` | multi-size pixel diff vs baseline; `--only`, `--expect`, `--spec` |
-| `npm.cmd run aura:stress` | board-32 stress on the fixed/ledger/revamp sets; `--set`, `--ab`, `--size ring` = 141px series |
+| `npm.cmd run aura:stress` | board-32 stress on the fixed/ledger/revamp sets; `--set`, `--ab`, `--size ring` = 141px series (gates on the 4-aura `ring` set; other sets at ring are info-only) |
 | `npm.cmd run aura:perf` | per-aura frame cost; ratio WARN vs stormstep; `--ab` = the FAIL rule; `--size ring` = 141px series |
 | `npm.cmd run aura:shots` | evidence grid per aura; `--strip a,b,c` = ring-size look-alike strip |
 | `npm.cmd run aura:flash` | bonewright pixel-identical + identical flashTimes |

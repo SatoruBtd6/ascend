@@ -101,7 +101,10 @@ if (auras.length) {
 }
 
 // command mode (aura:stress)
-const names = SET ? [SET] : ["fixed", "ledger", "revamp"];
+// --size ring gates on the realistic ring set only (7m): a real screen shows
+// at most ~3 ring-size auras, so a 10-aura ring run is a synthetic worst case
+// that reports INFO and can never fail.
+const names = SET ? [SET] : SIZE === "ring" ? ["ring"] : ["fixed", "ledger", "revamp"];
 for (const n of names) {
   if (!STRESS_SETS[n]) { console.error(`unknown set "${n}" — sets: ${Object.keys(STRESS_SETS).join(", ")}`); process.exit(1); }
 }
@@ -144,11 +147,12 @@ for (const name of names) {
   }
   const medB = med(b95);
   const medA = a95.length ? med(a95) : null;
-  const verdict = medB >= 16 ? "FAIL" : (name === "fixed" && medB > 12 ? "WARN" : "PASS");
+  const gated = SIZE === "board" || name === "ring"; // only the realistic ring set gates at ring size
+  const verdict = !gated ? "INFO" : medB >= 16 ? "FAIL" : (name === "fixed" && medB > 12 ? "WARN" : "PASS");
   if (verdict === "FAIL") fails++;
   const line = `${verdict} ${name.padEnd(7)} ${ids.length} auras, ${RUNS} runs — B median p95=${medB} ms  runs=[${b95.join(", ")}]`
     + (medA != null ? `  |  A median p95=${medA} ms  runs=[${a95.join(", ")}]  diff B-A=${+(medB - medA).toFixed(2)} ms` : "")
-    + `  (FAIL >= 16${name === "fixed" ? "; WARN > 12" : ""})`;
+    + (gated ? `  (FAIL >= 16${name === "fixed" ? "; WARN > 12" : ""})` : "  (synthetic worst case — info only, not a gate)");
   lines.push(line); console.log(line);
 }
 const summary = fails ? `${fails} set(s) failed` : "all sets within limits";

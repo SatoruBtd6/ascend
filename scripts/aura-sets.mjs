@@ -68,7 +68,17 @@ export const KNOWN_OVER = {
   wyrm: 0.696,
 };
 
-export const STRESS_SETS = { fixed: FIXED, ledger: LEDGER, revamp: REVAMP };
+// RING (7m Part 3): the ring-size stress set — a realistic worst screen, not a
+// synthetic grid. The most >=110px aura canvases on any real screen is 3:
+// profile header (~141px) + two VersusSide cards (~119-141px); CrateVault's
+// 160px preview and the ~116px duel nemesis card are one-per-screen, and every
+// board tile tops out ~107px so small: owns the leaderboard. 4 = the observed
+// maximum + 1 headroom. Membership = the 4 heaviest auras by aura:perf
+// median, ranked 2026-09-27 at commit b7d1eec (median of 5 --ab runs,
+// board-32 circle, 4x CPU, moments forced). FROZEN; re-rank needs a proposal.
+export const RING = ["eclipseheart", "godray", "blacksun", "huntersmoon"];
+
+export const STRESS_SETS = { fixed: FIXED, ledger: LEDGER, revamp: REVAMP, ring: RING };
 
 // Session-relative perf policy (D15, phase 7l).
 // PERF_REF: measured on every aura:perf run, even when not in --only. The
