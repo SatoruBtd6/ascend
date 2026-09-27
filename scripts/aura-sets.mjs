@@ -69,3 +69,14 @@ export const KNOWN_OVER = {
 };
 
 export const STRESS_SETS = { fixed: FIXED, ledger: LEDGER, revamp: REVAMP };
+
+// Session-relative perf policy (D15, phase 7l).
+// PERF_REF: measured on every aura:perf run, even when not in --only. The
+//   ratio budget is WARN-only: aura median / ref median > 1.3 (~0.6 ms on a
+//   quiet day, stormstep ~0.464). Provisional — revisit after cross-day data
+//   from the next aura phase.
+export const PERF_REF = "stormstep";
+export const RATIO_BUDGET = 1.3;
+// The FAIL rule is perf --ab: current vs the pinned baseline in one session,
+// alternating per aura; FAIL only if B-A > 0.05 ms AND > 15%, with one
+// automatic re-run before an aura may fail.

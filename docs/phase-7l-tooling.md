@@ -426,12 +426,14 @@ D13. In aura:diff run mode, --spec applies to the current tree only (as built in
 
 ## Approved after Part 3
 
-D14. aura:perf grandfathering. The 7k perf table measured in a quieter session (and
-the retired aura-7k-perf.mjs never forced moments); measured today, no harness —
-old shots --perf --moment or new aura:perf — reproduces it (medians 0.7-1.0 ms on
-the disputed five vs the table's ~0.5). Old and new paths do agree within session
-noise, and both warm lazy images before timing, so the new numbers are the true
-forced-moment numbers.
+D14. aura:perf grandfathering. The 7k perf table came from
+evidence/7k/viewtmp/f-perf.mjs, which forced moments only at frames 0 and 200
+(moment auras run calm after the moment lapses) and timed whole loops with
+(t1-t0)/400 instead of per-frame performance.now(). Re-running that exact
+script today reproduces the table (atlas 0.433 vs 0.488, stormstep 0.435 vs
+0.464 — stormstep has no moment, so it matched), so the gap was methodology,
+not machine load. Old and new shots-perf paths agree within session noise and
+both warm lazy images, so the new forced-moment numbers are the true ones.
 - GRANDFATHERED in aura-sets.mjs: the 13 untouched auras plus atlas, forge,
   fallenlight, ledger, ossuary, nullpoint (7k change was ring-only). Each gets a
   ceiling = its v7k aura:perf median x1.10. aura:perf fails a grandfathered aura
@@ -442,3 +444,18 @@ forced-moment numbers.
   v7k and regressions still fail.
 - The revamp stress set is re-ranked as the 10 heaviest of REVAMPED_38 that are
   NOT in FIXED or LEDGER, frozen in aura-sets.mjs with date, commit and method.
+
+## Approved after Part 4 review (P5)
+
+D15. Session-relative perf policy. Absolute ms thresholds pass or fail on machine
+load, so the FAIL rule is aura:perf --ab: current tree vs the pinned baseline in
+one session, alternating per aura, --runs=5 default. An aura FAILs only when its
+current median is more than 15% AND more than 0.05 ms above its baseline median;
+a first-pass fail is re-measured once and may fail only if it fails both times
+(otherwise "noise, passed on re-run"). Grandfathered ceilings print as info.
+- Ratio budget: PERF_REF=stormstep is measured on every run; an aura whose
+  median is over 1.3x the reference's same-session median prints WARN (about
+  0.6 ms on a quiet day). Provisional — revisit after cross-day data from the
+  next aura phase.
+- KNOWN_OVER (carve, wyrm) keeps its WARN note. Plain aura:perf (no --ab) is
+  informational: it warns, never fails.

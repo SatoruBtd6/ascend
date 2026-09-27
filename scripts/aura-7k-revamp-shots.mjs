@@ -6,8 +6,10 @@
 // Body mode already contains the figure via anchors; avatar drawn for context.
 // Writes evidence/7k/<aura>-<tag>.png (gitignored).
 //   node scripts/aura-7k-revamp-shots.mjs ember,stormstep --tag before [--spec before.json] [--base ...] [--perf]
-//   node scripts/aura-7k-revamp-shots.mjs shots [--only id,id]   (aura:shots)
-//   node scripts/aura-7k-revamp-shots.mjs perf [--only id,id] [--runs N]   (aura:perf)
+//   node scripts/aura-7k-revamp-shots.mjs shots [--only id,id] [--strip id,id]   (aura:shots)
+//   node scripts/aura-7k-revamp-shots.mjs perf [--only id,id] [--runs N] [--ab]   (aura:perf)
+// perf --ab: A = baseline worktree (5181) vs B = current (5180), alternating
+//   per aura in one session; FAIL only if B is >15% AND >0.05 ms above A.
 // --spec file: { "id": <spec> } — replaces AURA_FX[id] in-page before rendering
 //   (use to render "before" shots without reverting source).
 // Command modes (shots/perf) start their own vite server on the current tree
@@ -16,8 +18,8 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { REPO, CURR_URL, CURR_PORT, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
-import { GRANDFATHERED, KNOWN_OVER } from "./aura-sets.mjs";
+import { REPO, CURR_URL, CURR_PORT, BASE_URL, BASE_PORT, baselineDir, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
+import { GRANDFATHERED, KNOWN_OVER, PERF_REF, RATIO_BUDGET } from "./aura-sets.mjs";
 
 async function loadChromium() {
   const dir = join(process.cwd(), "node_modules", "playwright-core");
@@ -32,9 +34,13 @@ const MODE = ["shots", "perf"].includes(args0[0]) ? args0[0] : null;
 const args = MODE ? args0.slice(1) : args0;
 const argList = (f) => (args.includes(f) ? args[args.indexOf(f) + 1].split(",") : null);
 const ONLY = argList("--only");
-const RUNS = +(args.find((a) => a.startsWith("--runs="))?.slice(7) || 3);
 const STRIP = argList("--strip");
-const auras = STRIP || ONLY || (args[0] && !args[0].startsWith("--") ? args[0].split(",") : (MODE ? null : ["ember"]));
+const AB = args.includes("--ab"); // perf --ab: baseline (A) vs current (B), alternating per aura
+const RUNS = +(args.find((a) => a.startsWith("--runs="))?.slice(7) || (AB ? 5 : 3));
+// --ab regression guard (D15): FAIL only if current is more than AB_MAX_PCT%
+// AND more than AB_MAX_MS slower than the same-session baseline median.
+const AB_MAX_MS = 0.05, AB_MAX_PCT = 15;
+const auras = STRIP || ONLY || (args[0] && !args[0].startsWith("--") && args[0] !== "--ab" ? args[0].split(",") : (MODE ? null : ["ember"]));
 const tag = args.includes("--tag") ? args[args.indexOf("--tag") + 1] : "shot";
 const specFile = args.includes("--spec") ? JSON.parse(readFileSync(args[args.indexOf("--spec") + 1], "utf8")) : null;
 const PERF = args.includes("--perf") || MODE === "perf";
@@ -60,6 +66,16 @@ if (MODE) {
   hline(`aura:${MODE}`);
   hline(`current:  ${REPO} (${cCommit}${dirty ? " + dirty" : ""})`);
   hline(`server:   ${base}`);
+  if (MODE === "perf" && AB) {
+    // A = the pinned baseline worktree (v7k), served side by side on 5181.
+    const bdir = baselineDir();
+    if (!existsSync(bdir)) { console.error(`baseline worktree ${bdir} does not exist — see aura:baseline`); process.exit(1); }
+    const bTag = git(bdir, "tag --points-at HEAD");
+    assertPortFree(BASE_PORT);
+    startVite(bdir, BASE_PORT);
+    await waitReady(BASE_URL);
+    hline(`A server: ${BASE_URL} (baseline ${bdir} @ ${git(bdir, "rev-parse --short HEAD")}${bTag ? " " + bTag : ""}${git(bdir, "status --porcelain") ? " + dirty" : ""})`);
+  }
 }
 mkdirSync(OUT, { recursive: true });
 
@@ -68,7 +84,14 @@ const browser = await chromium.launch({ headless: true, executablePath: process.
 const ctx0 = await browser.newContext();
 const page = await ctx0.newPage();
 if (PERF) { const cdp = await ctx0.newCDPSession(page); await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 }); }
+let pageA = null;
+if (MODE === "perf" && AB) {
+  const ctxA = await browser.newContext();
+  pageA = await ctxA.newPage();
+  const cdp = await ctxA.newCDPSession(pageA); await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+}
 await page.goto(`${base}/?auras=1`, { waitUntil: "domcontentloaded" });
+if (pageA) await pageA.goto(`${BASE_URL}/?auras=1`, { waitUntil: "domcontentloaded" });
 await page.evaluate((specFile) => Promise.all([import("/src/auras/AuraCanvas.jsx"), import("/src/auras/catalog.js")]).then(([m, cat]) => {
   if (m.AuraLoop.raf) cancelAnimationFrame(m.AuraLoop.raf);
   m.AuraLoop.raf = null; m.AuraLoop.set.clear();
@@ -77,6 +100,13 @@ await page.evaluate((specFile) => Promise.all([import("/src/auras/AuraCanvas.jsx
   let rs = 0;
   window.__seed = (v) => { rs = v; Math.random = () => (rs = (Math.imul(rs, 1664525) + 1013904223) >>> 0) / 4294967296; };
 }), specFile);
+if (pageA) await pageA.evaluate(() => Promise.all([import("/src/auras/AuraCanvas.jsx"), import("/src/auras/catalog.js")]).then(([m, cat]) => {
+  if (m.AuraLoop.raf) cancelAnimationFrame(m.AuraLoop.raf);
+  m.AuraLoop.raf = null; m.AuraLoop.set.clear();
+  window.__mod = m; window.__cat = cat;
+  let rs = 0;
+  window.__seed = (v) => { rs = v; Math.random = () => (rs = (Math.imul(rs, 1664525) + 1013904223) >>> 0) / 4294967296; };
+}));
 
 // Command modes with no list cover every FX-bearing catalog aura.
 const known = await page.evaluate(() => {
@@ -229,73 +259,122 @@ for (const [aura, cells] of Object.entries(res.out)) {
   console.log(`${aura}-${tag}.png  INFO edges: ring=${res.stats[aura].edgeRing} board=${res.stats[aura].edgeBoard} fig=${res.stats[aura].edgeFig}`);
 }
 
+// Warm lazy images the same way the grid does — otherwise img layers never
+// resolve and the numbers wouldn't match a shots+perf session.
+const warmImages = (pg, list) => pg.evaluate(async (list) => {
+  const mod = window.__mod;
+  for (const aura of list) {
+    const cv = document.createElement("canvas"); cv.width = cv.height = 141;
+    const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 141;
+    const inst = mod.makeAura(cv, { aura, w: 141, h: 141, mode: "circle", ringR: 141 / 3.456, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
+    if (inst) for (let f = 0; f < 5; f++) inst.frame(1 / 60);
+  }
+  for (let t = 0; t < 400; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
+}, list);
+
+// Quiet per-frame timing: one tight loop, no awaits — the old batched loop
+// yielded via setTimeout(0) between samples and landed scheduling debt in the
+// p95 tail.
+const measureAura = (pg, aura, MOMENT) => pg.evaluate(async ({ aura, MOMENT }) => {
+  const mod = window.__mod;
+  const cv = document.createElement("canvas"); cv.width = cv.height = 59;
+  const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 59;
+  const inst = mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 17.2, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
+  for (let f = 0; f < 60; f++) inst.frame(1 / 60);
+  if (MOMENT) inst.forceMoment?.();
+  const times = [];
+  for (let f = 0; f < 400; f++) {
+    if (MOMENT && inst.moment == null && !(inst.momentParts > 0)) inst.forceMoment?.();
+    const t0 = performance.now();
+    inst.frame(1 / 60);
+    times.push(performance.now() - t0);
+  }
+  times.sort((a, b) => a - b);
+  return { avg: +(times.reduce((s, v) => s + v, 0) / times.length).toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3) };
+}, { aura, MOMENT });
+
 let fails = 0;
 if (PERF) {
+  // stormstep is the session reference (D15): measured on every run so each
+  // aura's ratio to it is session-normalised.
+  const measureList = MODE === "perf" && !list.includes(PERF_REF) ? [...list, PERF_REF] : list;
   if (MODE === "perf") {
-    // Perf-only run: no shot cells rendered, so warm lazy images here the
-    // same way the grid does — otherwise img layers never resolve and the
-    // numbers wouldn't match a shots+perf session.
-    await page.evaluate(async (list) => {
-      const mod = window.__mod;
-      for (const aura of list) {
-        const cv = document.createElement("canvas"); cv.width = cv.height = 141;
-        const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 141;
-        const inst = mod.makeAura(cv, { aura, w: 141, h: 141, mode: "circle", ringR: 141 / 3.456, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
-        if (inst) for (let f = 0; f < 5; f++) inst.frame(1 / 60);
-      }
-      for (let t = 0; t < 400; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
-    }, list);
-    hline(`rounds:   ${RUNS} (median reported; budget avg <= 0.6 ms, p95 info only)`);
+    for (const pg of [page, pageA].filter(Boolean)) await warmImages(pg, measureList);
+    hline(`rounds:   ${RUNS} (median reported; ${pageA ? `A=baseline vs B=current — FAIL if B-A > 0.05 ms AND > 15%, one auto re-run` : `ratio budget >${RATIO_BUDGET}x ${PERF_REF} = WARN`}, p95 info only)`);
   }
   const rounds = MODE === "perf" ? RUNS : 1;
-  const runs = Object.fromEntries(list.map((a) => [a, []]));
+  const runs = Object.fromEntries(measureList.map((a) => [a, []]));
+  const runsA = pageA ? Object.fromEntries(measureList.map((a) => [a, []])) : null;
   for (let round = 1; round <= rounds; round++) {
-    for (const aura of list) {
-      const r = await page.evaluate(async ({ aura, MOMENT }) => {
-        const mod = window.__mod;
-        const cv = document.createElement("canvas"); cv.width = cv.height = 59;
-        const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 59;
-        const inst = mod.makeAura(cv, { aura, w: 59, h: 59, mode: "circle", ringR: 17.2, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
-        for (let f = 0; f < 60; f++) inst.frame(1 / 60);
-        if (MOMENT) inst.forceMoment?.();
-        // Quiet per-frame timing: one tight loop, no awaits — the old batched
-        // loop yielded via setTimeout(0) between samples and landed scheduling
-        // debt in the p95 tail.
-        const times = [];
-        for (let f = 0; f < 400; f++) {
-          if (MOMENT && inst.moment == null && !(inst.momentParts > 0)) inst.forceMoment?.();
-          const t0 = performance.now();
-          inst.frame(1 / 60);
-          times.push(performance.now() - t0);
-        }
-        times.sort((a, b) => a - b);
-        return { avg: +(times.reduce((s, v) => s + v, 0) / times.length).toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3) };
-      }, { aura, MOMENT });
-      runs[aura].push(r);
-      // budget: avg <= 0.6 ms (median of 3 runs); p95 is informational
-      console.log(MODE === "perf"
-        ? `  round ${round}: ${aura} avg=${r.avg} p95=${r.p95}`
-        : `  perf ${aura}${MOMENT ? " (moment)" : ""}: avg=${r.avg} p95=${r.p95}${r.avg > 0.6 ? "  <-- OVER 0.6ms avg" : ""}`);
+    for (const aura of measureList) {
+      if (pageA) {
+        // alternating A then B per aura — shared session noise hits both
+        const ra = await measureAura(pageA, aura, MOMENT);
+        runsA[aura].push(ra);
+        const r = await measureAura(page, aura, MOMENT);
+        runs[aura].push(r);
+        console.log(`  round ${round}: ${aura} A avg=${ra.avg} p95=${ra.p95} | B avg=${r.avg} p95=${r.p95}`);
+      } else {
+        const r = await measureAura(page, aura, MOMENT);
+        runs[aura].push(r);
+        // budget: avg <= 0.6 ms (median of 3 runs); p95 is informational
+        console.log(MODE === "perf"
+          ? `  round ${round}: ${aura} avg=${r.avg} p95=${r.p95}`
+          : `  perf ${aura}${MOMENT ? " (moment)" : ""}: avg=${r.avg} p95=${r.p95}${r.avg > 0.6 ? "  <-- OVER 0.6ms avg" : ""}`);
+      }
     }
   }
   if (MODE === "perf") {
     const med = (vals) => [...vals].sort((a, b) => a - b)[Math.floor(vals.length / 2)];
+    const refMed = med(runs[PERF_REF].map((r) => r.avg));
+    const stats = list.map((aura) => ({
+      aura,
+      avg: med(runs[aura].map((r) => r.avg)),
+      p95: med(runs[aura].map((r) => r.p95)),
+      aAvg: runsA ? med(runsA[aura].map((r) => r.avg)) : null,
+    }));
+    // --ab hardening (D15): a borderline fail is re-measured once at RUNS
+    // each side; it may only FAIL if it fails both times.
+    if (runsA) for (const s of stats) {
+      const d = s.avg - s.aAvg, p = (s.avg / s.aAvg - 1) * 100;
+      if (!(d > AB_MAX_MS && p > AB_MAX_PCT)) { s.delta = d; s.pct = p; continue; }
+      console.log(`\n  ${s.aura}: first pass Δ${d >= 0 ? "+" : ""}${d.toFixed(3)} (${p >= 0 ? "+" : ""}${p.toFixed(1)}%) — re-running ${RUNS} to rule out noise`);
+      const rA2 = [], rB2 = [];
+      for (let r = 0; r < RUNS; r++) {
+        rA2.push(await measureAura(pageA, s.aura, MOMENT));
+        rB2.push(await measureAura(page, s.aura, MOMENT));
+      }
+      const a2 = med(rA2.map((x) => x.avg)), b2 = med(rB2.map((x) => x.avg));
+      s.delta = d; s.pct = p; s.a2 = a2; s.d2 = b2 - a2; s.p2 = (b2 / a2 - 1) * 100;
+      s.hardFail = s.d2 > AB_MAX_MS && s.p2 > AB_MAX_PCT;
+    }
     console.log("");
+    hline(`ref:      ${PERF_REF} median ${refMed.toFixed(3)} ms — ratio >${RATIO_BUDGET}x = WARN${runsA ? "; A/B delta = the FAIL rule" : ""}`);
     const lines = [];
     let warns = 0;
-    for (const aura of list) {
-      const avg = med(runs[aura].map((r) => r.avg)), p95 = med(runs[aura].map((r) => r.p95));
+    for (const s of stats) {
+      const { aura, avg, p95, aAvg } = s;
+      const ratio = refMed > 0 ? avg / refMed : 0;
+      const overRatio = aura !== PERF_REF && ratio > RATIO_BUDGET;
+      const knownOver = KNOWN_OVER[aura] != null && avg > 0.6;
       let verdict, note;
-      if (GRANDFATHERED[aura] != null) {
-        verdict = avg <= GRANDFATHERED[aura] ? "PASS" : "FAIL";
-        note = `ceiling ${GRANDFATHERED[aura].toFixed(3)} (grandfathered v7k median x1.10)`;
-      } else if (KNOWN_OVER[aura] != null && avg > 0.6) {
+      if (aAvg != null) {
+        const f = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(3)}`;
+        const base = `A=${aAvg.toFixed(3)} B=${avg.toFixed(3)} Δ${f(s.delta)} (${s.pct >= 0 ? "+" : ""}${s.pct.toFixed(1)}%) ratio=${ratio.toFixed(2)}x`;
+        if (s.hardFail) { verdict = "FAIL"; note = `${base} — still over on re-run (Δ${f(s.d2)}, ${s.p2 >= 0 ? "+" : ""}${s.p2.toFixed(1)}%)`; }
+        else if (s.d2 != null) { verdict = "PASS"; note = `${base} — noise, passed on re-run (Δ${f(s.d2)}, ${s.p2 >= 0 ? "+" : ""}${s.p2.toFixed(1)}%)`; }
+        else if (overRatio || knownOver) { verdict = "WARN"; note = `${base}`; }
+        else { verdict = "PASS"; note = `${base}`; }
+      } else if (overRatio || knownOver) {
         verdict = "WARN";
-        note = `limit 0.6 — revamped in 7k, over 0.6 - trim in next aura phase (v7k median ${KNOWN_OVER[aura].toFixed(3)})`;
+        note = `ratio=${ratio.toFixed(2)}x ${PERF_REF}`;
       } else {
-        verdict = avg <= 0.6 ? "PASS" : "FAIL";
-        note = "limit 0.6";
+        verdict = "PASS";
+        note = aura === PERF_REF ? "reference aura" : `ratio=${ratio.toFixed(2)}x ${PERF_REF}`;
       }
+      if (GRANDFATHERED[aura] != null) note += ` — ceiling ${GRANDFATHERED[aura].toFixed(3)} info`;
+      if (knownOver) note += ` — revamped in 7k, over 0.6 - trim in next aura phase (v7k median ${KNOWN_OVER[aura].toFixed(3)})`;
+      else if (overRatio) note += " — over ratio budget (provisional)";
       if (verdict === "FAIL") fails++;
       if (verdict === "WARN") warns++;
       const line = `${verdict} ${aura.padEnd(14)} avg=${avg.toFixed(3)} ms ${note}  p95=${p95.toFixed(3)} (info)`;
