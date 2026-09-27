@@ -10,12 +10,12 @@ import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 async function loadChromium() {
-  for (const dir of [join(process.cwd(), "node_modules", "playwright"), join(process.env.TEMP || "", "ascend-pw-shots", "node_modules", "playwright")]) {
-    if (!existsSync(join(dir, "index.js"))) continue;
+  const dir = join(process.cwd(), "node_modules", "playwright-core");
+  if (existsSync(join(dir, "index.js"))) {
     try { const m = await import(pathToFileURL(join(dir, "index.js")).href); if (m.chromium || m.default?.chromium) return m.chromium || m.default.chromium; } catch {}
-    try { const m = createRequire(join(dir, "package.json"))("playwright"); if (m.chromium) return m.chromium; } catch {}
+    try { const m = createRequire(join(dir, "package.json"))("playwright-core"); if (m.chromium) return m.chromium; } catch {}
   }
-  return (await import("playwright")).chromium;
+  return (await import("playwright-core")).chromium;
 }
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "baselines", "ascend-7k");
 mkdirSync(OUT, { recursive: true });

@@ -18,12 +18,12 @@ import { pathToFileURL } from "node:url";
 import { REPO, CURR_URL, CURR_PORT, BASE_URL, BASE_PORT, baselineDir, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
 
 async function loadChromium() {
-  for (const dir of [join(process.cwd(), "node_modules", "playwright"), join(process.env.TEMP || "", "ascend-pw-shots", "node_modules", "playwright")]) {
-    if (!existsSync(join(dir, "index.js"))) continue;
+  const dir = join(process.cwd(), "node_modules", "playwright-core");
+  if (existsSync(join(dir, "index.js"))) {
     try { const m = await import(pathToFileURL(join(dir, "index.js")).href); if (m.chromium || m.default?.chromium) return m.chromium || m.default.chromium; } catch {}
-    try { const m = createRequire(join(dir, "package.json"))("playwright"); if (m.chromium) return m.chromium; } catch {}
+    try { const m = createRequire(join(dir, "package.json"))("playwright-core"); if (m.chromium) return m.chromium; } catch {}
   }
-  return (await import("playwright")).chromium;
+  return (await import("playwright-core")).chromium;
 }
 const args = process.argv.slice(2);
 const cmd = ["capture", "compare", "run"].includes(args[0]) ? args[0] : "run";

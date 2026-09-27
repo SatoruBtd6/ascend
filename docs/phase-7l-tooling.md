@@ -408,3 +408,18 @@ D7. Approved exception to "no new dependencies": add the Playwright package that
 D8. aura-ladder.mjs reads its aura ids from the catalog and its server from the shared helper, instead of the hardcoded 32 ids and port 5174 (do this in Part 4 with the renames).
 
 D9. The committed old evidence (574 files) stays untouched this phase. It's a future item.
+
+## Approved after Part 2
+
+D10. Replaces D7. The devDependency is playwright-core@1.49.1 (exact), not playwright. playwright-core never downloads browsers, and Vercel installs devDependencies on every deploy. Kept scripts launch the system Chrome via executablePath (CHROME_PATH override) and resolve Playwright only from the repo's node_modules. No %TEMP% fallback.
+
+D11. Revamp set.
+- "Revamped" = the 51 FX auras minus the 13 left untouched in 7k: bonewright, blacksun, champion, eclipseheart, godray, halo, huntersmoon, inferno, ironbound, redline, standardbearer, and the two "soon" placeholders. That leaves 38.
+- The revamp stress set is the 10 revamped auras with the highest aura:perf average at v7k (median of 3). It is ranked once and frozen in scripts/aura-sets.mjs, with the date, the commit, and the method in a comment. It is never recomputed automatically; changing it needs a proposal.
+- The fixed set and the Ledger-swap set (the fixed 10 with inferno → ledger) live in the same file. aura-stress reads all three from there.
+- The end-of-7k revamp number (12.0 ms) came from a set that was never written down. The first run on the frozen set becomes the new revamp baseline.
+
+D12. Test glob approved, quoted so Node expands the globs, not the shell:
+"test": "node --test \"src/**/*.test.mjs\" \"tests/**/*.test.mjs\""
+
+D13. In aura:diff run mode, --spec applies to the current tree only (as built in Part 2).

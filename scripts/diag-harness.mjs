@@ -5,8 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 async function loadChromium() {
   const candidates = [
-    join(process.cwd(), "node_modules", "playwright"),
-    join(process.env.TEMP || "", "ascend-pw-shots", "node_modules", "playwright"),
+    join(process.cwd(), "node_modules", "playwright-core"),
   ];
   for (const dir of candidates) {
     const entry = join(dir, "index.js");
@@ -17,10 +16,10 @@ async function loadChromium() {
     } catch { /* try require */ }
     try {
       const req = createRequire(join(dir, "package.json"));
-      return req("playwright").chromium;
+      return req("playwright-core").chromium;
     } catch { /* next */ }
   }
-  const mod = await import("playwright");
+  const mod = await import("playwright-core");
   return mod.chromium;
 }
 const chromium = await loadChromium();
@@ -425,7 +424,7 @@ async function runAccount(browser, url, label, rate) {
 }
 
 async function main() {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
   const out = { at: new Date().toISOString(), base: BASE, version: "7c", noDiag: NO_DIAG, tapsOnly: TAPS_ONLY, chudOnly: CHUD_ONLY, runs: [] };
   const accounts = (TAPS_ONLY || CHUD_ONLY) ? [["chud", BASE]] : [["chud", BASE], ["fixture", `${BASE}/?fixture=big`]];
   for (const rate of [6, 4]) {

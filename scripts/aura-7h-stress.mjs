@@ -1,35 +1,33 @@
 // Leaderboard stress: N auras rendered simultaneously at board-32 geometry
 // (avatar 32 -> canvas 59x59, ringR 17.19), frame() stepped per instance.
-// Usage: node scripts/aura-7h-stress.mjs [--base http://localhost:5173] aura,aura,...
+//   aura:stress                                    all three sets, median of 3
+//   aura:stress -- --set fixed|ledger|revamp       one set only
+//   aura:stress -- --ab [--set x] [--runs N]       baseline (A) vs current (B),
+//                                                  alternating A B A B A B
+//   node scripts/aura-7h-stress.mjs [--base URL] aura,aura,...   legacy single run
+// Command mode bakes in board-32, circle mode, 4x CPU, moments forced, and
+// self-serves the current tree on 5180 (baseline on 5181 for --ab) per D4.
+// Set lists live in aura-sets.mjs (D11).
 import { createRequire } from "node:module";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { REPO, CURR_URL, CURR_PORT, BASE_URL, BASE_PORT, baselineDir, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
+import { STRESS_SETS } from "./aura-sets.mjs";
 
 async function loadChromium() {
-  for (const dir of [join(process.cwd(), "node_modules", "playwright"), join(process.env.TEMP || "", "ascend-pw-shots", "node_modules", "playwright")]) {
-    if (!existsSync(join(dir, "index.js"))) continue;
+  const dir = join(process.cwd(), "node_modules", "playwright-core");
+  if (existsSync(join(dir, "index.js"))) {
     try { const m = await import(pathToFileURL(join(dir, "index.js")).href); if (m.chromium) return m.chromium; } catch {}
-    try { const m = createRequire(join(dir, "package.json"))("playwright"); if (m.chromium) return m.chromium; } catch {}
+    try { const m = createRequire(join(dir, "package.json"))("playwright-core"); if (m.chromium) return m.chromium; } catch {}
   }
-  return (await import("playwright")).chromium;
+  return (await import("playwright-core")).chromium;
 }
-const args = process.argv.slice(2);
-const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5173";
-// --revamp: the per-batch revamp stress. Forces moments continuously on
-// moment auras (re-force whenever idle) and wires the over-canvas so
-// overArt moments (vendetta skull) render and cost real time.
-const revamp = args.includes("--revamp");
-const auras = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--base").join(",").split(",").filter(Boolean);
-const chromium = await loadChromium();
-const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" });
-const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });
-const page = await ctx.newPage();
-const cdp = await ctx.newCDPSession(page);
-await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
-await page.goto(`${base}/?auras=1`, { waitUntil: "domcontentloaded" });
 
-const stats = await page.evaluate(async ({ auras, revamp }) => {
+// One measurement: build the whole set, wait out lazy images, warm 60 frames,
+// then time 240 frames of all auras stepped together. `revamp` forces moments
+// continuously (re-force whenever idle) so moment auras stay mid-moment.
+const measure = (page, auras, revamp) => page.evaluate(async ({ auras, revamp }) => {
   const mod = await import("/src/auras/AuraCanvas.jsx");
   if (mod.AuraLoop.raf) cancelAnimationFrame(mod.AuraLoop.raf);
   mod.AuraLoop.raf = null;
@@ -62,5 +60,91 @@ const stats = await page.evaluate(async ({ auras, revamp }) => {
   const avg = times.reduce((s, v) => s + v, 0) / times.length;
   return { n: times.length, auras: insts.length, avg: +avg.toFixed(3), p50: +times[Math.floor(times.length * 0.5)].toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3), max: +times[times.length - 1].toFixed(3) };
 }, { auras, revamp });
-console.log(`${stats.auras} auras @ board-32 (59px): frames=${stats.n} avg=${stats.avg}ms p50=${stats.p50} p95=${stats.p95} max=${stats.max}`);
+
+const CHROME = process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const throttledPage = async (browser, url) => {
+  const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });
+  const page = await ctx.newPage();
+  const cdp = await ctx.newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  await page.goto(`${url}/?auras=1`, { waitUntil: "domcontentloaded" });
+  return page;
+};
+
+const args = process.argv.slice(2);
+const argVal = (f) => (args.includes(f) ? args[args.indexOf(f) + 1] : null);
+const SET = argVal("--set");
+const AB = args.includes("--ab");
+const RUNS = +(args.find((a) => a.startsWith("--runs="))?.slice(7) || 3);
+const auras = args.filter((a, i) => !a.startsWith("--") && !["--base", "--set"].includes(args[i - 1])).join(",").split(",").filter(Boolean);
+
+if (auras.length) {
+  // legacy: one run of an explicit aura list against --base
+  const base = argVal("--base") || "http://localhost:5173";
+  const revamp = args.includes("--revamp");
+  const chromium = await loadChromium();
+  const browser = await chromium.launch({ headless: true, executablePath: CHROME });
+  const page = await throttledPage(browser, base);
+  const stats = await measure(page, auras, revamp);
+  console.log(`${stats.auras} auras @ board-32 (59px): frames=${stats.n} avg=${stats.avg}ms p50=${stats.p50} p95=${stats.p95} max=${stats.max}`);
+  await browser.close();
+  process.exit(0);
+}
+
+// command mode (aura:stress)
+const names = SET ? [SET] : ["fixed", "ledger", "revamp"];
+for (const n of names) {
+  if (!STRESS_SETS[n]) { console.error(`unknown set "${n}" — sets: ${Object.keys(STRESS_SETS).join(", ")}`); process.exit(1); }
+}
+
+const header = [];
+const hline = (s) => { header.push(s); console.log(s); };
+hline(`aura:stress`);
+hline(`current:  ${REPO} (${git(REPO, "rev-parse --short HEAD")}${git(REPO, "status --porcelain") ? " + dirty" : ""})`);
+assertPortFree(CURR_PORT);
+if (AB) assertPortFree(BASE_PORT);
+startVite(REPO, CURR_PORT);
+await waitReady(CURR_URL);
+hline(`B server: ${CURR_URL} (current tree)`);
+if (AB) {
+  const bdir = baselineDir();
+  if (!existsSync(bdir)) { console.error(`baseline worktree ${bdir} does not exist — see aura:baseline`); process.exit(1); }
+  const bTag = git(bdir, "tag --points-at HEAD");
+  hline(`A server: ${BASE_URL} (baseline ${bdir} @ ${git(bdir, "rev-parse --short HEAD")}${bTag ? " " + bTag : ""}${git(bdir, "status --porcelain") ? " + dirty" : ""})`);
+  startVite(bdir, BASE_PORT);
+  await waitReady(BASE_URL);
+}
+hline(`sets:     ${names.join(", ")} — board-32 circle, 4x CPU, moments forced, ${RUNS} runs each (median)`);
+
+const chromium = await loadChromium();
+const browser = await chromium.launch({ headless: true, executablePath: CHROME });
+const pageB = await throttledPage(browser, CURR_URL);
+const pageA = AB ? await throttledPage(browser, BASE_URL) : null;
+
+const med = (v) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)];
+const evDir = evidenceDir("aura-stress");
+const lines = [];
+let fails = 0;
+for (const name of names) {
+  const ids = STRESS_SETS[name];
+  const b95 = [], a95 = [];
+  for (let r = 0; r < RUNS; r++) {
+    if (AB) a95.push((await measure(pageA, ids, true)).p95); // A = baseline
+    b95.push((await measure(pageB, ids, true)).p95);         // B = current
+  }
+  const medB = med(b95);
+  const medA = a95.length ? med(a95) : null;
+  const verdict = medB >= 16 ? "FAIL" : (name === "fixed" && medB > 12 ? "WARN" : "PASS");
+  if (verdict === "FAIL") fails++;
+  const line = `${verdict} ${name.padEnd(7)} ${ids.length} auras, ${RUNS} runs — B median p95=${medB} ms  runs=[${b95.join(", ")}]`
+    + (medA != null ? `  |  A median p95=${medA} ms  runs=[${a95.join(", ")}]  diff B-A=${+(medB - medA).toFixed(2)} ms` : "")
+    + `  (FAIL >= 16${name === "fixed" ? "; WARN > 12" : ""})`;
+  lines.push(line); console.log(line);
+}
+const summary = fails ? `${fails} set(s) failed` : "all sets within limits";
+console.log(`\n${summary}`);
+writeFileSync(join(evDir, "report.txt"), [...header, "", ...lines, "", summary, ""].join("\n"));
+console.log(`evidence: ${evDir}`);
 await browser.close();
+stopServers();
+process.exit(fails ? 1 : 0);
