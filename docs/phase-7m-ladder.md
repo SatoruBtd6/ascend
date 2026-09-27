@@ -1,8 +1,8 @@
-# Phase 7m — aura ladder rework (revised)
+# Phase 7m — aura ladder rework (revised, r2)
 
-**Replaces `docs/phase-7m-rework.md`, which replaced `docs/phase-7m.md`.** Both earlier
-docs are reference only; their Parts are void. The Part 1 reports and the round-2 addendum
-stand as findings and are cited throughout.
+**Replaces `docs/phase-7m-ladder.md` r1, which replaced `docs/phase-7m-rework.md` and
+`docs/phase-7m.md`.** Earlier docs are reference only; their Parts are void. The Part 1
+reports and the Part 2 small-canvas report stand as findings and are cited throughout.
 
 Owner: Brodan. Agent: Devin Local. `AGENTS.md` applies in full.
 
@@ -10,63 +10,64 @@ Owner: Brodan. Agent: Devin Local. `AGENTS.md` applies in full.
 
 ## What this phase does
 
-Define a rarity-ordered loudness ladder, assign every aura a rung, prove the ladder on a
-six-aura pilot spanning R2 to R5, then roll it out in later phases.
+Define a rarity-ordered loudness ladder, assign every aura a rung, build the renderer
+support the top rungs need, prove the ladder on a seven-aura pilot spanning R2 to R5, then
+roll it out in later phases.
 
 Brodan's direction, recorded: commons should still look cool; each rarity step up should
 look clearly crazier; earned and pulled auras share one ladder, ordered by how hard the
 aura is to get.
 
-## Findings that shape it (from Part 1 and the round-2 addendum)
+## Findings that shape it
 
 - No aura had ever been assigned a tier. The guide's Tier 3 was a paper spec nothing
   reached.
 - Loudness did not track rarity: boss median 0.478 ms sat under feat 0.542 ms; the two
   dimmest auras, standardbearer 0.148 ms and ironbound 0.217 ms, were the two cheapest in
   the library.
-- Glow does **not** saturate at 1.3. Measured on ember at the 141 px ring, band luminance
-  rises linearly from 17.5 at glow 0.78 to 33.2 at 1.7. The gradient's peak alpha clips at
-  glow × breathe ≈ 1.82, so **1.8 is the real ceiling** and numbers above it are dead
-  weight.
-- Small canvases are real user views: crew rows 52 px, leaderboard rows 59 px, duel rows
-  67 px, studio 88 px, profile 141 px, crate preview 160 px. The renderer's unit floor
-  makes particles **35% larger relative to the tile** below 110 px, deliberately, for
-  readability — which is exactly why big particles clip there.
-- Consequence: under today's renderer a soft-sprite hero caps at about sz 4.0 on **every**
-  rung. The particle axis is nearly flat across the ladder, and growth has to come from
-  rx-scaled sprites, glyphrings, rings and hard-path shapes. **Part 2 tests whether that
-  constraint is worth removing.**
+- **Glow does not saturate at 1.3.** Measured on ember at 141 px, band luminance rises
+  linearly from 17.5 at glow 0.78 to 33.2 at 1.7. The gradient clips at glow × breathe
+  ≈ 1.82, so **1.8 is the real ceiling**.
+- Small canvases are real user views: crew rows 52 px, leaderboard 59 px, duel 67 px,
+  studio 88 px, profile 141 px, crate preview 160 px.
+- One spec size serves all of them, so the 52 px crew row caps every rung: soft heroes
+  flatten at sz ≈4.0 from R1 to R5. **Decided: add a `small:` view block** (Part 2 option
+  3) so ring-size heroes can grow to ~42 px drawn against ~18 px today, opt-in, leaving
+  untouched auras byte-identical. Lowering the unit floor globally was rejected — it
+  rewrites all 51 auras at small sizes, invalidates the phase's zero-diff gates, and its
+  regression falls hardest on soft-particle commons (ember and stormstep deflate; the
+  sprite-driven eclipseheart, which needs it least, barely moves).
 - `blacksun` violates the no-clipping rule on main today: `AURA_ART.blacksun`'s orbiting
   eclipse disc reaches ≈1.97·rx against a frame half of ≈1.72·rx, exiting by up to ~12 px
-  at ring, fully opaque, across multiple seconds of each 21 s orbit. Pre-existing, not
-  caused by this phase.
+  at ring, fully opaque, across seconds of each 21 s orbit. Pre-existing.
 
 ---
 
 ## The ladder
 
-Membership is decided. Numbers below are **under today's renderer** and are revised once
-Part 2 settles small-canvas sizing.
+Membership is decided. The hero rows below assume the `small:` block from Part 3; if Part 3
+lands differently, they are revised there and nowhere else.
 
 | | R1 quiet | R2 charged | R3 heavy | R4 showcase | R5 spectacle |
 | --- | --- | --- | --- | --- | --- |
 | glow | 0.70–0.85 | 1.00–1.15 | 1.15–1.25 | 1.35–1.50 | 1.55–1.75 |
-| soft hero sz (K≈5.2) | ≤3.5 | ≤4.0 | ≤4.0 | ≤4.0 | ≤4.0 |
-| hard hero sz (K≤3.5) | ≤3.5 | ≤4.5 | ≤5.5 | ≤6.0 | ≤6.5 |
+| soft hero sz (≥110 px) | ≤4.5 | ≤5.5 | ≤6.5 | ≤8.0 | ≤9.5, orbit ≤1.2 |
+| soft hero sz (`small:`) | ≤2.8 | ≤3.2 | ≤3.6 | ≤4.0 | ≤4.0 |
+| hard hero sz (≥110 px) | ≤5 | ≤7 | ≤9 | ≤10.5 | ≤12 |
+| hard hero sz (`small:`) | ≤4 | ≤5 | ≤5.5 | ≤6 | ≤6.5 |
 | img sprite hero (×rx) | none | ≤0.5, behind-photo only | ≤0.7 | ≤0.9 | ≤1.2 |
 | glyphring radius (×rx) | none | none | ≤0.4 | ≤0.5 | ≤0.5 |
 | ring particles N | 10–25 | 20–35 | 25–45 | 35–60 | 40–80 |
 | spec layers | 3–4 | 4–5 | 5–6 | 5–7 | ≥6 |
 | signatures | none | ONE | signature + accent; **no new moments, no sweeps** | ≥2 + moment + art | unrestricted; moment + art |
 
-Glow hard ceiling 1.8 at every rung — above it the gradient clips and the number does
-nothing.
+Glow hard ceiling 1.8 at every rung. Soft-hero footprint ≈ sz × unit × 5.2; hard ≈ sz ×
+unit × 3.5; img and glyphring scale with rx and are size-independent.
 
-**Ceilings vs minimums.** For existing auras these rows are permitted ceilings: an aura may
-sit below its rung, never above it. For any aura built or reworked to a rung — the six
-pilots, and everything in later rollout phases — the rows are minimums as well. Grandfathered
-exceptions, by name: `iaidraw` (sweep at R1), `steadybreath` (rings at R1), `nullpoint`
-(no moment at R4), `yogurt` (no signature at R5).
+**Ceilings vs minimums.** For existing auras these rows are permitted ceilings — an aura may
+sit below its rung, never above it. For any aura built or reworked to a rung, the rows are
+minimums as well. Grandfathered exceptions, by name: `iaidraw` (sweep at R1), `steadybreath`
+(rings at R1), `nullpoint` (no moment at R4), `yogurt` (no signature at R5).
 
 ### Membership
 
@@ -78,38 +79,34 @@ exceptions, by name: `iaidraw` (sweep at R1), `steadybreath` (rings at R1), `nul
 | **R4** | crate mythic: nullpoint, carve, brandmark, fallenlight · rank 5: halo · special: huntersmoon |
 | **R5** | special: yogurt, vendetta, ascended, wheel, champion · crate gilded: eclipseheart · crate secret: blacksun · rank 6: godray |
 
-`ember` anchors R1 and is not changed this phase. `stormstep` anchors R2 and is not changed
-this phase — it is the perf reference. `soon_throne` and `soon_seraphim` are placeholders,
-unassigned, untouched.
+`ember` anchors R1 and `stormstep` anchors R2 — neither changes this phase; stormstep is the
+perf reference. `soon_throne` and `soon_seraphim` are placeholders, unassigned, untouched.
 
-## Pilot
+### Pilot
 
-Six auras spanning four rungs: **ironbound** (R2), **forge** and **standardbearer** (R3),
-**fallenlight** (R4), **eclipseheart** and **blacksun** (R5).
+**ironbound** (R2), **forge** and **standardbearer** (R3), **fallenlight** and **huntersmoon**
+(R4), **eclipseheart** and **blacksun** (R5).
 
 ---
 
-## The two R5 moments (Brodan-approved concepts, spec'd here)
+## The two R5 moments (approved concepts, spec'd)
 
-Both are new. Both must read on the **ring** — where the photo covers the centre and only
-the halo band around its edge is visible — not just on the figure. Both reuse their own
-aura's existing motifs; no generic white shockwave. Each gets **exactly one** flash, routed
-through `noteStrikeFlash`, and under reduced motion that flash is replaced by a slow
-brighten with no flash at all.
+Both are new. Both must read on the **ring**, where the photo covers the centre and only the
+halo band is visible — not just on the figure. Both reuse their own aura's motifs; no generic
+white shockwave. Each gets **exactly one** flash through `noteStrikeFlash`; under reduced
+motion that flash becomes a slow brighten with no flash at all.
 
 ### eclipseheart — "Totality"
 
 | Beat | Time | What happens |
 | --- | --- | --- |
 | 1 | 0–0.5 s | Gem ring tightens inward and dims; rays retract; darkness creeps in from the outer rim |
-| 2 | 0.5–1.1 s | Full dark — disc near-black, only a thin bright rim line survives, gems gone. **Hold.** The stillness is what sells the flare |
+| 2 | 0.5–1.1 s | Full dark — disc near-black, only a thin bright rim line survives, gems gone. **Hold.** The stillness sells the flare |
 | 3 | 1.1–1.2 s | **One** corona flare: white-gold, bursting outward along the rim. The single flash |
-| 4 | 1.2–2.4 s | Light floods back; gems re-ignite one at a time, staggered; rays fan out; settles to steady state |
+| 4 | 1.2–2.4 s | Light floods back; gems re-ignite one at a time, staggered; rays fan out; settles |
 
-Reuses: the existing sweep (beat 1 tighten), the rays, both rings (beat 2 rim line), the
-gem orbit (beat 4 re-ignite). Staggered gem re-ignition is twinkle, not flash — it does not
-count against the rate. Ring read: the band going black then blowing out is legible at 141 px
-with the photo covering the centre. Reduced motion: beat 3 becomes a 0.4 s brighten.
+Reuses the existing sweep (beat 1), rays, both rings (beat 2 rim line), gem orbit (beat 4).
+Staggered re-ignition is twinkle, not flash. Reduced motion: beat 3 becomes a 0.4 s brighten.
 
 ### blacksun — "Umbra"
 
@@ -120,21 +117,20 @@ with the photo covering the centre. Reduced motion: beat 3 becomes a 0.4 s brigh
 | 3 | 1.0–1.15 s | Wings snap wide open; the disc's edge blows out in inverted colour. The single flash |
 | 4 | 1.15–2.6 s | Colour-cycle returns, running inverted for ~1.5 s before settling to normal |
 
-Reuses: the wings, the colorCycle ring, the shadow wisps, the dark disc. Ring read: wings
-occupy the halo band left and right of the photo; the swallow reads as the band going black.
-Reduced motion: wings open slowly, no flash. **The wings must come inside the R5 sprite cap
-(≤1.2 rx; they are 1.75 rx today) and inside the edge rule** — see the blacksun fix below.
+Reuses the wings, colorCycle ring, shadow wisps, dark disc. Ring read: wings occupy the halo
+band left and right of the photo; the swallow reads as the band going black. Reduced motion:
+wings open slowly, no flash. **The wings must come inside the R5 sprite cap (≤1.2 rx; 1.75 rx
+today) and inside the edge rule.**
 
 ---
 
 ## Rules that must not be undone
 
-- **Flash rule (seizure safety).** Every flash goes through `noteStrikeFlash`. Page-wide
-  maximum 3 per second, none under reduced motion. No whole-aura brightness swing faster
-  than 3/second. One big strike is fine; staggered twinkles are fine. A louder ladder does
-  not buy more flashes. This is a medical constraint, not a style limit.
-- **Edges.** Per the new measurable rule below. Bigger elements make this the main risk of
-  the phase.
+- **Flash rule (seizure safety).** Every flash through `noteStrikeFlash`. Page-wide maximum
+  3 per second, none under reduced motion, no whole-aura brightness swing faster than
+  3/second. One big strike is fine; staggered twinkles are fine. A louder ladder does not buy
+  more flashes. Medical constraint, not a style limit.
+- **Edges.** Per the measurable rule below.
 - **Ring view first.** Anything a moment shows on the figure needs a ring equivalent.
 - **Identity.** Every aura stays instantly tellable apart at ring size, including from its
   rung-mates. Palettes are not locked.
@@ -145,29 +141,28 @@ Reduced motion: wings open slowly, no flash. **The wings must come inside the R5
 - **Measurement changes need a written `DECISIONS.md` proposal first.**
 - **You never push.** Brodan pushes and tags.
 
-## Approved proposals to implement (from the Part 1 rounds)
+## Approved proposals to implement
 
-These were proposed and are accepted; implement them where the parts below say so, not
-before.
+Accepted; implement where the parts below say, not before.
 
 1. **Edge rule, measurable.** Border = outermost 1-px rows, all four edges, both canvases.
    Per frame report `edgeSoft` (alpha 0–0.30, always legal), `edgeHard` (alpha ≥ 0.30, must
-   be 0 in steady state; transient burst debris must clear within 0.5 s and is reported),
-   and `edgeRun` (widest connected run at alpha ≥ 0.50; ≤3 px legal at any time). Verdict is
-   the **max over a worst-case grid**: ≥3 seeds × frames {60, 90, 120, 150, 180, 210, 240}
-   plus a forced-moment pass, × sizes {crew 52, board 59, ring 141, figure 128×163}, fresh
-   page per aura. Report names the largest object touching the edge with its size in px.
+   be 0 in steady state; transient burst debris must clear within 0.5 s and is reported), and
+   `edgeRun` (widest connected run at alpha ≥ 0.50; ≤3 px legal at any time). Verdict is the
+   **max over a worst-case grid**: ≥3 seeds × frames {60, 90, 120, 150, 180, 210, 240} plus a
+   forced-moment pass, × sizes {crew 52, board 59, ring 141, figure 128×163}, fresh page per
+   aura. Report names the largest object touching the edge with its size in px.
 2. **Budget reference pinned.** `aura:perf --ab` takes its WARN denominator from
    `median(runsA["stormstep"])` — the baseline worktree — not the live tree. Non-`--ab` runs
    keep the live ref as a same-session approximation and say so.
 3. **FAIL-rule exemption, scoped.** The `--ab` FAIL rule (>15% **and** >0.05 ms) does not
-   apply to exactly these six ids — ironbound, forge, standardbearer, fallenlight,
-   eclipseheart, blacksun — during 7m only. Every other aura still fails. Expires when v7m
-   is tagged and the baseline re-pins.
-4. **New `spectacle` stress set** in `scripts/aura-sets.mjs`: the R5 members — yogurt,
-   vendetta, ascended, wheel, champion, eclipseheart, blacksun, godray. Same rules as the
-   other sets, p95 < 16 ms. Rationale: the existing sets exclude the two loudest auras, so
-   the gate would not cover the worst board after rollout. Freeze the id list at v7m.
+   apply to exactly these seven ids — ironbound, forge, standardbearer, fallenlight,
+   huntersmoon, eclipseheart, blacksun — during 7m only. Every other aura still fails.
+   Expires when v7m is tagged and the baseline re-pins.
+4. **New `spectacle` stress set** in `scripts/aura-sets.mjs`: yogurt, vendetta, ascended,
+   wheel, champion, eclipseheart, blacksun, godray. Same rules as the other sets, p95 < 16 ms.
+   The existing sets exclude the two loudest auras, so the gate would not cover the worst
+   board after rollout. Freeze the id list at v7m.
 
 ## Dropped / out of scope
 
@@ -175,6 +170,7 @@ before.
   to the saving changes pixels. Carve stays in `KNOWN_OVER`; record why.
 - Hands off: the `makeFlameTongues` clamp, carve's `rings` `#111111` entry, ironbound's
   under-photo chains.
+- Lowering the unit floor globally (Part 2 option 2) — rejected, reasons recorded above.
 - The `drawCarveSigil` `save()`/`restore()` imbalance is in scope only as its own item in the
   final part, with its own zero-pixel diff.
 
@@ -190,103 +186,116 @@ version.
 
 ---
 
-## Part 2 — small-canvas sizing. Decision before any build.
+## Part 3 — build the `small:` view block
 
-Today a soft-sprite hero caps around sz 4.0 on every rung because of the 52 px crew row, so
-the ladder's particle axis is flat. This part decides whether that stays.
+No aura changes in this part. Nothing should look different anywhere when it ends.
 
-**A.** Cost the three options, each with what it changes, what it risks, and how many auras
-would need edits:
-   1. **Live with it** — growth comes only from rx-scaled sprites, glyphrings, rings and
-      hard-path shapes.
-   2. **Lower the small-canvas unit floor** so particles stop being enlarged on tiny tiles.
-      Say exactly what the floor was protecting and what regresses.
-   3. **Add a `small:` view block** to the spec format alongside `body:` and `circle:`,
-      merging one level deep like they do. Say what it costs in renderer, spec-format and
-      test changes.
+**A. Semantics, pinned in `DECISIONS.md` before coding.** Write and get approval for:
+threshold (`mode === "circle" && w < 110`, matching the existing unit floor); merge order
+(base → circle → `small`, most specific last, so circle edits still apply at small sizes);
+whether `small:` applies in body mode (no <110 figure canvas exists today — recommend an
+orthogonal definition and say which); and the three amendments below.
 
-**B.** Evidence for option 2: screenshots of three auras at 52 px and 59 px with the floor
-at its current value and lowered, so the readability trade-off is visible rather than
-argued. Ember, stormstep and eclipseheart.
+**B. Amendment 1 — opt in with one number.** `small:` must support a scale multiplier
+(e.g. `small: { scale: 0.45 }`) that scales particle size and count, as well as the explicit
+per-field form. An aura should be able to opt in with a single number rather than maintaining
+a second full recipe forever. If a multiplier cannot express what the explicit form can, say
+exactly where it falls short.
 
-**C.** If the floor changes or `small:` lands, give the revised R1–R5 hero rows — what the
-ladder's particle axis could actually be.
+**C. Amendment 2 — `small:` may only change size, count and speed.** Never palette, shapes,
+signatures or art selection. An aura must be recognisably the same aura on a leaderboard row
+as on a profile. Enforce it in the spec validator, with a test that a disallowed key under
+`small:` is rejected.
 
-**D.** Recommend one option and say why, including which one you would pick if the only goal
-were the profile ring looking as good as possible.
+**D. Amendment 3 — the perf gate must see the loud version.** `aura:perf` and `aura:stress`
+run at board-32, which is exactly the size `small:` shrinks — so after this lands, the gate
+measures the quiet version of every opted aura. Propose a ring-size measurement pass (a
+`--size ring` flag on `aura:perf`, or a ring-size stress set) as a `DECISIONS.md` proposal,
+and implement it here. State the new numbers' relationship to the existing budgets: they are
+a separate series, not comparable to board-32 medians.
 
-**Then stop.** Brodan decides. No renderer or spec-format changes in this part.
+**E. Implement:** renderer (`makeAura`, `mergeViewLayer`), `specFormat.js` (`VIEW_BLOCKS`,
+`scopedPath`, `VIEW_LOCKED_LAYER_KEYS`), and the tooling touchpoints — `gallery-effects.mjs`
+`hiddenFields` (it filters on `path[2] === "circle"|"body"` and would mislabel `small` fields),
+and the dev editor's scope picker or a documented note that `small:` is hand-edited.
 
----
+**F. Prove it is inert.** `aura:diff` full set: **every one of the 51 auras must be zero
+differing pixels at every size**, because no aura opts in yet. This is the whole safety
+argument for choosing this option — if it is not zero, stop and report.
 
-## Part 3 — build the ceiling: eclipseheart and blacksun (R5)
+**G. Tests** for merge order, the multiplier, the disallowed-key rejection, and the threshold
+boundary (109 px vs 110 px).
 
-The top rung is built first; every rung below is calibrated down from it.
-
-**A.** Implement the edge rule (approved proposal 1) and the pinned budget reference
-(proposal 2) in the harness, with the exemption (3) recorded. Report which auras warn under
-the new line.
-
-**B.** Fix the pre-existing `AURA_ART.blacksun` eclipse-disc clipping — clamp the orbit,
-scale the disc to the canvas margin, or fade it inward before the border. Report it as a
-**pre-existing bug fix**, with before/after worst-case edge numbers at all four sizes, not
-folded into the rework narrative. Bring the wing sprite inside the R5 cap (≤1.2 rx) in the
-same pass.
-
-**C.** Build both auras to R5, including the two moments spec'd above. List every file and
-field changed, before/after.
-
-**D.** `aura:shots` for both: ring dark/light, board, figure, f90/f120, reduced motion, plus
-the opaque-square-photo ring shot, plus a moment filmstrip — at least 6 frames spanning each
-moment, at ring size, so the beats can be judged.
-
-**E.** Glow-disabled lit% and band lit% for both, before and after, with reference auras for
-scale.
-
-**F.** Edge check under the new rule, worst-case grid, all four sizes. The largest object
-touching the edge with its size in px — the number, not "no clipping".
-
-**G.** Flash audit: every flash path in both auras, the page-wide rate under forced moments,
-confirmation that each moment fires exactly one flash, and that reduced motion suppresses
-both.
-
-**H.** `aura:diff` full set — everything except these two is zero differing pixels.
-`aura:flash` for bonewright.
-
-**I.** `aura:perf -- --ab --only eclipseheart,blacksun,stormstep`, plus the fixed stress set
-and the new `spectacle` set.
-
-**J.** `npm.cmd run check`.
-
-**Then stop and report.** Expect iteration here — this rung defines "insane", and it is
-worth getting wrong twice.
-
----
-
-## Part 4 — fallenlight (R4) and huntersmoon (R4)
-
-Same structure as Part 3 items C–J, for both. They must read as clearly a step below the R5
-pair and clearly above R3. Include a strip against eclipseheart and blacksun.
-
-fallenlight carries the known edge instability — 0 lit border pixels at one seed, 245 at
-another — so it is the aura that most needs the worst-case grid.
+**H.** `aura:perf --ab` full set to confirm no cost when unused, plus `npm.cmd run check`.
 
 **Then stop and report.**
 
 ---
 
-## Part 5 — forge, standardbearer (R3) and ironbound (R2)
+## Part 4 — build the ceiling: eclipseheart and blacksun (R5)
 
-Same structure, items C–J, for all three. These carry the "commons still look cool, and the
-steps are obvious" test:
+**A.** Implement the edge rule (proposal 1) and the pinned budget reference (proposal 2) in
+the harness; record the exemption (3). Report which auras warn under the new line.
+
+**B.** Fix the pre-existing `AURA_ART.blacksun` eclipse-disc clipping — clamp the orbit, scale
+the disc to the canvas margin, or fade it inward before the border. Report as a **pre-existing
+bug fix** with before/after worst-case edge numbers at all four sizes, not folded into the
+rework narrative. Bring the wing sprite inside the R5 cap in the same pass.
+
+**C.** Build both to R5, including the two moments spec'd above. List every file and field
+changed, before/after. Use `small:` where the ring wants more than a small tile can hold.
+
+**D.** `aura:shots` for both: ring dark/light, board, figure, f90/f120, reduced motion, the
+opaque-square-photo ring shot, **crew 52 px and leaderboard 59 px shots** (new — these are what
+`small:` governs), and a moment filmstrip of at least 6 frames spanning each moment at ring
+size.
+
+**E.** Glow-disabled lit% and band lit% for both, before and after, with reference auras.
+
+**F.** Edge check under the new rule, worst-case grid, all four sizes. The largest object
+touching the edge with its size in px — the number, not "no clipping".
+
+**G.** Flash audit: every flash path, the page-wide rate under forced moments, confirmation
+each moment fires exactly one flash and reduced motion suppresses both.
+
+**H.** `aura:diff` full set — everything except these two is zero. `aura:flash` for bonewright.
+
+**I.** `aura:perf -- --ab --only eclipseheart,blacksun,stormstep` at board-32 **and at ring
+size**, plus the `fixed` and `spectacle` stress sets.
+
+**J.** `npm.cmd run check`.
+
+**Then stop and report.** Expect iteration — this rung defines "insane", and it is worth
+getting wrong twice.
+
+---
+
+## Part 5 — fallenlight and huntersmoon (R4)
+
+Items C–J as in Part 4, for both. They must read as clearly a step below the R5 pair and
+clearly above R3. Include a strip against eclipseheart and blacksun.
+
+fallenlight carries the known edge instability — 0 lit border pixels at one seed, 245 at
+another — so it most needs the worst-case grid.
+
+**Then stop and report.**
+
+---
+
+## Part 6 — forge, standardbearer (R3) and ironbound (R2)
+
+Items C–J, for all three. These carry the "commons still look cool, and the steps are obvious"
+test:
 
 - forge must no longer read as the same picture as smolder;
 - standardbearer and forge share a rung and must still be instantly tellable apart;
-- ironbound sits a rung below them and must read as a clear step down from forge while
-  still looking good on its own.
+- ironbound sits a rung below them and must read as a clear step down from forge while still
+  looking good on its own.
 
-Include a **six-way ladder strip**: ironbound, forge, standardbearer, fallenlight,
-eclipseheart, blacksun — the ladder in one image. That strip is the real test of the phase.
+Include a **seven-way ladder strip** at ring size: ironbound, forge, standardbearer,
+fallenlight, huntersmoon, eclipseheart, blacksun — the ladder in one image. That strip is the
+real test of the phase. Include the same strip at crew 52 px, which is where `small:` has to
+prove it kept the ladder legible.
 
 R3's average bump must stay at or under +0.15 ms per aura. If forge or standardbearer cannot
 reach R3's feel within that, say so plainly rather than spending the rollout's headroom.
@@ -295,27 +304,28 @@ reach R3's feel within that, say so plainly rather than spending the rollout's h
 
 ---
 
-## Part 6 — settle, document, ship
+## Part 7 — settle, document, ship
 
 **A.** Full `aura:diff`: only the seven reworked auras differ from baseline.
 
-**B.** Stress: `fixed`, `ledger`, `revamp`, `spectacle`. p95 under 16 ms each. Note that the
-≤12 ms fixed-set WARN target is forecast to be exceeded at full rollout (~13–14 ms); report
-the number, do not relax the target here.
+**B.** Stress: `fixed`, `ledger`, `revamp`, `spectacle`, plus the ring-size pass from Part 3D.
+p95 under 16 ms each. The ≤12 ms fixed-set WARN target is forecast to be exceeded at full
+rollout (~13–14 ms); report the number, do not relax the target here.
 
-**C. Rollout stop rule.** Record in `DECISIONS.md`: after each later rollout batch, stress
+**C. Rollout stop rule**, recorded in `DECISIONS.md`: after each later rollout batch, stress
 runs, and **if fixed-set p95 exceeds 14.5 ms the rollout pauses** and the remaining rungs get
-cheaper recipes. The 16 ms gate is the line where frames start dropping; 14.5 is the margin
-that keeps session noise from eating it.
+cheaper recipes. 16 ms is where frames start dropping; 14.5 is the margin that keeps session
+noise from eating it.
 
 **D.** Cross-day perf table: every session this phase, with date, baseline-pinned stormstep
-median, and the seven reworked auras' medians.
+median, and the seven reworked auras' medians at both board-32 and ring size.
 
 **E.** Write the ladder into `docs/aura-style-guide.md` — five rungs, numbers, full member
-assignment, ceilings-vs-minimums rule, grandfathered exceptions. Record in `DECISIONS.md`:
-the rung map, the edge rule, the budget reference change, the FAIL exemption and its expiry,
-the `spectacle` set, the rollout stop rule, the blacksun pre-existing bug, and why carve
-stays in `KNOWN_OVER`.
+assignment, ceilings-vs-minimums rule, grandfathered exceptions, and how `small:` is used.
+Record in `DECISIONS.md`: the rung map, the edge rule, the budget reference change, the FAIL
+exemption and its expiry, the `spectacle` set, the ring-size pass, the rollout stop rule, the
+`small:` semantics and its three amendments, the blacksun pre-existing bug, why the unit floor
+was not lowered, and why carve stays in `KNOWN_OVER`.
 
 **F.** Fix the `drawCarveSigil` `save()`/`restore()` imbalance. Own item, own
 `aura:diff --only carve`, zero differing pixels.
@@ -335,12 +345,12 @@ entries — an edited aura is no longer untouched.
 
 ## Checklist
 
-- [ ] Part 2: small-canvas options costed, Brodan decides
-- [ ] Part 3: edge rule + budget ref implemented; blacksun bug fixed; both R5 auras built with moments
+- [ ] Part 3: `small:` block built, three amendments in, all 51 auras still byte-identical
+- [ ] Part 4: edge rule + budget ref implemented; blacksun bug fixed; both R5 auras built with moments
 - [ ] Brodan's notes on the ceiling — iterate until it's right
-- [ ] Part 4: fallenlight + huntersmoon, one clear step below
-- [ ] Part 5: forge, standardbearer, ironbound — the six-way ladder strip
-- [ ] Part 6: stress passes, docs written, `APP_VERSION` → `7m`
+- [ ] Part 5: fallenlight + huntersmoon, one clear step below
+- [ ] Part 6: forge, standardbearer, ironbound — the seven-way ladder strip
+- [ ] Part 7: stress passes, docs written, `APP_VERSION` → `7m`
 - [ ] Brodan pushes and tags `v7m`; baseline re-pins to v7m
 
 ## Notes for Brodan
@@ -349,3 +359,4 @@ entries — an edited aura is no longer untouched.
 - Close the gallery tab while Devin measures.
 - Gallery looks wrong right after a change: **Ctrl + Shift + R**.
 - Restart the PC if orphaned node/Chrome processes pile up.
+- Part 3 has nothing to look at. The first pretty pictures arrive at the end of Part 4.
