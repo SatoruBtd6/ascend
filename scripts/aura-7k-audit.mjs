@@ -17,10 +17,27 @@ async function loadChromium() {
   }
   return (await import("playwright-core")).chromium;
 }
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "baselines", "ascend-7k");
-mkdirSync(OUT, { recursive: true });
+import { REPO, CURR_URL, CURR_PORT, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
+
 const args = process.argv.slice(2);
-const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "http://localhost:5174";
+// aura:contact — no --base: self-serve the current tree on 5180 (D4) and write
+// to evidence/aura-contact/<ts>/. --base keeps the 7k behaviour: use the given
+// server and write to docs/baselines/ascend-7k.
+const command = !args.includes("--base");
+const base = command ? CURR_URL : args[args.indexOf("--base") + 1];
+const OUT = command ? evidenceDir("aura-contact") : join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "baselines", "ascend-7k");
+mkdirSync(OUT, { recursive: true });
+const hline = (s) => console.log(s);
+if (command) {
+  assertPortFree(CURR_PORT);
+  startVite(REPO, CURR_PORT);
+  await waitReady(CURR_URL);
+  const cCommit = git(REPO, "rev-parse --short HEAD");
+  const dirty = git(REPO, "status --porcelain");
+  hline("aura:contact");
+  hline(`current:  ${REPO} (${cCommit}${dirty ? " + dirty" : ""})`);
+  hline(`server:   ${base}`);
+}
 
 const chromium = await loadChromium();
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe" });
@@ -51,6 +68,14 @@ const data = await page.evaluate(async () => {
     for (let f = 0; f < frames; f++) inst.frame(1 / 60);
     return { main: cv, over: hasOver ? cv2 : null };
   };
+
+  // every image record loaded before capture: register all FX auras' lazy
+  // images, then wait out the cache (same warm as aura:diff / aura:perf)
+  for (const a of cat.AURAS) {
+    const fx = mod.AURA_FX[cat.resolveAuraId ? cat.resolveAuraId(a.id) : a.id];
+    if (fx) render(a.id, "circle", 59, 59, 3);
+  }
+  for (let t = 0; t < 600; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
 
   const rows = [];
   const ringImgs = {};
@@ -168,4 +193,6 @@ console.log(`rows: ${data.rows.length}`);
 console.log(`sheet -> ${join(OUT, "contact-sheet.png")}`);
 console.log(`audit -> ${join(OUT, "audit.json")}`);
 for (const r of data.rows) console.log(`${r.id.padEnd(15)} ${r.rarity.padEnd(10)} n=${String(r.n).padEnd(3)} lit=${(r.litFrac * 100).toFixed(1)}% lum=${r.meanLum}`);
+if (command) console.log(`evidence: ${OUT}`);
 await browser.close();
+stopServers();

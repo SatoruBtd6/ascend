@@ -423,3 +423,22 @@ D12. Test glob approved, quoted so Node expands the globs, not the shell:
 "test": "node --test \"src/**/*.test.mjs\" \"tests/**/*.test.mjs\""
 
 D13. In aura:diff run mode, --spec applies to the current tree only (as built in Part 2).
+
+## Approved after Part 3
+
+D14. aura:perf grandfathering. The 7k perf table measured in a quieter session (and
+the retired aura-7k-perf.mjs never forced moments); measured today, no harness —
+old shots --perf --moment or new aura:perf — reproduces it (medians 0.7-1.0 ms on
+the disputed five vs the table's ~0.5). Old and new paths do agree within session
+noise, and both warm lazy images before timing, so the new numbers are the true
+forced-moment numbers.
+- GRANDFATHERED in aura-sets.mjs: the 13 untouched auras plus atlas, forge,
+  fallenlight, ledger, ossuary, nullpoint (7k change was ring-only). Each gets a
+  ceiling = its v7k aura:perf median x1.10. aura:perf fails a grandfathered aura
+  only above its own ceiling.
+- KNOWN_OVER: carve and wyrm keep their v7k medians and print WARN (not FAIL)
+  above 0.6 ms, noted "revamped in 7k, over 0.6 - trim in next aura phase".
+- Every other aura fails above 0.6 ms as before. A full-51 aura:perf exits 0 at
+  v7k and regressions still fail.
+- The revamp stress set is re-ranked as the 10 heaviest of REVAMPED_38 that are
+  NOT in FIXED or LEDGER, frozen in aura-sets.mjs with date, commit and method.
