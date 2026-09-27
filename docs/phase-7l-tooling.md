@@ -379,3 +379,32 @@ exact command to remove it.
       `DECISIONS.md` entry
 - [ ] Part 5: every command green; no app changes; `APP_VERSION` still 7k.2; lockfile unchanged
 - [ ] Brodan: push, tag `v7l`, remove the old worktree
+
+## Approved after Part 1
+
+D1. Mapping approved.
+- Commands: aura-7j-full-diff → aura-diff.mjs (aura:diff); aura-7h-stress → aura-stress.mjs (aura:stress); aura-7k-revamp-shots → aura-shots.mjs (aura:shots + aura:perf); aura-7j-flashtimes → aura-flash.mjs (aura:flash); new aura-baseline.mjs; new check.mjs.
+- Helpers, also renamed with no phase numbers: aura-7k-ladder-current → aura-ladder.mjs; aura-7k-spec-probe → aura-spec-probe.mjs; aura-7i-asset-check → aura-asset-check.mjs; aura-7i-gallery-effects → gallery-effects.mjs; diag-harness stays.
+- aura-7k-audit becomes aura:contact if item K confirms it makes an all-aura contact sheet.
+- Everything else retires, per the exact list from item I.
+
+D2. Pass rules are the documented rules only.
+- check: FAIL on any failing test (the count is printed, not a rule, because it grows); eslint src --max-warnings 5; FAIL on any madge cycle (the file count is printed, not a rule). check runs `npm test` itself, so the test list stays in one place.
+- aura:shots: the edge alpha scan is printed as INFO, never PASS/FAIL. The edge rule exempts sparks of 3 px or less, and an alpha sum can't tell a spark from a clipped object.
+- aura:perf: FAIL if avg > 0.6 ms; p95 is info only.
+- aura:stress: FAIL if p95 >= 16 ms in any set; WARN if the fixed-set median is over 12 ms.
+- aura:diff and aura:flash: as written in Part 2 F and Part 3 E.
+
+D3. aura:perf uses aura-shots' --perf --moment path. aura-7k-perf.mjs retires. If --perf already skips image work, don't add --no-shots. If it doesn't, --no-shots is allowed, but prove the numbers are the same with and without it, alternating in one session.
+
+D4. Every aura command starts its own vite servers: the current tree on port 5180, the baseline worktree on 5181. Never use 5174 (Brodan's gallery). If a port is busy, stop with an error naming the process using it. Don't pick another port.
+
+D5. ASCEND_BASELINE is the baseline worktree path, and only that. ASCEND_BASE keeps its current meaning in diag-harness (a URL). Don't reuse either name for anything else.
+
+D6. aura:flash runs the flashTimes capture on both servers and compares the JSON. The Bonewright pixel check reuses aura-diff with --only bonewright. Nothing writes into src/ at runtime (drop the p3b temp-file approach).
+
+D7. Approved exception to "no new dependencies": add the Playwright package that resolves today as a devDependency, pinned to that exact version. The %TEMP% copy can be wiped by Windows cleanup. Installing it must not download browsers. Part 5 D changes to: package-lock.json changes only for this.
+
+D8. aura-ladder.mjs reads its aura ids from the catalog and its server from the shared helper, instead of the hardcoded 32 ids and port 5174 (do this in Part 4 with the renames).
+
+D9. The committed old evidence (574 files) stays untouched this phase. It's a future item.
