@@ -16,8 +16,9 @@
 // Verdict = the worst over a grid: 3 seeds x frames {60,90,120,150,180,210,240}
 // (each frame classified steady-state or moment by inst.moment) plus a
 // forced-moment pass that scans EVERY frame and measures the longest
-// sustained hard contact, at all four sizes {crew 52, board 59, ring 141,
-// figure 128x163}. Fresh page per aura. FAIL on:
+// sustained hard contact, at all six user-visible sizes {crew 52, board 59,
+// studio 88 (w88/r25), ring 141, crate 160 (w160/r46), figure 128x163}.
+// Fresh page per aura. FAIL on:
 //   - any steady-state run30 wider than 3 px
 //   - any run50 wider than 3 px at any time
 //   - any hard contact sustained more than 0.5 s (30 frames) during a moment
@@ -56,7 +57,9 @@ const GRID = [60, 90, 120, 150, 180, 210, 240];
 const SIZES = [
   { label: "crew52", w: 52, h: 52, mode: "circle", ringR: 52 / 3.456 },
   { label: "board59", w: 59, h: 59, mode: "circle", ringR: 59 / 3.456 },
+  { label: "studio88", w: 88, h: 88, mode: "circle", ringR: 25 },
   { label: "ring141", w: 141, h: 141, mode: "circle", ringR: 141 / 3.456 },
+  { label: "crate160", w: 160, h: 160, mode: "circle", ringR: 46 },
   { label: "figure128x163", w: 128, h: 163, mode: "body", ringR: 128 / 3.456 },
 ];
 

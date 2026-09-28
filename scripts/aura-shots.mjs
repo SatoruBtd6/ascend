@@ -187,12 +187,12 @@ const res = MODE === "perf" ? { out: {}, stats: {} } : await page.evaluate(async
   const mod = window.__mod;
   const load = (src) => new Promise((r) => { const im = new Image(); im.onload = () => r(im); im.onerror = () => r(null); im.src = src; });
   const avatar = await load("/avatars/E.webp");
-  const render = (aura, mode, w, h, frames, reduce) => {
+  const render = (aura, mode, w, h, frames, reduce, ringR) => {
     window.__seed(0x9e3779b9);
     const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
     const cv2 = document.createElement("canvas"); cv2.width = w; cv2.height = h;
     const hasOver = mod.auraNeedsOver(aura);
-    const inst = mod.makeAura(cv, { aura, w, h, mode, ringR: Math.min(w, h) / 3.456, overCanvas: hasOver ? cv2 : null, figure: mode === "body" ? "/avatars/E.webp" : undefined, reduce });
+    const inst = mod.makeAura(cv, { aura, w, h, mode, ringR: ringR ?? Math.min(w, h) / 3.456, overCanvas: hasOver ? cv2 : null, figure: mode === "body" ? "/avatars/E.webp" : undefined, reduce });
     if (!inst) return null;
     for (let f = 0; f < frames; f++) inst.frame(1 / 60);
     return { main: cv, over: hasOver ? cv2 : null };
@@ -232,6 +232,22 @@ const res = MODE === "perf" ? { out: {}, stats: {} } : await page.evaluate(async
       cells[`board-f${f}`] = ringComp(b, "#0b0e16", 59, 16).toDataURL();
       const c52 = render(aura, "circle", 52, 52, f, false);
       cells[`crew52-f${f}`] = ringComp(c52, "#0b0e16", 52, 14).toDataURL();
+      // real-mount cells: studio picker tile (Studio 88x88 ringR 25, 36px
+      // centre disc) and crate reveal (CrateVault 160x160 ringR 46, square,
+      // no photo) — the sizes users actually see these mounts at
+      const s88 = render(aura, "circle", 88, 88, f, false, 25);
+      const s88c = document.createElement("canvas"); s88c.width = s88c.height = 88;
+      const s88g = s88c.getContext("2d"); s88g.fillStyle = "#0b0e16"; s88g.fillRect(0, 0, 88, 88);
+      s88g.drawImage(s88.main, 0, 0);
+      s88g.fillStyle = "#141824"; s88g.beginPath(); s88g.arc(44, 44, 18, 0, Math.PI * 2); s88g.fill();
+      if (s88.over) s88g.drawImage(s88.over, 0, 0);
+      cells[`studio88-f${f}`] = s88c.toDataURL();
+      const c160 = render(aura, "circle", 160, 160, f, false, 46);
+      const c160c = document.createElement("canvas"); c160c.width = c160c.height = 160;
+      const c160g = c160c.getContext("2d"); c160g.fillStyle = "#0b0e16"; c160g.fillRect(0, 0, 160, 160);
+      c160g.drawImage(c160.main, 0, 0);
+      if (c160.over) c160g.drawImage(c160.over, 0, 0);
+      cells[`crate160-f${f}`] = c160c.toDataURL();
       const fb = render(aura, "body", 128, 163, f, false);
       const fc = document.createElement("canvas"); fc.width = 128; fc.height = 163;
       const fg = fc.getContext("2d"); fg.fillStyle = "#0b0e16"; fg.fillRect(0, 0, 128, 163);

@@ -145,7 +145,7 @@ export function CrateVault({ s, setS }) {
               <div className="p-5 space-y-3 text-center" style={{ background: C.sheet, border: `1px solid ${meta.color}`, borderRadius: 16, boxShadow: "0 8px 30px rgba(0,0,0,.18)" }}>
               <div className="text-xs font-extrabold tracking-widest uppercase" style={{ color: meta.color }}>{meta.name}</div>
               {show.type === "aura" ? (
-                <div className="relative mx-auto overflow-hidden" style={{ width: 160, height: 160 }}><AuraCanvas aura={previewLook?.aura || show.id} w={160} h={160} ringR={52} style={{ left: 0, top: 0 }} /></div>
+                <div className="relative mx-auto overflow-hidden" style={{ width: 160, height: 160 }}><AuraCanvas aura={previewLook?.aura || show.id} w={160} h={160} ringR={46} style={{ left: 0, top: 0 }} /></div>
               ) : show.type === "border" ? (
                 <div className="relative mx-auto" style={{ width: 72, height: 72 }}><AnimatedBorder border={BORDERS.find((b) => b.id === show.id)} color={C.cyan} /><div className="absolute" style={{ inset: 7, borderRadius: 999, background: C.sheet }} /></div>
               ) : (

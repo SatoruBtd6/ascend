@@ -255,3 +255,27 @@ Evidence for the exception: `aura:edge` all-PASS at crew52/board59/ring141/
 figure128x163 — worst steady hard 0px, worst moment run 6px clearing in 0.03s.
 `wing-blacksun.webp` (the rejected sprite) is referenced by no aura and is left
 in `public/` unused per instruction.
+
+## Approval-commit diffs are the acceptance gate (phase 7m — Brodan 2026-09-28)
+
+Any aura Brodan has approved is thereafter diffed against **its approval
+commit**, not the v7k baseline. `aura:baseline -- <approval-commit>` + plain
+`aura:diff -- --only <id>`; any differing pixel is examined. v7k stays useful
+as the historical regression check, but it cannot see post-approval drift —
+a spec can mutate after approval and still read "expected to differ" vs v7k.
+`--expect` must never be used to wave through an unexamined change on an
+approved aura.
+
+Current approval pins:
+
+- `eclipseheart` — approved at `5ffd2f3` (Part 4). Verified byte-identical at
+  `d195d96`: `aura:diff --only eclipseheart`, 0 differing px at
+  board32/profile76/figure160 across all sampled frames.
+- `blacksun` — approved at `d195d96` (Part 4 redo 2).
+
+Real-mount evidence: every canvas size a user sees is now in the evidence
+grids — `aura:edge` and `aura:shots` cover studio-88 (w88/ringR 25) and
+crate-160 (w160/ringR 46) in addition to crew52/board59/ring141/figure160.
+The dev gallery's "88 studio" and "160 crate" cells mount the real geometry
+(CrateVault `ringR 52→46`, Studio `ringR 28→25` — the old mounts ran ~0.64
+fill vs the tuned 0.579, clipping anything past ~1.5·rx).

@@ -20,8 +20,11 @@ const ringGeom = (avatar) => ({ avatar, cpx: Math.round(avatar * 1.45 * 1.28), r
 const SIZES = [
   { id: "32", label: "32 board", px: 32, ...ringGeom(32) },
   { id: "76", label: "76 profile", px: 76, ...ringGeom(76) },
-  { id: "88", label: "88 studio", px: 88, ...ringGeom(88) },
-  { id: "160", label: "160 crate", px: 160, ...ringGeom(160) },
+  // studio/crate cells mirror the real mounts (Studio 88px/ringR 25 with a
+  // 36px centre disc; CrateVault 160px/ringR 46 with no photo) — generic
+  // ringGeom values once made these cells too large to reproduce real bugs
+  { id: "88", label: "88 studio", px: 88, avatar: 36, cpx: 88, ring: 25 },
+  { id: "160", label: "160 crate", px: 160, avatar: 0, cpx: 160, ring: 46 },
   { id: "inspect", label: "inspect", px: 320, ...ringGeom(172) },
 ];
 
