@@ -470,43 +470,47 @@ export const AURA_FX = {
     ] },
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
-  // Hunter's Moon: a pale full moon rising behind the photo's top rim, cold
+  // Hunter's Moon: a pale full moon perched behind the photo's top rim, cold
   // silver rings, a blade-slash sweep, orbiting moon-slivers and blood
-  // shards, crimson mist. Moment — "the kill": the moon floods blood-red and
-  // the ring hushes; at the peak one flash lets the hunt loose — pale sliver
-  // shards, a crimson slash fan, embers and blood rain; then the moon cools.
+  // shards, crimson mist. Moment — "the kill": the moon dives behind the
+  // photo then flies back up and lands on a higher perch (entry); while it
+  // charges, its blood flood swells on a heartbeat — two lub-dub pairs,
+  // continuous cosine bumps, never a flash — and forked crimson strokes
+  // crackle through the band (visuals, not flashes); the ONE flash lands at
+  // the climax with the shard/ember release, then the moon cools home.
   huntersmoon: { spd: 0.92, glow: 1.42, corona: { inner: "#E4E8F2", outer: "#7A0018" }, art: "huntersmoon",
-    sweep: { c: "#FFE9EC", a: 1, spd: 1.45, r: 1.12, w: 3.6, span: 0.46 },
+    sweep: { c: "#FFE9EC", a: 1, spd: 1.45, r: 1.12, w: 3.6, span: 0.46,
+      mA: [[0, 1], [0.3, 1], [0.45, 0.6], [0.72, 0.65], [0.86, 1], [1, 1]] },
     rays: { n: 6, c: "#E4E8F2", spin: 0.03, len: 1.4, a: 0.16 },
-    rings: [{ r: 1.32, c: "#E4E8F2", spin: -0.05, a: 0.85, w: 1.3, ink: 1, mA: [[0, 1], [0.4, 1], [0.52, 0.55], [0.66, 0.9], [0.82, 1], [1, 1]] },
-      { r: 1.12, c: "#C2001F", spin: 0.06, a: 0.96, w: 2.8, filigree: 12, ink: 1, mA: [[0, 1], [0.4, 1], [0.52, 0.6], [0.66, 0.95], [0.82, 1], [1, 1]] }],
-    moment: { every: [16, 24], dur: 3.6,
-      flash: { at: 0.5, flashPeak: 0.5, flashLife: 0.11, flashC: ["#FFF0F2", "#FF4A5E"], anchor: "center" },
-      shake: { at: 0.5, amp: 0.09, dur: 0.35 },
+    rings: [{ r: 1.32, c: "#E4E8F2", spin: -0.05, a: 0.85, w: 1.3, ink: 1, mA: [[0, 1], [0.3, 1], [0.45, 0.55], [0.72, 0.6], [0.85, 1], [1, 1]] },
+      { r: 1.12, c: "#C2001F", spin: 0.06, a: 0.96, w: 2.8, filigree: 12, ink: 1, mA: [[0, 1], [0.3, 1], [0.45, 0.6], [0.72, 0.65], [0.85, 1], [1, 1]] }],
+    moment: { every: [16, 24], dur: 4.4, reduceSlow: 1.5,
+      flash: { at: 0.74, flashPeak: 0.5, flashLife: 0.11, flashC: ["#FFF0F2", "#FF4A5E"], anchor: "center" },
+      shake: { at: 0.74, amp: 0.09, dur: 0.35 },
       bursts: [
-        { at: 0.5, path: "beams", n: 10, nScale: 0.5, c: ["#FFF0F2", "#FF6A7A", "#C2001F"], a: 0.9, lw: [2, 3.2], len: [0.55, 0.8], life: [0.35, 0.55], anchor: "center", over: 1 },
-        { at: 0.5, path: "radial", shape: "shard", n: 12, c: ["#E4E8F2", "#C2001F", "#FF8A9A"], anchor: "center", sp: [70, 150], sz: [1.5, 2.8], life: [0.7, 1.2], grav: 1.1, a: 0.95, over: 1, fitAll: 1 },
-        { at: 0.5, path: "radial", shape: "ember", n: 10, c: ["#FF6A3D", "#C2001F", "#FF8A9A"], anchor: "center", sp: [55, 120], sz: [0.9, 1.6], life: [0.8, 1.4], grav: 0.8, a: 0.9, over: 1, fitAll: 1 },
-        { at: 0.54, path: "shockring", c: "#FF8A9A", a: 0.65, lw: 2, r0: 0.2, v: 1.25, life: [0.5, 0.5], anchor: "center", over: 1 },
-        { at: 0.56, path: "shower", shape: "drop", n: 8, c: ["#C2001F", "#7A0018"], anchor: "center", dir: 0.25, spread: 0.75, sp: [15, 55], sz: [0.9, 1.6], life: [1.2, 2], grav: 0.7, a: 0.9, over: 1 },
+        { at: 0.74, path: "beams", n: 10, nScale: 0.5, c: ["#FFF0F2", "#FF6A7A", "#C2001F"], a: 0.9, lw: [2, 3.2], len: [0.55, 0.8], life: [0.35, 0.55], anchor: "center", over: 1 },
+        { at: 0.74, path: "radial", shape: "shard", n: 12, c: ["#E4E8F2", "#C2001F", "#FF8A9A"], anchor: "center", sp: [70, 150], sz: [1.5, 2.8], life: [0.7, 1.2], grav: 1.1, a: 0.95, over: 1, fitAll: 1 },
+        { at: 0.74, path: "radial", shape: "ember", n: 10, c: ["#FF6A3D", "#C2001F", "#FF8A9A"], anchor: "center", sp: [55, 120], sz: [0.9, 1.6], life: [0.8, 1.4], grav: 0.8, a: 0.9, over: 1, fitAll: 1 },
+        { at: 0.77, path: "shockring", c: "#FF8A9A", a: 0.65, lw: 2, r0: 0.2, v: 1.25, life: [0.5, 0.5], anchor: "center", over: 1 },
+        { at: 0.79, path: "shower", shape: "drop", n: 8, c: ["#C2001F", "#7A0018"], anchor: "center", dir: 0.25, spread: 0.75, sp: [15, 55], sz: [0.9, 1.6], life: [1.2, 2], grav: 0.7, a: 0.9, over: 1 },
       ] },
     small: { scale: 0.6 },
     layers: [
       { k: "rise", n: 8, shape: "smoke", c: ["#6E0014", "#B00020"], sp: [6, 14], life: [1.6, 2.8], sz: [3.2, 6], sway: 7, blend: "source-over", a: 0.5, low: 1,
-        mDim: [[0, 1], [0.2, 1], [0.5, 0.5], [0.72, 0.75], [0.9, 1], [1, 1]], small: { n: 5, sway: 3, sz: [2.6, 4.4] } },
+        mDim: [[0, 1], [0.28, 1], [0.45, 0.5], [0.72, 0.7], [0.9, 1], [1, 1]], small: { n: 5, sway: 3, sz: [2.6, 4.4] } },
       { k: "fall", n: 10, shape: "dot", c: ["#9AA3B2", "#E4E8F2"], sp: [10, 22], drift: 3, sz: [0.8, 1.4], blend: "source-over", a: 0.5, xWrap: 1, xFade: 10, small: { n: 6 } },
       { k: "rise", n: 8, shape: "ember", c: ["#FF6A3D", "#C2001F"], sp: [16, 30], life: [0.8, 1.6], sz: [1, 1.8], sway: 9, a: 0.8, low: 1,
-        mDim: [[0, 1], [0.45, 1], [0.55, 0.6], [0.78, 1], [1, 1]], small: { n: 5, sway: 4, sp: [12, 20], life: [0.8, 1.3] } },
+        mDim: [[0, 1], [0.6, 1], [0.72, 0.6], [0.88, 1], [1, 1]], small: { n: 5, sway: 4, sp: [12, 20], life: [0.8, 1.3] } },
       { k: "fall", n: 6, shape: "drop", c: ["#C2001F", "#7A0018"], sp: [26, 44], drift: 1.5, sz: [0.9, 1.6], blend: "source-over", a: 0.9, xWrap: 1, xFade: 10,
-        mDim: [[0, 1], [0.45, 1], [0.55, 0.55], [0.78, 1], [1, 1]], small: { n: 4 } },
+        mDim: [[0, 1], [0.6, 1], [0.72, 0.55], [0.88, 1], [1, 1]], small: { n: 4 } },
       { k: "orbit", n: 8, shape: "spark", c: ["#E4E8F2", "#FFFFFF"], w: [1.6, 2.4], r: [1, 1.18], sz: [1.1, 1.9], even: 1,
-        mSpin: [[0, 0], [0.3, 0], [0.52, 3], [0.72, 1], [1, 0]], small: { n: 5 } },
+        mSpin: [[0, 0], [0.5, 0], [0.74, 3], [0.88, 1], [1, 0]], small: { n: 5 } },
       { k: "orbit", n: 12, shape: "crescent", c: ["#E4E8F2", "#B8C4D8", "#FF8A9A"], w: [0.1, 0.2], r: [1.05, 1.28], sz: [1.2, 2], spin: 0.02, a: 0.9,
-        mSpin: [[0, 0], [0.3, 0], [0.52, 3.5], [0.72, 1], [1, 0]], mR: [[0, 1], [0.4, 1], [0.55, 0.8], [0.75, 1], [1, 1]],
-        mDim: [[0, 1], [0.2, 1], [0.42, 0.5], [0.58, 0.8], [0.8, 1], [1, 1]], small: { n: 8, sz: [1, 1.6] } },
+        mSpin: [[0, 0], [0.5, 0], [0.74, 3.5], [0.88, 1], [1, 0]], mR: [[0, 1], [0.55, 1], [0.74, 0.8], [0.85, 1], [1, 1]],
+        mDim: [[0, 1], [0.3, 1], [0.45, 0.5], [0.62, 0.8], [0.85, 1], [1, 1]], small: { n: 8, sz: [1, 1.6] } },
       { k: "orbit", n: 8, shape: "shard", c: ["#C2001F", "#7A0018", "#FF6A7A"], w: [-0.08, -0.14], r: [0.95, 1.15], sz: [1.4, 2.4], a: 0.85,
-        mSpin: [[0, 0], [0.3, 0], [0.52, -3], [0.72, -1], [1, 0]], mR: [[0, 1], [0.4, 1], [0.55, 0.82], [0.75, 1], [1, 1]],
-        mDim: [[0, 1], [0.2, 1], [0.42, 0.55], [0.58, 0.85], [0.8, 1], [1, 1]], small: { n: 5, sz: [1.2, 2] } },
+        mSpin: [[0, 0], [0.5, 0], [0.74, -3], [0.88, -1], [1, 0]], mR: [[0, 1], [0.55, 1], [0.74, 0.82], [0.85, 1], [1, 0]],
+        mDim: [[0, 1], [0.3, 1], [0.45, 0.55], [0.62, 0.85], [0.85, 1], [1, 1]], small: { n: 5, sz: [1.2, 2] } },
     ] },
   // Living Wheel: wheels inside wheels — two counter-rotating rings of big
   // ornate golden eyes (wheel-eye.webp, baked by AURA_ART.wheel) laced with
@@ -1757,20 +1761,43 @@ export const AURA_ART = {
     return { freeze: false };
   },
   huntersmoon: ({ g, pass, time, cx, cy, rx, ry, unit, w, h, moment, reduce }) => {
-    // main pass only — a pale full moon rising behind the photo's top rim:
-    // cold silver disc, thin crimson limb, faint bloom. During the moment it
-    // floods blood-red and burns hotter at the flash instant, then cools back.
-    // Slow and dimmable — never a second flash.
+    // main pass only — a pale full moon perched behind the photo's top rim:
+    // cold silver disc, thin crimson limb, faint bloom. The moment rebuilds
+    // it as a four-beat sequence (spec dur 4.4s; all times are mt phases):
+    //   entry  0–0.30 — the moon ducks behind the photo, then flies up and
+    //            lands on a higher perch (overshoot + settle, not a fade-up)
+    //   surge  0.30–0.72 — the blood flood swells on a heartbeat: two lub-dub
+    //            pairs ~0.9s apart (≈1.05 Hz, cosine bumps — smooth ramps, no
+    //            steps), while forked crimson strokes crackle through the band
+    //   climax ~0.74 — the spec's single noteStrikeFlash + bursts land here
+    //   settle 0.80–1 — the flood cools and the moon drifts home
     if (pass !== "main") return null;
     const mt = moment?.t ?? null;
-    const blood = mt == null ? 0 : keyAt([[0, 0], [0.18, 0], [0.42, 1], [0.62, 1], [0.85, 0], [1, 0]], mt) ?? 0;
-    const hot = mt == null ? 0 : keyAt([[0, 0], [0.48, 0], [0.52, 1], [0.62, 0], [1, 0]], mt) ?? 0;
-    const mcy = cy - 1.02 * ry;
-    const mr = Math.min(rx * 0.34, Math.max(0, mcy - 5));
-    if (mr < 4) return null;
+    // smooth cosine bump — continuous in value AND slope, so a heartbeat
+    // swell can never step (no instantaneous on/off)
+    const bump = (x, c, hw) => { const d = Math.abs(x - c); return d >= hw ? 0 : (1 + Math.cos(Math.PI * d / hw)) / 2; };
+    // heartbeat in real seconds inside the surge (mt 0.30–0.72 ≈ 1.85 s at
+    // dur 4.4 — two beats ≈1.05 Hz; a double-thump still counts as two
+    // swells, so the page's slowest reading stays under 3/s)
+    const ss = mt == null ? -1 : (mt - 0.3) * 4.4;
+    let swell = 0;
+    if (ss >= 0) {
+      for (const b of [0.18, 1.08]) swell += bump(ss, b, 0.11) + 0.55 * bump(ss, b + 0.16, 0.08);
+      swell *= Math.min(1, ss / 0.1, Math.max(0, (0.72 - mt) * 4.4) / 0.1, 1); // fade the pulse into/out of the surge window
+    }
+    const blood = mt == null ? 0 : Math.min(1, (keyAt([[0, 0], [0.3, 0], [0.46, 0.6], [0.72, 0.85], [0.9, 0.05], [1, 0]], mt) ?? 0) + 0.3 * swell);
+    const hot = mt == null ? 0 : keyAt([[0, 0], [0.7, 0], [0.76, 1], [0.84, 0], [1, 0]], mt) ?? 0;
+    // fly-in: perch height in ry units — duck behind the photo (0.34 hides
+    // the disc almost fully), rise past the perch, settle, hold through the
+    // climax, drift home
+    const perch = mt == null ? 1.02 : keyAt([[0, 1.02], [0.03, 1.02], [0.11, 0.34], [0.27, 1.24], [0.33, 1.15], [0.78, 1.15], [1, 1.02]], mt) ?? 1.02;
+    const mcy = cy - perch * ry;
+    const grow = mt == null ? 1 : 1 + 0.14 * (keyAt([[0.1, 0], [0.3, 1], [0.78, 1], [1, 0]], mt) ?? 0); // arriving moon looms a touch larger
+    const mr = Math.min(rx * 0.34 * grow, Math.max(0, mcy - 5));
+    if (mr < 3) return null;
     const flick = reduce ? 1 : 0.92 + 0.08 * Math.sin(time * 0.9) * Math.sin(time * 0.53 + 1.1);
-    const discA = (0.8 + 0.2 * blood) * flick;
-    const bloomA = (0.12 + 0.3 * blood + 0.2 * hot) * flick;
+    const discA = (0.8 + 0.2 * blood + 0.12 * swell) * flick;
+    const bloomA = (0.12 + 0.3 * blood + 0.42 * swell + 0.2 * hot) * flick;
     g.save();
     // bloom first — additive, low alpha, tail ends well inside the frame
     if (bloomA > 0.01) {
@@ -1799,11 +1826,57 @@ export const AURA_ART = {
     g.beginPath(); g.ellipse(cx - mr * 0.3, mcy - mr * 0.1, mr * 0.24, mr * 0.16, 0.5, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.ellipse(cx + mr * 0.18, mcy + mr * 0.28, mr * 0.18, mr * 0.12, -0.4, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.ellipse(cx + mr * 0.32, mcy - mr * 0.22, mr * 0.13, mr * 0.1, 0.2, 0, Math.PI * 2); g.fill();
-    // the limb hairline — crimson, going ember-hot at the flash instant
-    g.globalAlpha = Math.min(1, 0.5 + 0.4 * blood + 0.4 * hot);
+    // the limb hairline — crimson, swelling with each thump, ember-hot at the
+    // flash instant
+    g.globalAlpha = Math.min(1, 0.5 + 0.3 * blood + 0.2 * swell + 0.4 * hot);
     g.strokeStyle = hot > 0.4 ? "#FF8A5A" : "#C2001F";
-    g.lineWidth = Math.max(0.8, 1.4 * unit);
+    g.lineWidth = Math.max(0.8, (1.4 + 0.9 * swell) * unit);
     g.beginPath(); g.arc(cx, mcy, mr, 0, Math.PI * 2); g.stroke();
+    // forked crimson strokes through the band — heartbeat-snap lightning.
+    // Visuals only: never near noteStrikeFlash. Each stroke fades in and out
+    // on a sin envelope (~0.15 s at dur 4.4), seeded deterministically per
+    // stroke so the shape is stable while it lives. None under reduced
+    // motion — the calm moment keeps the slow swell and drops the strobe.
+    if (mt != null && !reduce) {
+      const DUR = 4.4;
+      const STROKES = [0.345, 0.425, 0.51, 0.585, 0.645]; // just past each thump + mid-gap
+      const rMax = Math.min(w, h) / 2 - 2 * unit - 1.5;
+      const hh = (a1, b1) => { const s = Math.sin(a1 * 127.1 + b1 * 311.7) * 43758.5453; return s - Math.floor(s); };
+      for (let i = 0; i < STROKES.length; i++) {
+        const p = (mt - STROKES[i]) / (0.16 / DUR); // ~0.16s life
+        if (p <= 0 || p >= 1) continue;
+        const sa = Math.sin(p * Math.PI); // smooth in-out — never steps on
+        const a0 = (i / STROKES.length) * Math.PI * 2 + hh(i, 0) * 0.9 - Math.PI / 2;
+        const el = ry / rx;
+        const P = (k) => {
+          const an = a0 + (k * 0.5 - 0.06) + (hh(i, 10 + k) - 0.5) * 0.16;
+          let rr = (1.36 - 0.34 * k) * rx; // outer band -> photo rim
+          const px = cx + Math.cos(an) * rr, py = cy + Math.sin(an) * rr * el;
+          const dr = Math.hypot(px - cx, py - cy);
+          if (dr > rMax) { const s = rMax / dr; return [cx + (px - cx) * s, cy + (py - cy) * s]; }
+          return [px, py];
+        };
+        g.lineJoin = "round"; g.lineCap = "round";
+        // stroke body — crimson with a pale-hot core, thin and sharp (no
+        // shadowBlur: these are forks, not a corona)
+        for (const [lw, col, al] of [[2.4 * unit, "#C2001F", 0.5], [1.1 * unit, "#FF4A5E", 0.85], [0.6 * unit, "#FFD9DC", 0.9]]) {
+          g.globalAlpha = sa * al;
+          g.strokeStyle = col; g.lineWidth = lw;
+          g.beginPath();
+          const p0 = P(0); g.moveTo(p0[0], p0[1]);
+          for (let sgm = 1; sgm <= 6; sgm++) { const pt = P(sgm / 6); g.lineTo(pt[0], pt[1]); }
+          g.stroke();
+        }
+        // one fork off the middle — half length, thinner
+        const mid = P(0.45);
+        const fa = a0 + 0.3 + (hh(i, 40) - 0.5) * 0.5;
+        const fr = (0.22 + 0.1 * hh(i, 41)) * rx;
+        g.globalAlpha = sa * 0.6; g.strokeStyle = "#FF4A5E"; g.lineWidth = 1 * unit;
+        g.beginPath(); g.moveTo(mid[0], mid[1]);
+        g.lineTo(mid[0] + Math.cos(fa) * fr, mid[1] + Math.sin(fa) * fr * el);
+        g.stroke();
+      }
+    }
     g.restore();
     return null;
   },
@@ -3259,7 +3332,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   let liveBolts = [], burstLeft = 0, burstGap = 0.16, strike = 0, flashLeft = 0, flTryAt = 0;
   let flashState = { last: null, burstFlashed: false };
   let flashSpec = null;
-  const api = { visible: true, reduce: false, flashes: 0, flashTimes: [], strike: 0, boltsFired: 0, shadowWisps: 0, shadowAnchorCache: 0, moment: null };
+  const api = { visible: true, reduce: false, flashes: 0, flashTimes: [], flashSrcs: {}, strike: 0, boltsFired: 0, shadowWisps: 0, shadowAnchorCache: 0, moment: null };
   // Signature moments: the first wait is drawn per mount so a leaderboard of
   // auras never fires in sync. Big canvases get 2.5x burst particles and a
   // longer moment; board-size canvases get the small version.
@@ -3978,7 +4051,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
             if (gate.fired) {
               flashSpec = fx.moment.flash; flashLeft = fl.flashLife || 0.09;
-              api.flashes += 1; api.flashTimes.push(clock);
+              api.flashes += 1; api.flashTimes.push(clock); api.flashSrcs["moment.flash"] = (api.flashSrcs["moment.flash"] || 0) + 1;
               if (api.flashTimes.length > 40) api.flashTimes.shift();
             }
           }
@@ -4045,7 +4118,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
         if (gate.fired) {
           flashSpec = fx.flare; flashLeft = fx.flare.flashLife || 0.08;
-          api.flashes += 1; api.flashTimes.push(clock);
+          api.flashes += 1; api.flashTimes.push(clock); api.flashSrcs.flare = (api.flashSrcs.flare || 0) + 1;
           if (api.flashTimes.length > 40) api.flashTimes.shift();
           // flare.bolt: spawn a bolt through the shared fx.bolts draw path —
           // strikes only ever appear when the gate fires (<=3/s, none reduced).
@@ -4365,7 +4438,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           flashSpec = fx.bolts;
           flashLeft = fx.bolts.flashLife || 0.09;
           api.flashes += 1;
-          api.flashTimes.push(clock);
+          api.flashTimes.push(clock); api.flashSrcs["bolts.burst"] = (api.flashSrcs["bolts.burst"] || 0) + 1;
           if (api.flashTimes.length > 40) api.flashTimes.shift();
         }
         boltT = burstLeft > 0 ? burstGap : rnd(...(calm ? [5.5, 8] : (fx.bolts.gap || [3, 5])));
@@ -4407,7 +4480,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           if (gate.fired) {
             flashSpec = fx.flare || fx.bolts;
             flashLeft = flashSpec.flashLife || 0.09;
-            api.flashes += 1; api.flashTimes.push(clock);
+            api.flashes += 1; api.flashTimes.push(clock); api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] = (api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] || 0) + 1;
             if (api.flashTimes.length > 40) api.flashTimes.shift();
             strike = 1;
           }

@@ -114,7 +114,7 @@ const solo = (aura, reduce) => page.evaluate(async ({ aura, reduce, SECS }) => {
     inst.frame(1 / 60);
     if (inst.moment == null) moments++;
   }
-  return { moments, flashes: inst.flashes, flashTimes: inst.flashTimes.slice(), paths };
+  return { moments, flashes: inst.flashes, flashTimes: inst.flashTimes.slice(), flashSrcs: inst.flashSrcs, paths };
 }, { aura, reduce, SECS });
 
 const lines = [];
@@ -135,7 +135,10 @@ for (const aura of list) {
   if (hasFlash && r.moments === 0) { bad = true; notes.push("moment never played under reduced motion"); }
   if (bad) fails++;
   const line = `${bad ? "FAIL" : "PASS"} ${aura.padEnd(14)} paths=[${s.paths.join(", ") || "none"}] moments=${s.moments} flashes=${s.flashes} (${flashPerMoment}/moment) reduce-moments=${r.moments} reduce-flashes=${r.flashes}`;
-  const times = `    flashTimes: [${s.flashTimes.map((t) => t.toFixed(2)).join(", ")}]`;
+  // per-source ledger: which gated path each flash came through — keeps the
+  // strict flashes===moments gate while naming the extra sources
+  const src = Object.entries(s.flashSrcs || {}).map(([k, v]) => `${k}:${v}`).join(" ") || "none";
+  const times = `    by-source: ${src}   flashTimes: [${s.flashTimes.map((t) => t.toFixed(2)).join(", ")}]`;
   lines.push(line, times); console.log(line); console.log(times);
 }
 

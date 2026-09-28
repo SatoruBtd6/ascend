@@ -292,3 +292,33 @@ size, and a dark silhouette needs more rim at 52px than at 141px to read at
 all. This does not open `small:` to palette or shape changes — `treatRim` is
 edge lighting on an existing sprite; the sprite itself is unchanged.
 First use: blacksun's wings (`small: { treatRim: { c:"#FF3A3A", dy:0.1, a:1 } }`).
+
+## fallenlight is a known multi-source flash aura (phase 7m — 2026-09-28)
+
+`aura:flashaudit` intentionally FAILS fallenlight: one moment produces
+**32 flashes across 8 moments (4.00/moment)** from three independent gated
+paths — measured per-source as `bolts→flare:19`, `moment.flash:7`,
+`flare:6` (the `bolts→flare` label is the bolt flash path rendering with the
+`flare` spec). Every path goes through `noteStrikeFlash`; reduced motion
+fires 0; the page-wide cap holds (≤3/s). The strict `flashes === moments`
+equality stays as the gate — do NOT relax it; this fail is the audit working.
+Any future flash-path increase on fallenlight fails loudly here.
+
+Page-wide worst case, answered once: 32 fallenlights on one leaderboard each
+demanding ~4 flashes/moment can *demand* far more than 3 flashes/s — but the
+shared page budget in `boltClock` (`FLASH_MIN_GAP = 0.334s`) drops excess
+attempts. Measured: 32 forced-moment instances, 40 s → 97 flashes fired,
+max 3/s in any 1 s window (demand mostly suppressed: only 3 of ~30
+`moment.flash` calls fired). The failure mode of saturation is lost flashes,
+not extra flashes — the emitted rate cannot exceed ~3/s by construction.
+
+## fallenlight figure-view edge breach — known exception, scoped (phase 7m — 2026-09-28)
+
+`aura:edge` reports a pre-existing breach at **figure128x163 ONLY**:
+moment hard **23px**, run50 17px, longest contact **0.58s** — the
+halo-cracked sprite's moment `mY` snap reaches the top border under seed-dependent
+bob. Confirmed pre-existing (identical numbers on the untouched spec) and
+unfixable while the figure view is a protected/frozen byte-identical moment.
+This is a per-view exception for fallenlight's figure128x163 cell only —
+it is NOT a general edge-rule exception; every other aura and every other
+fallenlight view remains bound by hard=0 steady / run50≤3px / <0.5s clear.
