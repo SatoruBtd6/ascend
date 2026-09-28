@@ -215,27 +215,38 @@ export const AURA_FX = {
       // ring view: the halo anchor sits at the photo's top edge, so the snap
       // mostly hides behind the photo — the ring scatters feathers and
       // ember-red halo shards out around the whole photo edge.
-      circle: { moment: { bursts: [
+      circle: { glow: 1.38, moment: { shake: { at: 0.3, amp: 0.06, dur: 0.4 }, bursts: [
         { at: 0.3, path: "beams", n: 10, nScale: 0.5, c: ["#FFEFE0", "#FFB08A", "#FF6A5A"], a: 0.9, lw: [2, 3.6], len: [0.7, 0.95], life: [0.4, 0.6], anchor: "img:/aura/halo-cracked.webp", over: 1 },
         { at: 0.3, path: "radial", shape: "shard", n: 14, c: ["#E8B04B", "#C0453A", "#FF6A5A"], anchor: "img:/aura/halo-cracked.webp", sp: [80, 160], sz: [1.8, 3.4], life: [0.7, 1.2], grav: 1.6, a: 0.95, over: 1 },
-        { at: 0.3, path: "radial", shape: "shard", n: 10, c: ["#E8B04B", "#C0453A", "#FF6A5A"], anchor: "center", sp: [90, 180], sz: [1.6, 3], life: [0.7, 1.2], grav: 1.2, a: 0.95, over: 1 },
-        { at: 0.3, path: "radial", shape: "ember", n: 8, c: ["#FF5A3C", "#C0392B", "#FF8A5A"], anchor: "center", sp: [70, 140], sz: [0.9, 1.6], life: [0.8, 1.4], grav: 0.8, a: 0.9, over: 1 },
+        { at: 0.3, path: "radial", shape: "shard", n: 10, c: ["#E8B04B", "#C0453A", "#FF6A5A"], anchor: "center", sp: [90, 180], sz: [1.6, 3], life: [0.7, 1.2], grav: 1.2, a: 0.95, over: 1, fitAll: 1 },
+        { at: 0.3, path: "radial", shape: "ember", n: 8, c: ["#FF5A3C", "#C0392B", "#FF8A5A"], anchor: "center", sp: [70, 140], sz: [0.9, 1.6], life: [0.8, 1.4], grav: 0.8, a: 0.9, over: 1, fitAll: 1 },
         { at: 0.34, path: "shower", shape: "feather", n: 12, c: ["#C9B8A0", "#9A8878", "#6B5A4C"], anchor: "img:/aura/halo-cracked.webp", dir: 0.25, spread: 0.75, sp: [20, 60], sz: [1.4, 2.4], life: [1.6, 2.6], grav: 0.5, a: 0.9, over: 1 },
-        { at: 0.34, path: "radial", shape: "feather", n: 8, c: ["#C9B8A0", "#FF8A5A", "#9A8878"], anchor: "center", sp: [30, 80], sz: [1.4, 2.4], life: [1.4, 2.4], grav: 0.4, a: 0.9, over: 1 },
+        { at: 0.34, path: "radial", shape: "feather", n: 8, c: ["#C9B8A0", "#FF8A5A", "#9A8878"], anchor: "center", sp: [30, 80], sz: [1.4, 2.4], life: [1.4, 2.4], grav: 0.4, a: 0.9, over: 1, fitAll: 1 },
         { at: 0.34, path: "shower", shape: "ember", n: 10, c: ["#FF5A3C", "#C0392B", "#FF8A5A"], anchor: "img:/aura/halo-cracked.webp", dir: 0.25, spread: 0.7, sp: [15, 55], sz: [0.9, 1.6], life: [1.2, 2], grav: 0.7, a: 0.9, over: 1 },
-        { at: 0.34, path: "shockring", c: "#FF8A6A", a: 0.7, lw: 2, r0: 0.1, v: 1.3, life: [0.5, 0.5], anchor: "img:/aura/halo-cracked.webp", aspect: 0.35, over: 1 },
-      ] } }, layers: [
+        { at: 0.34, path: "shockring", c: "#FF8A6A", a: 0.7, lw: 2, r0: 0.1, v: 1.3, life: [0.5, 0.5], anchor: "img:/aura/halo-cracked.webp", aspect: 0.35, over: 1, fit: 1 },
+      ] } },
+    // R4 showcase: circle- and small-scoped only — the figure view is a
+    // protected moment and stays byte-identical. The ring gets the full
+    // ladder loudness: showcase glow, a denser feather/shard halo band.
+    small: { scale: 0.55 }, layers: [
     { k: "orbit", n: 1, shape: "img", src: "/aura/halo-cracked.webp", placed: "head", r: [1, 1], w: [0, 0], sz: [0.82, 0.82], even: 1, hover: 0.12, breathe: 1, tremble: 0.004, a: 0.98, blend: "source-over",
       mY: [[0, 0], [0.3, 0.16], [0.6, 0.22], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, 0.16], [0.6, 0.24], [0.85, 0], [1, 0]], mDim: [[0, 1], [0.3, 0.5], [0.55, 0.42], [0.8, 1], [1, 1]],
-      circle: { sz: [0.9, 0.9], hover: 0.55 } },
+      circle: { sz: [0.9, 0.9], hover: 0.55 }, small: { sz: [0.72, 0.72] } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/halo-shard.webp", r: [1.06, 1.06], w: [0.06, 0.06], sz: [0.45, 0.45], even: 1, bob: 1, a: 0.95, over: 1, blend: "source-over",
       mY: [[0, 0], [0.32, 0.1], [0.58, 0.9], [0.78, 0.9], [0.92, 0], [1, 0]], mRot: [[0, 0], [0.32, 0.3], [0.62, 1.1], [0.78, 1.7], [1, 1.7]], mDim: [[0, 1], [0.7, 1], [0.82, 0], [0.94, 0], [1, 1]],
-      circle: { sz: [0.5, 0.5] } },
-    { k: "orbit", n: 2, shape: "img", src: "/aura/feather.webp", w: [0.05, 0.08], r: [1.14, 1.3], sz: [0.22, 0.3], spin: 0.02, bob: 1, a: 0.85, blend: "source-over" },
-    { k: "fall", n: 8, shape: "feather", c: ["#C9B8A0", "#9A8878", "#B8A890"], sp: [10, 22], sz: [1.2, 2], drift: 6, a: 0.65 },
-    { k: "fall", n: 5, shape: "ember", c: ["#FF5A3C", "#C0392B", "#FF8A5A"], sp: [8, 18], sz: [0.8, 1.4], drift: 5, a: 0.75 },
-    { k: "rise", n: 10, shape: "dot", c: ["#E8B86A", "#C0453A", "#FF8A7A"], sp: [8, 18], life: [1.4, 2.6], sz: [1, 1.8], sway: 14, a: 0.5 },
-    { k: "orbit", n: 10, shape: "sandgrain", c: ["#D8B878", "#C0453A", "#8A6A4C"], w: [0.05, 0.14], r: [1.06, 1.3], sz: [0.9, 1.7], jit: 0.06, a: 0.6 },
+      // ring view: the shard drop is shallower and fades out before it can
+      // slide past the bottom border — the 0.9·ry plunge stays on the figure.
+      circle: { n: 3, sz: [0.5, 0.5],
+        mY: [[0, 0], [0.32, 0.08], [0.52, 0.3], [0.62, 0.9], [0.8, 0.9], [0.92, 0], [1, 0]],
+        mDim: [[0, 1], [0.48, 1], [0.58, 0], [0.9, 0], [0.97, 1], [1, 1]] },
+      small: { n: 2, sz: [0.42, 0.42] } },
+    { k: "orbit", n: 2, shape: "img", src: "/aura/feather.webp", w: [0.05, 0.08], r: [1.14, 1.3], sz: [0.22, 0.3], spin: 0.02, bob: 1, a: 0.85, blend: "source-over",
+      circle: { n: 5 }, small: { n: 3, sz: [0.2, 0.26] } },
+    { k: "fall", n: 8, shape: "feather", c: ["#C9B8A0", "#9A8878", "#B8A890"], sp: [10, 22], sz: [1.2, 2], drift: 6, a: 0.65, circle: { n: 10, xWrap: 1, xFade: 10 } },
+    { k: "fall", n: 5, shape: "ember", c: ["#FF5A3C", "#C0392B", "#FF8A5A"], sp: [8, 18], sz: [0.8, 1.4], drift: 5, a: 0.75, circle: { n: 8, xWrap: 1, xFade: 10 } },
+    { k: "rise", n: 10, shape: "dot", c: ["#E8B86A", "#C0453A", "#FF8A7A"], sp: [8, 18], life: [1.4, 2.6], sz: [1, 1.8], sway: 14, a: 0.5, circle: { n: 14, low: 1, sway: 8 }, small: { sway: 5, sp: [5, 9], life: [1.2, 1.8] } },
+    { k: "orbit", n: 10, shape: "sandgrain", c: ["#D8B878", "#C0453A", "#8A6A4C"], w: [0.05, 0.14], r: [1.06, 1.3], sz: [0.9, 1.7], jit: 0.06, a: 0.6,
+      circle: { n: 17, sz: [1.0, 1.9] }, small: { n: 10 } },
   ] },
   ossuary: { spd: 0.85, glow: 0.4, art: "ossuary",
     moment: { every: [20, 30], dur: 4.6,
@@ -459,17 +470,43 @@ export const AURA_FX = {
     ] },
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
-  // Hunter's Moon: pale moon behind, crimson mist, cold silver rings, a blade-slash sweep, ash and blood
-  huntersmoon: { spd: 0.92, glow: 0.9, corona: { inner: "#E4E8F2", outer: "#7A0018" },
+  // Hunter's Moon: a pale full moon rising behind the photo's top rim, cold
+  // silver rings, a blade-slash sweep, orbiting moon-slivers and blood
+  // shards, crimson mist. Moment — "the kill": the moon floods blood-red and
+  // the ring hushes; at the peak one flash lets the hunt loose — pale sliver
+  // shards, a crimson slash fan, embers and blood rain; then the moon cools.
+  huntersmoon: { spd: 0.92, glow: 1.42, corona: { inner: "#E4E8F2", outer: "#7A0018" }, art: "huntersmoon",
     sweep: { c: "#FFE9EC", a: 1, spd: 1.45, r: 1.12, w: 3.6, span: 0.46 },
     rays: { n: 6, c: "#E4E8F2", spin: 0.03, len: 1.4, a: 0.16 },
-    rings: [{ r: 1.32, c: "#E4E8F2", spin: -0.05, a: 0.85, w: 1.3, ink: 1 }, { r: 1.12, c: "#C2001F", spin: 0.06, a: 0.96, w: 2.8, filigree: 12, ink: 1 }],
+    rings: [{ r: 1.32, c: "#E4E8F2", spin: -0.05, a: 0.85, w: 1.3, ink: 1, mA: [[0, 1], [0.4, 1], [0.52, 0.55], [0.66, 0.9], [0.82, 1], [1, 1]] },
+      { r: 1.12, c: "#C2001F", spin: 0.06, a: 0.96, w: 2.8, filigree: 12, ink: 1, mA: [[0, 1], [0.4, 1], [0.52, 0.6], [0.66, 0.95], [0.82, 1], [1, 1]] }],
+    moment: { every: [16, 24], dur: 3.6,
+      flash: { at: 0.5, flashPeak: 0.5, flashLife: 0.11, flashC: ["#FFF0F2", "#FF4A5E"], anchor: "center" },
+      shake: { at: 0.5, amp: 0.09, dur: 0.35 },
+      bursts: [
+        { at: 0.5, path: "beams", n: 10, nScale: 0.5, c: ["#FFF0F2", "#FF6A7A", "#C2001F"], a: 0.9, lw: [2, 3.2], len: [0.55, 0.8], life: [0.35, 0.55], anchor: "center", over: 1 },
+        { at: 0.5, path: "radial", shape: "shard", n: 12, c: ["#E4E8F2", "#C2001F", "#FF8A9A"], anchor: "center", sp: [70, 150], sz: [1.5, 2.8], life: [0.7, 1.2], grav: 1.1, a: 0.95, over: 1, fitAll: 1 },
+        { at: 0.5, path: "radial", shape: "ember", n: 10, c: ["#FF6A3D", "#C2001F", "#FF8A9A"], anchor: "center", sp: [55, 120], sz: [0.9, 1.6], life: [0.8, 1.4], grav: 0.8, a: 0.9, over: 1, fitAll: 1 },
+        { at: 0.54, path: "shockring", c: "#FF8A9A", a: 0.65, lw: 2, r0: 0.2, v: 1.25, life: [0.5, 0.5], anchor: "center", over: 1 },
+        { at: 0.56, path: "shower", shape: "drop", n: 8, c: ["#C2001F", "#7A0018"], anchor: "center", dir: 0.25, spread: 0.75, sp: [15, 55], sz: [0.9, 1.6], life: [1.2, 2], grav: 0.7, a: 0.9, over: 1 },
+      ] },
+    small: { scale: 0.6 },
     layers: [
-      { k: "rise", n: 12, shape: "smoke", c: ["#6E0014", "#B00020"], sp: [6, 14], life: [1.6, 2.8], sz: [3.2, 6], sway: 7, blend: "source-over", a: 0.5 },
-      { k: "fall", n: 14, shape: "dot", c: ["#9AA3B2", "#E4E8F2"], sp: [10, 22], drift: 3, sz: [0.8, 1.4], blend: "source-over", a: 0.5 },
-      { k: "rise", n: 9, shape: "ember", c: ["#FF6A3D", "#C2001F"], sp: [16, 30], life: [0.8, 1.6], sz: [1, 1.8], sway: 9, a: 0.8 },
-      { k: "fall", n: 7, shape: "drop", c: ["#C2001F", "#7A0018"], sp: [26, 44], drift: 1.5, sz: [0.9, 1.6], blend: "source-over", a: 0.9 },
-      { k: "orbit", n: 6, shape: "spark", c: ["#E4E8F2", "#FFFFFF"], w: [1.6, 2.4], r: [1, 1.18], sz: [1.1, 1.9], even: 1 },
+      { k: "rise", n: 8, shape: "smoke", c: ["#6E0014", "#B00020"], sp: [6, 14], life: [1.6, 2.8], sz: [3.2, 6], sway: 7, blend: "source-over", a: 0.5, low: 1,
+        mDim: [[0, 1], [0.2, 1], [0.5, 0.5], [0.72, 0.75], [0.9, 1], [1, 1]], small: { n: 5, sway: 3, sz: [2.6, 4.4] } },
+      { k: "fall", n: 10, shape: "dot", c: ["#9AA3B2", "#E4E8F2"], sp: [10, 22], drift: 3, sz: [0.8, 1.4], blend: "source-over", a: 0.5, xWrap: 1, xFade: 10, small: { n: 6 } },
+      { k: "rise", n: 8, shape: "ember", c: ["#FF6A3D", "#C2001F"], sp: [16, 30], life: [0.8, 1.6], sz: [1, 1.8], sway: 9, a: 0.8, low: 1,
+        mDim: [[0, 1], [0.45, 1], [0.55, 0.6], [0.78, 1], [1, 1]], small: { n: 5, sway: 4, sp: [12, 20], life: [0.8, 1.3] } },
+      { k: "fall", n: 6, shape: "drop", c: ["#C2001F", "#7A0018"], sp: [26, 44], drift: 1.5, sz: [0.9, 1.6], blend: "source-over", a: 0.9, xWrap: 1, xFade: 10,
+        mDim: [[0, 1], [0.45, 1], [0.55, 0.55], [0.78, 1], [1, 1]], small: { n: 4 } },
+      { k: "orbit", n: 8, shape: "spark", c: ["#E4E8F2", "#FFFFFF"], w: [1.6, 2.4], r: [1, 1.18], sz: [1.1, 1.9], even: 1,
+        mSpin: [[0, 0], [0.3, 0], [0.52, 3], [0.72, 1], [1, 0]], small: { n: 5 } },
+      { k: "orbit", n: 12, shape: "crescent", c: ["#E4E8F2", "#B8C4D8", "#FF8A9A"], w: [0.1, 0.2], r: [1.05, 1.28], sz: [1.2, 2], spin: 0.02, a: 0.9,
+        mSpin: [[0, 0], [0.3, 0], [0.52, 3.5], [0.72, 1], [1, 0]], mR: [[0, 1], [0.4, 1], [0.55, 0.8], [0.75, 1], [1, 1]],
+        mDim: [[0, 1], [0.2, 1], [0.42, 0.5], [0.58, 0.8], [0.8, 1], [1, 1]], small: { n: 8, sz: [1, 1.6] } },
+      { k: "orbit", n: 8, shape: "shard", c: ["#C2001F", "#7A0018", "#FF6A7A"], w: [-0.08, -0.14], r: [0.95, 1.15], sz: [1.4, 2.4], a: 0.85,
+        mSpin: [[0, 0], [0.3, 0], [0.52, -3], [0.72, -1], [1, 0]], mR: [[0, 1], [0.4, 1], [0.55, 0.82], [0.75, 1], [1, 1]],
+        mDim: [[0, 1], [0.2, 1], [0.42, 0.55], [0.58, 0.85], [0.8, 1], [1, 1]], small: { n: 5, sz: [1.2, 2] } },
     ] },
   // Living Wheel: wheels inside wheels — two counter-rotating rings of big
   // ornate golden eyes (wheel-eye.webp, baked by AURA_ART.wheel) laced with
@@ -1718,6 +1755,57 @@ export const AURA_ART = {
     gg.beginPath(); gg.arc(0, 0, 0.944 * rx, 0, Math.PI * 2); gg.stroke();
     gg.restore();
     return { freeze: false };
+  },
+  huntersmoon: ({ g, pass, time, cx, cy, rx, ry, unit, w, h, moment, reduce }) => {
+    // main pass only — a pale full moon rising behind the photo's top rim:
+    // cold silver disc, thin crimson limb, faint bloom. During the moment it
+    // floods blood-red and burns hotter at the flash instant, then cools back.
+    // Slow and dimmable — never a second flash.
+    if (pass !== "main") return null;
+    const mt = moment?.t ?? null;
+    const blood = mt == null ? 0 : keyAt([[0, 0], [0.18, 0], [0.42, 1], [0.62, 1], [0.85, 0], [1, 0]], mt) ?? 0;
+    const hot = mt == null ? 0 : keyAt([[0, 0], [0.48, 0], [0.52, 1], [0.62, 0], [1, 0]], mt) ?? 0;
+    const mcy = cy - 1.02 * ry;
+    const mr = Math.min(rx * 0.34, Math.max(0, mcy - 5));
+    if (mr < 4) return null;
+    const flick = reduce ? 1 : 0.92 + 0.08 * Math.sin(time * 0.9) * Math.sin(time * 0.53 + 1.1);
+    const discA = (0.8 + 0.2 * blood) * flick;
+    const bloomA = (0.12 + 0.3 * blood + 0.2 * hot) * flick;
+    g.save();
+    // bloom first — additive, low alpha, tail ends well inside the frame
+    if (bloomA > 0.01) {
+      g.globalCompositeOperation = "lighter";
+      const bg = g.createRadialGradient(cx, mcy, mr * 0.3, cx, mcy, mr * 1.8);
+      bg.addColorStop(0, `rgba(200,30,45,${(bloomA * 0.55).toFixed(3)})`);
+      bg.addColorStop(0.55, `rgba(160,20,35,${(bloomA * 0.25).toFixed(3)})`);
+      bg.addColorStop(1, "rgba(160,20,35,0)");
+      g.fillStyle = bg;
+      g.beginPath(); g.arc(cx, mcy, mr * 1.8, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+    }
+    // the disc — pale silver core cooling toward a grey limb, blood-red while
+    // the moon floods. Flat disc, not a glow: it must read as a moon.
+    const mix = (a1, b1, t1) => Math.round(a1 + (b1 - a1) * t1);
+    const core = `rgb(${mix(0xE4, 0xD2, blood)},${mix(0xE8, 0x30, blood)},${mix(0xF2, 0x38, blood)})`;
+    const limb = `rgb(${mix(0x9A, 0x7A, blood)},${mix(0xA3, 0x0A, blood)},${mix(0xB2, 0x18, blood)})`;
+    const dg = g.createRadialGradient(cx - mr * 0.25, mcy - mr * 0.25, mr * 0.15, cx, mcy, mr);
+    dg.addColorStop(0, core); dg.addColorStop(0.72, core); dg.addColorStop(1, limb);
+    g.globalAlpha = Math.min(1, discA);
+    g.fillStyle = dg;
+    g.beginPath(); g.arc(cx, mcy, mr, 0, Math.PI * 2); g.fill();
+    // mare blotches — darker patches so the disc reads as a moon, not a pearl
+    g.globalAlpha = Math.min(1, discA * 0.16);
+    g.fillStyle = blood > 0.5 ? "#5A050E" : "#8892A8";
+    g.beginPath(); g.ellipse(cx - mr * 0.3, mcy - mr * 0.1, mr * 0.24, mr * 0.16, 0.5, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(cx + mr * 0.18, mcy + mr * 0.28, mr * 0.18, mr * 0.12, -0.4, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(cx + mr * 0.32, mcy - mr * 0.22, mr * 0.13, mr * 0.1, 0.2, 0, Math.PI * 2); g.fill();
+    // the limb hairline — crimson, going ember-hot at the flash instant
+    g.globalAlpha = Math.min(1, 0.5 + 0.4 * blood + 0.4 * hot);
+    g.strokeStyle = hot > 0.4 ? "#FF8A5A" : "#C2001F";
+    g.lineWidth = Math.max(0.8, 1.4 * unit);
+    g.beginPath(); g.arc(cx, mcy, mr, 0, Math.PI * 2); g.stroke();
+    g.restore();
+    return null;
   },
   eclipseheart: ({ g, over, pass, cx, cy, rx, ry, unit, w, h, moment, reduce }) => {
     // Totality. beat 1 (0–0.21): darkness creeps in from the frame rim while
