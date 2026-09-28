@@ -512,13 +512,34 @@ export const AURA_FX = {
     { k: "rise", n: 58, shape: "smoke", c: ["#C2001F", "#FF1F4B", "#430008"], sp: [30, 68], life: [0.7, 1.4], sz: [3.2, 7.2], sway: 12, a: 0.62, blend: "source-over" },
     { k: "orbit", n: 14, shape: "pulse", c: ["#FFD447", "#FFF6C9"], w: [1.2, 2], r: [1.14, 1.35], sz: [1.1, 2.1] },
   ] },
-  eclipseheart: { spd: 0.58, glow: 0.96, sweep: { c: "#FFF6C9", a: 1, spd: 0.85, r: 1.14, w: 4.4, span: 1.15 }, rays: { n: 10, c: "#FFD447", spin: 0.05, len: 1.48, a: 0.36 }, rings: [{ r: 1.32, c: "#FFF1B8", spin: -0.04, a: 0.9, w: 1.4, ink: 1 }, { r: 1.14, c: "#FFD447", spin: 0.05, a: 1, w: 4.2, filigree: 18, ink: 1 }], layers: [
-    { k: "orbit", n: 41, shape: "img", src: ["/aura/gem-ruby.png", "/aura/gem-amber.png", "/aura/gem-emerald.png", "/aura/gem-aqua.png", "/aura/gem-sapphire.png", "/aura/gem-amethyst.png", "/aura/gem-clear.png"], w: [0.04, 0.04], r: [1.32, 1.32], sz: [0.53, 0.53], even: 1, jit: 0.08, spin: 0.035, a: 0.96, glint: 1, blend: "source-over", circle: { sz: [0.68, 0.64], jit: 0, n: 22 } },
-    { k: "orbit", n: 8, shape: "img", src: ["/aura/gem-ruby.png", "/aura/gem-amber.png", "/aura/gem-emerald.png", "/aura/gem-aqua.png", "/aura/gem-sapphire.png", "/aura/gem-amethyst.png", "/aura/gem-clear.png"], w: [-0.032, -0.032], r: [1.14, 1.14], sz: [0.2, 0.28], even: 1, jit: 0.07, spin: -0.028, a: 0.96, glint: 1, blend: "source-over" },
-    { k: "orbit", n: 10, shape: "ember", c: ["#FFD447", "#FFF6C9", "#C9962E"], w: [0.14, 0.26], r: [0.9, 1.2], sz: [1.7, 2.8], tw: 1, blend: "source-over", a: 0.95 },
-    { k: "rise", n: 5, shape: "smoke", c: ["#E8C56A", "#C9A56A"], sp: [4, 9], life: [2.4, 3.4], sz: [4.5, 7.5], sway: 9, a: 0.22, blend: "source-over" },
-    { k: "rise", n: 8, shape: "dot", c: ["#FFF6C9", "#FFD447"], sp: [6, 12], life: [1.8, 2.8], sz: [1.4, 2.2], sway: 6, a: 0.85, tw: 1, blend: "source-over" },
-  ] },
+  eclipseheart: { spd: 0.58, glow: 1.62, art: "eclipseheart", overArt: "eclipseheart",
+    sweep: { c: "#FFF6C9", a: 1, spd: 0.85, r: 1.14, w: 4.4, span: 1.15, mA: [[0, 1], [0.14, 0], [0.58, 0], [0.85, 1], [1, 1]] },
+    rays: { n: 10, c: "#FFD447", spin: 0.05, len: 1.48, a: 0.36, fit: 1, mLen: [[0, 1], [0.18, 0.15], [0.44, 0.12], [0.52, 0.7], [0.82, 1], [1, 1]], mA: [[0, 1], [0.18, 0], [0.5, 0], [0.58, 0.6], [0.88, 1], [1, 1]] },
+    rings: [
+      { r: 1.32, c: "#FFF1B8", spin: -0.04, a: 0.9, w: 1.4, ink: 1, mA: [[0, 1], [0.16, 0.06], [0.5, 0.06], [0.62, 0.6], [0.86, 1], [1, 1]] },
+      { r: 1.14, c: "#FFD447", spin: 0.05, a: 1, w: 4.2, filigree: 18, ink: 1, mA: [[0, 1], [0.16, 0.06], [0.5, 0.06], [0.62, 0.6], [0.86, 1], [1, 1]] },
+    ],
+    // Totality — beat map on dur 2.4s: 0–0.21 tighten/dim, 0.21–0.46 full dark
+    // (thin rim survives), 0.46–0.5 one corona flash + bursts, 0.5–1 flood back
+    moment: { every: [18, 26], dur: 2.4,
+      flash: { at: 0.46, flashPeak: 0.5, flashLife: 0.12, flashC: ["#FFFDF2", "#FFD447"], anchor: "center" },
+      shake: { at: 0.46, amp: 0.05, dur: 0.3 },
+      bursts: [
+        { at: 0.46, path: "beams", n: 12, nScale: 0.5, c: ["#FFFDF2", "#FFF6C9", "#FFD447"], a: 0.9, lw: [2, 3.4], len: [0.55, 0.85], life: [0.4, 0.6], anchor: "center", over: 1 },
+        { at: 0.46, path: "shockring", c: "#FFF1B8", a: 0.9, lw: 3, r0: 0.55, v: 2.2, life: [0.5, 0.5], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.47, path: "shockring", c: "#FFD447", a: 0.6, lw: 1.8, r0: 0.95, v: 1.5, life: [0.65, 0.65], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.46, path: "radial", shape: "spark", n: 14, c: ["#FFF6C9", "#FFD447", "#FFFFFF"], anchor: "center", sp: [70, 170], sz: [1, 2], life: [0.5, 0.9], a: 0.95, over: 1, fitAll: 1 },
+        { at: 0.48, path: "radial", shape: "shard", n: 8, c: ["#FFD447", "#C9962E", "#FFF6C9"], anchor: "center", sp: [45, 110], sz: [1.6, 3], life: [0.8, 1.3], grav: 0.8, a: 0.9, over: 1, fitAll: 1 },
+      ] },
+    layers: [
+      { k: "orbit", n: 41, shape: "img", src: ["/aura/gem-ruby.png", "/aura/gem-amber.png", "/aura/gem-emerald.png", "/aura/gem-aqua.png", "/aura/gem-sapphire.png", "/aura/gem-amethyst.png", "/aura/gem-clear.png"], w: [0.04, 0.04], r: [1.32, 1.32], sz: [0.53, 0.53], even: 1, jit: 0.08, spin: 0.035, a: 0.96, glint: 1, blend: "source-over", mR: [[0, 1], [0.16, 0.82], [0.44, 0.82], [0.52, 1], [1, 1]], mDim: [[0, 1], [0.16, 0], [0.5, 0], [0.56, 0.15], [0.78, 1], [1, 1]], mStagger: 0.012, circle: { sz: [0.68, 0.64], jit: 0, n: 22 }, small: { n: 12, sz: [0.4, 0.4] } },
+      { k: "orbit", n: 8, shape: "img", src: ["/aura/gem-ruby.png", "/aura/gem-amber.png", "/aura/gem-emerald.png", "/aura/gem-aqua.png", "/aura/gem-sapphire.png", "/aura/gem-amethyst.png", "/aura/gem-clear.png"], w: [-0.032, -0.032], r: [1.14, 1.14], sz: [0.2, 0.28], even: 1, jit: 0.07, spin: -0.028, a: 0.96, glint: 1, blend: "source-over", mR: [[0, 1], [0.18, 0.8], [0.44, 0.8], [0.54, 1], [1, 1]], mDim: [[0, 1], [0.18, 0], [0.5, 0], [0.58, 0.2], [0.8, 1], [1, 1]], mStagger: 0.02 },
+      { k: "orbit", n: 10, shape: "ember", c: ["#FFD447", "#FFF6C9", "#C9962E"], w: [0.14, 0.26], r: [0.9, 1.2], sz: [1.7, 2.8], tw: 1, blend: "source-over", a: 0.95, mDim: [[0, 1], [0.16, 0], [0.5, 0], [0.66, 0.5], [0.86, 1], [1, 1]] },
+      { k: "orbit", n: 6, shape: "sparkle", c: ["#FFF6C9", "#FFFFFF"], w: [0.35, 0.6], r: [1.18, 1.3], sz: [1.8, 2.6], tw: 1, mDim: [[0, 1], [0.16, 0], [0.5, 0], [0.7, 0.6], [0.9, 1], [1, 1]] },
+      { k: "rise", n: 5, shape: "smoke", c: ["#E8C56A", "#C9A56A"], sp: [4, 9], life: [2.4, 3.4], sz: [4.5, 7.5], sway: 9, a: 0.22, blend: "source-over", mDim: [[0, 1], [0.16, 0.1], [0.5, 0.1], [0.7, 0.5], [0.9, 1], [1, 1]] },
+      { k: "rise", n: 8, shape: "dot", c: ["#FFF6C9", "#FFD447"], sp: [6, 12], life: [1.8, 2.8], sz: [1.4, 2.2], sway: 6, a: 0.85, tw: 1, blend: "source-over", mDim: [[0, 1], [0.16, 0], [0.5, 0], [0.66, 0.5], [0.86, 1], [1, 1]] },
+    ],
+    small: { scale: 0.5 } },
   steadybreath: { spd: 0.8, glow: 0.75, rings: [{ r: 1.14, c: "#DFFBFF", spin: 0.02, a: 0.68, w: 2.2, breath: 0.12, breathS: 5 }], layers: [
     { k: "orbit", n: 8, shape: "pulse", c: ["#DFFBFF", "#7DF9FF", "#FFFFFF"], w: [0.18, 0.35], r: [1.06, 1.16], sz: [2.4, 3.4], tw: 1 },
     { k: "orbit", n: 6, shape: "wisp", c: ["#7DF9FF", "#DFFBFF"], w: [0.5, 0.9], r: [1.06, 1.16], sz: [2.8, 3.8], a: 0.7 },
@@ -628,13 +649,35 @@ export const AURA_FX = {
       { k: "orbit", n: 3, shape: "sparkle", c: ["#FFD447", "#FFF6C9", "#FF9340"], w: [0.4, 0.8], r: [1.0, 1.08], sz: [1.8, 2.8], tw: 1 },
       { k: "rise", n: 4, shape: "ember", c: ["#FF5A1F", "#FFD447"], sp: [12, 24], life: [1, 1.8], sz: [1.2, 2], sway: 8, low: 1, a: 0.8, circle: { sway: 3, spawnR: [0.92, 1.0] } },
     ] },
-  blacksun: { spd: 0.32, glow: 0.96, dark: 1, art: "blacksun", rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4, colorCycle: ["#FFFFFF", "#0A0A0A"], cyclePeriod: 4 }], layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over" } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over" } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.70, 0.70], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over" },
-    { k: "fall", n: 82, shape: "leaf", c: ["#FFFFFF", "#E4E8F2"], sp: [5, 13], sz: [1.8, 4.6], drift: 3, spin: 1, blend: "source-over" },
-    { k: "orbit", n: 5, shape: "glyph", c: ["#C2001F"], w: [0.16, 0.16], r: [1.16, 1.16], sz: [2.6, 2.6], even: 1 },
-  ] },
+  blacksun: { spd: 0.32, glow: 1.65, dark: 1, art: "blacksun", overArt: "blacksun",
+    rings: [{ r: 1.18, c: "#FFFFFF", spin: 0.01, a: 1, w: 4, colorCycle: ["#FFFFFF", "#0A0A0A"], cyclePeriod: 4,
+      // Umbra beats on dur 2.6s: b1 0–0.23 desaturate to grey, b2 0.23–0.38
+      // swallowed (ring dims under the disc), b3 ~0.4 blowout, b4 0.44–1 the
+      // cycle returns running INVERTED for ~1.4 s before settling normal.
+      mDesat: [[0, 0], [0.18, 1], [0.42, 1], [0.52, 0], [1, 0]],
+      mInvert: [[0, 0], [0.44, 0], [0.52, 1], [0.95, 1], [1, 0]],
+      mA: [[0, 1], [0.3, 1], [0.4, 0.25], [0.6, 1], [1, 1]] }],
+    moment: { every: [18, 26], dur: 2.6,
+      flash: { at: 0.4, flashPeak: 0.5, flashLife: 0.1, flashC: ["#FF3A3A", "#C2001F"], anchor: "center" },
+      shake: { at: 0.4, amp: 0.06, dur: 0.35 },
+      bursts: [
+        { at: 0.4, path: "shockring", c: "#C2001F", a: 0.95, lw: 3.2, r0: 0.85, v: 2.0, life: [0.6, 0.6], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.41, path: "shockring", c: "#FFFFFF", a: 0.6, lw: 1.8, r0: 0.6, v: 1.5, life: [0.5, 0.5], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.4, path: "radial", shape: "shard", n: 12, c: ["#C2001F", "#FF3A3A", "#FFFFFF"], anchor: "center", sp: [60, 150], sz: [1.4, 2.8], life: [0.6, 1], grav: 1.2, a: 0.95, over: 1, fitAll: 1 },
+        { at: 0.42, path: "radial", shape: "leaf", n: 10, c: ["#FFFFFF", "#E4E8F2"], anchor: "center", sp: [50, 120], sz: [1.4, 2.4], life: [0.8, 1.4], grav: 0.6, a: 0.9, over: 1, fitAll: 1 },
+      ] },
+    layers: [
+      // wings fold in through beat 1, snap wide at the blowout (overshoot),
+      // then settle — kept inside the R5 sprite cap (sz <= 1.2 rx) and the
+      // frame at every phase, so the snap pulls inward while it widens.
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wing-blacksun.webp", r: [1.04, 1.04], w: [0, 0], sz: [1.15, 1.15], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.23, 0.07], [0.38, 0.08], [0.42, -0.05], [0.55, 0], [1, 0]], mScale: [[0, 1], [0.23, 0.72], [0.38, 0.72], [0.42, 1.14], [0.6, 1], [1, 1]], mR: [[0, 1], [0.23, 0.85], [0.4, 0.9], [0.62, 1], [1, 1]], mDim: [[0, 1], [0.32, 0.5], [0.4, 0.85], [0.5, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 3.2], [0.4, 3.2], [0.55, 1], [1, 1]], mMax: [[0, 1], [0.15, 1.7], [0.42, 1.7], [0.6, 1], [1, 1]] } },
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wing-blacksun.webp", r: [1.04, 1.04], w: [0, 0], sz: [1.15, 1.15], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.23, -0.07], [0.38, -0.08], [0.42, 0.05], [0.55, 0], [1, 0]], mScale: [[0, 1], [0.23, 0.72], [0.38, 0.72], [0.42, 1.14], [0.6, 1], [1, 1]], mR: [[0, 1], [0.23, 0.85], [0.4, 0.9], [0.62, 1], [1, 1]], mDim: [[0, 1], [0.32, 0.5], [0.4, 0.85], [0.5, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 3.2], [0.4, 3.2], [0.55, 1], [1, 1]], mMax: [[0, 1], [0.15, 1.7], [0.42, 1.7], [0.6, 1], [1, 1]] } },
+      { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.70, 0.70], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over", mDim: [[0, 1], [0.35, 0.5], [0.5, 0.7], [0.75, 1], [1, 1]] },
+      { k: "fall", n: 60, shape: "leaf", c: ["#FFFFFF", "#E4E8F2"], sp: [5, 13], sz: [1.8, 4.6], drift: 3, spin: 1, blend: "source-over", xFade: 9, mDim: [[0, 1], [0.3, 0.3], [0.45, 0.3], [0.7, 1], [1, 1]] },
+      { k: "orbit", n: 5, shape: "glyph", c: ["#C2001F"], w: [0.16, 0.16], r: [1.16, 1.16], sz: [2.6, 2.6], even: 1, mSpin: [[0, 0], [0.3, 2], [0.45, 2], [0.7, 0], [1, 0]], mR: [[0, 1], [0.35, 0.7], [0.55, 0.8], [0.8, 1], [1, 1]], mDim: [[0, 1], [0.3, 0.4], [0.5, 0.6], [0.75, 1], [1, 1]] },
+      { k: "orbit", n: 10, shape: "ember", c: ["#C2001F", "#FF3A3A", "#7A0014"], w: [0.2, 0.42], r: [0.98, 1.14], sz: [1.4, 2.6], tw: 1, a: 0.9, mDim: [[0, 1], [0.28, 0.15], [0.5, 0.3], [0.7, 1], [1, 1]] },
+    ],
+    small: { scale: 0.5 } },
 };
 
 export const rnd = (a, b) => a + Math.random() * (b - a);
@@ -1496,17 +1539,163 @@ function drawNullpointBlindfold(ctx, { time, clock, anchors, reduce, w, unit }, 
 // Behaviour-neutral homes for the legacy one-off art passes. Specs opt in via
 // `art`; makeAura invokes the selected pass at the same point as before.
 export const AURA_ART = {
-  blacksun: ({ g, time, cx, cy, rx, ry, unit }) => {
+  blacksun: ({ g, over, pass, time, cx, cy, rx, ry, unit, w, h, moment, edgeHit }) => {
+    // Umbra over pass: the swallowed sun is a dark disc over the photo itself,
+    // edged by the thin inverted-colour rim that survives the blackout.
+    if (pass === "over") {
+      if (!moment) return;
+      const mt = moment.t;
+      // the disc cracks open at the flash beat (0.4) — overArt paints over
+      // the bursts and the wash, so the swallow must already be giving way
+      const dk = keyAt([[0, 0], [0.24, 0], [0.33, 1], [0.395, 1], [0.42, 0.25], [0.5, 0.4], [0.6, 0], [1, 0]], mt) ?? 0;
+      if (dk <= 0.01) return;
+      // the swallow disc is an ellipse (scale 1, ry/rx) — cap its radius
+      // against BOTH the horizontal and the vertical frame margin so the
+      // hold can never paint the top/bottom border in body mode
+      const swal = Math.min(1.62,
+        (Math.min(cx, w - cx) - 5) / Math.max(rx, 1),
+        (Math.min(cy, h - cy) - 5) / Math.max(ry, 1));
+      const dR = rx * (keyAt([[0, 0.55], [0.2, 0.55], [0.33, swal], [0.43, swal], [0.62, 0.58], [1, 0.55]], mt) ?? 0.55);
+      const gg = over || g;
+      gg.save();
+      gg.translate(cx, cy); gg.scale(1, ry / rx);
+      gg.globalAlpha = 0.97 * dk;
+      gg.fillStyle = "#030303";
+      gg.beginPath(); gg.arc(0, 0, dR, 0, Math.PI * 2); gg.fill();
+      // inverted-colour rim: pale hairline through the hold, flipping to the
+      // bleed red as the blowout beat lands
+      const rimA = keyAt([[0, 0], [0.28, 0], [0.36, 1], [0.52, 0.7], [0.66, 0], [1, 0]], mt) ?? 0;
+      const blow = keyAt([[0, 0], [0.38, 0], [0.44, 1], [0.62, 0], [1, 0]], mt) ?? 0;
+      if (rimA > 0.01) {
+        gg.globalAlpha = rimA;
+        gg.strokeStyle = blow > 0.45 ? "#FF3A3A" : "#E8ECF4";
+        gg.lineWidth = Math.max(1, 1.7 * unit);
+        gg.shadowColor = gg.strokeStyle; gg.shadowBlur = 7 * unit;
+        gg.beginPath(); gg.arc(0, 0, dR, 0, Math.PI * 2); gg.stroke();
+      }
+      gg.restore();
+      return;
+    }
     const ang = time * (Math.PI * 2 / 21) + 0.32 * Math.sin(time * 0.53) + 0.18 * Math.sin(time * 0.97);
-    const rad = 1.15 + 0.20 * Math.sin(time * 0.37) + 0.10 * Math.sin(time * 0.83);
-    const sx = cx + Math.cos(ang) * rx * rad, sy = cy + Math.sin(ang) * ry * rad;
+    const radN = 1.15 + 0.20 * Math.sin(time * 0.37) + 0.10 * Math.sin(time * 0.83);
+    const rimW = Math.max(2, 4 * unit);
+    // Part 4 fix (pre-existing bug): the wandering orbit peaked at ~1.45·rx
+    // + 0.52·rx disc ≈ 1.97·rx against a ~1.72·rx frame half — it clipped
+    // ~12px off the border at ring size. rad now caps at the orbit radius
+    // that keeps disc + stroke inside the canvas at every size.
+    const cap = Math.min(
+      (Math.min(cx, w - cx) - rimW / 2 - 1) / rx - 0.52,
+      (Math.min(cy, h - cy) - rimW / 2 - 1) / ry - 0.52,
+    );
+    const rad = Math.min(radN, Math.max(0.2, cap));
+    let sx = cx + Math.cos(ang) * rx * rad, sy = cy + Math.sin(ang) * ry * rad;
+    let alpha = Math.sin(ang) < 0 ? 0.7 : 1;
+    if (moment) {
+      const mt = moment.t;
+      // beat 1: the disc dives for the centre as the ring greys out
+      const dive = keyAt([[0, 0], [0.22, 1], [0.42, 1], [0.6, 0], [1, 0]], mt) ?? 0;
+      sx += (cx - sx) * dive; sy += (cy - sy) * dive;
+      alpha = Math.max(alpha, dive);
+      // spiral-in wisps during beats 1–2: the emitters' mRate thickens them;
+      // these arcs draw the convergence itself
+      const spir = keyAt([[0, 0], [0.1, 0.5], [0.3, 1], [0.46, 0], [1, 0]], mt) ?? 0;
+      if (spir > 0.01) {
+        g.save();
+        g.globalAlpha = 0.5 * spir;
+        g.strokeStyle = "#0A0A0A";
+        g.lineCap = "round";
+        for (let i = 0; i < 3; i++) {
+          const ph = i * (Math.PI * 2 / 3) - time * 1.6;
+          g.lineWidth = Math.max(1, (2.6 - i * 0.6) * unit);
+          g.beginPath();
+          for (let s = 0; s <= 12; s++) {
+            const u = s / 12;
+            const rr2 = rx * (1.58 - u);
+            const th = ph + u * 2.6;
+            const px = cx + Math.cos(th) * rr2, py = cy + Math.sin(th) * rr2 * (ry / rx);
+            if (s) g.lineTo(px, py); else g.moveTo(px, py);
+          }
+          g.stroke();
+        }
+        g.restore();
+      }
+    }
+    // aura:edge attribution — record when the disc's drawn extent reaches the
+    // border so the report can name the object instead of just counting px
+    const dR = rx * 0.52;
+    if (Math.min(sx - dR, w - sx - dR, sy - dR, h - sy - dR) <= 1) edgeHit?.("art:eclipse-disc", Math.round(dR * 2));
     g.save();
-    g.globalAlpha = Math.sin(ang) < 0 ? 0.7 : 1;
+    g.globalAlpha = alpha;
     g.shadowColor = "#ffffff"; g.shadowBlur = 16 * unit; g.fillStyle = "#020202";
     g.beginPath(); g.arc(sx, sy, rx * 0.52, 0, Math.PI * 2); g.fill();
-    g.shadowBlur = 0; g.strokeStyle = "#ffffff"; g.lineWidth = Math.max(2, 4 * unit); g.stroke();
+    g.shadowBlur = 0; g.strokeStyle = "#ffffff"; g.lineWidth = rimW; g.stroke();
     g.restore();
-    return { freeze: rad <= 0.94 };
+    return { freeze: moment == null && rad <= 0.94 };
+  },
+  eclipseheart: ({ g, over, pass, cx, cy, rx, ry, unit, w, h, moment, reduce }) => {
+    // Totality. beat 1 (0–0.21): darkness creeps in from the frame rim while
+    // the gems tighten and dim (mR/mDim on the layers, mLen/mA on the rays,
+    // mA on sweep+rings). beat 2 (0.21–0.46): the photo disc is the eclipsed
+    // sun — near-black, one thin bright rim survives. beat 3 (~0.46–0.5): the
+    // moment spec's single flash + corona bursts fire. beat 4: light floods
+    // back, gems re-ignite one at a time (mStagger). Under reduced motion the
+    // beat-3 flash becomes a soft 0.4 s brighten — noteStrikeFlash stays
+    // suppressed, so the art draws the glow itself.
+    if (!moment) return null;
+    const mt = moment.t;
+    if (pass === "over") {
+      const gg = over || g;
+      gg.save();
+      gg.translate(cx, cy); gg.scale(1, ry / rx);
+      // the disc cracks open at the flash beat (0.46) — overArt paints over
+      // the corona bursts and the wash, so totality must break first
+      const dk = keyAt([[0, 0], [0.16, 0.45], [0.28, 0.93], [0.44, 0.95], [0.465, 0.25], [0.54, 0.3], [0.68, 0], [1, 0]], mt) ?? 0;
+      if (dk > 0.01) {
+        const grd = gg.createRadialGradient(0, 0, rx * 0.15, 0, 0, rx * 0.99);
+        grd.addColorStop(0, `rgba(3,2,0,${0.9 * dk})`);
+        grd.addColorStop(0.8, `rgba(4,2,0,${0.97 * dk})`);
+        grd.addColorStop(1, `rgba(4,2,0,${0.55 * dk})`);
+        gg.fillStyle = grd;
+        gg.beginPath(); gg.arc(0, 0, rx * 0.99, 0, Math.PI * 2); gg.fill();
+      }
+      const rimA = keyAt([[0, 0], [0.16, 0], [0.26, 0.9], [0.44, 1], [0.52, 0.5], [0.66, 0], [1, 0]], mt) ?? 0;
+      if (rimA > 0.01) {
+        gg.globalAlpha = rimA;
+        gg.strokeStyle = "#FFF6C9";
+        gg.lineWidth = Math.max(1, 1.7 * unit);
+        gg.shadowColor = "#FFD447"; gg.shadowBlur = 9 * unit;
+        gg.beginPath(); gg.arc(0, 0, rx * 0.985, 0, Math.PI * 2); gg.stroke();
+      }
+      if (reduce) {
+        const br = keyAt([[0, 0], [0.44, 0], [0.52, 1], [0.64, 1], [0.74, 0], [1, 0]], mt) ?? 0;
+        if (br > 0.01) {
+          gg.globalAlpha = 1;
+          const brd = gg.createRadialGradient(0, 0, rx * 0.55, 0, 0, rx * 1.2);
+          brd.addColorStop(0, "rgba(255,240,190,0)");
+          brd.addColorStop(0.72, `rgba(255,214,71,${0.38 * br})`);
+          brd.addColorStop(1, "rgba(255,214,71,0)");
+          gg.fillStyle = brd;
+          gg.beginPath(); gg.arc(0, 0, rx * 1.2, 0, Math.PI * 2); gg.fill();
+        }
+      }
+      gg.restore();
+      return null;
+    }
+    // main pass: darkness creeps in from the frame rim as an annulus fading
+    // to zero before the canvas edge — the cover is the dimming layers plus
+    // the photo-side disc; this is the depth cue underneath them
+    const dk = keyAt([[0, 0], [0.2, 0.85], [0.44, 0.9], [0.5, 0.35], [0.7, 0], [1, 0]], mt) ?? 0;
+    if (dk <= 0.01) return null;
+    const edge = Math.max(4, Math.min(cx, w - cx, cy, h - cy) - 3);
+    const inR = Math.min(rx, ry) * (keyAt([[0, 2.4], [0.2, 0.85], [0.44, 0.8], [0.52, 1.0], [0.8, 2.4], [1, 2.4]], mt) ?? 2.4);
+    const grd = g.createRadialGradient(cx, cy, Math.max(1, inR), cx, cy, edge);
+    grd.addColorStop(0, "rgba(3,2,0,0)");
+    grd.addColorStop(0.35, `rgba(3,2,0,${0.85 * dk})`);
+    grd.addColorStop(0.85, `rgba(4,2,0,${0.75 * dk})`);
+    grd.addColorStop(1, "rgba(4,2,0,0)");
+    g.fillStyle = grd;
+    g.beginPath(); g.arc(cx, cy, edge, 0, Math.PI * 2); g.fill();
+    return null;
   },
   ledger: (opts) => {
     const fx = opts.fx || AURA_FX.ledger;
@@ -2835,6 +3024,22 @@ const keyAt = (frames, t) => {
   return frames[frames.length - 1][1];
 };
 
+// Moment colour shifts for rings (opt-in `mDesat`/`mInvert` keyframes on a
+// ring spec): `desat` k-lerps the colour toward its own luma (Umbra beat 1's
+// grey-out), `invert` k-lerps each channel toward its complement (beat 4's
+// inverted colour-cycle). Unused fields keep every other ring byte-identical.
+const shiftHex = (hex, desat, invert) => {
+  const c = hexRgb(hex);
+  if (!c) return hex;
+  const lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  const out = c.map((v) => {
+    let x = v + (lum - v) * (desat || 0);
+    if (invert) x += (255 - 2 * x) * invert;
+    return x;
+  });
+  return `#${hexChannel(out[0])}${hexChannel(out[1])}${hexChannel(out[2])}`;
+};
+
 export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
   aura = resolveAuraId(aura); // legacy ids from old saves/cards render the renamed spec
   // View-scoped spec overrides: `body:` fields apply only to body/figure
@@ -3051,7 +3256,11 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     const S = state.shadow;
     if (!S) return;
     const sizeScale = Math.min(1, Math.min(w, h) / 160);
-    const sizeMax = Math.ceil(S.max * sizeScale);
+    // mRate/mMax (opt-in, moment-driven): Umbra's wisps thicken while the sun
+    // is being swallowed. Absent fields keep every other aura identical.
+    const mt = api.moment;
+    const mRate = mt != null && S.mRate ? (keyAt(S.mRate, mt) ?? 1) : 1;
+    const sizeMax = Math.ceil(S.max * sizeScale * (mt != null && S.mMax ? (keyAt(S.mMax, mt) ?? 1) : 1));
     const max = api.reduce ? Math.ceil(sizeMax * 0.35) : sizeMax;
     const motionDt = dt * (api.reduce ? 0.35 : 1);
     state.wisps = state.wisps.filter((w) => {
@@ -3063,7 +3272,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     });
     if (state.wisps.length > max) state.wisps.splice(0, state.wisps.length - max);
     if (max > 0 && S.rate > 0) {
-      state.wispAcc += dt * S.rate * sizeScale * (api.reduce ? 0.25 : 1);
+      state.wispAcc += dt * S.rate * sizeScale * (api.reduce ? 0.25 : 1) * mRate;
       let toSpawn = Math.floor(state.wispAcc);
       state.wispAcc -= toSpawn;
       let spawned = false;
@@ -3104,6 +3313,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     if (alpha <= 0.01) return;
     g.globalAlpha = Math.min(1, alpha * state.aMul);
     const s = p.sz;
+    // edge attribution for aura:edge — biggest object whose drawn extent
+    // reaches the 1px border. Bookkeeping only; never touches pixels.
+    {
+      const he = (L.shape === "img" ? s * 0.5 : s) * (msc || 1);
+      if (alpha > 0.05 && (x - he < 1 || y - he < 1 || x + he > w - 1 || y + he > h - 1)) {
+        const lab = L.shape === "img" ? `img:${String(L.src).split("/").pop()}` : `${L.k}:${L.shape}`;
+        const px2 = Math.round(he * 2);
+        const hits = api.edgeHits || (api.edgeHits = {});
+        if (!(hits[lab] >= px2)) hits[lab] = px2;
+      }
+    }
     // mScale on non-img layers scales the drawn particle around its centre —
     // the "eyes snap open" read on the ascended/wheel moments. img layers use
     // mk.sc inside their own transform instead.
@@ -3127,7 +3347,12 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const msc = mkL ? mkL.sc : 1;
         const mshake = mkL ? mkL.shake : 1;
         const trem = (L.tremble || 0) * mshake * (api.reduce ? 0.3 : 1);
-        const mDim = mkL ? mkL.dim : 1;
+        // mStagger (opt-in): shifts this particle's mDim timeline by
+        // p.i·mStagger so a ring of gems re-ignites one at a time (Totality
+        // beat 4) instead of all at once.
+        const mDim = mkL
+          ? (L.mStagger && L.mDim ? (keyAt(L.mDim, Math.min(1, Math.max(0, (mt ?? 0) - (p.i ?? 0) * L.mStagger))) ?? 1) : mkL.dim)
+          : 1;
         const mo = L.mOrbit;
         let absX = null, absY = null;
         g.save(); if (mDim < 1) g.globalAlpha *= mDim;
@@ -3481,13 +3706,16 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const v = (b.sp ? rnd(...b.sp) : 70) * unit;
         p.vx = Math.cos(ang) * v; p.vy = Math.sin(ang) * v;
         p.grav = (b.grav ?? 1.8) * 150 * unit;
-        if (mode === "circle" || b.fit) {
+        if (mode === "circle" || b.fit || b.fitAll) {
           // objects bigger than a small spark must dissolve before the frame
           // edge: cap life at the earliest border crossing so they fade out
           // mid-flight. Only sub-3px specks (sparks, dots, grains) still fly
-          // off — those are the sanctioned moment flings.
+          // off — those are the sanctioned moment flings. `fitAll` (opt-in,
+          // distinct from `fit` which existing auras already carry) caps the
+          // specks too: on small canvases a handful of them can chain into a
+          // >3px connected border run — everything dissolves at the wall.
           const half = p.sz * ({ spark: 2.6, dot: 3.4, ember: 4.4, wisp: 2.2, smoke: 2.6, feather: 1.9, leaf: 1.9, shard: 1.7, sliver: 3.2, bonechip: 1.2, sandgrain: 1.5, page: 2.2, crystal: 1.7 }[b.shape] ?? 2.2);
-          if (!(b.shape === "spark" || b.shape === "dot" || b.shape === "sandgrain") || half > 4.5) {
+          if (!(b.shape === "spark" || b.shape === "dot" || b.shape === "sandgrain") || half > 4.5 || b.fitAll) {
             const t = burstBorderHit(ox, oy, p.vx, p.vy, p.grav || 0, half + 3 + shakePad, w, h);
             if (t < p.life) p.life = Math.max(0.06, t);
           }
@@ -3665,7 +3893,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       grd.addColorStop(0.36, rgba(fx.corona.inner || c2, 0.62 * pulse)); grd.addColorStop(0.72, rgba(fx.corona.outer || c1, 0.28)); grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx * 1.38, 0, Math.PI * 2); g.fill(); g.restore();
     }
-    const aa = { g, over: overG, fx, cc, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass: "main", mode, anchors, anchor: anchorOrigin, moment: null, orbitXY: api.orbitXY, flash: null, reduce: !!api.reduce, paulShift };
+    const aa = { g, over: overG, fx, cc, time, clock, cx, cy, rx, ry, w, h, unit, strike, sweep: fx.sweep, pass: "main", mode, anchors, anchor: anchorOrigin, moment: null, orbitXY: api.orbitXY, flash: null, reduce: !!api.reduce, paulShift,
+      edgeHit: (label, px) => { const hits = api.edgeHits || (api.edgeHits = {}); if (!(hits[label] >= px)) hits[label] = px; } };
     const aaMoment = { t: 0, spec: fx.moment }, aaFlash = { k: 0, spec: null };
     const artArgs = (pass) => {
       aa.time = time; aa.clock = clock; aa.strike = strike; aa.pass = pass; aa.orbitXY = api.orbitXY;
@@ -3683,8 +3912,17 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         const rr = rx * (R.r || 1.08) * (R.breath && !api.reduce ? 1 + R.breath * Math.sin((time * Math.PI * 2) / (R.breathS || 5)) : 1);
         const rot = time * (R.spin || 0.3);
         const lw = Math.max(w < 80 ? (R.w >= 3 ? 3.6 : 1.85) : 1.2, (R.w || 1.3) * unit);
-        const a = Math.min(1, (R.a || 0.35) * breathe);
-        const ringColor = ringColorAt(R, time, api.reduce, c1);
+        const mtR = api.moment;
+        // mA (opt-in, moment-driven): a ring can dim out during a moment
+        // (Totality's ring dies under the dark disc) — absent field is 1.
+        const a = Math.min(1, (R.a || 0.35) * breathe * (mtR != null && R.mA ? (keyAt(R.mA, mtR) ?? 1) : 1));
+        let ringColor = ringColorAt(R, time, api.reduce, c1);
+        // mDesat/mInvert (opt-in, moment-driven): Umbra's colour cycle greys
+        // out while the disc swallows the ring, then runs inverted on the
+        // way back. Absent fields keep every ring byte-identical.
+        if (mtR != null && (R.mDesat || R.mInvert)) {
+          ringColor = shiftHex(ringColor, R.mDesat ? (keyAt(R.mDesat, mtR) ?? 0) : 0, R.mInvert ? (keyAt(R.mInvert, mtR) ?? 0) : 0);
+        }
         if (R.dash) g.setLineDash([5 * unit, 7 * unit]);
         if (R.ink) {
           g.strokeStyle = "rgba(18,10,4,0.62)";
@@ -3722,12 +3960,18 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       g.save(); g.globalCompositeOperation = "source-over";
       g.translate(cx, cy); g.scale(1, ry / rx);
       g.lineCap = "round";
+      // mA (opt-in, moment-driven): the sweep dims out under Totality's dark
+      // disc along with everything else; absent field is 1.
+      const sA = api.moment != null && S.mA ? (keyAt(S.mA, api.moment) ?? 1) : 1;
       g.strokeStyle = "rgba(18,10,4,0.5)"; g.lineWidth = sw + 1.6;
+      g.globalAlpha = sA;
       g.beginPath(); g.arc(0, 0, rr, ang - span, ang); g.stroke();
       g.strokeStyle = rgba(S.c || "#FFF6C9", S.a ?? 1); g.lineWidth = sw;
       g.beginPath(); g.arc(0, 0, rr, ang - span, ang); g.stroke();
+      g.globalAlpha = 1;
       if (!S.dim) {
         g.globalCompositeOperation = "lighter";
+        g.globalAlpha = sA;
         g.strokeStyle = rgba("#FFFFFF", 0.7); g.lineWidth = Math.max(1, sw * 0.35);
         g.beginPath(); g.arc(0, 0, rr, ang - span * 0.28, ang); g.stroke();
         const hx = Math.cos(ang) * rr, hy = Math.sin(ang) * rr;
@@ -3735,7 +3979,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         // fit: opt-in — cap the head-glow sprite so it can't paint past the
         // frame on small canvases (the glow tail still reaches the border).
         const hs = S.fit ? Math.min(Math.max(6, sw * 1.8), Math.max(3, Math.min(cx, cy, w - cx, h - cy) - rr - 1)) : Math.max(6, sw * 1.8);
-        g.globalAlpha = 0.85; g.drawImage(sp, hx - hs, hy - hs, hs * 2, hs * 2);
+        g.globalAlpha = 0.85 * sA; g.drawImage(sp, hx - hs, hy - hs, hs * 2, hs * 2);
       }
       g.restore();
     }
@@ -3747,9 +3991,12 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         if (R.fan && Math.sin(a0) > 0.15) continue;
         // fit: opt-in tight clamp — the default 1.15 overshoot lets ray tips
         // graze the border on small canvases; 0.94 keeps them inside.
-        const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * (R.fit ? 0.94 : 1.15)) * (0.8 + 0.2 * Math.sin(time * 1.3 + i));
+        // mLen/mA (opt-in, moment-driven): Totality retracts and kills its
+        // rays as the dark closes in, then fans them back out. Absent fields
+        // are 1 — every other ray field is byte-identical.
+        const len = Math.min(Math.max(rx, ry) * R.len, Math.min(cx, cy, w - cx, h - cy) * (R.fit ? 0.94 : 1.15)) * (0.8 + 0.2 * Math.sin(time * 1.3 + i)) * (api.moment != null && R.mLen ? (keyAt(R.mLen, api.moment) ?? 1) : 1);
         const grd = g.createLinearGradient(0, 0, Math.cos(a0) * len, Math.sin(a0) * len);
-        const pulse = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7));
+        const pulse = R.a * (0.75 + 0.25 * Math.sin(time * 2 + i * 1.7)) * (api.moment != null && R.mA ? (keyAt(R.mA, api.moment) ?? 1) : 1);
         grd.addColorStop(0, rgba(R.c, 0)); grd.addColorStop(0.45, rgba(R.c, pulse)); grd.addColorStop(1, rgba(R.c, 0));
         g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0);
         const wd = 0.07 + 0.03 * Math.sin(i * 2.3);
@@ -3770,6 +4017,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
         state._swirl = mtL != null && L.mSpin ? (keyAt(L.mSpin, mtL) || 0) : 0;
         state._rMul = mtL != null && L.mR ? (keyAt(L.mR, mtL) ?? 1) : 1;
         state._msc = mtL != null && L.mScale && L.shape !== "img" ? (keyAt(L.mScale, mtL) ?? 1) : 1;
+        // mDim on non-img layers (opt-in): scales the whole layer's alpha for
+        // the moment — Totality douses its embers/smoke while the disc is
+        // black. img layers use mk.dim inside their own transform instead.
+        state._mdim = mtL != null && L.mDim && L.shape !== "img" ? (keyAt(L.mDim, mtL) ?? 1) : 1;
         const mk = mtL != null && L.shape === "img" ? state._mk || (state._mk = {}) : null;
         state._mk = mk;
         // imgXY slots must stay lazily created — anchor() falls back to the
@@ -3887,7 +4138,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           }
           if (L.tw) alpha *= 0.55 + 0.45 * Math.sin(time * 5 + p.ph * 3);
           if (L.shape === "img") { if (!ixy) ixy = api.imgXY[L.src] = {}; ixy.x = x; ixy.y = y; ixy.z = p.wz; }
-          drawP(ctx, state, p, alpha, x, y, state._msc || 1);
+          drawP(ctx, state, p, alpha * (state._mdim || 1), x, y, state._msc || 1);
         }
       }
     };

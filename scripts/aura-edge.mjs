@@ -152,9 +152,16 @@ const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES
     const a = scanCv(r.main), b = r.over ? scanCv(r.over) : { soft: 0, hard: 0, run30: 0, run50: 0 };
     return { soft: a.soft + b.soft, hard: a.hard + b.hard, run30: Math.max(a.run30, b.run30), run50: Math.max(a.run50, b.run50) };
   };
+  // biggest edge-touching object the renderer attributed, per cell
+  const mergeHits = (cell, inst) => {
+    for (const [k, v] of Object.entries(inst.edgeHits || {})) {
+      if (!(cell.hits[k] >= v)) cell.hits[k] = v;
+    }
+    inst.edgeHits = {};
+  };
   const out = {};
   for (const SZ of SIZES) {
-    const cell = { steadyHard: 0, steadyRun30: 0, steadyRun50: 0, steadySoft: 0, mHard: 0, mRun30: 0, mRun50: 0, mSoft: 0, mContact: 0, mFrames: 0, moment: false };
+    const cell = { steadyHard: 0, steadyRun30: 0, steadyRun50: 0, steadySoft: 0, mHard: 0, mRun30: 0, mRun50: 0, mSoft: 0, mContact: 0, mFrames: 0, moment: false, hits: {} };
     for (const seed of SEEDS) {
       const { inst, main, over } = mk(SZ, seed * 2654435761 >>> 0);
       if (!inst) continue;
@@ -163,6 +170,7 @@ const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES
         inst.frame(1 / 60); f++;
         if (!GRID.includes(f)) continue;
         const s = scan({ main, over });
+        mergeHits(cell, inst);
         if (inst.moment == null) {
           cell.steadyHard = Math.max(cell.steadyHard, s.hard);
           cell.steadyRun30 = Math.max(cell.steadyRun30, s.run30);
@@ -175,26 +183,27 @@ const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES
           cell.mSoft = Math.max(cell.mSoft, s.soft);
         }
       }
-      if (typeof inst.forceMoment === "function") {
+      // forced-moment pass — only for auras with a moment spec. forceMoment
+      // arms the moment on the NEXT frame(), so the loop waits for it to
+      // start, scans every moment frame, then runs a 30-frame tail where
+      // burst debris must stay cleared.
+      const hasMoment = !!mod.AURA_FX?.[aura]?.moment;
+      if (hasMoment && typeof inst.forceMoment === "function") {
         cell.moment = true;
         inst.forceMoment();
-        let contact = 0, mF = 0;
-        while (inst.moment != null && mF < 60 * 15) {
+        let contact = 0, mF = 0, seen = false, tailF = 0;
+        for (let guard = 0; guard < 60 * 15 && (!seen || tailF < 30); guard++) {
           inst.frame(1 / 60); mF++;
           const s = scan({ main, over });
+          mergeHits(cell, inst);
+          if (inst.moment != null) seen = true;
+          else if (seen) tailF++;
           contact = s.hard > 0 ? contact + 1 : 0;
           cell.mContact = Math.max(cell.mContact, contact);
           cell.mHard = Math.max(cell.mHard, s.hard);
           cell.mRun30 = Math.max(cell.mRun30, s.run30);
           cell.mRun50 = Math.max(cell.mRun50, s.run50);
           cell.mSoft = Math.max(cell.mSoft, s.soft);
-        }
-        // tail: debris must stay cleared after the moment ends
-        for (let k = 0; k < 30; k++) {
-          inst.frame(1 / 60);
-          const s = scan({ main, over });
-          contact = s.hard > 0 ? contact + 1 : 0;
-          cell.mContact = Math.max(cell.mContact, contact);
         }
         cell.mFrames += mF;
       }
@@ -205,9 +214,12 @@ const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES
 }, { aura, SEEDS, GRID, SIZES });
 
 const cellsBad = (c) => (c.steadyRun30 > 3) || (c.steadyRun50 > 3) || (c.mRun50 > 3) || (c.mContact > 30);
-const cellLine = (c) =>
-  `steady hard=${c.steadyHard}px run30=${c.steadyRun30}px run50=${c.steadyRun50}px soft=${c.steadySoft}px`
-  + (c.moment ? ` | moment hard=${c.mHard}px run30=${c.mRun30}px run50=${c.mRun50}px longestContact=${(c.mContact / 60).toFixed(2)}s` : " | moment: none");
+const cellLine = (c) => {
+  const top = Object.entries(c.hits || {}).sort((a, b) => b[1] - a[1])[0];
+  return `steady hard=${c.steadyHard}px run30=${c.steadyRun30}px run50=${c.steadyRun50}px soft=${c.steadySoft}px`
+    + (c.moment ? ` | moment hard=${c.mHard}px run30=${c.mRun30}px run50=${c.mRun50}px longestContact=${(c.mContact / 60).toFixed(2)}s` : " | moment: none")
+    + (top ? ` | edgeObj=${top[0]} ~${top[1]}px` : "");
+};
 
 const lines = [];
 let fails = 0;

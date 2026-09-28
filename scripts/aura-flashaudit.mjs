@@ -130,8 +130,11 @@ for (const aura of list) {
   let bad = false, notes = [];
   if (hasFlash && s.flashes !== s.moments) { bad = true; notes.push(`expected exactly 1 flash per moment, got ${s.flashes}/${s.moments}`); }
   if (r.flashes !== 0) { bad = true; notes.push(`reduced motion fired ${r.flashes} flashes`); }
+  // the moment must still PLAY under reduce — the flash is gated, not the
+  // moment; a reduce run that never enters the moment is a regression
+  if (hasFlash && r.moments === 0) { bad = true; notes.push("moment never played under reduced motion"); }
   if (bad) fails++;
-  const line = `${bad ? "FAIL" : "PASS"} ${aura.padEnd(14)} paths=[${s.paths.join(", ") || "none"}] moments=${s.moments} flashes=${s.flashes} (${flashPerMoment}/moment) reduce-flashes=${r.flashes}`;
+  const line = `${bad ? "FAIL" : "PASS"} ${aura.padEnd(14)} paths=[${s.paths.join(", ") || "none"}] moments=${s.moments} flashes=${s.flashes} (${flashPerMoment}/moment) reduce-moments=${r.moments} reduce-flashes=${r.flashes}`;
   const times = `    flashTimes: [${s.flashTimes.map((t) => t.toFixed(2)).join(", ")}]`;
   lines.push(line, times); console.log(line); console.log(times);
 }

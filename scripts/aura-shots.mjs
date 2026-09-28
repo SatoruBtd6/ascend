@@ -310,18 +310,27 @@ if (MODE === "shots") for (const aura of list) {
     };
     const probe = mk();
     if (typeof probe.inst.forceMoment !== "function") return null;
+    // forceMoment arms the moment on the NEXT frame() — count only frames
+    // where inst.moment is live, from first activation until it clears.
     probe.inst.forceMoment();
-    let F = 0;
-    while (probe.inst.moment != null && F < 60 * 12) { probe.inst.frame(1 / 60); F++; }
-    if (!F) return null;
+    let F = 0, started = false;
+    for (let guard = 0; guard < 60 * 12; guard++) {
+      probe.inst.frame(1 / 60);
+      if (probe.inst.moment != null) { started = true; F++; }
+      else if (started) break;
+    }
+    if (!started || !F) return null;
     const shot = mk();
     shot.inst.forceMoment();
     const N = 8, picks = new Set();
     for (let k = 0; k < N; k++) picks.add(Math.round(1 + (k * (F - 1)) / (N - 1)));
     const cells = [];
-    for (let f = 1; f <= F && cells.length < N; f++) {
+    let mF = 0, seen2 = false;
+    for (let guard = 0; guard < 60 * 15 && cells.length < N; guard++) {
       shot.inst.frame(1 / 60);
-      if (picks.has(f)) cells.push({ f, png: comp(shot).toDataURL() });
+      if (shot.inst.moment == null) { if (seen2) break; continue; }
+      seen2 = true; mF++;
+      if (picks.has(mF)) cells.push({ f: mF, png: comp(shot).toDataURL() });
     }
     const ims = await Promise.all(cells.map((c) => new Promise((r) => { const im = new Image(); im.onload = () => r({ ...c, im }); im.src = c.png; })));
     const cellW = 150, cv = document.createElement("canvas");
@@ -427,8 +436,11 @@ if (PERF) {
       s.delta = d; s.pct = p;
       // 7m rework auras are FAIL-exempt this phase (aura-sets.mjs
       // P7M_FAIL_EXEMPT): they still measure and print, they just can't FAIL
-      // — so they skip the noise re-run too.
+      // — so they skip the noise re-run too. Same for the pinned reference:
+      // stormstep runs identical code on both sides, so a delta there is
+      // session drift, not regression — WARN, never FAIL.
       if (P7M_FAIL_EXEMPT.has(s.aura)) { s.exempt = d > AB_MAX_MS && p > AB_MAX_PCT; continue; }
+      if (s.aura === PERF_REF) { s.refSelf = d > AB_MAX_MS && p > AB_MAX_PCT; continue; }
       if (!(d > AB_MAX_MS && p > AB_MAX_PCT)) continue;
       console.log(`\n  ${s.aura}: first pass Δ${d >= 0 ? "+" : ""}${d.toFixed(3)} (${p >= 0 ? "+" : ""}${p.toFixed(1)}%) — re-running ${RUNS} to rule out noise`);
       const rA2 = [], rB2 = [];
@@ -454,6 +466,7 @@ if (PERF) {
         const f = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(3)}`;
         const base = `A=${aAvg.toFixed(3)} B=${avg.toFixed(3)} Δ${f(s.delta)} (${s.pct >= 0 ? "+" : ""}${s.pct.toFixed(1)}%) ratio=${ratio.toFixed(2)}x`;
         if (s.exempt) { verdict = "WARN"; note = `${base} — over the FAIL delta; 7m rework aura, exempt until v7m`; }
+        else if (s.refSelf) { verdict = "WARN"; note = `${base} — reference aura: identical code on both sides; drift is session noise, not a regression`; }
         else if (s.hardFail) { verdict = "FAIL"; note = `${base} — still over on re-run (Δ${f(s.d2)}, ${s.p2 >= 0 ? "+" : ""}${s.p2.toFixed(1)}%)`; }
         else if (s.d2 != null) { verdict = "PASS"; note = `${base} — noise, passed on re-run (Δ${f(s.d2)}, ${s.p2 >= 0 ? "+" : ""}${s.p2.toFixed(1)}%)`; }
         else if (overRatio || knownOver) { verdict = "WARN"; note = `${base}`; }
