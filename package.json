@@ -15,7 +15,10 @@
     "aura:perf": "node scripts/aura-shots.mjs perf",
     "aura:stress": "node scripts/aura-stress.mjs",
     "aura:flash": "node scripts/aura-flash.mjs",
-    "aura:contact": "node scripts/aura-contact.mjs"
+    "aura:contact": "node scripts/aura-contact.mjs",
+    "aura:edge": "node scripts/aura-edge.mjs",
+    "aura:lit": "node scripts/aura-lit.mjs",
+    "aura:flashaudit": "node scripts/aura-flashaudit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

@@ -78,7 +78,24 @@ export const KNOWN_OVER = {
 // board-32 circle, 4x CPU, moments forced). FROZEN; re-rank needs a proposal.
 export const RING = ["eclipseheart", "godray", "blacksun", "huntersmoon"];
 
-export const STRESS_SETS = { fixed: FIXED, ledger: LEDGER, revamp: REVAMP, ring: RING };
+// SPECTACLE (7m part 4, proposal 4): the loudest auras after the ladder
+// rework — a synthetic worst-case batch stress run alongside `fixed`. Same
+// rules: board-32, circle, moments forced, p95 < 16 ms. Provisional until it
+// re-freezes at the v7m tag.
+export const SPECTACLE = ["yogurt", "vendetta", "ascended", "wheel", "champion", "eclipseheart", "blacksun", "godray"];
+
+// P7M_FAIL_EXEMPT (7m part 4, proposal 3): while the ladder rework is in
+// flight the aura:perf --ab FAIL rule (>15% AND >0.05 ms over baseline) does
+// not apply to the seven 7m rework auras — their medians move by design this
+// phase. They still measure and print verdicts; they just can't FAIL. The
+// exemption lives here in the policy file, not in the gate math, and expires
+// at the v7m tag when the baseline re-pins and these auras fall back under
+// the normal rule.
+export const P7M_FAIL_EXEMPT = new Set([
+  "ironbound", "standardbearer", "forge", "huntersmoon", "fallenlight", "eclipseheart", "blacksun",
+]);
+
+export const STRESS_SETS = { fixed: FIXED, ledger: LEDGER, revamp: REVAMP, ring: RING, spectacle: SPECTACLE };
 
 // Session-relative perf policy (D15, phase 7l).
 // PERF_REF: measured on every aura:perf run, even when not in --only. The

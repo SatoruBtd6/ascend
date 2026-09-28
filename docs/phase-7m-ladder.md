@@ -339,7 +339,11 @@ left open, and the recommended rollout order for the remaining auras.
 
 **I.** After Brodan tags v7m: re-pin the baseline worktree to v7m, record the seven reworked
 auras' new medians as their ceilings in `aura-sets.mjs`, and retire their `GRANDFATHERED`
-entries — an edited aura is no longer untouched.
+entries — an edited aura is no longer untouched. The ring stress set re-freezes at v7m
+alongside the others, ranked by **ring-size medians** (`aura:stress --size ring`), not
+board-32 medians — three of its four members (eclipseheart, blacksun, huntersmoon) are
+being reworked this phase, so its membership has to be re-proven at the size it actually
+gates. (Added in Part 4 per Brodan.)
 
 **Then stop.** Brodan pushes and tags `v7m`.
 

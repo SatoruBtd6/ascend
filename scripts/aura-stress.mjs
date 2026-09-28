@@ -1,7 +1,8 @@
 // Leaderboard stress: N auras rendered simultaneously at board-32 geometry
 // (avatar 32 -> canvas 59x59, ringR 17.19), frame() stepped per instance.
 //   aura:stress                                    all three sets, median of 3
-//   aura:stress -- --set fixed|ledger|revamp       one set only
+//   aura:stress -- --set fixed|ledger|revamp|ring|spectacle   one set, or a
+//                                                             comma list
 //   aura:stress -- --ab [--set x] [--runs N]       baseline (A) vs current (B),
 //                                                  alternating A B A B A B
 //   node scripts/aura-stress.mjs [--base URL] aura,aura,...   legacy single run
@@ -104,7 +105,7 @@ if (auras.length) {
 // --size ring gates on the realistic ring set only (7m): a real screen shows
 // at most ~3 ring-size auras, so a 10-aura ring run is a synthetic worst case
 // that reports INFO and can never fail.
-const names = SET ? [SET] : SIZE === "ring" ? ["ring"] : ["fixed", "ledger", "revamp"];
+const names = SET ? SET.split(",").filter(Boolean) : SIZE === "ring" ? ["ring"] : ["fixed", "ledger", "revamp"];
 for (const n of names) {
   if (!STRESS_SETS[n]) { console.error(`unknown set "${n}" — sets: ${Object.keys(STRESS_SETS).join(", ")}`); process.exit(1); }
 }

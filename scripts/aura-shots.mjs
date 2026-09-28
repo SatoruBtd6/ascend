@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { REPO, CURR_URL, CURR_PORT, BASE_URL, BASE_PORT, baselineDir, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
-import { GRANDFATHERED, KNOWN_OVER, PERF_REF, RATIO_BUDGET } from "./aura-sets.mjs";
+import { GRANDFATHERED, KNOWN_OVER, PERF_REF, RATIO_BUDGET, P7M_FAIL_EXEMPT } from "./aura-sets.mjs";
 
 async function loadChromium() {
   const dir = join(process.cwd(), "node_modules", "playwright-core");
@@ -228,6 +228,8 @@ const res = MODE === "perf" ? { out: {}, stats: {} } : await page.evaluate(async
       cells[`ring-light-f${f}`] = ringComp(rl, "#eef1f7", 141, 38).toDataURL();
       const b = render(aura, "circle", 59, 59, f, false);
       cells[`board-f${f}`] = ringComp(b, "#0b0e16", 59, 16).toDataURL();
+      const c52 = render(aura, "circle", 52, 52, f, false);
+      cells[`crew52-f${f}`] = ringComp(c52, "#0b0e16", 52, 14).toDataURL();
       const fb = render(aura, "body", 128, 163, f, false);
       const fc = document.createElement("canvas"); fc.width = 128; fc.height = 163;
       const fg = fc.getContext("2d"); fg.fillStyle = "#0b0e16"; fg.fillRect(0, 0, 128, 163);
@@ -241,6 +243,17 @@ const res = MODE === "perf" ? { out: {}, stats: {} } : await page.evaluate(async
     }
     const rm = render(aura, "circle", 141, 141, 90, true);
     cells["ring-dark-reduced"] = ringComp(rm, "#0b0e16", 141, 38).toDataURL();
+    // opaque-square photo: the photo region drawn as an unclipped opaque
+    // square, so the proof that the ring carries the read doesn't lean on a
+    // circular crop hiding the aura's own centre
+    const sq = render(aura, "circle", 141, 141, 90, false);
+    const scv = document.createElement("canvas"); scv.width = scv.height = 141;
+    const sg = scv.getContext("2d");
+    sg.fillStyle = "#0b0e16"; sg.fillRect(0, 0, 141, 141);
+    sg.drawImage(sq.main, 0, 0);
+    if (avatar) sg.drawImage(avatar, 70.5 - 38, 70.5 - 38, 76, 76);
+    if (sq.over) sg.drawImage(sq.over, 0, 0);
+    cells["ring-square-f90"] = scv.toDataURL();
     out[aura] = cells;
   }
   return { out, stats };
@@ -267,6 +280,65 @@ for (const [aura, cells] of Object.entries(res.out)) {
   writeFileSync(join(OUT, `${aura}-${tag}.png`), Buffer.from(b64, "base64"));
   // Edge alpha is INFO, never PASS/FAIL (D2): a 3px spark can touch the edge.
   console.log(`${aura}-${tag}.png  INFO edges: ring=${res.stats[aura].edgeRing} board=${res.stats[aura].edgeBoard} fig=${res.stats[aura].edgeFig}`);
+}
+
+// Moment filmstrip (7m part 4): for every aura with a moment, an 8-frame
+// strip spanning the whole moment at ring size, composited on the real
+// avatar. Two passes per aura: one counts the moment's frame length, the
+// second re-seeds, force-fires and captures eight evenly-spaced frames.
+if (MODE === "shots") for (const aura of list) {
+  const film = await page.evaluate(async ({ aura }) => {
+    const mod = window.__mod;
+    const load = (src) => new Promise((r) => { const im = new Image(); im.onload = () => r(im); im.onerror = () => r(null); im.src = src; });
+    const avatar = await load("/avatars/E.webp");
+    const hasOver = mod.auraNeedsOver(aura);
+    const mk = () => {
+      window.__seed(0x9e3779b9);
+      const cv = document.createElement("canvas"); cv.width = cv.height = 141;
+      const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 141;
+      const inst = mod.makeAura(cv, { aura, w: 141, h: 141, mode: "circle", ringR: 141 / 3.456, overCanvas: hasOver ? cv2 : null });
+      return { inst, main: cv, over: hasOver ? cv2 : null };
+    };
+    const comp = (r) => {
+      const c = document.createElement("canvas"); c.width = c.height = 141;
+      const g = c.getContext("2d");
+      g.fillStyle = "#0b0e16"; g.fillRect(0, 0, 141, 141);
+      g.drawImage(r.main, 0, 0);
+      if (avatar) { g.save(); g.beginPath(); g.arc(70.5, 70.5, 38, 0, Math.PI * 2); g.clip(); g.drawImage(avatar, 32.5, 32.5, 76, 76); g.restore(); }
+      if (r.over) g.drawImage(r.over, 0, 0);
+      return c;
+    };
+    const probe = mk();
+    if (typeof probe.inst.forceMoment !== "function") return null;
+    probe.inst.forceMoment();
+    let F = 0;
+    while (probe.inst.moment != null && F < 60 * 12) { probe.inst.frame(1 / 60); F++; }
+    if (!F) return null;
+    const shot = mk();
+    shot.inst.forceMoment();
+    const N = 8, picks = new Set();
+    for (let k = 0; k < N; k++) picks.add(Math.round(1 + (k * (F - 1)) / (N - 1)));
+    const cells = [];
+    for (let f = 1; f <= F && cells.length < N; f++) {
+      shot.inst.frame(1 / 60);
+      if (picks.has(f)) cells.push({ f, png: comp(shot).toDataURL() });
+    }
+    const ims = await Promise.all(cells.map((c) => new Promise((r) => { const im = new Image(); im.onload = () => r({ ...c, im }); im.src = c.png; })));
+    const cellW = 150, cv = document.createElement("canvas");
+    cv.width = ims.length * cellW; cv.height = 172;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#141824"; g.fillRect(0, 0, cv.width, cv.height);
+    g.font = "10px monospace"; g.textAlign = "center"; g.fillStyle = "#e8ecf4";
+    ims.forEach(({ f, im }, i) => {
+      g.drawImage(im, i * cellW + (cellW - 141) / 2, 14);
+      g.fillText(`moment f${f}/${F}`, i * cellW + cellW / 2, 164);
+    });
+    return { png: cv.toDataURL("image/png").split(",")[1], frames: F, n: ims.length };
+  }, { aura });
+  if (film) {
+    writeFileSync(join(OUT, `${aura}-moment-film.png`), Buffer.from(film.png, "base64"));
+    console.log(`${aura}-moment-film.png  moment filmstrip: ${film.n} frames across a ${film.frames}-frame moment at ring 141`);
+  }
 }
 
 // Warm lazy images the same way the grid does — otherwise img layers never
@@ -337,7 +409,11 @@ if (PERF) {
   }
   if (MODE === "perf") {
     const med = (vals) => [...vals].sort((a, b) => a - b)[Math.floor(vals.length / 2)];
-    const refMed = med(runs[PERF_REF].map((r) => r.avg));
+    // Pinned budget ref (7m proposal 2): under --ab the ratio WARN
+    // denominates on the BASELINE side's stormstep median, so a warm or cold
+    // current-tree session can't inflate every aura's ratio. Without --ab it
+    // stays the live same-session stormstep (an approximation, as before).
+    const refMed = runsA ? med(runsA[PERF_REF].map((r) => r.avg)) : med(runs[PERF_REF].map((r) => r.avg));
     const stats = list.map((aura) => ({
       aura,
       avg: med(runs[aura].map((r) => r.avg)),
@@ -348,7 +424,12 @@ if (PERF) {
     // each side; it may only FAIL if it fails both times.
     if (runsA) for (const s of stats) {
       const d = s.avg - s.aAvg, p = (s.avg / s.aAvg - 1) * 100;
-      if (!(d > AB_MAX_MS && p > AB_MAX_PCT)) { s.delta = d; s.pct = p; continue; }
+      s.delta = d; s.pct = p;
+      // 7m rework auras are FAIL-exempt this phase (aura-sets.mjs
+      // P7M_FAIL_EXEMPT): they still measure and print, they just can't FAIL
+      // — so they skip the noise re-run too.
+      if (P7M_FAIL_EXEMPT.has(s.aura)) { s.exempt = d > AB_MAX_MS && p > AB_MAX_PCT; continue; }
+      if (!(d > AB_MAX_MS && p > AB_MAX_PCT)) continue;
       console.log(`\n  ${s.aura}: first pass Δ${d >= 0 ? "+" : ""}${d.toFixed(3)} (${p >= 0 ? "+" : ""}${p.toFixed(1)}%) — re-running ${RUNS} to rule out noise`);
       const rA2 = [], rB2 = [];
       for (let r = 0; r < RUNS; r++) {
@@ -372,7 +453,8 @@ if (PERF) {
       if (aAvg != null) {
         const f = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(3)}`;
         const base = `A=${aAvg.toFixed(3)} B=${avg.toFixed(3)} Δ${f(s.delta)} (${s.pct >= 0 ? "+" : ""}${s.pct.toFixed(1)}%) ratio=${ratio.toFixed(2)}x`;
-        if (s.hardFail) { verdict = "FAIL"; note = `${base} — still over on re-run (Δ${f(s.d2)}, ${s.p2 >= 0 ? "+" : ""}${s.p2.toFixed(1)}%)`; }
+        if (s.exempt) { verdict = "WARN"; note = `${base} — over the FAIL delta; 7m rework aura, exempt until v7m`; }
+        else if (s.hardFail) { verdict = "FAIL"; note = `${base} — still over on re-run (Δ${f(s.d2)}, ${s.p2 >= 0 ? "+" : ""}${s.p2.toFixed(1)}%)`; }
         else if (s.d2 != null) { verdict = "PASS"; note = `${base} — noise, passed on re-run (Δ${f(s.d2)}, ${s.p2 >= 0 ? "+" : ""}${s.p2.toFixed(1)}%)`; }
         else if (overRatio || knownOver) { verdict = "WARN"; note = `${base}`; }
         else { verdict = "PASS"; note = `${base}`; }
@@ -393,7 +475,18 @@ if (PERF) {
     }
     const summary = `${list.length} auras: ${list.length - fails - warns} pass, ${warns} warn, ${fails} fail`;
     console.log(`\n${summary}`);
-    writeFileSync(join(OUT, "report.txt"), [...header, "", ...lines, "", summary, ""].join("\n"));
+    if (runsA) {
+      // Whole-set aggregate (7m part 4 item K): mean + median of the per-aura
+      // B-A deltas — a systematic couple of percent (e.g. shared-renderer
+      // overhead) shows up here even when no single aura tops the list.
+      const ds = stats.map((s) => s.delta), ps = stats.map((s) => s.pct);
+      const mean = (v) => v.reduce((a, b) => a + b, 0) / v.length;
+      const agg = `delta across ${stats.length} auras: mean ${(mean(ds) >= 0 ? "+" : "")}${mean(ds).toFixed(3)} ms (${(mean(ps) >= 0 ? "+" : "")}${mean(ps).toFixed(1)}%), median ${(med(ds) >= 0 ? "+" : "")}${med(ds).toFixed(3)} ms (${(med(ps) >= 0 ? "+" : "")}${med(ps).toFixed(1)}%)`;
+      console.log(agg);
+      writeFileSync(join(OUT, "report.txt"), [...header, "", ...lines, "", summary, agg, ""].join("\n"));
+    } else {
+      writeFileSync(join(OUT, "report.txt"), [...header, "", ...lines, "", summary, ""].join("\n"));
+    }
   }
 }
 if (MODE) console.log(`evidence: ${OUT}`);

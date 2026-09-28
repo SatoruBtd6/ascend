@@ -41,6 +41,9 @@ tree on port 5180 (baseline worktree on 5181) and writes evidence to
 | `npm.cmd run aura:stress` | board-32 stress on the fixed/ledger/revamp sets; `--set`, `--ab`, `--size ring` = 141px series (gates on the 4-aura `ring` set; other sets at ring are info-only) |
 | `npm.cmd run aura:perf` | per-aura frame cost; ratio WARN vs stormstep; `--ab` = the FAIL rule; `--size ring` = 141px series |
 | `npm.cmd run aura:shots` | evidence grid per aura; `--strip a,b,c` = ring-size look-alike strip |
+| `npm.cmd run aura:edge` | the Part-4 edge rule: border-alpha scan, steady + forced moment, 3 seeds x 4 sizes; `--baseline` = A/B |
+| `npm.cmd run aura:lit` | glow-disabled lit% + halo-band lit% at ring size; `--ab` for before/after |
+| `npm.cmd run aura:flashaudit` | flash ledger on a sim clock: exactly-1 flash/moment, <=3/s page-wide, 0 under reduce |
 | `npm.cmd run aura:flash` | bonewright pixel-identical + identical flashTimes |
 | `npm.cmd run aura:contact` | contact sheet + audit.json for all FX auras at ring size |
 
