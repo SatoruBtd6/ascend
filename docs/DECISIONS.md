@@ -322,3 +322,38 @@ unfixable while the figure view is a protected/frozen byte-identical moment.
 This is a per-view exception for fallenlight's figure128x163 cell only —
 it is NOT a general edge-rule exception; every other aura and every other
 fallenlight view remains bound by hard=0 steady / run50≤3px / <0.5s clear.
+
+## Signature-sprite allowance + `rimlight` treat (phase 7m — approved by Brodan 2026-09-29)
+
+The rung img-hero caps (R2 ≤0.5, R3 ≤0.7, R4 ≤0.9, R5 ≤1.2 ×rx) proved too
+tight for sprite-led auras: shrinking the identity sprite and compensating
+with glow produced brighter auras that lost their signature (fallenlight-style
+lit% fell while brightness rose — glow disc is filler, the sprite is the
+identity). Amendment, approved as written:
+
+- Each aura may designate ONE sprite *asset* as its signature — all `img`
+  layers sharing that `src` count as one signature (ironbound's three chains).
+- The signature sprite may exceed the rung's img-hero cap. All other
+  sprites stay capped.
+- The signature's ceiling is the edge rule itself: painted border alpha = 0
+  at all six sizes, steady AND moment, all seeds.
+- If the painted sprite reaches the border, resolve in order: (1) pull orbit
+  `r` inward, (2) reduce bob/wobble amplitude, (3) shrink — **shrinking is
+  the last resort, not the first**.
+- `small:` may set the signature's `sz` independently of blanket `scale`, to
+  keep it legible at crew52.
+
+Renderer support: `treat: "rimlight"` — opt-in; bakes the same (dx,dy)-shifted
+edge catch as `treatRim` but WITHOUT `shadowfade`'s darkening, for bright
+sprites. Non-treated layers remain byte-identical. First use: forge's hammer
+(`treatRim { c:"#FF8A2A", dx:-0.03, dy:-0.05, a:0.85 }`, rim faces the
+forge-floor strike light).
+
+## aura:edge seed/frame window widened (phase 7m — 2026-09-29)
+
+The steady-state grid scanned 7 sampled frames per seed
+({60,90,…,240} x 3 seeds); a transient that fires between samples could hide —
+measured live: forge's first moment can roll at t≈0.4s and a 3-frame
+bottom-border spark graze at frame ~223 sat between grid points. Now 5 seeds
+and EVERY frame 30–240 is scanned (steady vs moment classified by
+`inst.moment`), plus the unchanged forced-moment pass.

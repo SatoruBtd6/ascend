@@ -192,17 +192,17 @@ export const AURA_FX = {
     // behind the photo's lower rim — the ring adds a molten-gold splash of
     // heavy droplets and fast anvil sparks spraying out around the photo edge.
     circle: { moment: { bursts: [
-      { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1, fitAll: 1 },
-      { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1, fitAll: 1 },
+      { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, y: -0.45, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1, fitAll: 1 },
+      { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, y: -0.45, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1, fitAll: 1 },
       { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.9, lw: 3, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "ground", x: 0.75, flat: 1, over: 1, fit: 1 },
       { at: 0.26, path: "radial", shape: "ember", n: 12, c: ["#FFD447", "#FF9340", "#FFF6C9"], anchor: "center", sp: [55, 120], sz: [1.8, 3], life: [0.8, 1.4], grav: 2.4, a: 0.95, over: 1, fitAll: 1 },
       { at: 0.26, path: "radial", shape: "spark", n: 12, c: ["#FFF6C9", "#FFD447"], anchor: "center", sp: [90, 190], sz: [0.9, 1.5], life: [0.4, 0.8], grav: 1.6, a: 0.9, over: 1, fitAll: 1 },
-      { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1, fitAll: 1 },
+      { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, y: -0.45, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1, fitAll: 1 },
     ] } }, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", r: [1.35, 1.35], w: [0, 0], sz: [0.7, 0.7], even: 1, at: 0.79, rot: 0.12, wobble: 0.02, a: 0.97, over: 1, blend: "source-over",
+    { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", treat: "rimlight", treatRim: { c: "#FF8A2A", dx: -0.03, dy: -0.05, a: 0.85 }, r: [1.35, 1.35], w: [0, 0], sz: [1.1, 1.1], even: 1, at: 0.79, rot: 0.12, wobble: 0.02, a: 0.97, over: 1, blend: "source-over",
       mY: [[0, 0], [0.1, -0.12], [0.26, 2.5], [0.45, 2.5], [0.72, 0.08], [1, 0]], mX: [[0, 0], [0.1, -0.08], [0.26, 0.3], [0.45, 0.3], [0.8, 0], [1, 0]], mRot: [[0, 0], [0.1, -0.14], [0.26, 0.22], [0.5, 0.22], [0.85, 0], [1, 0]],
-      circle: { r: [1.2, 1.2], sz: [0.62, 0.62], mY: [[0, 0], [0.1, -0.1], [0.26, 1.93], [0.45, 1.93], [0.72, 0.07], [1, 0]], mX: [[0, 0], [0.1, -0.06], [0.26, 0.32], [0.45, 0.32], [0.8, 0], [1, 0]] },
-      small: { sz: [0.5, 0.5] } },
+      circle: { r: [1.2, 1.2], sz: [1.1, 1.1], mY: [[0, 0], [0.1, -0.1], [0.26, 1.93], [0.45, 1.93], [0.72, 0.07], [1, 0]], mX: [[0, 0], [0.1, -0.06], [0.26, 0.32], [0.45, 0.32], [0.8, 0], [1, 0]] },
+      small: { sz: [0.68, 0.68] } },
     { k: "rise", n: 14, shape: "ember", c: ["#FFB43C", "#FF5A1F", "#FFE08A"], sp: [16, 34], life: [0.8, 1.6], sz: [1, 2], sway: 10, a: 0.75, low: 1, small: { n: 8, sway: 4, sp: [12, 22] } },
     { k: "orbit", n: 10, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6, small: { n: 6 } },
     { k: "orbit", n: 7, shape: "shard", c: ["#FFE08A", "#FFB43C", "#8A5A2A"], w: [-0.14, -0.06], r: [1.05, 1.3], sz: [1.2, 2.2], a: 0.85, small: { n: 4, sz: [1, 1.6] } },
@@ -1094,6 +1094,8 @@ export function auraImage(src, opts = {}) {
 //   optional `rim` { c, dx, dy, a } — an edge catch: a rim-coloured silhouette
 //     shifted (dx,dy)·size then masked onto the sprite, so every edge facing
 //     that direction keeps a thin lit sliver (blacksun's red wing rim-light).
+//   "rimlight" — sprite unchanged, plus the same edge catch (7m signature-
+//     sprite amendment: bright sprites need the rim without the darkening)
 export function treatedSprite(rec, kind, rim) {
   if (!rec?.ready || rec.failed || typeof document === "undefined") return null;
   const key = `treated_${kind}${rim ? `_${rim.c}_${rim.dx}_${rim.dy}_${rim.a}` : ""}`;
@@ -1103,6 +1105,25 @@ export function treatedSprite(rec, kind, rim) {
   const c = cv.getContext("2d");
   if (!c) return null;
   c.drawImage(img, 0, 0);
+  // rim light: silhouette minus its own (dx,dy)-shifted copy — a crescent
+  // on the edge facing the light, not a wash over the whole sprite
+  const addRim = () => {
+    const t2 = document.createElement("canvas"); t2.width = w; t2.height = h;
+    const c2 = t2.getContext("2d");
+    c2.drawImage(img, 0, 0);
+    c2.globalCompositeOperation = "source-in";
+    c2.fillStyle = rim.c; c2.fillRect(0, 0, w, h);
+    c2.globalCompositeOperation = "destination-out";
+    c2.drawImage(img, (rim.dx || 0) * w, (rim.dy || 0) * h);
+    c.globalCompositeOperation = "source-atop";
+    c.globalAlpha = rim.a ?? 0.5;
+    c.drawImage(t2, 0, 0);
+    c.globalAlpha = 1;
+    c.globalCompositeOperation = "source-over";
+  };
+  if (kind === "rimlight") {
+    if (rim) addRim();
+  }
   if (kind === "shadowfade") {
     // darken inside the silhouette only (source-atop): content keeps its
     // shape but drops to near-black with a faint cool sheen
@@ -1121,22 +1142,7 @@ export function treatedSprite(rec, kind, rim) {
     fg.addColorStop(0, "rgba(0,0,0,1)"); fg.addColorStop(0.62, "rgba(0,0,0,1)"); fg.addColorStop(1, "rgba(0,0,0,0)");
     c.fillStyle = fg; c.fillRect(-w / 2, -w * 0.7, w, w * 1.4);
     c.restore();
-    if (rim) {
-      // rim light: silhouette minus its own (dx,dy)-shifted copy — a crescent
-      // on the edge facing the light, not a wash over the whole sprite
-      const t2 = document.createElement("canvas"); t2.width = w; t2.height = h;
-      const c2 = t2.getContext("2d");
-      c2.drawImage(img, 0, 0);
-      c2.globalCompositeOperation = "source-in";
-      c2.fillStyle = rim.c; c2.fillRect(0, 0, w, h);
-      c2.globalCompositeOperation = "destination-out";
-      c2.drawImage(img, (rim.dx || 0) * w, (rim.dy || 0) * h);
-      c.globalCompositeOperation = "source-atop";
-      c.globalAlpha = rim.a ?? 0.5;
-      c.drawImage(t2, 0, 0);
-      c.globalAlpha = 1;
-      c.globalCompositeOperation = "source-over";
-    }
+    if (rim) addRim();
   }
   rec[key] = cv;
   return cv;

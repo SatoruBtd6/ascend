@@ -13,11 +13,13 @@
 // moment — that's the style-guide "sparks of 3 px or less" carve-out folded
 // into the hard/run numbers.
 //
-// Verdict = the worst over a grid: 3 seeds x frames {60,90,120,150,180,210,240}
-// (each frame classified steady-state or moment by inst.moment) plus a
-// forced-moment pass that scans EVERY frame and measures the longest
-// sustained hard contact, at all six user-visible sizes {crew 52, board 59,
-// studio 88 (w88/r25), ring 141, crate 160 (w160/r46), figure 128x163}.
+// Verdict = the worst over a grid: 5 seeds x EVERY frame 30..240
+// (each frame classified steady-state or moment by inst.moment — sampled-frame
+// grids let a one-seed transient hide between samples, e.g. an early-rolled
+// forge moment at f~223) plus a forced-moment pass that scans EVERY frame and
+// measures the longest sustained hard contact, at all six user-visible sizes
+// {crew 52, board 59, studio 88 (w88/r25), ring 141, crate 160 (w160/r46),
+// figure 128x163}.
 // Fresh page per aura. FAIL on:
 //   - any steady-state run30 wider than 3 px
 //   - any run50 wider than 3 px at any time
@@ -52,8 +54,9 @@ const ONLY = argVal("--only")?.split(",").filter(Boolean)
 // ids (rework variants) scan even though they are not catalog auras.
 const specFile = argVal("--spec") ? JSON.parse(readFileSync(argVal("--spec"), "utf8")) : null;
 
-const SEEDS = [1, 2, 3];
+const SEEDS = [1, 2, 3, 4, 5];
 const GRID = [60, 90, 120, 150, 180, 210, 240];
+const SCAN_FROM = 30; // scan every frame in the steady window, not the sparse GRID points
 const SIZES = [
   { label: "crew52", w: 52, h: 52, mode: "circle", ringR: 52 / 3.456 },
   { label: "board59", w: 59, h: 59, mode: "circle", ringR: 59 / 3.456 },
@@ -112,10 +115,10 @@ const known = await (async () => {
 })();
 const list = (ONLY && ONLY.length ? ONLY : known).filter((id) => known.includes(id) || (specFile && id in specFile));
 hline(`auras:    ${list.length}${ONLY?.length ? ` (--only ${ONLY.join(",")})` : ""}`);
-hline(`grid:     ${SEEDS.length} seeds x frames ${GRID.join("/")} + forced-moment pass, sizes ${SIZES.map((s) => s.label).join(", ")} — fresh page per aura`);
+hline(`grid:     ${SEEDS.length} seeds x every frame ${SCAN_FROM}–${GRID[GRID.length - 1]} + forced-moment pass, sizes ${SIZES.map((s) => s.label).join(", ")} — fresh page per aura`);
 
 // One aura on one page: runs the whole grid and returns per-size cells.
-const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES }) => {
+const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES, SCAN_FROM }) => {
   const mod = window.__mod;
   const hasOver = mod.auraNeedsOver(aura);
   const mk = (SZ, seed) => {
@@ -175,7 +178,7 @@ const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES
       let f = 0;
       while (f < GRID[GRID.length - 1]) {
         inst.frame(1 / 60); f++;
-        if (!GRID.includes(f)) continue;
+        if (f < SCAN_FROM) continue;
         const s = scan({ main, over });
         mergeHits(cell, inst);
         if (inst.moment == null) {
@@ -218,7 +221,7 @@ const scanAura = (page, aura) => page.evaluate(async ({ aura, SEEDS, GRID, SIZES
     out[SZ.label] = cell;
   }
   return out;
-}, { aura, SEEDS, GRID, SIZES });
+}, { aura, SEEDS, GRID, SIZES, SCAN_FROM });
 
 const cellsBad = (c) => (c.steadyRun30 > 3) || (c.steadyRun50 > 3) || (c.mRun50 > 3) || (c.mContact > 30);
 const cellLine = (c) => {

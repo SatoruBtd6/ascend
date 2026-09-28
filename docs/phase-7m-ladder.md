@@ -56,6 +56,7 @@ lands differently, they are revised there and nowhere else.
 | hard hero sz (≥110 px) | ≤5 | ≤7 | ≤9 | ≤10.5 | ≤12 |
 | hard hero sz (`small:`) | ≤4 | ≤5 | ≤5.5 | ≤6 | ≤6.5 |
 | img sprite hero (×rx) | none | ≤0.5, behind-photo only | ≤0.7 | ≤0.9 | ≤1.2 |
+| signature sprite | — one `img` asset per aura may exceed the rung's img cap; ceiling is the edge rule at all six sizes — |
 | glyphring radius (×rx) | none | none | ≤0.4 | ≤0.5 | ≤0.5 |
 | ring particles N | 10–25 | 20–35 | 25–45 | 35–60 | 40–80 |
 | spec layers | 3–4 | 4–5 | 5–6 | 5–7 | ≥6 |
@@ -63,6 +64,15 @@ lands differently, they are revised there and nowhere else.
 
 Glow hard ceiling 1.8 at every rung. Soft-hero footprint ≈ sz × unit × 5.2; hard ≈ sz ×
 unit × 3.5; img and glyphring scale with rx and are size-independent.
+
+**Signature sprite (amendment, Brodan 2026-09-29).** One sprite *asset* per aura — all `img`
+layers sharing a `src` — may exceed the img-hero cap; every other sprite stays capped. Its
+ceiling is the edge rule itself: painted border alpha = 0 at all six sizes, steady and
+moment, all seeds. If the painted sprite reaches the border, resolve in order: pull orbit
+`r` inward, reduce bob/wobble amplitude, shrink — **shrinking a signature sprite is the
+last resort, not the first**. `small:` may set the signature's `sz` independently of blanket
+`scale` so it stays legible at crew52. Renderer support: `treat: "rimlight"` (opt-in) bakes
+the edge catch without `shadowfade`'s darkening, for bright sprites.
 
 **Ceilings vs minimums.** For existing auras these rows are permitted ceilings — an aura may
 sit below its rung, never above it. For any aura built or reworked to a rung, the rows are

@@ -239,7 +239,10 @@ const res = MODE === "perf" ? { out: {}, stats: {} } : await page.evaluate(async
       const s88c = document.createElement("canvas"); s88c.width = s88c.height = 88;
       const s88g = s88c.getContext("2d"); s88g.fillStyle = "#0b0e16"; s88g.fillRect(0, 0, 88, 88);
       s88g.drawImage(s88.main, 0, 0);
-      s88g.fillStyle = "#141824"; s88g.beginPath(); s88g.arc(44, 44, 18, 0, Math.PI * 2); s88g.fill();
+      // matches the real Studio picker tile: 36px C.sheet disc + check icon
+      s88g.fillStyle = "#040A1C"; s88g.beginPath(); s88g.arc(44, 44, 18, 0, Math.PI * 2); s88g.fill();
+      s88g.strokeStyle = "rgba(96,165,250,.9)"; s88g.lineWidth = 2; s88g.lineCap = "round"; s88g.lineJoin = "round";
+      s88g.beginPath(); s88g.moveTo(38, 44); s88g.lineTo(42.5, 48.5); s88g.lineTo(50, 39.5); s88g.stroke();
       if (s88.over) s88g.drawImage(s88.over, 0, 0);
       cells[`studio88-f${f}`] = s88c.toDataURL();
       const c160 = render(aura, "circle", 160, 160, f, false, 46);
