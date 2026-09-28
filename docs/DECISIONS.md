@@ -349,6 +349,27 @@ sprites. Non-treated layers remain byte-identical. First use: forge's hammer
 (`treatRim { c:"#FF8A2A", dx:-0.03, dy:-0.05, a:0.85 }`, rim faces the
 forge-floor strike light).
 
+## `wave:{strips,amp,period}` + `rotTracksOrbit` (phase 7m — approved by Brodan 2026-09-29)
+
+Two opt-in `img`-layer fields, both approved on method + cost before building:
+
+- `wave:{strips,amp,period}` — segmented cloth draw: the sprite is drawn as N
+  horizontal strips, each x-offset by `sin(t·2π/period + i·step)·amp·min(rx,ry)`,
+  so one wave travels down the sprite's length. Built for standardbearer's
+  banner (7 strips, amp 0.045, period 2.4s — slow heraldic ripple, damped to
+  30% under reduced motion). Skew was rejected (reads as leaning, not cloth).
+  COST: 7 drawImage calls instead of 1 on one layer ≈ +0.03ms.
+- `rotTracksOrbit` — the sprite's rotation tracks its orbit angle
+  (`p.ang + rot·2π` instead of `p.rot`), laying its long axis along the orbit
+  tangent. Built for ironbound's encircling chain links, so they read as one
+  continuous chain wrapping the ring rather than links floating near it.
+  COST: same single rotate call — free.
+
+`wave` keeps its existing NUMERIC meaning (orbit radial oscillation) when a
+number — the object form is type-gated, so both semantics coexist on the same
+field name. Both fields are opt-in at layer level; non-opted auras are
+byte-identical (confirmed in the aura:diff run for this batch).
+
 ## aura:edge seed/frame window widened (phase 7m — 2026-09-29)
 
 The steady-state grid scanned 7 sampled frames per seed

@@ -122,11 +122,19 @@ export const AURA_FX = {
     { k: "rise", n: 5, shape: "wisp", c: ["#7BC96F", "#A7D96C"], sp: [5, 10], life: [2.6, 3.8], sz: [3.5, 5.5], sway: 10, a: 0.4, circle: { n: 0, a: 0 } },
   ] },
   standardbearer: { spd: 0.85, glow: 1.2, small: { scale: 0.6 }, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", r: [0.5, 0.5], w: [0, 0], sz: [0.7, 0.7], even: 1, at: 0.75, y: 0.38, wobble: 0.035, bob: 1, a: 0.95, behind: 1, blend: "source-over", small: { sz: [0.55, 0.55] } },
-    { k: "rise", n: 10, shape: "ember", c: ["#FF6A3C", "#C2001F", "#E8C56A"], sp: [10, 20], life: [1.8, 3], sz: [0.9, 1.7], sway: 9, a: 0.6, low: 1, small: { n: 6, sway: 4 } },
+    // signature: the upright standard the photo hangs in front of — centred on
+    // the ring's vertical axis, top and tail overhanging the rim (sz 2.4 under
+    // the signature-sprite allowance). A wave travels down the cloth ~every
+    // 2.4s; gold rimlight separates it from the glow disc.
+    { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", ctr: 1, r: [0, 0], w: [0, 0], sz: [2.4, 2.4], even: 1, rot: 0, wobble: 0.015, a: 0.95, behind: 1, blend: "source-over", treat: "rimlight", treatRim: { c: "#E8C56A", dx: -0.02, dy: 0.04, a: 0.8 }, wave: { strips: 7, amp: 0.045, period: 2.4 }, small: { sz: [2.4, 2.4] } },
+    // heraldic pennant slivers in orbit — crimson/gold, sharp not soft
     { k: "orbit", n: 9, shape: "sliver", c: ["#C2001F", "#E8C56A", "#FFF0D0"], w: [0.35, 0.6], r: [1.04, 1.22], sz: [1.4, 2.4], a: 0.85, small: { n: 5, sz: [1.2, 1.8] } },
-    { k: "orbit", n: 8, shape: "sparkle", c: ["#FFF6C9", "#E8C56A"], w: [0.4, 0.8], r: [1.06, 1.26], sz: [1.2, 2], tw: 1, small: { n: 5 } },
-    { k: "rise", n: 8, shape: "dot", c: ["#E8C56A", "#C2001F"], sp: [8, 16], life: [1.6, 2.6], sz: [0.8, 1.4], sway: 6, tw: 1, a: 0.7, low: 1, small: { n: 5, sp: [6, 11] } },
+    // struck-metal gold sparks — small, bright, twinkling, no smear
+    { k: "orbit", n: 8, shape: "sparkle", c: ["#FFF6C9", "#FFD447", "#E8C56A"], w: [0.4, 0.8], r: [1.06, 1.26], sz: [1.0, 1.7], tw: 1, a: 0.95, small: { n: 5 } },
+    // falling pennants — small cloth shards tumbling down through the band
+    { k: "fall", n: 8, shape: "shard", c: ["#C2001F", "#8A1420", "#E8C56A"], sp: [5, 10], sz: [1.6, 2.6], drift: 4, spin: 1.2, a: 0.85, xWrap: 1, xFade: 8, small: { n: 5 } },
+    // rally motes — fine gold dots rising through the band
+    { k: "rise", n: 8, shape: "dot", c: ["#FFD447", "#E8C56A"], sp: [8, 16], life: [1.6, 2.6], sz: [0.8, 1.3], sway: 6, tw: 1, a: 0.75, low: 1, small: { n: 5, sp: [6, 11] } },
   ] },
   // Atlas: a stone sphere rests above the head. Its moment is a violent
   // orbit — the sphere lifts off, circles the avatar faster and faster
@@ -622,11 +630,18 @@ export const AURA_FX = {
     { k: "rise", n: 7, shape: "ember", c: ["#FF9340", "#FF4D00", "#FFD447"], sp: [16, 28], life: [0.9, 1.5], sz: [1.6, 2.6], sway: 10, circle: { n: 0, a: 0 } },
   ] },
   ironbound: { spd: 0.8, glow: 1.05, small: { scale: 0.6 }, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.8, 0.8], w: [0, 0], sz: [0.5, 0.5], even: 1, at: 0.25, rot: 0.015, wobble: 0.06, bob: 1, a: 0.95, behind: 1, blend: "source-over", small: { sz: [0.42, 0.42] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.85, 0.85], w: [0, 0], sz: [0.45, 0.45], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.08, bob: 1, a: 0.7, behind: 1, blend: "source-over", small: { sz: [0.36, 0.36] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.88, 0.88], w: [0, 0], sz: [0.4, 0.4], even: 1, at: 0.34, rot: 0.05, wobble: 0.1, bob: 1, a: 0.5, behind: 1, blend: "source-over", small: { sz: [0.32, 0.32] } },
-    { k: "orbit", n: 8, shape: "spark", c: ["#DDE6F2", "#9AA7BD"], w: [0.25, 0.5], r: [1.02, 1.18], sz: [0.9, 1.5], a: 0.55, small: { n: 5 } },
-    { k: "orbit", n: 12, shape: "chainlink", c: ["#9AA7BD", "#5A6478", "#DDE6F2"], w: [0.06, 0.14], r: [1.0, 1.24], sz: [1.1, 1.9], a: 0.7, small: { n: 6, sz: [0.9, 1.4] } },
+    // signature: chain.webp, one asset across four layers — a ring of links
+    // wrapping the photo (tangent-laid, spiraling and swaying on wave) plus
+    // the three snapped chains hanging pendulum-slow off the lower rim.
+    // shadowfade = cold dark steel so it reads on white; rim = pale catch;
+    // glint = per-sprite specular streak travelling the links — never the
+    // flash bus, never a whole-aura pulse.
+    { k: "orbit", n: 14, shape: "img", src: "/aura/chain.webp", rotTracksOrbit: 1, r: [1.04, 1.1], w: [0.05, 0.09], wave: 0.05, sz: [0.55, 0.62], even: 1, jit: 0.05, wobble: 0.06, a: 0.9, glint: 1, behind: 1, treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.04, a: 0.55 }, blend: "source-over", small: { n: 11, sz: [0.42, 0.48] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.8, 0.8], w: [0, 0], sz: [1.55, 1.55], even: 1, at: 0.25, rot: 0.015, wobble: 0.12, a: 0.95, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.95, 0.95] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.85, 0.85], w: [0, 0], sz: [1.2, 1.2], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.15, a: 0.85, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.75, 0.75] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.88, 0.88], w: [0, 0], sz: [0.95, 0.95], even: 1, at: 0.34, rot: 0.05, wobble: 0.18, a: 0.75, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.6, 0.6] } },
+    // snapped-off links drifting loose in the band
+    { k: "orbit", n: 12, shape: "chainlink", c: ["#5A6478", "#8A97B0", "#3A4356"], w: [0.05, 0.12], r: [1.0, 1.26], sz: [1.1, 1.9], a: 0.8, tw: 1, small: { n: 7, sz: [0.9, 1.4] } },
   ] },
   // Ledger: a feared secret order in matching cloaks — the cloak hangs behind
   // the avatar, the order's pale mask drifts beside the head, inked pages of
@@ -3690,7 +3705,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           const slot = L.mside === "near" ? "near" : "far", e = api.orbitXY[slot] || (api.orbitXY[slot] = {});
           e.x = x + ox + mdx; e.y = y + bob + oy + mdy;
         }
-        g.translate(x + ox + mdx, y + bob + oy + mdy); g.rotate(p.rot + wob + mrot * Math.PI * 2 + trem * Math.PI * 2 * Math.sin(time * 41 + p.ph * 9.7));
+        g.translate(x + ox + mdx, y + bob + oy + mdy); g.rotate((L.rotTracksOrbit ? p.ang + (L.rot || 0) * Math.PI * 2 : p.rot) + wob + mrot * Math.PI * 2 + trem * Math.PI * 2 * Math.sin(time * 41 + p.ph * 9.7));
         if (msc !== 1 || L.flip) g.scale(msc * (L.flip ? -1 : 1), msc);
         if (S) drawShadowWisps(g, state, p, S, breathe);
         if (isFrameAnim) {
@@ -3712,7 +3727,24 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           const aspect = (img.naturalWidth || img.width) / Math.max(1, img.naturalHeight || img.height);
           const iw0 = aspect >= 1 ? s : s * aspect, ih0 = aspect >= 1 ? s / aspect : s;
           const iw = iw0 * breathe, ih = ih0 * breathe;
-          g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+          // wave:{strips,amp,period} — opt-in segmented cloth draw (7m): the
+          // sprite is drawn as horizontal strips, each x-offset by a phase-
+          // stepped sine, so a wave travels down its length (standardbearer's
+          // banner). Numeric `wave` stays the orbit radial-oscillation field.
+          const wv = typeof L.wave === "object" && L.wave ? L.wave : null;
+          if (wv) {
+            const strips = Math.max(2, wv.strips || 6);
+            const ampU = (wv.amp || 0.04) * Math.min(rx, ry) * (api.reduce ? 0.3 : 1);
+            const ph = (time * Math.PI * 2) / (wv.period || 2.4) + p.ph;
+            const step = wv.phaseStep ?? ((Math.PI * 1.5) / strips);
+            const sh = img.naturalHeight || img.height, sw = img.naturalWidth || img.width;
+            for (let i = 0; i < strips; i++) {
+              const dx = Math.sin(ph + i * step) * ampU;
+              g.drawImage(img, 0, (i * sh) / strips, sw, sh / strips, -iw / 2 + dx, -ih / 2 + (i * ih) / strips, iw, ih / strips);
+            }
+          } else {
+            g.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+          }
           if (L.glint) {
             const period = 3.4 + (p.ph % 2.4);
             const cycle = (time + p.ph * 1.7) % period;
@@ -4366,7 +4398,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
             // radius multiplier keyed to the moment phase (Ossuary's spiral).
             const swirl = state._swirl, rMul = state._rMul;
             p.ang += p.w * layerDt * (1 + swirl); p._sw = swirl;
-            const wob = L.wave ? Math.sin(time * 3 + p.ph) * L.wave : 0;
+            const wob = typeof L.wave === "number" ? Math.sin(time * 3 + p.ph) * L.wave : 0;
             if (p.ej) {
               p.ej.t += layerDt;
               if (p.ej.t >= p.ej.life) p.ej = null;
