@@ -164,7 +164,21 @@ export const SMALL_ALLOWED_KEYS = new Set([
   "sz", "r", "spawnR", "sway", "jit", "headSz", "rimSz", "glyphS", "mR", "mScale", "sx", "sy", // size
   "sp", "spd", "w", "spin", "rotW", "drift", "life", "every", "gap", "rate", "dur", "period", "cyclePeriod", // speed/timing
   "scale", // meta: the one-number multiplier
+  "treatRim", // edge-lighting override on an existing treated sprite (7m amendment)
 ]);
+
+// Rim appearance only — colour, offset, alpha. A dark silhouette needs more
+// rim at 52px than at 141px to read at all; this does not open small: to
+// palette or shape changes (the sprite itself is unchanged).
+const RIM_KEYS = new Set(["c", "dx", "dy", "a"]);
+function isRimBlock(v) {
+  if (!isPlainObject(v)) return false;
+  for (const k of Object.keys(v)) {
+    if (!RIM_KEYS.has(k)) return false;
+    if (k === "c" ? !HEX.test(v[k]) : !Number.isFinite(v[k])) return false;
+  }
+  return true;
+}
 
 // Returns a list of violations; empty = valid. Runs over every AURA_FX entry
 // in tests, so a bad small: block fails `check`. Not on the render hot path.
@@ -177,6 +191,10 @@ export function validateSpec(spec) {
       const p = path.concat(k).join(".");
       if (k === "layers" || VIEW_LOCKED_LAYER_KEYS.has(k)) {
         violations.push(`${p}: structural/locked key — not allowed inside small:`);
+        continue;
+      }
+      if (k === "treatRim") {
+        if (!isRimBlock(v)) violations.push(`${p}: rim keys are c/dx/dy/a — hex colour, numeric offset and alpha`);
         continue;
       }
       if (isPlainObject(v)) { walk(v, path.concat(k)); continue; }

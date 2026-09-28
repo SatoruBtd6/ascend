@@ -273,7 +273,8 @@ Current approval pins:
 - `eclipseheart` — approved at `5ffd2f3` (Part 4). Verified byte-identical at
   `d195d96`: `aura:diff --only eclipseheart`, 0 differing px at
   board32/profile76/figure160 across all sampled frames.
-- `blacksun` — approved at `d195d96` (Part 4 redo 2).
+- `blacksun` — approved at `58931bd` (Part 4 redo 2 + small-size/wings polish:
+  wings sz 2.0, stronger rim, Umbra growth via img `mScale`).
 
 Real-mount evidence: every canvas size a user sees is now in the evidence
 grids — `aura:edge` and `aura:shots` cover studio-88 (w88/ringR 25) and
@@ -281,3 +282,13 @@ crate-160 (w160/ringR 46) in addition to crew52/board59/ring141/figure160.
 The dev gallery's "88 studio" and "160 crate" cells mount the real geometry
 (CrateVault `ringR 52→46`, Studio `ringR 28→25` — the old mounts ran ~0.64
 fill vs the tuned 0.579, clipping anything past ~1.5·rx).
+
+## `small:` may override rim appearance (phase 7m — approved by Brodan 2026-09-28)
+
+`treatRim` is in `SMALL_ALLOWED_KEYS`, scoped to rim appearance only — colour
+(`c`, hex), offset (`dx`/`dy`) and alpha (`a`); validated by `isRimBlock` in
+`validateSpec`. Rationale: `small:` exists so an aura reads correctly at every
+size, and a dark silhouette needs more rim at 52px than at 141px to read at
+all. This does not open `small:` to palette or shape changes — `treatRim` is
+edge lighting on an existing sprite; the sprite itself is unchanged.
+First use: blacksun's wings (`small: { treatRim: { c:"#FF3A3A", dy:0.1, a:1 } }`).
