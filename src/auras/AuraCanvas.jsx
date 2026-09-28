@@ -121,9 +121,12 @@ export const AURA_FX = {
     { k: "orbit", n: 7, shape: "moth", c: ["#F3DDB0", "#E0B872", "#FFF6D8"], w: [0.4, 0.8], r: [1.1, 1.26], sz: [1.6, 2.4], tw: 1, circle: { n: 5 } },
     { k: "rise", n: 5, shape: "wisp", c: ["#7BC96F", "#A7D96C"], sp: [5, 10], life: [2.6, 3.8], sz: [3.5, 5.5], sway: 10, a: 0.4, circle: { n: 0, a: 0 } },
   ] },
-  standardbearer: { spd: 0.85, glow: 0.5, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", r: [0.5, 0.5], w: [0, 0], sz: [1.95, 1.95], even: 1, at: 0.75, y: 0.38, wobble: 0.035, bob: 1, a: 0.95, behind: 1, blend: "source-over" },
-    { k: "rise", n: 7, shape: "ember", c: ["#FF6A3C", "#C2001F", "#E8C56A"], sp: [10, 20], life: [1.8, 3], sz: [0.9, 1.7], sway: 9, a: 0.6 },
+  standardbearer: { spd: 0.85, glow: 1.2, small: { scale: 0.6 }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", r: [0.5, 0.5], w: [0, 0], sz: [0.7, 0.7], even: 1, at: 0.75, y: 0.38, wobble: 0.035, bob: 1, a: 0.95, behind: 1, blend: "source-over", small: { sz: [0.55, 0.55] } },
+    { k: "rise", n: 10, shape: "ember", c: ["#FF6A3C", "#C2001F", "#E8C56A"], sp: [10, 20], life: [1.8, 3], sz: [0.9, 1.7], sway: 9, a: 0.6, low: 1, small: { n: 6, sway: 4 } },
+    { k: "orbit", n: 9, shape: "sliver", c: ["#C2001F", "#E8C56A", "#FFF0D0"], w: [0.35, 0.6], r: [1.04, 1.22], sz: [1.4, 2.4], a: 0.85, small: { n: 5, sz: [1.2, 1.8] } },
+    { k: "orbit", n: 8, shape: "sparkle", c: ["#FFF6C9", "#E8C56A"], w: [0.4, 0.8], r: [1.06, 1.26], sz: [1.2, 2], tw: 1, small: { n: 5 } },
+    { k: "rise", n: 8, shape: "dot", c: ["#E8C56A", "#C2001F"], sp: [8, 16], life: [1.6, 2.6], sz: [0.8, 1.4], sway: 6, tw: 1, a: 0.7, low: 1, small: { n: 5, sp: [6, 11] } },
   ] },
   // Atlas: a stone sphere rests above the head. Its moment is a violent
   // orbit — the sphere lifts off, circles the avatar faster and faster
@@ -174,30 +177,36 @@ export const AURA_FX = {
     { k: "orbit", n: 3, shape: "shard", c: ["#A7B0C2", "#D9DEE7", "#C4B5FD"], w: [-0.15, -0.06], r: [1.04, 1.26], sz: [1.8, 3.2], jit: 0.06, a: 0.95, over: 1, frontOnly: 1, eject: { every: [5, 9], sp: [0.3, 0.45], life: 0.8 } },
     { k: "fall", n: 12, shape: "sandgrain", c: ["#E8C878", "#C9A86A", "#B9A8E8", "#F4E3B2"], sp: [10, 22], sz: [0.9, 1.8], drift: 3, a: 0.55 },
   ] },
-  forge: { spd: 1, glow: 0.38, overArt: "forge", moment: { every: [6, 10], dur: 1.5,
+  forge: { spd: 1, glow: 1.2, overArt: "forge", small: { scale: 0.55 }, moment: { every: [6, 10], dur: 1.5,
     flash: { at: 0.26, flashPeak: 0.6, flashLife: 0.11, flashC: ["#FFF6E0", "#FFB43C"], anchor: "ground", x: 0.75 },
     bursts: [
-      { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1 },
-      { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1 },
-      { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.9, lw: 3, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "ground", x: 0.75, flat: 1, over: 1 },
-      { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1 },
+      // y lifts the spawn off the ground anchor — spark streaks trail
+      // ~0.085·v behind the particle, so sparks born at the border would drag
+      // their tails across the bottom row before fitAll's margin engages
+      { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, y: -0.32, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1, fitAll: 1 },
+      { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, y: -0.32, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1, fitAll: 1 },
+      { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.9, lw: 3, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "ground", x: 0.75, flat: 1, over: 1, fit: 1 },
+      { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, y: -0.32, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1, fitAll: 1 },
     ] },
     // ring view: the forge strike anchors at the ground below-right, hidden
     // behind the photo's lower rim — the ring adds a molten-gold splash of
     // heavy droplets and fast anvil sparks spraying out around the photo edge.
     circle: { moment: { bursts: [
-      { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1 },
-      { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1 },
-      { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.9, lw: 3, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "ground", x: 0.75, flat: 1, over: 1 },
-      { at: 0.26, path: "radial", shape: "ember", n: 12, c: ["#FFD447", "#FF9340", "#FFF6C9"], anchor: "center", sp: [55, 120], sz: [1.8, 3], life: [0.8, 1.4], grav: 2.4, a: 0.95, over: 1 },
-      { at: 0.26, path: "radial", shape: "spark", n: 12, c: ["#FFF6C9", "#FFD447"], anchor: "center", sp: [90, 190], sz: [0.9, 1.5], life: [0.4, 0.8], grav: 1.6, a: 0.9, over: 1 },
-      { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1 },
+      { at: 0.26, path: "shower", shape: "spark", n: 22, c: ["#FFF6C9", "#FFD447", "#FF9340"], anchor: "ground", x: 0.75, dir: -0.28, sp: [170, 320], spread: 0.95, sz: [1, 1.9], life: [0.4, 0.8], grav: 2.6, a: 0.95, over: 1, fitAll: 1 },
+      { at: 0.26, path: "shower", shape: "spark", n: 8, c: ["#FFF6C9", "#FFB43C"], anchor: "ground", x: 0.75, dir: -0.16, sp: [80, 150], spread: 0.4, sz: [0.8, 1.4], life: [0.5, 0.9], grav: 2.6, a: 0.9, over: 1, fitAll: 1 },
+      { at: 0.26, path: "shockring", c: "#FFD89A", a: 0.9, lw: 3, r0: 0.12, v: 2.6, life: [0.5, 0.5], anchor: "ground", x: 0.75, flat: 1, over: 1, fit: 1 },
+      { at: 0.26, path: "radial", shape: "ember", n: 12, c: ["#FFD447", "#FF9340", "#FFF6C9"], anchor: "center", sp: [55, 120], sz: [1.8, 3], life: [0.8, 1.4], grav: 2.4, a: 0.95, over: 1, fitAll: 1 },
+      { at: 0.26, path: "radial", shape: "spark", n: 12, c: ["#FFF6C9", "#FFD447"], anchor: "center", sp: [90, 190], sz: [0.9, 1.5], life: [0.4, 0.8], grav: 1.6, a: 0.9, over: 1, fitAll: 1 },
+      { at: 0.32, path: "shower", shape: "ember", n: 10, c: ["#FF9340", "#FF5A1F", "#FFD447"], anchor: "ground", x: 0.75, dir: -0.26, sp: [25, 70], spread: 1, sz: [0.9, 1.6], life: [1.4, 2.4], grav: 1.2, a: 0.85, over: 1, fitAll: 1 },
     ] } }, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", r: [1.35, 1.35], w: [0, 0], sz: [1.1, 1.1], even: 1, at: 0.79, rot: 0.12, wobble: 0.02, a: 0.97, over: 1, blend: "source-over",
+    { k: "orbit", n: 1, shape: "img", src: "/aura/hammer.webp", r: [1.35, 1.35], w: [0, 0], sz: [0.7, 0.7], even: 1, at: 0.79, rot: 0.12, wobble: 0.02, a: 0.97, over: 1, blend: "source-over",
       mY: [[0, 0], [0.1, -0.12], [0.26, 2.5], [0.45, 2.5], [0.72, 0.08], [1, 0]], mX: [[0, 0], [0.1, -0.08], [0.26, 0.3], [0.45, 0.3], [0.8, 0], [1, 0]], mRot: [[0, 0], [0.1, -0.14], [0.26, 0.22], [0.5, 0.22], [0.85, 0], [1, 0]],
-      circle: { r: [1.2, 1.2], sz: [0.95, 0.95], mY: [[0, 0], [0.1, -0.1], [0.26, 1.93], [0.45, 1.93], [0.72, 0.07], [1, 0]], mX: [[0, 0], [0.1, -0.06], [0.26, 0.32], [0.45, 0.32], [0.8, 0], [1, 0]] } },
-    { k: "rise", n: 12, shape: "ember", c: ["#FFB43C", "#FF5A1F", "#FFE08A"], sp: [16, 34], life: [0.8, 1.6], sz: [1, 2], sway: 10, a: 0.75 },
-    { k: "orbit", n: 8, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6 },
+      circle: { r: [1.2, 1.2], sz: [0.62, 0.62], mY: [[0, 0], [0.1, -0.1], [0.26, 1.93], [0.45, 1.93], [0.72, 0.07], [1, 0]], mX: [[0, 0], [0.1, -0.06], [0.26, 0.32], [0.45, 0.32], [0.8, 0], [1, 0]] },
+      small: { sz: [0.5, 0.5] } },
+    { k: "rise", n: 14, shape: "ember", c: ["#FFB43C", "#FF5A1F", "#FFE08A"], sp: [16, 34], life: [0.8, 1.6], sz: [1, 2], sway: 10, a: 0.75, low: 1, small: { n: 8, sway: 4, sp: [12, 22] } },
+    { k: "orbit", n: 10, shape: "spark", c: ["#FF9340", "#FFD447"], w: [0.12, 0.2], r: [0.95, 1.2], sz: [1, 1.8], a: 0.6, small: { n: 6 } },
+    { k: "orbit", n: 7, shape: "shard", c: ["#FFE08A", "#FFB43C", "#8A5A2A"], w: [-0.14, -0.06], r: [1.05, 1.3], sz: [1.2, 2.2], a: 0.85, small: { n: 4, sz: [1, 1.6] } },
+    { k: "fall", n: 10, shape: "sandgrain", c: ["#FFD447", "#B87A3A", "#6B4A34"], sp: [10, 22], drift: 3, sz: [0.8, 1.5], a: 0.55, xWrap: 1, xFade: 10, small: { n: 6 } },
   ] },
   fallenlight: { spd: 0.9, glow: 0.42, art: "fallenlight",
     bolts: { every: [0.12, 0.22], calmEvery: [1.2, 2], overlap: 1, flashEvery: 2.4, c: ["#FF4D5A", "#FF8A7A", "#D92B2B"], fit: "circle" },
@@ -612,11 +621,12 @@ export const AURA_FX = {
     { k: "orbit", n: 4, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], w: [0.5, 0.9], r: [1.06, 1.16], sz: [2, 3], tw: 1 },
     { k: "rise", n: 7, shape: "ember", c: ["#FF9340", "#FF4D00", "#FFD447"], sp: [16, 28], life: [0.9, 1.5], sz: [1.6, 2.6], sway: 10, circle: { n: 0, a: 0 } },
   ] },
-  ironbound: { spd: 0.8, glow: 0.45, layers: [
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.8, 0.8], w: [0, 0], sz: [1.3, 1.3], even: 1, at: 0.25, rot: 0.015, wobble: 0.06, bob: 1, a: 0.95, behind: 1, blend: "source-over" },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.85, 0.85], w: [0, 0], sz: [1.05, 1.05], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.08, bob: 1, a: 0.7, behind: 1, blend: "source-over" },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.88, 0.88], w: [0, 0], sz: [0.9, 0.9], even: 1, at: 0.34, rot: 0.05, wobble: 0.1, bob: 1, a: 0.5, behind: 1, blend: "source-over" },
-    { k: "orbit", n: 5, shape: "spark", c: ["#DDE6F2", "#9AA7BD"], w: [0.25, 0.5], r: [1.02, 1.18], sz: [0.9, 1.5], a: 0.55 },
+  ironbound: { spd: 0.8, glow: 1.05, small: { scale: 0.6 }, layers: [
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.8, 0.8], w: [0, 0], sz: [0.5, 0.5], even: 1, at: 0.25, rot: 0.015, wobble: 0.06, bob: 1, a: 0.95, behind: 1, blend: "source-over", small: { sz: [0.42, 0.42] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.85, 0.85], w: [0, 0], sz: [0.45, 0.45], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.08, bob: 1, a: 0.7, behind: 1, blend: "source-over", small: { sz: [0.36, 0.36] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", r: [0.88, 0.88], w: [0, 0], sz: [0.4, 0.4], even: 1, at: 0.34, rot: 0.05, wobble: 0.1, bob: 1, a: 0.5, behind: 1, blend: "source-over", small: { sz: [0.32, 0.32] } },
+    { k: "orbit", n: 8, shape: "spark", c: ["#DDE6F2", "#9AA7BD"], w: [0.25, 0.5], r: [1.02, 1.18], sz: [0.9, 1.5], a: 0.55, small: { n: 5 } },
+    { k: "orbit", n: 12, shape: "chainlink", c: ["#9AA7BD", "#5A6478", "#DDE6F2"], w: [0.06, 0.14], r: [1.0, 1.24], sz: [1.1, 1.9], a: 0.7, small: { n: 6, sz: [0.9, 1.4] } },
   ] },
   // Ledger: a feared secret order in matching cloaks — the cloak hangs behind
   // the avatar, the order's pale mask drifts beside the head, inked pages of
@@ -2749,7 +2759,7 @@ export const AURA_ART = {
   },
   // Molten pool where the hammer lands: white-hot at the flash, a flat
   // ellipse on the ground that cools to orange — not a round fireball.
-  forge: ({ over, moment, cx, rx, anchor, pass }) => {
+  forge: ({ over, moment, cx, rx, ry, anchor, pass, w, h, fx }) => {
     const fl = moment?.spec?.flash;
     if (!fl || !over || pass !== "over" || moment.t <= fl.at) return null;
     const k = Math.min(1, (moment.t - fl.at) / Math.max(0.05, 1 - fl.at));
@@ -2757,8 +2767,14 @@ export const AURA_ART = {
     if (a <= 0.02) return null;
     const gc = Math.round(246 - 96 * k), bc = Math.round(214 - 164 * k);
     const o = anchor("ground");
-    const ax = o.x + (fl.x || 0) * rx, ay = o.y;
-    const prx = rx * 0.62, pry = prx * 0.22;
+    const ax0 = o.x + (fl.x || 0) * rx, ay = o.y;
+    // edge rule: the ground anchor sits at h*0.965 — squash the splash into
+    // the frame rather than letting its hot tail paint the border; the
+    // moment shake can translate the whole pass, so reserve its amplitude too
+    const shakePad = (fx?.moment?.shake?.amp ?? 0) * Math.min(rx, ry) + 3;
+    const prx = Math.min(rx * 0.62, Math.max(6, Math.min(ax0, w - ax0) - 3));
+    const pry = Math.min(prx * 0.22, Math.max(2, h - ay - shakePad));
+    const ax = ax0;
     over.save(); over.globalCompositeOperation = "lighter";
     over.translate(ax, ay); over.scale(1, pry / prx);
     const grd = over.createRadialGradient(0, 0, 0, 0, 0, prx);
