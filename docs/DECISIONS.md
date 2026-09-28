@@ -244,8 +244,10 @@ rather than a `r:[0,0]` sentinel):
 **PENDING APPROVAL — R5 img-sprite cap amendment.** The ladder table caps R5 img
 sprites at ≤1.2·rx. Rebuilt blacksun exceeds it twice, deliberately:
 
-- restored `wing.webp` at `sz 1.75` (≈1.75·rx span — Brodan asked for the original
-  wings back at their animating size; shrinking is what ruined the swap);
+- restored `wing.webp` at `sz 2.0` (≈2.0·rx span; raised 1.75→2.0 in the
+  small-size/wings polish pass — Brodan: wings are the signature and were too
+  easy to miss — with `r 0.92` and a deeper `mR` pullback during the swell so
+  tips stay inside at all six evidence sizes);
 - `blacksun-ring.webp` at `sz 3.2` (≈1.45·rx outer radius after the 0.452 trim
   fraction — the wrought-iron ring is the aura's signature).
 
