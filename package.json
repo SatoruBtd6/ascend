@@ -18,7 +18,8 @@
     "aura:contact": "node scripts/aura-contact.mjs",
     "aura:edge": "node scripts/aura-edge.mjs",
     "aura:lit": "node scripts/aura-lit.mjs",
-    "aura:flashaudit": "node scripts/aura-flashaudit.mjs"
+    "aura:flashaudit": "node scripts/aura-flashaudit.mjs",
+    "aura:moment-hue": "node scripts/aura-moment-hue.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

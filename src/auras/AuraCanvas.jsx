@@ -650,38 +650,43 @@ export const AURA_FX = {
       { k: "rise", n: 4, shape: "ember", c: ["#FF5A1F", "#FFD447"], sp: [12, 24], life: [1, 1.8], sz: [1.2, 2], sway: 8, low: 1, a: 0.8, circle: { sway: 3, spawnR: [0.92, 1.0] } },
     ] },
   blacksun: { spd: 0.32, glow: 1.65, dark: { mid: "#060409", ring: "#0B0B14" }, art: "blacksun", overArt: "blacksun",
-    // 7m redo: the white procedural rings are gone — the halo is the art
-    // pass (void wash + burning perimeter) and the ring read is the ornate
-    // blacksun-ring.webp iron circle. Umbra beats on dur 2.6s: b1 0–0.23 the
-    // burn dives inward as wings fold, b2 0.23–0.39 near-total black (measured),
-    // b3 ~0.4–0.45 the rim blows out running crimson-inverted — the one flash,
-    // b4 0.45–1 inverted colour settles back to bone.
-    moment: { every: [18, 26], dur: 2.6,
-      flash: { at: 0.4, flashPeak: 0.5, flashLife: 0.1, flashC: ["#FFFFFF", "#E8D5B8"], anchor: "center" },
-      shake: { at: 0.4, amp: 0.06, dur: 0.35 },
+    // 7m redo 2: Umbra rebuilt as ONE event — a slow continuous swell where
+    // the dark centre grows outward and eats the band (0–0.56), a single
+    // red-hot detonation at 0.58 (the only noteStrikeFlash), then the aura
+    // reassembles into steady state. Strict gothic palette: blacks, deep
+    // crimson, ember-orange; white only inside the detonation core, never a
+    // wash. Reduced motion plays the same swell stretched 1.6x, no flash.
+    moment: { every: [18, 26], dur: 3.0, reduceSlow: 1.6,
+      flash: { at: 0.58, flashPeak: 0.42, flashLife: 0.09, flashC: ["#FFD9A0", "#C2001F"], anchor: "center" },
+      shake: { at: 0.58, amp: 0.07, dur: 0.3 },
       bursts: [
-        { at: 0.4, path: "shockring", c: "#C2001F", a: 0.95, lw: 3.2, r0: 0.85, v: 2.0, life: [0.6, 0.6], anchor: "center", aspect: 1, over: 1 },
-        { at: 0.41, path: "shockring", c: "#FDFBF6", a: 0.6, lw: 1.8, r0: 0.6, v: 1.5, life: [0.5, 0.5], anchor: "center", aspect: 1, over: 1 },
-        { at: 0.4, path: "radial", shape: "shard", n: 12, c: ["#C2001F", "#7A0014", "#FDFBF6"], anchor: "center", sp: [60, 150], sz: [1.4, 2.8], life: [0.6, 1], grav: 1.2, a: 0.95, over: 1, fitAll: 1 },
-        { at: 0.42, path: "radial", shape: "leaf", n: 8, c: ["#FDFBF6", "#CBB9A6"], anchor: "center", sp: [50, 120], sz: [1.4, 2.4], life: [0.8, 1.4], grav: 0.6, a: 0.9, over: 1, fitAll: 1 },
+        // n:1 — the default burst count of 8 stacks 8 additive copies of the
+        // same ellipse; on a near-black canvas 8x (194,0,31) clamps to a
+        // magenta-ish (255,0,B) ring. One stroke stays deep crimson.
+        { at: 0.58, path: "shockring", n: 1, c: "#C2001F", a: 0.95, lw: 3.4, r0: 0.5, v: 2.6, life: [0.55, 0.55], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.6, path: "shockring", n: 1, c: "#FF6A2A", a: 0.6, lw: 1.6, r0: 0.35, v: 1.7, life: [0.45, 0.45], anchor: "center", aspect: 1, over: 1 },
+        { at: 0.58, path: "radial", shape: "shard", n: 14, c: ["#C2001F", "#FF5A1F", "#7A0014"], anchor: "center", sp: [70, 160], sz: [1.4, 2.8], life: [0.6, 1], grav: 1.2, a: 0.95, over: 1, fitAll: 1 },
+        { at: 0.6, path: "radial", shape: "ember", n: 10, c: ["#FF7A2A", "#C2001F"], anchor: "center", sp: [40, 110], sz: [1.2, 2.2], life: [0.7, 1.2], grav: 0.8, a: 0.9, over: 1, fitAll: 1 },
       ] },
     layers: [
       // the iron ring — keyed gothic filigree, drawn centred; opaque outer
       // radius = 0.452 x sz (measured at conversion) = 1.45 rx here, sitting
-      // just inside the art burn at 1.5 rx. Swallowed at beat 2, back for 3.
-      { k: "orbit", n: 1, shape: "img", src: "/aura/blacksun-ring.webp", r: [0, 0], ctr: 1, w: [0, 0], sz: [3.2, 3.2], even: 1, rot: 0.015, a: 0.97, blend: "source-over", mDim: [[0, 1], [0.22, 0.75], [0.34, 0.1], [0.44, 0.55], [0.6, 1], [1, 1]], mScale: [[0, 1], [0.3, 0.97], [0.44, 1.03], [0.62, 1], [1, 1]] },
+      // just inside the art burn at 1.5 rx. The swell eats it; it re-emerges
+      // as the disc recedes.
+      { k: "orbit", n: 1, shape: "img", src: "/aura/blacksun-ring.webp", r: [0, 0], ctr: 1, w: [0, 0], sz: [3.2, 3.2], even: 1, rot: 0.015, a: 0.97, blend: "source-over", mDim: [[0, 1], [0.3, 0.65], [0.46, 0.15], [0.56, 0.05], [0.66, 0.55], [0.8, 1], [1, 1]], mScale: [[0, 1], [0.5, 0.98], [0.6, 1.04], [0.78, 1], [1, 1]] },
       // restored wing.webp (the original — treatment, not replacement):
-      // shadowfade bakes a dark gradient source-atop + feathers the rim so
-      // the white rough-cut dissolves into shadow. Wings fold through beat 1,
-      // snap wide at the blowout, silhouette black against the burn.
-      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.23, 0.07], [0.38, 0.08], [0.42, -0.05], [0.55, 0], [1, 0]], mScale: [[0, 1], [0.23, 0.72], [0.38, 0.72], [0.42, 1.14], [0.6, 1], [1, 1]], mR: [[0, 1], [0.23, 0.85], [0.4, 0.9], [0.62, 1], [1, 1]], mDim: [[0, 1], [0.32, 0.5], [0.4, 0.85], [0.5, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 3.2], [0.4, 3.2], [0.55, 1], [1, 1]], mMax: [[0, 1], [0.15, 1.7], [0.42, 1.7], [0.6, 1], [1, 1]] } },
-      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.23, -0.07], [0.38, -0.08], [0.42, 0.05], [0.55, 0], [1, 0]], mScale: [[0, 1], [0.23, 0.72], [0.38, 0.72], [0.42, 1.14], [0.6, 1], [1, 1]], mR: [[0, 1], [0.23, 0.85], [0.4, 0.9], [0.62, 1], [1, 1]], mDim: [[0, 1], [0.32, 0.5], [0.4, 0.85], [0.5, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 3.2], [0.4, 3.2], [0.55, 1], [1, 1]], mMax: [[0, 1], [0.15, 1.7], [0.42, 1.7], [0.6, 1], [1, 1]] } },
-      { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.70, 0.70], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over", mDim: [[0, 1], [0.35, 0.5], [0.5, 0.7], [0.75, 1], [1, 1]] },
+      // shadowfade darkens + feathers; treatRim bakes a crimson edge catch on
+      // the silhouette so the wings read against the void. During the swell
+      // they grow ~1.18 and beat three times (mRot oscillation) — the flap.
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", treatRim: { c: "#8A1018", dy: 0.02, a: 0.55 }, r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.08, 0], [0.14, 0.1], [0.22, -0.08], [0.3, 0.1], [0.38, -0.08], [0.46, 0.06], [0.54, -0.03], [0.62, 0], [1, 0]], mScale: [[0, 1], [0.1, 1], [0.5, 1.14], [0.62, 1.15], [0.8, 1], [1, 1]], mR: [[0, 1], [0.15, 1], [0.5, 0.9], [0.68, 0.95], [0.82, 1], [1, 1]], mDim: [[0, 1], [0.5, 0.92], [0.58, 0.85], [0.7, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 2.6], [0.52, 3], [0.68, 1.2], [1, 1]], mMax: [[0, 1], [0.15, 1.6], [0.52, 1.8], [0.68, 1.1], [1, 1]] } },
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", treatRim: { c: "#8A1018", dy: 0.02, a: 0.55 }, r: [1.1, 1.1], w: [0, 0], sz: [1.75, 1.75], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.08, 0], [0.14, -0.1], [0.22, 0.08], [0.3, -0.1], [0.38, 0.08], [0.46, -0.06], [0.54, 0.03], [0.62, 0], [1, 0]], mScale: [[0, 1], [0.1, 1], [0.5, 1.14], [0.62, 1.15], [0.8, 1], [1, 1]], mR: [[0, 1], [0.15, 1], [0.5, 0.9], [0.68, 0.95], [0.82, 1], [1, 1]], mDim: [[0, 1], [0.5, 0.92], [0.58, 0.85], [0.7, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 2.6], [0.52, 3], [0.68, 1.2], [1, 1]], mMax: [[0, 1], [0.15, 1.6], [0.52, 1.8], [0.68, 1.1], [1, 1]] } },
+      { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.70, 0.70], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over", mDim: [[0, 1], [0.4, 0.5], [0.56, 0.3], [0.8, 1], [1, 1]] },
       // deliberate crimson cinders — fewer shapes, larger and denser than
-      // the old white leaf fall so the band isn't empty between the rim
-      { k: "fall", n: 16, shape: "ember", c: ["#4A0A0A", "#C2001F", "#7A0014"], sp: [5, 11], sz: [2.6, 4.4], drift: 2, a: 0.85, xWrap: 1, xFade: 9, mDim: [[0, 1], [0.3, 0.3], [0.45, 0.3], [0.7, 1], [1, 1]] },
-      { k: "orbit", n: 5, shape: "glyph", c: ["#C2001F"], w: [0.16, 0.16], r: [1.16, 1.16], sz: [2.6, 2.6], even: 1, mSpin: [[0, 0], [0.3, 2], [0.45, 2], [0.7, 0], [1, 0]], mR: [[0, 1], [0.35, 0.7], [0.55, 0.8], [0.8, 1], [1, 1]], mDim: [[0, 1], [0.3, 0.4], [0.5, 0.6], [0.75, 1], [1, 1]] },
-      { k: "orbit", n: 14, shape: "ember", c: ["#C2001F", "#FF3A3A", "#7A0014"], w: [0.2, 0.42], r: [0.98, 1.14], sz: [1.4, 2.6], tw: 1, a: 0.9, mDim: [[0, 1], [0.28, 0.15], [0.5, 0.3], [0.7, 1], [1, 1]] },
+      // the old white leaf fall so the band isn't empty between the rim.
+      // Swallowed with the band, shed again at reassembly.
+      { k: "fall", n: 16, shape: "ember", c: ["#4A0A0A", "#C2001F", "#7A0014"], sp: [5, 11], sz: [2.6, 4.4], drift: 2, a: 0.85, xWrap: 1, xFade: 9, mDim: [[0, 1], [0.36, 0.5], [0.52, 0.12], [0.66, 0.6], [0.85, 1], [1, 1]] },
+      { k: "orbit", n: 5, shape: "glyph", c: ["#C2001F"], w: [0.16, 0.16], r: [1.16, 1.16], sz: [2.6, 2.6], even: 1, mSpin: [[0, 0], [0.45, 2], [0.6, 2], [0.85, 0], [1, 0]], mR: [[0, 1], [0.5, 0.7], [0.66, 0.9], [0.85, 1], [1, 1]], mDim: [[0, 1], [0.36, 0.4], [0.52, 0.15], [0.7, 0.7], [0.85, 1], [1, 1]] },
+      { k: "orbit", n: 14, shape: "ember", c: ["#C2001F", "#FF3A3A", "#7A0014"], w: [0.2, 0.42], r: [0.98, 1.14], sz: [1.4, 2.6], tw: 1, a: 0.9, mDim: [[0, 1], [0.36, 0.4], [0.52, 0.12], [0.66, 0.6], [0.85, 1], [1, 1]] },
     ],
     small: { scale: 0.5 } },
 };
@@ -1035,9 +1040,12 @@ export function auraImage(src, opts = {}) {
 //   "shadowfade" — pulls the sprite toward near-black, then feathers rim alpha
 //     to 0 over the outer ~28% of the box, so rough cutout edges dissolve into
 //     shadow instead of reading as a hard white fringe (blacksun wings, 7m).
-export function treatedSprite(rec, kind) {
+//   optional `rim` { c, dx, dy, a } — an edge catch: a rim-coloured silhouette
+//     shifted (dx,dy)·size then masked onto the sprite, so every edge facing
+//     that direction keeps a thin lit sliver (blacksun's red wing rim-light).
+export function treatedSprite(rec, kind, rim) {
   if (!rec?.ready || rec.failed || typeof document === "undefined") return null;
-  const key = `treated_${kind}`;
+  const key = `treated_${kind}${rim ? `_${rim.c}_${rim.dx}_${rim.dy}_${rim.a}` : ""}`;
   if (rec[key]) return rec[key];
   const img = rec.img, w = img.naturalWidth, h = img.naturalHeight;
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
@@ -1062,6 +1070,22 @@ export function treatedSprite(rec, kind) {
     fg.addColorStop(0, "rgba(0,0,0,1)"); fg.addColorStop(0.62, "rgba(0,0,0,1)"); fg.addColorStop(1, "rgba(0,0,0,0)");
     c.fillStyle = fg; c.fillRect(-w / 2, -w * 0.7, w, w * 1.4);
     c.restore();
+    if (rim) {
+      // rim light: silhouette minus its own (dx,dy)-shifted copy — a crescent
+      // on the edge facing the light, not a wash over the whole sprite
+      const t2 = document.createElement("canvas"); t2.width = w; t2.height = h;
+      const c2 = t2.getContext("2d");
+      c2.drawImage(img, 0, 0);
+      c2.globalCompositeOperation = "source-in";
+      c2.fillStyle = rim.c; c2.fillRect(0, 0, w, h);
+      c2.globalCompositeOperation = "destination-out";
+      c2.drawImage(img, (rim.dx || 0) * w, (rim.dy || 0) * h);
+      c.globalCompositeOperation = "source-atop";
+      c.globalAlpha = rim.a ?? 0.5;
+      c.drawImage(t2, 0, 0);
+      c.globalAlpha = 1;
+      c.globalCompositeOperation = "source-over";
+    }
   }
   rec[key] = cv;
   return cv;
@@ -1584,14 +1608,18 @@ function drawNullpointBlindfold(ctx, { time, clock, anchors, reduce, w, unit }, 
 // `art`; makeAura invokes the selected pass at the same point as before.
 export const AURA_ART = {
   blacksun: ({ g, over, pass, time, cx, cy, rx, ry, unit, w, h, moment, edgeHit, fx }) => {
-    // Umbra over pass: the swallowed sun is a dark disc over the photo itself,
-    // edged by the thin inverted-colour rim that survives the blackout.
+    // Umbra over pass: the dark centre swells OUTWARD from the photo, slowly
+    // and continuously, swallowing the band and the corona as it grows. At
+    // the peak the one detonation fires (spec bursts + single flash); the
+    // disc then recedes and the aura reassembles. The void's edge carries a
+    // thin crimson hairline so the swallow has a hard edge, not a fade.
     if (pass === "over") {
       if (!moment) return;
       const mt = moment.t;
-      // the disc cracks open at the flash beat (0.4) — overArt paints over
-      // the bursts and the wash, so the swallow must already be giving way
-      const dk = keyAt([[0, 0], [0.24, 0], [0.33, 1], [0.395, 1], [0.42, 0.25], [0.5, 0.4], [0.6, 0], [1, 0]], mt) ?? 0;
+      // swell 0→0.56: monotonic outward growth, accelerating as it eats the
+      // band. detonation at 0.58 (the moment spec's flash/bursts). the disc
+      // recedes 0.62→0.82 as the corona re-ignites underneath.
+      const dk = keyAt([[0, 0.9], [0.05, 0.95], [0.55, 0.97], [0.62, 0.95], [0.82, 0], [1, 0]], mt) ?? 0;
       if (dk <= 0.01) return;
       // the swallow disc is an ellipse (scale 1, ry/rx) — cap its radius
       // against BOTH the horizontal and the vertical frame margin so the
@@ -1599,22 +1627,22 @@ export const AURA_ART = {
       const swal = Math.min(1.62,
         (Math.min(cx, w - cx) - 5) / Math.max(rx, 1),
         (Math.min(cy, h - cy) - 5) / Math.max(ry, 1));
-      const dR = rx * (keyAt([[0, 0.55], [0.2, 0.55], [0.33, swal], [0.43, swal], [0.62, 0.58], [1, 0.55]], mt) ?? 0.55);
+      const dR = rx * (keyAt([[0, 0.55], [0.08, 0.57], [0.2, 0.66], [0.34, 0.86], [0.46, 1.14], [0.54, swal], [0.62, swal], [0.82, 0.55], [1, 0.55]], mt) ?? 0.55);
       const gg = over || g;
       gg.save();
       gg.translate(cx, cy); gg.scale(1, ry / rx);
       gg.globalAlpha = 0.97 * dk;
       gg.fillStyle = "#030303";
       gg.beginPath(); gg.arc(0, 0, dR, 0, Math.PI * 2); gg.fill();
-      // inverted-colour rim: pale hairline through the hold, flipping to the
-      // bleed red as the blowout beat lands
-      const rimA = keyAt([[0, 0], [0.28, 0], [0.36, 1], [0.52, 0.7], [0.66, 0], [1, 0]], mt) ?? 0;
-      const blow = keyAt([[0, 0], [0.38, 0], [0.44, 1], [0.62, 0], [1, 0]], mt) ?? 0;
+      // the void's edge: a deep crimson hairline while it swallows, going
+      // ember-hot for the detonation instant only — never bone, never magenta
+      const rimA = keyAt([[0, 0], [0.16, 0], [0.24, 0.75], [0.5, 0.9], [0.56, 1], [0.64, 0], [1, 0]], mt) ?? 0;
+      const blow = keyAt([[0, 0], [0.56, 0], [0.6, 1], [0.67, 0], [1, 0]], mt) ?? 0;
       if (rimA > 0.01) {
         gg.globalAlpha = rimA;
-        gg.strokeStyle = blow > 0.45 ? "#FDFBF6" : "#E8ECF4";
-        gg.lineWidth = Math.max(1, 1.7 * unit);
-        gg.shadowColor = gg.strokeStyle; gg.shadowBlur = 7 * unit;
+        gg.strokeStyle = blow > 0.4 ? "#FF6A2A" : "#7A0A12";
+        gg.lineWidth = Math.max(1, (1.7 + 1.3 * blow) * unit);
+        gg.shadowColor = gg.strokeStyle; gg.shadowBlur = 6 * unit;
         gg.beginPath(); gg.arc(0, 0, dR, 0, Math.PI * 2); gg.stroke();
       }
       gg.restore();
@@ -1623,19 +1651,21 @@ export const AURA_ART = {
     // main pass — the black sun itself. One void wash fills the band, and a
     // blinding perimeter burns just outside the iron ring's rim so the
     // filigree and the restored wings silhouette against it. Umbra keys: the
-    // burn is the swallowed rim — it dives to the photo edge as a thin line
-    // (beats 1–2), blows back out running inverted-crimson at the flash
-    // (beat 3), then settles bone-white (beat 4).
+    // corona is CONSUMED as the swell reaches it (dim + slight contraction
+    // 0.3→0.6), reignites at the detonation (0.62→0.72) and settles bone —
+    // one event, no pulsing on the way up.
     const mt = moment?.t ?? null;
     const frameX = Math.min(cx, w - cx), frameY = Math.min(cy, h - cy);
-    const washA = mt == null ? 0.97 : keyAt([[0, 0.97], [0.26, 1], [0.45, 1], [0.7, 0.97], [1, 0.97]], mt) ?? 0.97;
+    const washA = mt == null ? 0.97 : keyAt([[0, 0.97], [0.3, 1], [0.6, 1], [0.8, 0.97], [1, 0.97]], mt) ?? 0.97;
     // margin caps on BOTH axes: the burn and wash are drawn in scaled space
     // (y extent = r·ry), and keys can ask for more than the frame allows
     const corPad = Math.max(3, 11 * unit);
     const corCap = Math.max(0.6, Math.min((frameX - corPad) / rx, (frameY - corPad) / ry));
-    const corR = Math.min(mt == null ? 1.5 : keyAt([[0, 1.5], [0.2, 1.34], [0.3, 1.0], [0.39, 1.0], [0.45, 1.56], [0.62, 1.5], [1, 1.5]], mt) ?? 1.5, corCap);
-    const corA = mt == null ? 1 : keyAt([[0, 1], [0.26, 0.85], [0.33, 0.5], [0.4, 0.55], [0.45, 1], [1, 1]], mt) ?? 1;
-    const inv = mt == null ? 0 : keyAt([[0, 0], [0.44, 0], [0.5, 1], [0.94, 1], [1, 0]], mt) ?? 0;
+    const corR = Math.min(mt == null ? 1.5 : keyAt([[0, 1.5], [0.4, 1.44], [0.54, 1.3], [0.6, 1.32], [0.68, 1.56], [0.86, 1.5], [1, 1.5]], mt) ?? 1.5, corCap);
+    const corA = mt == null ? 1 : keyAt([[0, 1], [0.3, 0.9], [0.46, 0.35], [0.54, 0.08], [0.6, 0.06], [0.66, 0.95], [0.8, 1], [1, 1]], mt) ?? 1;
+    // a brief ember-hot rim right after the detonation, then bone — the only
+    // colour inversion left, and it lives inside the gothic palette
+    const inv = mt == null ? 0 : keyAt([[0, 0], [0.6, 0], [0.67, 0.9], [0.82, 0], [1, 0]], mt) ?? 0;
     // the burn can brush the border — attribute it for aura:edge
     if (Math.min(cx - corR * rx, w - cx - corR * rx, cy - corR * ry, h - cy - corR * ry) <= 1) edgeHit?.("art:corona", Math.round(corR * rx * 2));
     const gg = g;
@@ -1648,13 +1678,13 @@ export const AURA_ART = {
     vg.addColorStop(0, "rgba(2,1,3,0)"); vg.addColorStop(0.32, `rgba(3,2,4,${0.92 * washA})`); vg.addColorStop(0.8, `rgba(2,1,3,${0.99 * washA})`); vg.addColorStop(1, "rgba(2,1,3,0)");
     gg.fillStyle = vg;
     gg.beginPath(); gg.arc(0, 0, vR, 0, Math.PI * 2); gg.fill();
-    // the burn: blinding bone line + deep crimson bloom; the inverted phase
-    // swaps them — the swallowed ring returns running crimson. Bloom is two
-    // explicit low-alpha strokes, not shadowBlur — a blur tail has no hard
-    // edge and runs all the way to the border.
+    // the burn: blinding bone line + deep crimson bloom; the post-detonation
+    // phase swaps to an ember-red core for a beat. Bloom is two explicit
+    // low-alpha strokes, not shadowBlur — a blur tail has no hard edge and
+    // runs all the way to the border.
     const pulse = 0.86 + 0.14 * Math.sin(time * 1.9) * Math.sin(time * 0.83 + 1.3);
-    const core = inv > 0.5 ? "#FF2A1A" : "#FFFBF2";
-    const bloom = inv > 0.5 ? "#FFF2DC" : "#C2001F";
+    const core = inv > 0.5 ? "#FF5A1F" : "#FFFBF2";
+    const bloom = inv > 0.5 ? "#FFD9A0" : "#C2001F";
     gg.globalAlpha = corA * pulse * 0.18;
     gg.strokeStyle = bloom; gg.lineWidth = Math.max(2.5, 9.5 * unit);
     gg.beginPath(); gg.arc(0, 0, corR * rx, 0, Math.PI * 2); gg.stroke();
@@ -1668,7 +1698,6 @@ export const AURA_ART = {
     gg.shadowBlur = 0;
     // broken arcs licking just inside the burn — slow churn so the rim reads
     // as an uneven solar edge rather than a clean neon circle
-    gg.shadowBlur = 0;
     for (let i = 0; i < 3; i++) {
       const ph = i * 2.1 + time * 0.11 * (i + 1);
       gg.globalAlpha = corA * 0.34;
@@ -1676,6 +1705,17 @@ export const AURA_ART = {
       gg.lineWidth = Math.max(0.8, (2.6 - i * 0.7) * unit);
       gg.beginPath(); gg.arc(0, 0, (corR - 0.05) * rx, ph, ph + 0.9 + 0.3 * Math.sin(time * 0.7 + i)); gg.stroke();
     }
+    // iron edge catch: a thin crimson hairline on the filigree's outer rim
+    // (the sprite's measured 0.452 of a 3.2 sz = 1.446 rx) and a fainter one
+    // on its inner lip (0.295 => 0.944 rx). Steady-state nudge — dims with
+    // the corona as the swell swallows it.
+    const catchA = 0.55 + 0.45 * corA;
+    gg.globalAlpha = 0.18 * catchA;
+    gg.strokeStyle = "#B2121E"; gg.lineWidth = Math.max(0.8, 1.3 * unit);
+    gg.beginPath(); gg.arc(0, 0, 1.446 * rx, 0, Math.PI * 2); gg.stroke();
+    gg.globalAlpha = 0.1 * catchA;
+    gg.lineWidth = Math.max(0.7, 1 * unit);
+    gg.beginPath(); gg.arc(0, 0, 0.944 * rx, 0, Math.PI * 2); gg.stroke();
     gg.restore();
     return { freeze: false };
   },
@@ -3137,6 +3177,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   // longer moment; board-size canvases get the small version.
   const mScale = (w * h) >= 110 * 110 ? 2.5 : (w * h) >= 80 * 80 ? 1.5 : 1;
   const mdur = fx.moment ? fx.moment.dur * (mScale >= 2.5 ? 1.35 : 1) : 0;
+  let mdurNow = mdur;
   let momentAt = fx.moment ? rnd(0.4, (fx.moment.every || [6, 10])[1]) : 0;
   let flareAt = fx.flare ? rnd(...fx.flare.every) : 0;
   let momentT = null, momentFired = null, momentParts = [];
@@ -3266,7 +3307,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
       if (!rec?.ready || rec.failed) return null;
       // treated sprites feather their rim — spawn wisps from the treated
       // silhouette so emitters don't sit out on the raw cutout edge
-      const timg = L.treat && treatedSprite(rec, L.treat);
+      const timg = L.treat && treatedSprite(rec, L.treat, L.treatRim);
       if (timg) {
         const k = `anchors_${L.treat}`;
         if (!rec[k]) rec[k] = imageEdgeAnchors(timg, S.anchors);
@@ -3484,7 +3525,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
           drawFrame(blend.available[blend.from], 1 - blend.alpha);
           if (blend.alpha > 0 && blend.to !== blend.from) drawFrame(blend.available[blend.to], blend.alpha);
         } else {
-          const img = (L.treat && treatedSprite(rec, L.treat)) || rec.img;
+          const img = (L.treat && treatedSprite(rec, L.treat, L.treatRim)) || rec.img;
           const aspect = (img.naturalWidth || img.width) / Math.max(1, img.naturalHeight || img.height);
           const iw0 = aspect >= 1 ? s : s * aspect, ih0 = aspect >= 1 ? s / aspect : s;
           const iw = iw0 * breathe, ih = ih0 * breathe;
@@ -3832,10 +3873,12 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
     if (fx.moment) {
       if (momentT == null) {
         momentAt -= dt;
-        if (momentAt <= 0) { momentT = 0; momentFired = new Set(); layers.forEach((st) => { st.flingAt = null; }); }
+        // reduceSlow (opt-in): under reduced motion the moment still plays but
+        // stretched — Umbra's swell slows instead of vanishing
+        if (momentAt <= 0) { momentT = 0; mdurNow = mdur * (api.reduce ? (fx.moment.reduceSlow ?? 1) : 1); momentFired = new Set(); layers.forEach((st) => { st.flingAt = null; }); }
       } else {
         momentT += dt;
-        const mt = momentT / mdur;
+        const mt = momentT / mdurNow;
         if (mt >= 1) { momentT = null; momentAt = rnd(...(fx.moment.every || [6, 10])); }
         else {
           api.moment = mt;

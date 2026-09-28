@@ -229,6 +229,17 @@ rather than a `r:[0,0]` sentinel):
   particle (blacksun's iron ring). Glyphring's existing 0 floor is unchanged.
 - `aura:lit --mtime T` — forces a moment and samples lit/contrast at moment-time T
   (used to prove Umbra beat 2 reaches measured near-black: bandMed 1.3 at T=0.33).
+- `treatRim: { c, dx, dy, a }` on treated img layers — bakes a rim-light crescent
+  (silhouette minus a shifted copy, composited source-atop) so a treated sprite
+  keeps a thin lit edge on one side. Steady-state nudge only; blacksun wings.
+- `moment.reduceSlow` — under reduced motion the moment still plays with its
+  duration multiplied (Umbra's swell slows 1.6x instead of vanishing); the
+  flash gate is unchanged — reduced motion still fires zero flashes.
+- `aura:moment-hue` — every-frame hue audit of the composited moment canvas;
+  fails if visibly saturated pixels in the 290–340° magenta band exceed 1.5%
+  of saturated pixels. Added when Umbra's additive shockring stack was found
+  to clamp crimson bursts to (255,0,B) magenta — fixed by `n: 1` on the burst
+  (the default 8 spawns 8 identical additive rings).
 
 **PENDING APPROVAL — R5 img-sprite cap amendment.** The ladder table caps R5 img
 sprites at ≤1.2·rx. Rebuilt blacksun exceeds it twice, deliberately:
