@@ -27,7 +27,7 @@
 //   aura:edge -- --baseline                A=baseline worktree (5181) vs
 //                                          B=current (5180) side by side
 import { createRequire } from "node:module";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { REPO, CURR_URL, CURR_PORT, BASE_URL, BASE_PORT, baselineDir, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
@@ -46,7 +46,10 @@ const args = process.argv.slice(2);
 const argVal = (f) => (args.includes(f) ? args[args.indexOf(f) + 1] : null);
 const BASELINE = args.includes("--baseline");
 const ONLY = argVal("--only")?.split(",").filter(Boolean)
-  || args.filter((a, i) => !a.startsWith("--") && !["--only"].includes(args[i - 1])).join(",").split(",").filter(Boolean);
+  || args.filter((a, i) => !a.startsWith("--") && !["--only", "--spec"].includes(args[i - 1])).join(",").split(",").filter(Boolean);
+// --spec file: { "id": <spec> } — replaces AURA_FX[id] in-page; spec-defined
+// ids (rework variants) scan even though they are not catalog auras.
+const specFile = argVal("--spec") ? JSON.parse(readFileSync(argVal("--spec"), "utf8")) : null;
 
 const SEEDS = [1, 2, 3];
 const GRID = [60, 90, 120, 150, 180, 210, 240];
@@ -83,13 +86,14 @@ const openPage = async (url) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.goto(`${url}/?auras=1`, { waitUntil: "domcontentloaded" });
-  await page.evaluate(() => Promise.all([import("/src/auras/AuraCanvas.jsx"), import("/src/auras/catalog.js")]).then(([m, cat]) => {
+  await page.evaluate((specFile) => Promise.all([import("/src/auras/AuraCanvas.jsx"), import("/src/auras/catalog.js")]).then(([m, cat]) => {
     if (m.AuraLoop.raf) cancelAnimationFrame(m.AuraLoop.raf);
     m.AuraLoop.raf = null; m.AuraLoop.set.clear();
     window.__mod = m; window.__cat = cat;
+    if (specFile) for (const [id, spec] of Object.entries(specFile)) m.AURA_FX[id] = spec;
     let rs = 0;
     window.__seed = (v) => { rs = v; Math.random = () => (rs = (Math.imul(rs, 1664525) + 1013904223) >>> 0) / 4294967296; };
-  }));
+  }), specFile);
   return { page, ctx };
 };
 
@@ -103,7 +107,7 @@ const known = await (async () => {
   await ctx.close();
   return ids;
 })();
-const list = (ONLY && ONLY.length ? ONLY : known).filter((id) => known.includes(id));
+const list = (ONLY && ONLY.length ? ONLY : known).filter((id) => known.includes(id) || (specFile && id in specFile));
 hline(`auras:    ${list.length}${ONLY?.length ? ` (--only ${ONLY.join(",")})` : ""}`);
 hline(`grid:     ${SEEDS.length} seeds x frames ${GRID.join("/")} + forced-moment pass, sizes ${SIZES.map((s) => s.label).join(", ")} — fresh page per aura`);
 

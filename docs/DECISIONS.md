@@ -191,3 +191,56 @@ FAIL**, because that configuration cannot occur in the app and must not constrai
 ladder. (The 13 ms fixed-set ring number from the Part 3 smoke run was this synthetic
 config; it is evidence, not a gate number.) `aura:perf --size ring` stays per-aura and
 informational, same as board.
+
+## Dark-aura contrast metric (phase 7m Part 4 redo — proposed, pending Brodan approval)
+
+lit% penalises exactly what a dark aura is trying to do — a near-black void with a
+blinding rim scores low while looking loud. `aura:lit --contrast` therefore adds a
+contrast triple measured on the ring-141 aura canvas at f120, alongside lit%:
+
+- `rimPk` — 95th-percentile alpha-weighted luminance of **band** pixels
+  (38 < r ≤ 70.5): how hot the brightest rim reads.
+- `coreMin` — 5th-percentile luminance of **disc** pixels (r ≤ 38, alpha ≥ 128):
+  how black the darkest solid floor gets.
+- `bandMed` — median band luminance: catches grey-haze mid-tones that the two
+  extremes alone miss.
+- `ratio` — rimPk / max(1, coreMin): the void-versus-corona separation.
+
+Proposed R5 dark-aura targets (ring-141, f120): `rimPk ≥ 150`, `coreMin ≤ 4`,
+`bandMed ≤ 20`, `ratio ≥ 40`. Calibration: approved eclipseheart runs
+rimPk 211 / coreMin 43.8 / bandMed 96.5 / ratio 4.8 — it is the *bright* R5 and must
+stay out of this class; vendetta (dark, dim rim) runs rimPk 50.6 / ratio 11.8 and
+would not pass, which is correct — it is a mid-tier dark aura, not an R5-dark.
+The metric is a floor, not a look guarantee: it certifies the void is black and the
+edge is hot; it does not judge composition, hue, or sprite quality.
+
+## Blacksun rebuild opt-ins and pending cap amendment (phase 7m Part 4 redo)
+
+Renderer additions are all opt-in; every non-opted aura stays byte-identical
+(verified by `aura:diff`: ascended/wheel clean after a RNG-consumption fix — the
+`r` floor must consume `rnd()` either way, so centred layers opt in via `ctr: 1`
+rather than a `r:[0,0]` sentinel):
+
+- `treat: "shadowfade"` on img layers — bakes a dark gradient source-atop plus a
+  rim alpha-feather once per src+kind; shadow-wisp anchors derive from the treated
+  silhouette. This is how the restored `wing.webp` loses its white rough-cut rim.
+- `dark` accepts `{ mid, ring }` — overrides the hardcoded purple dark-glow stops.
+- `ctr: 1` on orbit layers — drops the 0.5·rx orbit floor for a literally centred
+  particle (blacksun's iron ring). Glyphring's existing 0 floor is unchanged.
+- `aura:lit --mtime T` — forces a moment and samples lit/contrast at moment-time T
+  (used to prove Umbra beat 2 reaches measured near-black: bandMed 1.3 at T=0.33).
+
+**PENDING APPROVAL — R5 img-sprite cap amendment.** The ladder table caps R5 img
+sprites at ≤1.2·rx. Rebuilt blacksun exceeds it twice, deliberately:
+
+- restored `wing.webp` at `sz 1.75` (≈1.75·rx span — Brodan asked for the original
+  wings back at their animating size; shrinking is what ruined the swap);
+- `blacksun-ring.webp` at `sz 3.2` (≈1.45·rx outer radius after the 0.452 trim
+  fraction — the wrought-iron ring is the aura's signature).
+
+Proposed wording: "R5 img sprites ≤1.2·rx, except `treat`-feathered or
+signature-ring sprites up to ≤1.8·rx that pass the edge rule at all four sizes."
+Evidence for the exception: `aura:edge` all-PASS at crew52/board59/ring141/
+figure128x163 — worst steady hard 0px, worst moment run 6px clearing in 0.03s.
+`wing-blacksun.webp` (the rejected sprite) is referenced by no aura and is left
+in `public/` unused per instruction.

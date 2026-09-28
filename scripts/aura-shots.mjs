@@ -124,7 +124,9 @@ const known = await page.evaluate(() => {
   const resolve = cat.resolveAuraId || ((id) => id);
   return cat.AURAS.map((a) => a.id).filter((id) => m.AURA_FX[resolve(id)]);
 });
-const list = (auras || known).filter((id) => known.includes(id));
+// --spec-defined ids (e.g. rework variants like blacksunv1) render even though
+// they are not catalog auras — the spec replaces AURA_FX[id] wholesale in-page.
+const list = (auras || known).filter((id) => known.includes(id) || (specFile && id in specFile));
 if (MODE) hline(`auras:    ${list.length}${STRIP ? ` (--strip ${STRIP.join(",")})` : ONLY ? ` (--only ${ONLY.join(",")})` : ""}`);
 
 if (MODE === "shots" && STRIP) {

@@ -120,7 +120,9 @@ Staggered re-ignition is twinkle, not flash. Reduced motion: beat 3 becomes a 0.
 Reuses the wings, colorCycle ring, shadow wisps, dark disc. Ring read: wings occupy the halo
 band left and right of the photo; the swallow reads as the band going black. Reduced motion:
 wings open slowly, no flash. **The wings must come inside the R5 sprite cap (≤1.2 rx; 1.75 rx
-today) and inside the edge rule.**
+today) and inside the edge rule.** *(Amended pending approval — rebuilt blacksun keeps the
+restored `wing.webp` at 1.75 rx plus the iron ring at ≈1.45 rx; proposed wording and edge-rule
+evidence are in DECISIONS.md "pending cap amendment".)*
 
 ---
 
