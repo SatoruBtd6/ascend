@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { PRESENCE_MS, checkGymPin, pingActive, presenceActive } from "../../math.js";
+import { PRESENCE_MS, checkGymPin, pingActive, presenceActive, presenceSweepAction } from "../../math.js";
 import { C } from "../../theme.js";
 import { casPres, ghostBundle, patchGhost, readPres } from "../train/raidIO.js";
 import { readCrew } from "./crewIO.js";
@@ -30,9 +30,10 @@ export function GymCheckBtn({ s, setS }) {
     let stop = false;
     const watch = async () => {
       if (stop) return;
-      if (!s.test && !pinReady) return;
       const pin = s.test ? ghostBundle(s).gym : crewGym;
-      if (!pin) { await stampPresence(s, setS, Date.now(), true); setMsg("Crew gym isn't set yet."); return; }
+      const act = presenceSweepAction({ here, test: s.test, pinReady, pin });
+      if (act === "skip") return;
+      if (act === "drop") { await stampPresence(s, setS, Date.now(), true); setMsg("Crew gym isn't set yet."); return; }
       try {
         const pos = await getGps({ test: s.test, gym: pin });
         const chk = checkGymPin(pos, pin);

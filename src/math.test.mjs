@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, BW_END_STEPS, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, migrateAuraIds, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, creditBreakdown, round2, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, BW_END_STEPS, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, migrateAuraIds, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, creditBreakdown, round2, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy, workoutDupes, presenceSweepAction, updateReloadBlocked } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -1462,3 +1462,63 @@ test("miles and volume stay on the session list while workout progress is credit
 });
 
 
+
+test("workoutDupes: byte-identical same-id copies are removable", () => {
+  const w = { id: "a1", date: "2026-09-21", minutes: 42, xp: 100, exercises: [{ name: "Walking", sets: [{ w: 0, r: 60, done: true }] }] };
+  const list = [w, { ...w }, { ...w }];
+  const d = workoutDupes(list);
+  assert.equal(d.idSame.length, 1);
+  assert.equal(d.idDiff.length, 0);
+  assert.equal(d.bodySame.length, 0);
+  assert.equal(d.removable.size, 2);
+  const kept = list.filter((_, i) => !d.removable.has(i));
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].id, "a1");
+});
+
+test("workoutDupes: same id with differing copies is never auto-removed", () => {
+  const w = { id: "a1", date: "2026-09-21", minutes: 40, xp: 100 };
+  const list = [w, { ...w, minutes: 55, xp: 120 }];
+  const d = workoutDupes(list);
+  assert.equal(d.idDiff.length, 1);
+  assert.equal(d.idSame.length, 0);
+  assert.equal(d.removable.size, 0);
+});
+
+test("workoutDupes: identical-minus-id rows are removable", () => {
+  const base = { date: "2026-09-24", minutes: 40, xp: 100, startedAt: 5000, exercises: [{ name: "Push-up", sets: [{ r: 10, done: true }] }] };
+  const list = [{ id: "x1", ...base }, { id: "x2", ...base }];
+  const d = workoutDupes(list);
+  assert.equal(d.bodySame.length, 1);
+  assert.equal(d.idDiff.length, 0);
+  assert.equal(d.removable.size, 1);
+  assert.equal(d.removable.has(0), false);
+  assert.equal(d.removable.has(1), true);
+});
+
+test("workoutDupes: a genuine same-day repeat survives", () => {
+  const morning = { id: "x1", date: "2026-09-24", minutes: 30, xp: 90, startedAt: 1000, exercises: [{ name: "Push-up", sets: [{ r: 10, done: true }] }] };
+  const evening = { ...morning, id: "x2", minutes: 25, xp: 80, startedAt: 2000 };
+  const d = workoutDupes([morning, evening]);
+  assert.equal(d.removable.size, 0);
+  assert.equal(d.idSame.length + d.idDiff.length + d.bodySame.length, 0);
+});
+
+test("presenceSweepAction never drops a check-in while the gym pin is loading", () => {
+  assert.equal(presenceSweepAction({ here: true, test: false, pinReady: false, pin: null }), "skip");
+  assert.equal(presenceSweepAction({ here: true, test: false, pinReady: true, pin: null }), "drop");
+  assert.equal(presenceSweepAction({ here: true, test: false, pinReady: true, pin: { lat: 1, lng: 2 } }), "gps");
+  assert.equal(presenceSweepAction({ here: false }), "skip");
+  assert.equal(presenceSweepAction({ here: true, test: true, pinReady: false, pin: null }), "drop");
+});
+
+test("updateReloadBlocked defers while anything live is running", () => {
+  const now = Date.now();
+  assert.equal(updateReloadBlocked({ now }), null);
+  assert.equal(updateReloadBlocked({ live: true, now }), "run");
+  assert.equal(updateReloadBlocked({ workout: true, now }), "workout");
+  assert.equal(updateReloadBlocked({ restEnd: now + 30000, now }), "rest");
+  assert.equal(updateReloadBlocked({ restEnd: now - 1000, now }), null);
+  assert.equal(updateReloadBlocked({ interval: true, now }), "interval-timer");
+  assert.equal(updateReloadBlocked({ typing: true, now }), "typing");
+});

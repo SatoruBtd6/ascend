@@ -3,6 +3,7 @@ import { ChevronLeft, Pause, Play, RotateCcw, Timer as TimerIcon } from "lucide-
 import { C } from "../../theme.js";
 import { Beeper, fmtClock } from "../train/beeper.js";
 import { IntervalStepper } from "./IntervalStepper.jsx";
+import { INTERVAL_RUN_KEY } from "../../appStay.js";
 export function IntervalTimer({ visible, onBack, onOpen }) {
   const [work, setWork] = useState(20);
   const [rest, setRest] = useState(10);
@@ -37,6 +38,14 @@ export function IntervalTimer({ visible, onBack, onOpen }) {
   }, [run?.paused, run?.phase, !!run]);
 
   const releaseWake = () => { try { wakeRef.current?.release(); } catch (e) { /* ignore */ } wakeRef.current = null; };
+  // 7o B2: heartbeat while a session is live (incl. paused) so the update
+  // auto-reload knows to defer. Freshness-limited on the read side.
+  useEffect(() => {
+    try {
+      if (run && run.phase !== "done") localStorage.setItem(INTERVAL_RUN_KEY, String(Date.now()));
+      else localStorage.removeItem(INTERVAL_RUN_KEY);
+    } catch (e) { /* private mode */ }
+  }, [run]);
   useEffect(() => { if (run && run.phase !== "done") document.title = `${run.paused ? "❚❚" : "⏱"} ${run.phase === "work" ? "Work" : run.phase === "rest" ? "Rest" : "Ready"} ${fmtClock(run.left)} · Ascend`; else document.title = "Ascend"; }, [run?.left, run?.phase, run?.paused]);
   useEffect(() => () => releaseWake(), []);
 

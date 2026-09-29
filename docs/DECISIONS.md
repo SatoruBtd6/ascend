@@ -73,7 +73,7 @@ The strike flash uses `lighter` and a radial gradient that falls off to transpar
 
 ## Update reload
 
-`reloadForUpdate` saves the live run (`saveLive`), writes `ascend-pending` synchronously, and only then reloads. If that write throws, it does not reload. The app never auto-reloads. The service-worker banner and the in-app **Update now** button both use this function.
+`reloadForUpdate` saves the live run (`saveLive`), writes `ascend-pending` synchronously, and only then reloads. If that write throws, it does not reload. The service-worker banner and the in-app **Update now** button both use this function. Since 7o, once a new bundle is detected the app also auto-reloads the next time the page hides, but only while `updateReloadBlocked` returns null — a live run, an unsaved workout (`s.active`), a running rest or interval timer, or a half-typed field defers it to a later hide. The hidden reload stashes `ascend-return-tab` in sessionStorage so the user lands back on the same tab.
 
 ## Service-worker caches
 

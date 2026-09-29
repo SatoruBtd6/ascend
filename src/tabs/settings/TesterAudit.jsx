@@ -4,7 +4,8 @@ import { fmtDay } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
 import { mealTotals } from "../../lib/stats.js";
 import { SB_URL, XpSync } from "../../lib/xpSync.js";
-import { creditBreakdown, levelFromXp, round2 } from "../../math.js";
+import { creditBreakdown, levelFromXp, round2, workoutDupes } from "../../math.js";
+import { recountXp } from "../train/xpRecount.js";
 import { C } from "../../theme.js";
 import { CreditLedger } from "./CreditLedger.jsx";
 
@@ -53,26 +54,25 @@ export function TesterAudit({ onBack }) {
     () => Object.entries(st?.meals || {}).filter(([, m]) => (m || []).length).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 14),
     [st]
   );
-  // 7o Part 1A: count duplicate workout rows two ways — same id (the pre-7n
-  // double-append) and same content under different ids. Read-only: nothing here
-  // writes back to the account.
+  // 7o Part 1A: classify duplicate workout rows — byte-identical copies (safe
+  // to thin), identical-minus-id rows (safe), and same-id copies that differ
+  // (manual review only — a resumed run can re-save richer data). Read-only:
+  // nothing here writes back to the account.
   const dupes = useMemo(() => {
     const ws = st?.workouts || [];
-    const byId = new Map(), byBody = new Map();
-    ws.forEach((w, i) => {
-      if (w?.id != null) { const g = byId.get(w.id) || []; g.push(i); byId.set(w.id, g); }
-      let body = null;
-      try { body = JSON.stringify({ ...w, id: undefined }); } catch { /* unstringifiable */ }
-      if (body) { const g = byBody.get(body) || []; g.push(i); byBody.set(body, g); }
-    });
-    const idGroups = [...byId.values()].filter((g) => g.length > 1);
-    const bodyGroups = [...byBody.values()].filter((g) => g.length > 1 && new Set(g.map((i) => ws[i]?.id)).size > 1);
-    const removed = new Set();
-    idGroups.forEach((g) => g.slice(1).forEach((i) => removed.add(i)));
-    bodyGroups.forEach((g) => g.slice(1).forEach((i) => removed.add(i)));
-    const creditLost = [...removed].reduce((a, i) => a + (creditBreakdown(st, ws[i], findEx)?.total || 0), 0);
-    const xpLost = [...removed].reduce((a, i) => a + (+ws[i]?.xp || 0), 0);
-    return { idGroups, bodyGroups, removed: removed.size, creditLost, xpLost };
+    const d = workoutDupes(ws);
+    const idx = [...d.removable];
+    const creditLost = idx.reduce((a, i) => a + (creditBreakdown(st, ws[i], findEx)?.total || 0), 0);
+    const xpFromRemoved = idx.reduce((a, i) => a + (+ws[i]?.xp || 0), 0);
+    let recountAfter = null, recountOther = 0;
+    if (idx.length) {
+      try {
+        const kept = ws.filter((_, i) => !d.removable.has(i));
+        recountAfter = recountXp({ ...st, workouts: kept }, { banner: false }).s.xp;
+        recountOther = (st.xp || 0) - recountAfter - xpFromRemoved;
+      } catch (e) { /* recount unavailable — show raw row totals only */ }
+    }
+    return { ...d, removedN: d.removable.size, creditLost, xpFromRemoved, recountAfter, recountOther };
   }, [st]);
   return (
     <div className="space-y-4">
@@ -100,24 +100,27 @@ export function TesterAudit({ onBack }) {
           <div className="panel p-4 flex items-center justify-between">
             <div>
               <div className="font-bold">{st.profile?.name || "(no name)"}</div>
-              <div className="body text-xs" style={{ color: C.dim }}>playerId {st.playerId || "?"} · Level {levelFromXp(st.xp || 0).lvl} · {(st.xp || 0).toLocaleString()} XP{st.test ? " · test account" : ""}{st.seenVersion ? ` · saw v${st.seenVersion}` : ""}</div>
+              <div className="body text-xs" style={{ color: C.dim }}>playerId {st.playerId || "?"} · Level {levelFromXp(st.xp || 0).lvl} · {(st.xp || 0).toLocaleString()} XP{st.test ? " · test account" : ""}{st.seenVersion ? ` · saw v${st.seenVersion}` : ""}{st.savedV ? ` · saved v${st.savedV}` : ""}</div>
             </div>
           </div>
 
           <div className="panel overflow-hidden">
             <div className="px-3 py-2 font-semibold text-sm" style={{ background: C.soft, borderBottom: `1px solid ${C.glassLine}` }}>Duplicate workouts</div>
-            {dupes.removed === 0 && <div className="px-3 py-2 body text-xs" style={{ color: C.mute }}>None — every workout row is distinct.</div>}
-            {dupes.removed > 0 && (
+            {dupes.removedN === 0 && dupes.idDiff.length === 0 && <div className="px-3 py-2 body text-xs" style={{ color: C.mute }}>None — every workout row is distinct.</div>}
+            {dupes.removedN > 0 && (
               <>
-                <div className="px-3 py-2 body text-xs" style={{ color: C.orange }}>{dupes.removed} duplicate row{dupes.removed === 1 ? "" : "s"}. Cleanup removes ≈{round2(dupes.creditLost)} credit and ≈{dupes.xpLost.toLocaleString()} XP after recount.</div>
-                {dupes.idGroups.map((g, i) => { const w = st.workouts[g[0]]; return (
-                  <div key={`id-${i}`} className="px-3 py-1.5 body text-xs" style={{ borderTop: `1px solid ${C.glassLine}` }}><span style={{ color: C.dim }}>same id</span> {String(w?.id).slice(0, 16)} · {fmtDay(w?.date)} · {w?.title || (w?.run ? "Run/walk" : "Workout")} <span style={{ color: C.orange }}>×{g.length}</span></div>
+                <div className="px-3 py-2 body text-xs" style={{ color: C.orange }}>{dupes.removedN} duplicate row{dupes.removedN === 1 ? "" : "s"} would be removed: ≈{round2(dupes.creditLost)} credit and ≈{dupes.xpFromRemoved.toLocaleString()} XP from the rows themselves.{dupes.recountAfter != null && <> Recount lands at {dupes.recountAfter.toLocaleString()} XP{dupes.recountOther ? <> — <span style={{ color: C.red }}>{dupes.recountOther > 0 ? "−" : "+"}{Math.abs(Math.round(dupes.recountOther)).toLocaleString()} XP beyond the removed rows (recount drift — flag this)</span></> : <>, no other recount drift</>}.</>}</div>
+                {dupes.idSame.map((g, i) => { const w = st.workouts[g[0]]; return (
+                  <div key={`id-${i}`} className="px-3 py-1.5 body text-xs" style={{ borderTop: `1px solid ${C.glassLine}` }}><span style={{ color: C.dim }}>same id, identical copies</span> {String(w?.id).slice(0, 16)} · {fmtDay(w?.date)} · {w?.title || (w?.run ? "Run/walk" : "Workout")} <span style={{ color: C.orange }}>×{g.length}</span></div>
                 ); })}
-                {dupes.bodyGroups.map((g, i) => { const w = st.workouts[g[0]]; return (
-                  <div key={`b-${i}`} className="px-3 py-1.5 body text-xs" style={{ borderTop: `1px solid ${C.glassLine}` }}><span style={{ color: C.dim }}>same content, different ids</span> · {fmtDay(w?.date)} · {w?.title || (w?.run ? "Run/walk" : "Workout")} <span style={{ color: C.orange }}>×{g.length}</span></div>
+                {dupes.bodySame.map((g, i) => { const w = st.workouts[g[0]]; return (
+                  <div key={`b-${i}`} className="px-3 py-1.5 body text-xs" style={{ borderTop: `1px solid ${C.glassLine}` }}><span style={{ color: C.dim }}>identical except id</span> · {fmtDay(w?.date)} · {w?.title || (w?.run ? "Run/walk" : "Workout")} <span style={{ color: C.orange }}>×{g.length}</span></div>
                 ); })}
               </>
             )}
+            {dupes.idDiff.map((g, i) => { const w = st.workouts[g[0]]; return (
+              <div key={`d-${i}`} className="px-3 py-1.5 body text-xs" style={{ borderTop: `1px solid ${C.glassLine}` }}><span style={{ color: C.red }}>manual</span> same id, copies differ {String(w?.id).slice(0, 16)} · {fmtDay(w?.date)} · {w?.title || (w?.run ? "Run/walk" : "Workout")} <span style={{ color: C.orange }}>×{g.length}</span></div>
+            ); })}
           </div>
 
           <div className="panel overflow-hidden">

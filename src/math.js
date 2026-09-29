@@ -515,6 +515,61 @@ export function pingActive(ping, now = Date.now()) {
   return !!(ping && presenceActive(ping.t, now));
 }
 
+// 7o Part 1C: the presence watch must not drop a live check-in while the crew
+// record (and its gym pin) is still loading — "pin not resolved yet" is not
+// "no gym". Returns "skip" | "drop" | "gps".
+export function presenceSweepAction({ here = false, test = false, pinReady = true, pin = null } = {}) {
+  if (!here) return "skip";
+  if (!test && !pinReady) return "skip";
+  if (!pin) return "drop";
+  return "gps";
+}
+
+// 7o Part 1B: an update may auto-reload only when nothing live would be lost.
+// Locking the phone mid-run hides the page, so "hidden" alone is not safe.
+// Returns the blocking reason or null.
+export function updateReloadBlocked({ live = false, workout = false, restEnd = 0, interval = false, typing = false, now = Date.now() } = {}) {
+  if (live) return "run";
+  if (workout) return "workout";
+  if (restEnd && restEnd > now) return "rest";
+  if (interval) return "interval-timer";
+  if (typing) return "typing";
+  return null;
+}
+
+// 7o Part 1A: classify duplicate workout rows three ways.
+//   idSame   — same id, every copy byte-identical (the pre-7n double-append).
+//   bodySame — JSON-identical once `id` is stripped, under different ids (e.g.
+//              a Train finish double-tap).
+//   idDiff   — same id but copies differ; a resumed run can re-save richer
+//              data, so these are never auto-picked — they need a manual call.
+// `removable` is the index set auto-cleanup would drop: every non-first member
+// of each idSame/bodySame group. A genuine same-day repeat survives because it
+// differs in startedAt/minutes/exercises.
+export function workoutDupes(list) {
+  const ws = Array.isArray(list) ? list : [];
+  const byId = new Map(), byBody = new Map();
+  ws.forEach((w, i) => {
+    if (w?.id != null) { const g = byId.get(w.id) || []; g.push(i); byId.set(w.id, g); }
+    let body = null;
+    try { body = JSON.stringify({ ...w, id: undefined }); } catch { /* unstringifiable */ }
+    if (body) { const g = byBody.get(body) || []; g.push(i); byBody.set(body, g); }
+  });
+  const idSame = [], idDiff = [], bodySame = [];
+  for (const g of byId.values()) {
+    if (g.length < 2) continue;
+    const canon = JSON.stringify(ws[g[0]]);
+    (g.every((i) => JSON.stringify(ws[i]) === canon) ? idSame : idDiff).push(g);
+  }
+  for (const g of byBody.values()) {
+    if (g.length > 1 && new Set(g.map((i) => ws[i]?.id)).size > 1) bodySame.push(g);
+  }
+  const removable = new Set();
+  idSame.forEach((g) => g.slice(1).forEach((i) => removable.add(i)));
+  bodySame.forEach((g) => g.slice(1).forEach((i) => removable.add(i)));
+  return { idSame, idDiff, bodySame, removable };
+}
+
 const copy = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
 
 export function raidPhase(raid, now = Date.now()) {

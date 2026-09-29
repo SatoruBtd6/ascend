@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, pendingKey, missedRaidClears, RAID_XP } from "./math.js";
+import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, pendingKey, missedRaidClears, RAID_XP, updateReloadBlocked } from "./math.js";
 import { Shield, Bot, Copy, Dumbbell, Swords, Utensils, User, CalendarDays, Crown } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
@@ -23,6 +23,7 @@ import { applyPrXpRecount, XP_VERSION } from "./tabs/train/xpRecount.js";
 import { XpSync } from "./lib/xpSync.js";
 import { loadLive, saveLive } from "./tabs/run/live.js";
 import { mergeSteps } from "./tabs/run/mergeSteps.js";
+import { readRestEnd } from "./tabs/train/rest.jsx";
 import { readRaidHist } from "./tabs/train/raidIO.js";
 import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHub, Board, ProfilePage, SettingsPage, Assistant, IntervalTimer, CardDeck, Confetti, Onboarding, XpLedger, CreditLedger, LazyBoundary, UpdateBanner, prefetchScreens, useSwReady, useBanner } from "./screenLoad.jsx";
 
@@ -42,7 +43,7 @@ import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHu
 
 
 
-import { DEFAULT, deviceUserId, readPending, writePending, clearPending, readVerifiedCopy, writeVerifiedCopy, WIPE_SAVE_NOTE, URGENT_SAVE, APP_VERSION, stateSizeKb, BACKUP_KEY, runningBundle } from "./appStay.js";
+import { DEFAULT, deviceUserId, readPending, writePending, clearPending, readVerifiedCopy, writeVerifiedCopy, WIPE_SAVE_NOTE, URGENT_SAVE, APP_VERSION, stateSizeKb, BACKUP_KEY, runningBundle, INTERVAL_RUN_KEY } from "./appStay.js";
 import { Status } from "./tabs/status/Status.jsx";
 import { Quests } from "./tabs/status/Quests.jsx";
 import { Calendar } from "./tabs/status/Calendar.jsx";
@@ -72,6 +73,20 @@ async function loadCommunity() {
 // XP for one set: effort (how much work relative to your personal S-rank line) × difficulty (which rank the set lands in)
 
 
+
+// 7o B2: an update that auto-reloads while the page is hidden puts the user
+// back on the tab they were on. Tabs needing extra pick state (profile,
+// muscle, exercise) or held mounts (timer, cards) are not restorable and fall
+// back to Status.
+const RETURN_TAB_KEY = "ascend-return-tab";
+const RETURNABLE_TABS = new Set(["status", "train", "quests", "fuel", "calendar", "ranks", "board", "run", "settings", "assistant"]);
+const readReturnTab = () => {
+  try {
+    const t = sessionStorage.getItem(RETURN_TAB_KEY);
+    if (t) { sessionStorage.removeItem(RETURN_TAB_KEY); if (RETURNABLE_TABS.has(t)) return t; }
+  } catch (e) { /* private mode */ }
+  return "status";
+};
 
 class TabErrorBoundary extends React.Component {
   constructor(props) {
@@ -123,7 +138,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [bootError, setBootError] = useState(null);
   const [bootTick, setBootTick] = useState(0);
-  const [tab, setTab] = useState("status");
+  const [tab, setTab] = useState(readReturnTab);
   const swReady = useSwReady();
   const timerHeld = useRef(false);
   const cardsHeld = useRef(false);
@@ -638,6 +653,14 @@ export default function App() {
     }
   }, [s.settings, loaded]);
 
+  // 7o B1: keep the bundle version in state so every save records which build
+  // wrote it (the audit view's "saved vX"). Fires once per version bump.
+  useEffect(() => {
+    if (!loaded) return;
+    if (sRef.current.savedV === APP_VERSION) return;
+    D.withSource("version", () => setS((p) => (p.savedV === APP_VERSION ? p : { ...p, savedV: APP_VERSION })));
+  }, [loaded]);
+
   const lbPublishAttempt = useRef(0);
   const lbPublishRetry = useRef(null);
   const publishLbCard = useCallback(async () => {
@@ -842,6 +865,30 @@ export default function App() {
     persistRef.current({ urgent: true });
     window.location.reload();
   };
+  // 7o B2: once a new bundle is known, reload automatically the next time the
+  // page hides — unless something live would be lost. Locking the phone
+  // mid-run hides the page, so a live run, an unsaved workout, a running
+  // rest/interval timer, or a half-typed field defers the reload to a later
+  // hide. The banner stays as the manual path.
+  useEffect(() => {
+    if (!updateReady) return;
+    const onVis = () => {
+      if (document.visibilityState !== "hidden") return;
+      let interval = false;
+      try { interval = (+localStorage.getItem(INTERVAL_RUN_KEY) || 0) > Date.now() - 4 * 3600 * 1000; } catch (e) { /* private mode */ }
+      const ae = document.activeElement;
+      const typing = !!(ae && (ae.isContentEditable || ae.tagName === "TEXTAREA" || (ae.tagName === "INPUT" && !/^(button|checkbox|radio|submit|range|color|file)$/.test(ae.type)))) ||
+        [...document.querySelectorAll("textarea")].some((t) => t.value);
+      const why = updateReloadBlocked({ live: !!liveNow.current, workout: !!sRef.current?.active, restEnd: readRestEnd(), interval, typing, now: Date.now() });
+      if (why) { D.push({ k: "update", st: "defer", why }); return; }
+      try { sessionStorage.setItem(RETURN_TAB_KEY, tab); } catch (e) { /* private mode */ }
+      D.push({ k: "update", st: "auto" });
+      wakeNextWorker();
+      reloadForUpdate();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [updateReady, tab]);
   applyTheme(s.settings);
   SFX.enabled = s.settings?.sounds !== false;
   try {
