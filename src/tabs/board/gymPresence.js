@@ -1,4 +1,4 @@
-import { RAID_NEED, applyRaidAction, prunePresence, raidPhase } from "../../math.js";
+import { GYM_RADIUS_M, RAID_NEED, applyRaidAction, checkGymPin, prunePresence, raidPhase } from "../../math.js";
 import { casPres, casRaid, patchGhost } from "../train/raidIO.js";
 export const IOS_LOC = "On iPhone: Settings → Privacy & Security → Location Services (on), then Settings → Apps → Safari → Location → Allow. Reload this page in Safari (not an in-app browser) and tap Allow when asked. The site has to be HTTPS.";
 export const fmtHMS = (sec) => {
@@ -30,6 +30,19 @@ export function locErrorText(err) {
   if (err?.code === 3) return "Location timed out. Try again in a spot with a clearer sky.";
   if (err?.message === "no-geo") return "This browser can't share location.";
   return "Couldn't get your location.";
+}
+// Shared by the Status toggle and the raid lobby: GPS-check against the crew pin, then stamp.
+export async function attemptCheckIn(s, setS, pin) {
+  if (!pin) return { ok: false, msg: s.test ? "Set a test gym on the crew tab." : "Your crew leader hasn't pinned a gym yet." };
+  try {
+    const pos = await getGps({ test: s.test, gym: pin });
+    const chk = checkGymPin(pos, pin);
+    if (!chk.ok) return { ok: false, msg: chk.reason === "too-far" ? `You have to be within ${GYM_RADIUS_M} m of the crew gym.` : "Crew gym isn't set yet." };
+    await stampPresence(s, setS, Date.now(), false);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, msg: locErrorText(e) };
+  }
 }
 export async function stampPresence(s, setS, t, drop = false) {
   const now = t || Date.now();

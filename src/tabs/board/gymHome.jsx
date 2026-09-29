@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { GYM_RADIUS_M, PRESENCE_MS, checkGymPin, pingActive, presenceActive } from "../../math.js";
+import { PRESENCE_MS, checkGymPin, pingActive, presenceActive } from "../../math.js";
 import { C } from "../../theme.js";
 import { casPres, ghostBundle, patchGhost, readPres } from "../train/raidIO.js";
 import { readCrew } from "./crewIO.js";
-import { fmtAgo, getGps, locErrorText, stampPresence } from "./gymPresence.js";
+import { attemptCheckIn, fmtAgo, getGps, locErrorText, stampPresence } from "./gymPresence.js";
 
 export function GymCheckBtn({ s, setS }) {
   const [busy, setBusy] = useState(false);
@@ -13,19 +13,25 @@ export function GymCheckBtn({ s, setS }) {
   const here = presenceActive(s.atGym, now);
   const gym = s.test ? ghostBundle(s).gym : null;
   const [crewGym, setCrewGym] = useState(gym);
+  // The crew record loads async — pinReady=false until it resolves. Dropping a live
+  // check-in because the pin hadn't arrived yet was the "toggle resets" half of the
+  // 7o raid bug: every remount while checked in read pin=null and dropped it.
+  const [pinReady, setPinReady] = useState(!!gym || s.test || !s.crew?.code);
   useEffect(() => {
-    if (s.test) { setCrewGym(ghostBundle(s).gym || null); return; }
-    if (!s.crew?.code) { setCrewGym(null); return; }
+    if (s.test) { setCrewGym(ghostBundle(s).gym || null); setPinReady(true); return; }
+    if (!s.crew?.code) { setCrewGym(null); setPinReady(true); return; }
     let stop = false;
-    readCrew(s.crew.code).then((rec) => { if (!stop) setCrewGym(rec?.gym || null); }).catch(() => {});
+    setPinReady(false);
+    readCrew(s.crew.code).then((rec) => { if (!stop) { setCrewGym(rec?.gym || null); setPinReady(true); } }).catch(() => { /* keep pinReady false: never drop on an unreadable crew record */ });
     return () => { stop = true; };
   }, [s.test, s.crew?.code, s.ghost?.gym]);
   useEffect(() => {
     if (!here) return;
-    const pin = s.test ? ghostBundle(s).gym : crewGym;
     let stop = false;
     const watch = async () => {
       if (stop) return;
+      if (!s.test && !pinReady) return;
+      const pin = s.test ? ghostBundle(s).gym : crewGym;
       if (!pin) { await stampPresence(s, setS, Date.now(), true); setMsg("Crew gym isn't set yet."); return; }
       try {
         const pos = await getGps({ test: s.test, gym: pin });
@@ -38,17 +44,15 @@ export function GymCheckBtn({ s, setS }) {
     watch();
     const id = setInterval(watch, 45000);
     return () => { stop = true; clearInterval(id); };
-  }, [here, s.test, s.crew?.code, crewGym?.lat, crewGym?.lng]);
+  }, [here, s.test, s.crew?.code, pinReady, crewGym?.lat, crewGym?.lng]);
   const tap = async () => {
     setBusy(true); setMsg("");
-    const pin = s.test ? ghostBundle(s).gym : crewGym;
-    if (!pin) { setMsg(s.test ? "Set a test gym on the crew tab." : "Your crew leader hasn't pinned a gym yet."); setBusy(false); return; }
-    try {
-      const pos = await getGps({ test: s.test, gym: pin });
-      const chk = checkGymPin(pos, pin);
-      if (!chk.ok) { setMsg(chk.reason === "too-far" ? `You have to be within ${GYM_RADIUS_M} m of the crew gym.` : "Crew gym isn't set yet."); setBusy(false); return; }
-      await stampPresence(s, setS, Date.now(), false);
-    } catch (e) { setMsg(locErrorText(e)); }
+    let pin = s.test ? ghostBundle(s).gym : crewGym;
+    if (!s.test && s.crew?.code && !pinReady) {
+      try { const rec = await readCrew(s.crew.code); pin = rec?.gym || null; setCrewGym(pin); setPinReady(true); } catch (e) { /* keep the cached pin */ }
+    }
+    const got = await attemptCheckIn(s, setS, pin);
+    if (!got.ok) setMsg(got.msg);
     setBusy(false);
   };
   const ping = async () => {

@@ -10,7 +10,7 @@ import { CrewBanner } from "../profile/profileWidgets.jsx";
 import { casPres, casRaid, ghostBundle, patchGhost, readPres, readRaid, readRaidHist } from "../train/raidIO.js";
 import { liveBoard } from "../train/social.js";
 import { crewCode, loadCrewRoster, readCrew, writeCrewMembership } from "./crewIO.js";
-import { fmtAgo, fmtHMS, getGps, locErrorText } from "./gymPresence.js";
+import { attemptCheckIn, fmtAgo, fmtHMS, getGps, locErrorText } from "./gymPresence.js";
 export function CrewQuests({ s, setS, rows, crew, code }) {
   const ws = weekStart();
   const myCard = useMemo(() => profileCard(s), [s]);
@@ -58,11 +58,25 @@ export function raidStatus(id, presence, raid, now) {
 export function RaidNight({ s, setS, crew, code, people, presence, raid, setRaid, ghost, gainXp }) {
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
+  const [ciBusy, setCiBusy] = useState(false);
   const [err, setErr] = useState("");
   const names = Object.fromEntries((people || []).map((p) => [p.id, p.name || "Teammate"]));
   names[s.playerId] = s.profile.name || "You";
   const n = Math.max(people?.length || 0, (crew?.members || []).length, 1);
-  const ctx = () => ({ playerId: s.playerId, now: Date.now(), presence, memberCount: n, ghostMode: !!ghost, ghostRaid: raid });
+  // My own presence is the remote stamp when it has landed, else the local check-in,
+  // so the panel reflects the Status toggle instead of waiting on the next presence poll.
+  const presNow = () => {
+    const me = Math.max(+(presence?.[s.playerId] || 0), +(s.atGym || 0));
+    return me ? { ...(presence || {}), [s.playerId]: me } : presence;
+  };
+  const ctx = () => ({ playerId: s.playerId, now: Date.now(), presence: presNow(), memberCount: n, ghostMode: !!ghost, ghostRaid: raid });
+  const gymPin = ghost ? ghostBundle(s).gym : crew?.gym;
+  const checkIn = async () => {
+    setCiBusy(true); setErr("");
+    const got = await attemptCheckIn(s, setS, gymPin);
+    if (!got.ok) setErr(got.msg);
+    setCiBusy(false);
+  };
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -100,9 +114,10 @@ export function RaidNight({ s, setS, crew, code, people, presence, raid, setRaid
   const live = raidActive(raid, now);
   const lobby = raidPhase(raid, now) === "lobby";
   const cd = lobby ? raidCountdownLeft(raid, now) : null;
-  const readyIds = Object.keys(raid?.ready || {}).filter((id) => raidStatus(id, presence, raid, now) === "ready");
+  const presM = presNow();
+  const readyIds = Object.keys(raid?.ready || {}).filter((id) => raidStatus(id, presM, raid, now) === "ready");
   const hostName = names[raid?.by] || "Host";
-  const myGym = presenceActive(presence?.[s.playerId], now);
+  const myGym = presenceActive(presM?.[s.playerId], now);
   const myReady = readyIds.includes(s.playerId);
   const canRaid = canProposeRaid(n);
   return (
@@ -113,7 +128,7 @@ export function RaidNight({ s, setS, crew, code, people, presence, raid, setRaid
       {lobby && (
         <div className="space-y-1">
           {(people || []).map((p) => {
-            const st = raidStatus(p.id, presence, raid, now);
+            const st = raidStatus(p.id, p.id === s.playerId ? presM : presence, raid, now);
             const label = st === "ready" ? "ready" : st === "at-gym" ? "at the gym" : "not here";
             const col = st === "ready" ? C.green : st === "at-gym" ? C.cyan : C.mute;
             return (
@@ -145,7 +160,8 @@ export function RaidNight({ s, setS, crew, code, people, presence, raid, setRaid
       {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
       <div className="flex flex-col gap-1.5">
         {!lobby && !live && canRaid && <button type="button" disabled={busy} onClick={() => act("propose")} className="btn w-full py-2.5 text-sm">Propose raid</button>}
-        {lobby && !myReady && <button type="button" disabled={busy || !myGym} onClick={() => act("ready")} className="btn w-full py-2.5 text-sm">{myGym ? "Ready" : "Check in at the gym to ready"}</button>}
+        {lobby && !myReady && !myGym && <button type="button" disabled={ciBusy} onClick={checkIn} className="btn w-full py-2.5 text-sm">{ciBusy ? "Checking…" : "Check in at the gym"}</button>}
+        {lobby && !myReady && myGym && <button type="button" disabled={busy} onClick={() => act("ready")} className="btn w-full py-2.5 text-sm">Ready</button>}
         {lobby && myReady && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm font-bold">Leave lobby</button>}
         {lobby && !myReady && raid?.in?.[s.playerId] && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm">Leave lobby</button>}
         {(lobby || (live && !raid.cleared)) && raid?.by === s.playerId && <button type="button" disabled={busy} onClick={() => act("cancel")} className="ghost w-full py-2 text-sm" style={{ color: C.red }}>Cancel raid</button>}
