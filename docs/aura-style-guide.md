@@ -1,9 +1,11 @@
-# Aura style guide (7k)
+# Aura style guide (7m)
 
-Standards for the aura revamp. Anchored on the two approved pilots:
-**ember = the Tier 1 standard**, **stormstep = the Tier 2 standard**.
+Standards for the aura ladder. **ember anchors R1, stormstep anchors R2** —
+neither changed in 7m. The seven approved 7m pilots are the live references:
+ironbound (R2), forge + standardbearer (R3), fallenlight + huntersmoon (R4),
+eclipseheart + blacksun (R5).
 
-## The ladder
+## The ladder (7m, five rungs)
 
 Measured on the ring view: `ring px` = particle footprint diameter in real
 pixels on the 76 px avatar (`sz × 0.92` at the 141 px render); `lit%` = share
@@ -12,17 +14,61 @@ the same measured with the ambient glow disc disabled — this is the number
 that actually separates auras, see below; `glow` = the spec's ambient disc
 alpha scale; `layers` = total spec layers incl. body-only.
 
-| axis | **Tier 1** — ember standard | **Tier 2** — stormstep standard | **Tier 3** — showcase |
-|---|---|---|---|
-| hero ring particle | 2.5–3.5 px | 3.5–4.5 px | 4.5–6.5 px |
-| glow | 0.75–0.85 | 1.0–1.15 | 1.3–1.55 |
-| layers | 3–4 | 4–5 | ≥ 5 |
-| signature | none — particle ring only | ONE: bolts, sweep, or art accent | several allowed (art, moments, rays, bolts) |
-| flashes | none | via `noteStrikeFlash` only | via `noteStrikeFlash` only |
+Numeric bands per rung. `sz` values are spec units; hero footprint ≈
+sz × unit × 5.2 (soft) / × 3.5 (hard) px on the 141 px ring render. Glow is
+the ambient disc alpha scale — hard ceiling **1.8 at every rung** (the
+gradient clips at glow × breathe ≈ 1.82; measured linear to there).
 
-The step anyone notices: T1 → T2 adds ~+0.3 glow (disc luminance ~85 → ~137),
-a visibly bigger hero shape, and one signature mechanic. T2 → T3 adds another
-~+0.3 glow, hero particles ~1.5–2 px larger again, and art/moment content.
+| axis | R1 quiet | R2 charged | R3 heavy | R4 showcase | R5 spectacle |
+|---|---|---|---|---|---|
+| glow | 0.70–0.85 | 1.00–1.15 | 1.15–1.25 | 1.35–1.50 | 1.55–1.75 |
+| soft hero sz (≥110 px) | ≤4.5 | ≤5.5 | ≤6.5 | ≤8.0 | ≤9.5, orbit ≤1.2 |
+| soft hero sz (`small:`) | ≤2.8 | ≤3.2 | ≤3.6 | ≤4.0 | ≤4.0 |
+| hard hero sz (≥110 px) | ≤5 | ≤7 | ≤9 | ≤10.5 | ≤12 |
+| hard hero sz (`small:`) | ≤4 | ≤5 | ≤5.5 | ≤6 | ≤6.5 |
+| img sprite hero (×rx) | none | ≤0.5, behind-photo only | ≤0.7 | ≤0.9 | ≤1.2 |
+| glyphring radius (×rx) | none | none | ≤0.4 | ≤0.5 | ≤0.5 |
+| ring particles N | 10–25 | 20–35 | 25–45 | 35–60 | 40–80 |
+| spec layers | 3–4 | 4–5 | 5–6 | 5–7 | ≥6 |
+| signatures | none | ONE | signature + accent; no new moments, no sweeps | ≥2 + moment + art | unrestricted; moment + art |
+
+**Signature sprite (amendment):** each aura may designate ONE sprite *asset*
+as its signature — all `img` layers sharing that `src` count as one — and the
+signature may exceed the rung's img cap. Its ceiling is the edge rule itself
+at all six sizes. Resolve order when it bites: pull orbit `r` inward, reduce
+bob/wobble, then shrink — **shrinking is the last resort, not the first**.
+`small:` may set the signature's `sz` independently of blanket `scale`.
+
+**Ceilings vs minimums.** For existing auras these rows are permitted
+ceilings — an aura may sit below its rung, never above it. For an aura built
+or reworked to a rung, the rows are minimums as well. Grandfathered
+exceptions, by name: `iaidraw` (sweep at R1), `steadybreath` (rings at R1),
+`nullpoint` (no moment at R4), `yogurt` (no signature at R5).
+
+### Membership
+
+| Rung | Members |
+|---|---|
+| **R1** | crate uncommon: sigil, steadybreath, iaidraw · rank 1–2: ember, tide |
+| **R2** | crate epic: glassfire, stormstep, zeropoint, ninetail, ironbound · rank 3: storm |
+| **R3** | feat: smolder, stormborn, dawn, wanderer, atlas, forge, standardbearer · boss: wyrm, frost, abyss, chud, rust, thunder, hollow, deep, magma, plague, sand, void · crate legendary: ledger, ossuary, redline, bonewright · rank 4: inferno |
+| **R4** | crate mythic: nullpoint, carve, brandmark, fallenlight · rank 5: halo · special: huntersmoon |
+| **R5** | special: yogurt, vendetta, ascended, wheel, champion · crate gilded: eclipseheart · crate secret: blacksun · rank 6: godray |
+
+`soon_throne` and `soon_seraphim` are unassigned placeholders.
+
+### `small:` — the size scope
+
+`small:` is an opt-in size block (`w < 110` — crew 52, leaderboard 59, duel
+67, studio 88) that merges on top of the active view block in either mode:
+base → `circle`/`body` → `small`. It may change **size, count and speed
+only** — never palette, shapes, signatures or art selection — enforced by
+`validateSpec`. `small: { scale: k }` is the one-number opt-in (multiplies
+`sz`/`n`, stacking with per-layer `small.scale`); explicit keys beat `scale`
+for their field. `treatRim` is allowed inside `small:` for rim appearance
+only — a dark silhouette needs more rim at 52 px than at 141 px. Specs
+without `small:` are byte-identical at every size. See `DECISIONS.md` for
+the full semantics and the three amendments.
 
 ### Why lit% is a floor, not a tier metric
 

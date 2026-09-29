@@ -97,11 +97,44 @@ export const P7M_FAIL_EXEMPT = new Set([
 
 export const STRESS_SETS = { fixed: FIXED, ledger: LEDGER, revamp: REVAMP, ring: RING, spectacle: SPECTACLE };
 
+// AURA_RUNG (7m): every aura's ladder rung, mirroring the membership table in
+// docs/phase-7m-ladder.md. soon_throne/soon_seraphim are placeholders —
+// unassigned, untouched. Used by the per-rung ratio budget in aura:perf.
+export const AURA_RUNG = {
+  // R1 quiet
+  sigil: 1, steadybreath: 1, iaidraw: 1, ember: 1, tide: 1,
+  // R2 charged
+  glassfire: 2, stormstep: 2, zeropoint: 2, ninetail: 2, ironbound: 2, storm: 2,
+  // R3 heavy
+  smolder: 3, stormborn: 3, dawn: 3, wanderer: 3, atlas: 3, forge: 3,
+  standardbearer: 3, wyrm: 3, frost: 3, abyss: 3, chud: 3, rust: 3, thunder: 3,
+  hollow: 3, deep: 3, magma: 3, plague: 3, sand: 3, void: 3, ledger: 3,
+  ossuary: 3, redline: 3, bonewright: 3, inferno: 3,
+  // R4 showcase
+  nullpoint: 4, carve: 4, brandmark: 4, fallenlight: 4, halo: 4, huntersmoon: 4,
+  // R5 spectacle
+  yogurt: 5, vendetta: 5, ascended: 5, wheel: 5, champion: 5,
+  eclipseheart: 5, blacksun: 5, godray: 5,
+};
+
+// Per-rung ratio budgets (7m Part 7 item K) — aura median / stormstep median,
+// WARN when an aura costs more than its rung's proven maximum. Derived from
+// the seven pilot auras' measured medians at both sizes: each line is ~10%
+// above the costliest approved member of that rung, rounded up. R1 has no
+// pilot (pilots span R2–R5), so its line is ~10% over the costliest EXISTING
+// R1 member instead — tide, 0.84x board / 1.15x ring. Replaces the flat 1.3x
+// line, which every R5 aura violated by design and so warned on nothing.
+// stormstep (R2, the ref) is always exempt by position. Unassigned auras
+// fall back to the old 1.3 line.
+export const RUNG_RATIO_BUDGET = {
+  board: { 1: 0.95, 2: 1.3, 3: 1.7, 4: 3.5, 5: 5.5 },
+  ring: { 1: 1.3, 2: 1.3, 3: 2.7, 4: 3.6, 5: 4.5 },
+};
+
 // Session-relative perf policy (D15, phase 7l).
 // PERF_REF: measured on every aura:perf run, even when not in --only. The
-//   ratio budget is WARN-only: aura median / ref median > 1.3 (~0.6 ms on a
-//   quiet day, stormstep ~0.464). Provisional — revisit after cross-day data
-//   from the next aura phase.
+//   ratio WARN is per-rung (RUNG_RATIO_BUDGET above); RATIO_BUDGET remains the
+//   fallback for auras with no assigned rung.
 export const PERF_REF = "stormstep";
 export const RATIO_BUDGET = 1.3;
 // The FAIL rule is perf --ab: current vs the pinned baseline in one session,

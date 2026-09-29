@@ -1428,7 +1428,6 @@ function drawCarveSigil(c, { cx, cy, rx, ry, unit, w, h, t, small }) {
     }
     }
   }
-  c.save(); c.globalCompositeOperation = "lighter"; c.lineCap = "round";
   // 2) climax bloom: a massive pink swell behind the blast — local to the
   // ring (the page-wide pink wash is the gated flash in the spec); baked
   // once, drawn scaled — no per-frame gradient allocation

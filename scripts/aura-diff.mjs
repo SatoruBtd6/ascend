@@ -65,7 +65,11 @@ const SPECFILE = args.includes("--spec") ? JSON.parse(readFileSync(args[args.ind
 let page, ctx;
 
 async function newPage(useSpec = true) {
-  if (page) await page.close();
+  // Close the whole context, not just the page — an unclosed context keeps its
+  // canvases, decoded images and RAF loop alive, and ~50 leaked galleries per
+  // phase is the pressure behind the ninetail board32 raster blip.
+  if (ctx) { await ctx.close().catch(() => {}); ctx = null; page = null; }
+  else if (page) { await page.close(); page = null; }
   const spec = useSpec ? SPECFILE : null;
   ctx = await browser.newContext();
   page = await ctx.newPage();
@@ -108,6 +112,31 @@ async function warmPage() {
   }, ONLY);
 }
 
+// Moment-only auraImage calls (vendetta's skull) never fire during the steady
+// warm or the per-cell registration frame — they register when the moment
+// plays, after the cell's image wait, so their readiness raced the captures
+// (the wheel/carve m75 over-canvas blip class). Play the subject aura's
+// moment once per page, in all three geometries, then wait again.
+async function warmMoment(aura) {
+  return page.evaluate(async (aura) => {
+    const mod = window.__mod;
+    if (!mod.AURA_FX[aura]?.moment) return;
+    const mk = (w, h, mode) => {
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      const ov = document.createElement("canvas"); ov.width = w; ov.height = h;
+      return mod.makeAura(cv, { aura, w, h, mode, ringR: Math.min(w, h) / 3.456, overCanvas: mod.auraNeedsOver(aura) ? ov : null, figure: mode === "body" ? "/avatars/E.webp" : undefined });
+    };
+    window.__seed(0x222);
+    for (const [w, h, mode] of [[128, 163, "body"], [141, 141, "circle"], [59, 59, "circle"]]) {
+      const inst = mk(w, h, mode);
+      if (!inst?.forceMoment) continue;
+      inst.forceMoment();
+      for (let k = 0; k < 600; k++) inst.frame(1 / 60);
+    }
+    for (let t = 0; t < 600; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
+  }, aura);
+}
+
 // Switch origin + fresh page + warm. useSpec=false keeps --spec off the
 // baseline side in run mode (it must capture the worktree's real specs).
 const phaseInit = async (url, useSpec = true) => { base = url; await newPage(useSpec); return warmPage(); };
@@ -130,6 +159,7 @@ const captureCell = (aura, label, mode, w, h) => page.evaluate(async ({ aura, la
   if (!inst) return { aura, label, skipped: true };
   inst.frame(1 / 60); window.__fakeStep(); // registers lazy image records
   for (let t = 0; t < 400; t++) { if ([...mod._auraImageCache.values()].every((r) => r.ready || r.failed)) break; await new Promise((r) => setTimeout(r, 25)); }
+  const preImgs = new Set(mod._auraImageCache.keys());
   // Kill ambient ticking: gallery components mounted by ?auras=1 hold live
   // instances that fire on real RAF during our awaits, consuming the seeded
   // RNG and claiming the shared page flash budget between cells.
@@ -151,7 +181,14 @@ const captureCell = (aura, label, mode, w, h) => page.evaluate(async ({ aura, la
     if (i === 119) snap("f150");
     if (i === 299) snap("end");
   }
-  return { aura, label, caps };
+  // Image-state ledger: a capture that ran against a pending image, or whose
+  // registry differs from the other side's, is a harness fault, not a pixel
+  // diff — it must be flagged so the verdict can demand a rerun instead of
+  // silently passing or failing on contaminated evidence.
+  const imgs = {};
+  for (const [k, r] of mod._auraImageCache) imgs[k] = r.ready ? 1 : r.failed ? -1 : 0;
+  const late = [...mod._auraImageCache.keys()].filter((k) => !preImgs.has(k));
+  return { aura, label, caps, imgs, late };
 }, { aura, label, mode, w, h });
 
 const dec = (b64) => (b64 == null ? null : Buffer.from(b64, "base64"));
@@ -161,29 +198,35 @@ const loadBefore = (f) => {
   for (const line of readFileSync(f, "utf8").split("\n")) {
     if (!line.trim()) continue;
     const c = JSON.parse(line);
-    before.set(c.aura + "|" + c.label, c.caps);
+    before.set(c.aura + "|" + c.label, c);
   }
   return before;
 };
 // Diff one aura across all three geoms vs its captured baseline cells.
 const compareAura = async (aura, before) => {
   const cells = [];
-  let totAll = 0;
+  let totAll = 0, harness = 0;
   for (const [label, mode, w, h] of GEOMS) {
-    const ac = (await captureCell(aura, label, mode, w, h)).caps;
+    const ac0 = await captureCell(aura, label, mode, w, h);
+    const ac = ac0.caps;
     const bc = before.get(aura + "|" + label);
     if (!bc || !ac) { cells.push(`${label}: SKIP`); continue; }
+    const bits = [];
+    if (ac0.late?.length) bits.push(`late-img(${ac0.late.join(";")})`);
+    if (ac0.imgs && Object.values(ac0.imgs).includes(0)) bits.push("img-pending");
+    if (bc.imgs && ac0.imgs && JSON.stringify(bc.imgs) !== JSON.stringify(ac0.imgs)) bits.push("img-state-differs");
     let tot = 0, mx = 0, totM = 0, totO = 0; const frameList = [];
     for (const tag of Object.keys(ac)) {
-      const dm = diff(dec(bc[tag]?.main) || Buffer.alloc(0), dec(ac[tag].main));
-      const dov = bc[tag]?.over != null && ac[tag].over != null ? diff(dec(bc[tag].over), dec(ac[tag].over)) : { n: 0, mx: 0 };
+      const dm = diff(dec(bc.caps[tag]?.main) || Buffer.alloc(0), dec(ac[tag].main));
+      const dov = bc.caps[tag]?.over != null && ac[tag].over != null ? diff(dec(bc.caps[tag].over), dec(ac[tag].over)) : { n: 0, mx: 0 };
       tot += dm.n + dov.n; totM += dm.n; totO += dov.n; if (dm.mx > mx) mx = dm.mx; if (dov.mx > mx) mx = dov.mx;
       frameList.push(dm.n + dov.n > 0 ? `${tag}:${dm.n}+${dov.n}o` : tag);
     }
     totAll += tot;
-    cells.push(`${label}[${frameList.join(" ")}]=${tot}${tot ? ` (main ${totM} over ${totO})` : ""}${mx ? " max" + mx : ""}`);
+    if (tot && bits.length) harness++;
+    cells.push(`${label}[${frameList.join(" ")}]=${tot}${tot ? ` (main ${totM} over ${totO})` : ""}${mx ? " max" + mx : ""}${bits.length ? " HARNESS:" + bits.join(",") : ""}`);
   }
-  return { cells, tot: totAll, marker: cells.some((c) => !c.endsWith("=0") && !c.endsWith("SKIP")), skipped: cells.some((c) => c.endsWith("SKIP")) };
+  return { cells, tot: totAll, harness, marker: totAll > 0, skipped: cells.some((c) => c.endsWith("SKIP")) };
 };
 
 if (cmd === "capture") {
@@ -192,6 +235,7 @@ if (cmd === "capture") {
   const ws = createWriteStream(file);
   for (const aura of list) {
     if (FRESH) { await newPage(); await warmPage(); }
+    await warmMoment(aura);
     for (const [label, mode, w, h] of GEOMS) {
       const cell = await captureCell(aura, label, mode, w, h);
       ws.write(JSON.stringify(cell) + "\n");
@@ -207,8 +251,9 @@ if (cmd === "capture") {
   let bad = 0;
   for (const aura of list) {
     if (FRESH) { await newPage(); await warmPage(); }
+    await warmMoment(aura);
     const r = await compareAura(aura, before);
-    const marker = r.marker ? "  <-- DIFF" : "";
+    const marker = r.marker ? `  <-- DIFF${r.harness ? " (harness suspect — rerun)" : ""}` : "";
     if (marker) bad++;
     console.log(`${aura.padEnd(14)} ${r.cells.join(" | ")}${marker}`);
   }
@@ -221,7 +266,7 @@ if (cmd === "capture") {
   const capFile = join(evDir, "baseline.jsonl");
   const ws = createWriteStream(capFile);
   for (const aura of list) {
-    await newPage(false); await warmPage();
+    await newPage(false); await warmPage(); await warmMoment(aura);
     for (const [label, mode, w, h] of GEOMS) {
       ws.write(JSON.stringify(await captureCell(aura, label, mode, w, h)) + "\n");
       process.stdout.write(".");
@@ -235,10 +280,10 @@ if (cmd === "capture") {
   let fails = 0, exp = 0;
   const lines = [];
   for (const aura of list) {
-    await newPage(); await warmPage();
+    await newPage(); await warmPage(); await warmMoment(aura);
     const r = await compareAura(aura, before);
     const verdict = r.skipped ? "FAIL couldn't compare"
-      : r.marker ? (EXPECT?.has(aura) ? `EXPECTED-DIFF ${r.tot}` : `FAIL unexpected diff ${r.tot}`)
+      : r.marker ? (EXPECT?.has(aura) ? `EXPECTED-DIFF ${r.tot}${r.harness ? " (harness suspect)" : ""}` : `FAIL unexpected diff ${r.tot}${r.harness ? " — HARNESS-SUSPECT, rerun required" : ""}`)
       : (EXPECT?.has(aura) ? "FAIL expected change, none found" : "PASS");
     if (verdict.startsWith("FAIL")) fails++; else if (verdict.startsWith("EXPECTED")) exp++;
     const line = `${aura.padEnd(14)} ${r.cells.join(" | ")} — ${verdict}`;

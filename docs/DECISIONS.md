@@ -425,3 +425,106 @@ measured live: forge's first moment can roll at t≈0.4s and a 3-frame
 bottom-border spark graze at frame ~223 sat between grid points. Now 5 seeds
 and EVERY frame 30–240 is scanned (steady vs moment classified by
 `inst.moment`), plus the unchanged forced-moment pass.
+
+## Phase 7m close-out — the loudness ladder (settled at v7m)
+
+**Rung map** — approved by Brodan across Parts 4–6; the binding table is in
+`docs/phase-7m-ladder.md` and the working copy is in `docs/aura-style-guide.md`:
+
+- **R1 quiet:** sigil, steadybreath, iaidraw (crate uncommon); ember, tide (rank 1–2)
+- **R2 charged:** glassfire, stormstep, zeropoint, ninetail, ironbound (crate epic); storm (rank 3)
+- **R3 heavy:** smolder, stormborn, dawn, wanderer, atlas, forge, standardbearer (feat);
+  wyrm, frost, abyss, chud, rust, thunder, hollow, deep, magma, plague, sand, void (boss);
+  ledger, ossuary, redline, bonewright (crate legendary); inferno (rank 4)
+- **R4 showcase:** nullpoint, carve, brandmark, fallenlight (crate mythic);
+  halo (rank 5); huntersmoon (special)
+- **R5 spectacle:** yogurt, vendetta, ascended, wheel, champion (special);
+  eclipseheart (crate gilded); blacksun (crate secret); godray (rank 6)
+- `soon_throne`, `soon_seraphim` are unassigned placeholders, untouched.
+
+Ceilings vs minimums: for existing auras the rung rows are permitted ceilings —
+an aura may sit below its rung, never above it. For an aura built or reworked
+to a rung the rows are minimums as well. Grandfathered exceptions by name:
+`iaidraw` (sweep at R1), `steadybreath` (rings at R1), `nullpoint` (no moment
+at R4), `yogurt` (no signature at R5).
+
+**Edge rule (measurable):** border = the outermost 1-px rows on all four edges,
+both canvases. `edgeSoft` (alpha < 0.30) is always legal; `edgeHard`
+(alpha ≥ 0.30) must be 0 in steady state — transient burst debris may exit if
+it clears within 0.5 s and is reported; `edgeRun` (connected run at
+alpha ≥ 0.50) must stay ≤ 3 px. Verdict is the max over 5 seeds × every frame
+30–240 + a forced-moment pass at all six evidence sizes.
+
+**Budget reference pinned:** under `aura:perf --ab` the ratio WARN denominates
+on the baseline side's stormstep median, so a warm or cold current session
+cannot inflate every ratio. Plain runs keep the live ref as a same-session
+approximation.
+
+**FAIL exemption (expired at v7m):** `P7M_FAIL_EXEMPT` in `aura-sets.mjs` held
+the seven pilot ids out of the --ab FAIL rule for the phase. At the v7m tag the
+baseline re-pins, the exemptions retire, and each pilot's v7m median becomes
+its ceiling in `GRANDFATHERED`.
+
+**`spectacle` stress set:** frozen — yogurt, vendetta, ascended, wheel,
+champion, eclipseheart, blacksun, godray; board-32, circle, 4x CPU, moments
+forced, p95 < 16 ms. It exists because fixed/ledger/revamp exclude the loudest
+auras, so the gate would not cover the worst board.
+
+**Rollout stop rule:** after each rollout batch, run the stress sets; if
+fixed-set p95 exceeds 14.5 ms the rollout pauses and the remaining rungs get
+cheaper recipes. 16 ms is where frames start dropping; 14.5 is the margin that
+keeps session noise from eating it.
+
+**Per-rung ratio budgets** (item K): the flat 1.3x stormstep line was a dead
+signal — every R5 aura violates it by design. Replaced by
+`RUNG_RATIO_BUDGET` in `aura-sets.mjs`, derived from the seven approved
+pilots' measured medians (~10% over each rung's costliest approved member):
+board-32 R1 0.95x / R2 1.3x / R3 1.7x / R4 3.5x / R5 5.5x; ring-141 R1 1.3x /
+R2 1.3x / R3 2.7x / R4 3.6x / R5 4.5x. R1 has no pilot — its line is ~10% over
+the costliest existing R1 member (tide, 0.84x board / 1.15x ring) rather than
+the ember anchor alone, so untouched quiet auras don't warn for being
+themselves. `AURA_RUNG` holds the map; unassigned auras fall back to 1.3x.
+An aura warns only when it is costlier than its rung's proven maximum.
+
+**Session validity** (item L): under `--ab`, if the pinned reference's own
+B−A delta crosses the FAIL threshold (>0.05 ms AND >15%, either direction —
+drift either way means the two sides ran under different load), every verdict
+in the session prints INVALID, the run exits non-zero, and a rerun is
+required. Caveat recorded: the reference is exempt from FAIL by position, so
+without this check a genuine stormstep regression would print WARN and could
+never gate — session invalidation is what closes that hole.
+
+**Diff harness (item M):** the ninetail 7,219-px board32 blip was narrowed to
+browser-session resource accumulation, not renderer state — in-cell state is
+airtight (seeded RNG, flash clock reset, synchronous captures, fresh page per
+aura) but `newPage` leaked each aura's whole browser context (~50 live
+gallery canvases per leaked context, ~100 contexts per full run). Harness
+hardened three ways: the context is now closed per aura; the subject aura's
+moment is warmed once per page so moment-only `auraImage` calls (vendetta's
+skull) can no longer register mid-cell after the image wait; and every cell
+records an image-state ledger — a diff where the two sides' ledgers disagree,
+an image is still pending, or an src registered late prints HARNESS-SUSPECT /
+HARNESS flags instead of silently passing or failing. The mechanism is not
+proven end-to-end (no live recurrence caught), so the rule stands: a lone
+unexplained diff warrants a rerun and investigation, not a shrug.
+
+**blacksun pre-existing clip:** `AURA_ART.blacksun`'s eclipse disc reached
+≈1.97·rx against a ≈1.72·rx frame half — opaque pixels leaving the canvas for
+seconds per orbit, present before 7m. Fixed in Part 4 as a bug fix; the wing
+sprite's `large:` pull-in (crate160) is recorded under its own section.
+
+**Why the unit floor was not lowered:** a global floor drop rewrites all 51
+auras at small sizes, invalidates every zero-diff gate, and lands hardest on
+soft-particle commons (ember and stormstep deflate) while barely moving the
+sprite-driven auras that need it (eclipseheart). `small:` was chosen instead —
+opt-in, byte-identical for non-opted auras.
+
+**`carve` stays in `KNOWN_OVER`:** over the 0.6 ms board budget by ~0.04 ms —
+inside session noise — and the only route to the saving changes approved
+pixels. Recorded, not fixed.
+
+**`chain-heavy.webp` is kept:** it is unreferenced after ironbound's revert to
+`chain.webp`, but it is the only surviving output of
+`scripts/aura-asset-key-chain.mjs` — the source jpg was never committed, so
+deleting it would destroy the asset irreversibly. 18.7 KB of `public/` weight
+is immaterial; removal is permanent, keeping it is not.

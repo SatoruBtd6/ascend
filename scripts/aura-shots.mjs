@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { REPO, CURR_URL, CURR_PORT, BASE_URL, BASE_PORT, baselineDir, git, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
-import { GRANDFATHERED, KNOWN_OVER, PERF_REF, RATIO_BUDGET, P7M_FAIL_EXEMPT } from "./aura-sets.mjs";
+import { GRANDFATHERED, KNOWN_OVER, PERF_REF, RATIO_BUDGET, RUNG_RATIO_BUDGET, AURA_RUNG, P7M_FAIL_EXEMPT } from "./aura-sets.mjs";
 
 async function loadChromium() {
   const dir = join(process.cwd(), "node_modules", "playwright-core");
@@ -405,7 +405,7 @@ const measureAura = (pg, aura, MOMENT) => pg.evaluate(async ({ aura, MOMENT, SZ 
   return { avg: +(times.reduce((s, v) => s + v, 0) / times.length).toFixed(3), p95: +times[Math.floor(times.length * 0.95)].toFixed(3) };
 }, { aura, MOMENT, SZ });
 
-let fails = 0;
+let fails = 0, sessionInvalid = false;
 if (PERF) {
   // stormstep is the session reference (D15): measured on every run so each
   // aura's ratio to it is session-normalised.
@@ -413,7 +413,7 @@ if (PERF) {
   if (MODE === "perf") {
     for (const pg of [page, pageA].filter(Boolean)) await warmImages(pg, measureList);
     hline(`size:     ${SZ.label}${SIZE === "ring" ? " — separate series; not comparable to board-32 medians (ceilings are board numbers)" : ""}`);
-    hline(`rounds:   ${RUNS} (median reported; ${pageA ? `A=baseline vs B=current — FAIL if B-A > 0.05 ms AND > 15%, one auto re-run` : `ratio budget >${RATIO_BUDGET}x ${PERF_REF} = WARN`}, p95 info only)`);
+    hline(`rounds:   ${RUNS} (median reported; ${pageA ? `A=baseline vs B=current — FAIL if B-A > 0.05 ms AND > 15%, one auto re-run` : `per-rung ratio budget vs ${PERF_REF} = WARN`}, p95 info only)`);
   }
   const rounds = MODE === "perf" ? RUNS : 1;
   const runs = Object.fromEntries(measureList.map((a) => [a, []]));
@@ -474,16 +474,38 @@ if (PERF) {
       s.hardFail = s.d2 > AB_MAX_MS && s.p2 > AB_MAX_PCT;
     }
     console.log("");
-    hline(`ref:      ${PERF_REF} median ${refMed.toFixed(3)} ms — ratio >${RATIO_BUDGET}x = WARN${runsA ? "; A/B delta = the FAIL rule" : ""}`);
+    // Session validity (7m item L): under --ab the reference runs identical
+    // code on both sides, so its A/B self-delta is pure session drift. If that
+    // delta crosses the FAIL threshold the session is untrustworthy — every
+    // verdict is marked INVALID and the run must be repeated. The ref itself
+    // can't FAIL (it is exempt by position), which is exactly why this check
+    // has to exist: without it a genuine stormstep regression would print
+    // WARN and could never gate.
+    const refB = med(runs[PERF_REF].map((r) => r.avg));
+    const refD = runsA ? refB - refMed : 0;
+    const refP = runsA ? (refB / refMed - 1) * 100 : 0;
+    // symmetric on purpose: drift in EITHER direction means the two sides ran
+    // under different load, and a faster current side masks real regressions
+    if (runsA && Math.abs(refD) > AB_MAX_MS && Math.abs(refP) > AB_MAX_PCT) sessionInvalid = true;
+    // Per-rung ratio budget (7m item K): an aura warns only when it costs more
+    // than its rung's proven maximum — a flat line warned on every R5 by
+    // design. Unassigned auras fall back to RATIO_BUDGET.
+    const rungBudget = (aura) => (RUNG_RATIO_BUDGET[SIZE] || RUNG_RATIO_BUDGET.board)[AURA_RUNG[aura]] ?? RATIO_BUDGET;
+    hline(`ref:      ${PERF_REF} median ${refMed.toFixed(3)} ms — ratio over rung budget = WARN (R1 ${RUNG_RATIO_BUDGET[SIZE][1]}x … R5 ${RUNG_RATIO_BUDGET[SIZE][5]}x)${runsA ? "; A/B delta = the FAIL rule" : ""}`);
+    if (sessionInvalid) hline(`SESSION INVALID — ${PERF_REF} self-delta Δ${refD >= 0 ? "+" : ""}${refD.toFixed(3)} ms (${refP >= 0 ? "+" : ""}${refP.toFixed(1)}%) exceeds the FAIL threshold; rerun required`);
     const lines = [];
-    let warns = 0;
+    let warns = 0, invalids = 0;
     for (const s of stats) {
       const { aura, avg, p95, aAvg } = s;
       const ratio = refMed > 0 ? avg / refMed : 0;
-      const overRatio = aura !== PERF_REF && ratio > RATIO_BUDGET;
+      const overRatio = aura !== PERF_REF && ratio > rungBudget(aura);
       const knownOver = SIZE === "board" && KNOWN_OVER[aura] != null && avg > 0.6;
       let verdict, note;
-      if (aAvg != null) {
+      if (sessionInvalid && aAvg != null) {
+        const f = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(3)}`;
+        verdict = "INVALID";
+        note = `A=${aAvg.toFixed(3)} B=${avg.toFixed(3)} Δ${f(s.delta)} (${s.pct >= 0 ? "+" : ""}${s.pct.toFixed(1)}%) — session invalid (${PERF_REF} self-drift); rerun`;
+      } else if (aAvg != null) {
         const f = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(3)}`;
         const base = `A=${aAvg.toFixed(3)} B=${avg.toFixed(3)} Δ${f(s.delta)} (${s.pct >= 0 ? "+" : ""}${s.pct.toFixed(1)}%) ratio=${ratio.toFixed(2)}x`;
         if (s.exempt) { verdict = "WARN"; note = `${base} — over the FAIL delta; 7m rework aura, exempt until v7m`; }
@@ -501,13 +523,14 @@ if (PERF) {
       }
       if (GRANDFATHERED[aura] != null) note += ` — ceiling ${GRANDFATHERED[aura].toFixed(3)} info${SIZE === "ring" ? " (board series)" : ""}`;
       if (knownOver) note += ` — revamped in 7k, over 0.6 - trim in next aura phase (v7k median ${KNOWN_OVER[aura].toFixed(3)})`;
-      else if (overRatio) note += " — over ratio budget (provisional)";
+      else if (overRatio) note += ` — over R${AURA_RUNG[aura] || "?"} ratio budget (${rungBudget(aura)}x)`;
       if (verdict === "FAIL") fails++;
       if (verdict === "WARN") warns++;
+      if (verdict === "INVALID") invalids++;
       const line = `${verdict} ${aura.padEnd(14)} avg=${avg.toFixed(3)} ms ${note}  p95=${p95.toFixed(3)} (info)`;
       lines.push(line); console.log(line);
     }
-    const summary = `${list.length} auras: ${list.length - fails - warns} pass, ${warns} warn, ${fails} fail`;
+    const summary = `${list.length} auras: ${list.length - fails - warns - invalids} pass, ${warns} warn, ${fails} fail${invalids ? `, ${invalids} INVALID (session rerun required)` : ""}`;
     console.log(`\n${summary}`);
     if (runsA) {
       // Whole-set aggregate (7m part 4 item K): mean + median of the per-aura
@@ -526,4 +549,4 @@ if (PERF) {
 if (MODE) console.log(`evidence: ${OUT}`);
 await browser.close();
 if (MODE) stopServers();
-if (MODE === "perf") process.exit(fails ? 1 : 0);
+if (MODE === "perf") process.exit(fails || sessionInvalid ? 1 : 0);
