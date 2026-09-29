@@ -63,6 +63,14 @@ What happened, in order:
 The live policy set, trigger semantics, function notes, rollback statements,
 and the "do not re-create" list are all in `supabase.sql`.
 
+One more operational note: **SQL handed to Brodan for the live DB has never
+been executed anywhere else first** — there is no staging environment, so the
+first run happens on production. `kv_audit_roster` failed its first live run
+(`v->` on a record-type lateral column; fixed by naming it
+`(select k.value::jsonb as j) v` and using `v.j->`). Statements handed over
+should be labeled untested so a first-run error reads as expected, not as a
+paste mistake.
+
 ---
 
 ## What was decided (DECISIONS.md has the full text)

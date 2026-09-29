@@ -109,6 +109,12 @@ create policy "kv delete" on public.kv for delete to authenticated
 -- on the version number, then Ghost mode on) calls these; without them the UI
 -- exists but yields no data. Nothing client-side reads foreign state without
 -- these functions. Add tester uids in kv_audit_allowed ONLY.
+--
+-- NOTE: every hand-edited statement in this file was first run against the
+-- live DB — it is NOT tested anywhere else first. Expect a first-run error
+-- rather than assuming a paste mistake. (kv_audit_roster's lateral alias
+-- below was itself a live fix: "v-> " fails on a record type; the column
+-- must be named — "(select k.value::jsonb as j) v" then v.j-> ... .)
 -- ============================================================
 create or replace function public.kv_audit_allowed()
 returns boolean language sql stable security definer set search_path = public as $$
@@ -124,14 +130,14 @@ returns json language sql stable security definer set search_path = public as $$
       select coalesce(json_agg(row_to_json(t) order by lower(coalesce(t.name, '~')), t.uid), '[]'::json)
       from (
         select substring(k.scope from 6)::uuid as uid,
-               nullif(btrim(v->'profile'->>'name'), '') as name,
-               v->>'playerId' as player_id,
-               coalesce((v->>'test')::boolean, false) as test,
+               nullif(btrim(v.j->'profile'->>'name'), '') as name,
+               v.j->>'playerId' as player_id,
+               coalesce((v.j->>'test')::boolean, false) as test,
                exists (select 1 from public.kv lb
                        where lb.scope = 'shared'
-                         and lb.key = 'lb:' || (v->>'playerId')) as has_card
+                         and lb.key = 'lb:' || (v.j->>'playerId')) as has_card
         from public.kv k
-        cross join lateral (select k.value::jsonb) v
+        cross join lateral (select k.value::jsonb as j) v
         where k.key = 'ascend-state' and k.scope like 'user:%' and k.value like '{%'
       ) t))
     else json_build_object('ok', false, 'reason', 'denied') end;
