@@ -5,3 +5,4 @@ export { CardDeck } from "./CardDeck.jsx";
 export { Confetti } from "./Confetti.jsx";
 export { Onboarding } from "./Onboarding.jsx";
 export { XpLedger } from "./XpLedger.jsx";
+export { CreditLedger } from "./CreditLedger.jsx";

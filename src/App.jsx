@@ -24,7 +24,7 @@ import { XpSync } from "./lib/xpSync.js";
 import { loadLive, saveLive } from "./tabs/run/live.js";
 import { mergeSteps } from "./tabs/run/mergeSteps.js";
 import { readRaidHist } from "./tabs/train/raidIO.js";
-import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHub, Board, ProfilePage, SettingsPage, Assistant, IntervalTimer, CardDeck, Confetti, Onboarding, XpLedger, LazyBoundary, UpdateBanner, prefetchScreens, useSwReady, useBanner } from "./screenLoad.jsx";
+import { Train, ExercisePage, MusclePage, RestWatchPage, Fuel, RunTracker, RunHub, Board, ProfilePage, SettingsPage, Assistant, IntervalTimer, CardDeck, Confetti, Onboarding, XpLedger, CreditLedger, LazyBoundary, UpdateBanner, prefetchScreens, useSwReady, useBanner } from "./screenLoad.jsx";
 
 
 
@@ -130,6 +130,7 @@ export default function App() {
   if (swReady || tab === "timer") timerHeld.current = true;
   if (swReady || tab === "cards") cardsHeld.current = true;
   const [xpOpen, setXpOpen] = useState(false);
+  const [creditOpen, setCreditOpen] = useState(false);
   // New-deploy check: compare the bundle this page runs with the one the server serves now
   const [updateReady, setUpdateReady] = useState(false);
   useEffect(() => {
@@ -1004,7 +1005,7 @@ export default function App() {
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 220px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <TabErrorBoundary><LazyBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></LazyBoundary></TabErrorBoundary>}
-        {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} allowWipe={() => { allowWipeRef.current = true; }} /></TabErrorBoundary>}
+        {onboard !== null ? null : tab === "status" && <TabErrorBoundary><Status s={s} setS={setS} gainXp={gainXp} openAssistant={() => setTab("assistant")} openSettings={() => setTab("settings")} openProfile={(pid) => openProfile(typeof pid === "string" ? pid : null)} openMuscle={openMuscle} openExercise={openExercise} goTrain={() => setTab("train")} goRun={() => setTab("run")} goQuests={() => setTab("quests")} openXp={() => setXpOpen(true)} openCredit={() => setCreditOpen(true)} saveOk={storageOk && !offline} saveAt={lastSaveAt} storageOk={storageOk} allowWipe={() => { allowWipeRef.current = true; }} /></TabErrorBoundary>}
         {onboard === null && tab === "exercise" && <TabErrorBoundary><LazyBoundary><ExercisePage s={s} setS={setS} name={exercisePick} onBack={() => setTab(exerciseFrom)} openMuscle={(g) => openMuscle(g, "exercise")} /></LazyBoundary></TabErrorBoundary>}
         {onboard === null && tab === "run" && <TabErrorBoundary><LazyBoundary><RunHub s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("train")} startRun={startRun} /></LazyBoundary></TabErrorBoundary>}
         {onboard === null && tab === "muscle" && <TabErrorBoundary><LazyBoundary><MusclePage s={s} group={musclePick} onBack={() => setTab(muscleFrom)} openExercise={(n) => openExercise(n, "muscle")} /></LazyBoundary></TabErrorBoundary>}
@@ -1015,6 +1016,7 @@ export default function App() {
           </div>
         )}
         {xpOpen && <Sheet title="XP history" onClose={() => setXpOpen(false)}><TabErrorBoundary><LazyBoundary><XpLedger s={s} drawer onBack={() => setXpOpen(false)} /></LazyBoundary></TabErrorBoundary></Sheet>}
+        {creditOpen && <Sheet title="Workout credit" onClose={() => setCreditOpen(false)}><TabErrorBoundary><LazyBoundary><CreditLedger s={s} drawer onBack={() => setCreditOpen(false)} /></LazyBoundary></TabErrorBoundary></Sheet>}
         {onboard === null && tab === "settings" && <TabErrorBoundary><LazyBoundary><SettingsPage s={s} setS={setS} onBack={() => setTab("status")} party={party} setParty={setParty} openTool={setTab} saveDiag={saveDiag} onReplayTutorial={() => { setS((p) => ({ ...p, onboarded: false })); setOnboard(0); }} /></LazyBoundary></TabErrorBoundary>}
         {(timerHeld.current) && <TabErrorBoundary><LazyBoundary active={tab === "timer"}><IntervalTimer visible={tab === "timer"} onBack={() => setTab("settings")} onOpen={() => setTab("timer")} /></LazyBoundary></TabErrorBoundary>}
         {(cardsHeld.current) && <TabErrorBoundary><LazyBoundary active={tab === "cards"}><CardDeck visible={tab === "cards"} s={s} setS={setS} gainXp={gainXp} onBack={() => setTab("settings")} /></LazyBoundary></TabErrorBoundary>}

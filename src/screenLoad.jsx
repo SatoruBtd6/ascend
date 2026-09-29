@@ -99,6 +99,7 @@ export const CardDeck = lazyName("settings", settingsImp, "CardDeck");
 export const Confetti = lazyName("settings", settingsImp, "Confetti");
 export const Onboarding = lazyName("settings", settingsImp, "Onboarding");
 export const XpLedger = lazyName("settings", settingsImp, "XpLedger");
+export const CreditLedger = lazyName("settings", settingsImp, "CreditLedger");
 
 const PREFETCH = [
   ["train", trainImp],

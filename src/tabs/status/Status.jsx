@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Flame, Settings as Gear, User, Zap } from "lucide-react";
+import { Dumbbell, Flame, Settings as Gear, User, Zap } from "lucide-react";
 import { GROUP_WEIGHT, RANKS, RANK_INFO } from "../../data/ranks.js";
 import { overallInfo, rankFromScore, rankedLifts, streakOf } from "../../lib/stats.js";
 import { levelFromXp } from "../../math.js";
@@ -21,7 +21,7 @@ import { Nudges } from "./Nudges.jsx";
 import { Profile } from "./Profile.jsx";
 import { StreakRisk } from "./StreakRisk.jsx";
 import { WeeklyReport } from "./WeeklyReport.jsx";
-export function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, goQuests, openXp, openRival, saveOk, saveAt, storageOk, allowWipe }) {
+export function Status({ s, setS, gainXp, openAssistant, openSettings, openProfile, openMuscle, openExercise, goTrain, goRun, goQuests, openXp, openCredit, openRival, saveOk, saveAt, storageOk, allowWipe }) {
   const { lvl, into, need } = levelFromXp(s.xp);
   const ranked = rankedLifts(s);
   const points = pointsOf(s);
@@ -46,6 +46,7 @@ export function Status({ s, setS, gainXp, openAssistant, openSettings, openProfi
         )}
         <div className="flex items-center gap-1 font-semibold" style={{ color: C.orange, textShadow: "0 0 10px rgba(255,147,64,.6)" }}><Flame size={20} />{streak}
           <button aria-label="XP history" onClick={() => openXp?.()} className="ml-3 p-1.5 ghost" style={{ color: C.gold, textShadow: "none" }}><Zap size={18} /></button>
+          <button aria-label="Workout credit" title="Workout credit" onClick={() => openCredit?.()} className="ml-1.5 p-1.5 ghost" style={{ color: C.cyan }}><Dumbbell size={18} /></button>
           <button aria-label="Settings" onClick={openSettings} className="ml-1.5 p-1.5 ghost" style={{ color: C.cyan }}><Gear size={18} /></button></div>
       </div>
 

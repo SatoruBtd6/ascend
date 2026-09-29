@@ -11,7 +11,6 @@ import { SettingsToggle } from "../../ui/primitives.jsx";
 import { stripGhostCosmetics } from "../profile/unlock.js";
 import { VOICE_STYLES } from "../train/sterling.js";
 import { exportFood, exportWorkouts, importWorkoutsFromCsv } from "./csvIO.js";
-import { CreditLedger } from "./CreditLedger.jsx";
 import { DedupeSettings } from "./DedupeSettings.jsx";
 import { GymsSettings } from "./GymsSettings.jsx";
 import { decodeSave, encodeSave } from "./saveCodec.js";
@@ -31,7 +30,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   const impRef = useRef(null);
   const [diagOn, setDiagOn] = useState(() => D.on());
   const [diagCopied, setDiagCopied] = useState(false);
-  const [page, setPage] = useState(null); // "whatsnew" | "credit" | "audit"
+  const [page, setPage] = useState(null); // "whatsnew" | "audit"
   const verTaps = useRef([]);
   const verTimer = useRef(null);
   // 5 taps on the version number toggles the diagnostic log, 7 unlocks the
@@ -71,7 +70,6 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   };
 
   if (page === "whatsnew") return <WhatsNew onBack={() => setPage(null)} />;
-  if (page === "credit") return <CreditLedger s={s} onBack={() => setPage(null)} />;
   if (page === "audit") return <TesterAudit onBack={() => setPage(null)} />;
 
   return (
@@ -184,13 +182,6 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
           <div className="body text-xs mt-0.5" style={{ color: C.dim }}>Draw a card, do the reps</div>
         </button>
       </div>
-      <button onClick={() => setPage("credit")} className="panel p-4 w-full flex items-center gap-3 text-left">
-        <TimerIcon size={22} style={{ color: C.cyan }} />
-        <div className="flex-1 min-w-0">
-          <div className="font-bold">Workout credit log</div>
-          <div className="body text-xs" style={{ color: C.dim }}>What each session counted toward streaks, duels and the board.</div>
-        </div>
-      </button>
 
       <h2 className="text-lg font-bold">Gyms</h2>
       <GymsSettings s={s} setS={setS} />
