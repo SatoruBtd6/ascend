@@ -126,7 +126,7 @@ export const AURA_FX = {
     // the ring's vertical axis, top and tail overhanging the rim (sz 2.4 under
     // the signature-sprite allowance). A wave travels down the cloth ~every
     // 2.4s; gold rimlight separates it from the glow disc.
-    { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", ctr: 1, r: [0, 0], w: [0, 0], sz: [2.4, 2.4], even: 1, rot: 0, wobble: 0.015, a: 0.95, behind: 1, blend: "source-over", treat: "rimlight", treatRim: { c: "#E8C56A", dx: -0.02, dy: 0.04, a: 0.8 }, wave: { strips: 7, amp: 0.045, period: 2.4 }, small: { sz: [2.4, 2.4] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/banner.webp", ctr: 1, r: [0, 0], w: [0, 0], sz: [3.4, 3.4], even: 1, rot: 0, wobble: 0, a: 0.95, behind: 1, blend: "source-over", treat: "rimlight", treatRim: { c: "#E8C56A", dx: -0.02, dy: 0.04, a: 0.8 }, wave: { strips: 7, amp: 0.045, period: 2.4 }, small: { sz: [3.4, 3.4] } },
     // heraldic pennant slivers in orbit — crimson/gold, sharp not soft
     { k: "orbit", n: 9, shape: "sliver", c: ["#C2001F", "#E8C56A", "#FFF0D0"], w: [0.35, 0.6], r: [1.04, 1.22], sz: [1.4, 2.4], a: 0.85, small: { n: 5, sz: [1.2, 1.8] } },
     // struck-metal gold sparks — small, bright, twinkling, no smear
@@ -636,7 +636,7 @@ export const AURA_FX = {
     // shadowfade = cold dark steel so it reads on white; rim = pale catch;
     // glint = per-sprite specular streak travelling the links — never the
     // flash bus, never a whole-aura pulse.
-    { k: "orbit", n: 14, shape: "img", src: "/aura/chain.webp", rotTracksOrbit: 1, r: [1.04, 1.1], w: [0.05, 0.09], wave: 0.05, sz: [0.55, 0.62], even: 1, jit: 0.05, wobble: 0.06, a: 0.9, glint: 1, behind: 1, treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.04, a: 0.55 }, blend: "source-over", small: { n: 11, sz: [0.42, 0.48] } },
+    { k: "orbit", n: 14, shape: "img", src: "/aura/chain.webp", rotTracksOrbit: 1, r: [1.16, 1.22], w: [0.05, 0.09], wave: 0.05, sz: [0.55, 0.62], even: 1, jit: 0.05, wobble: 0.06, a: 0.9, glint: 1, behind: 1, treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.04, a: 0.55 }, blend: "source-over", small: { n: 11, sz: [0.46, 0.52] } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.8, 0.8], w: [0, 0], sz: [1.55, 1.55], even: 1, at: 0.25, rot: 0.015, wobble: 0.12, a: 0.95, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.95, 0.95] } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.85, 0.85], w: [0, 0], sz: [1.2, 1.2], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.15, a: 0.85, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.75, 0.75] } },
     { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.88, 0.88], w: [0, 0], sz: [0.95, 0.95], even: 1, at: 0.34, rot: 0.05, wobble: 0.18, a: 0.75, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.6, 0.6] } },
