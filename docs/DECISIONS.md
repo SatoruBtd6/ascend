@@ -283,6 +283,34 @@ The dev gallery's "88 studio" and "160 crate" cells mount the real geometry
 (CrateVault `ringR 52→46`, Studio `ringR 28→25` — the old mounts ran ~0.64
 fill vs the tuned 0.579, clipping anything past ~1.5·rx).
 
+### Widened-window findings (5 seeds x frames 30–240, all six sizes — recorded 2026-09-29)
+
+The widened edge window surfaced contacts the old grid never saw. Numbers are
+`steady hard px / contiguous run30`, fail rule is run > 3 px:
+
+- `blacksun` crate160: steady hard 3px (run 3) at top@108 — **was within the
+  letter of the run rule but visible on the rarest aura's showcase view, so
+  fixed rather than excepted**: wings pulled in via `large:` (see above).
+  Painter attribution: composite of the `wing.webp` tip + `blacksun-ring.webp`
+  feather + `fall:ember` cinders at the same border pixel — no single layer
+  reaches the border alone (bisect: removing ANY one layer cleared it;
+  removing the wing was the only structural reach). ring141 keeps a steady
+  2px/3px run at top@97 by construction — the diff gate requires it
+  byte-identical to `58931bd`, so it is a known *recorded* contact, not a
+  regression.
+- `fallenlight` figure128x163: steady hard 4px / run 3 — inside the fail
+  threshold but at the boundary; the moment contact (hard 23px, 0.67s) is the
+  recorded figure-view exception (frozen view, `img:halo-cracked.webp` painter).
+  Disposition: **rollout** — the steady 4px sits at the rule's edge on a view
+  that is already excepted; revisit only if the figure exception is lifted.
+- `eclipseheart` crew52/board59: steady hard 3px / run30 3px (run50 1–2px) —
+  **within rule, exactly at the boundary**, `rise:smoke` painter.
+  Disposition: **never unless the rule tightens** — one more px of contiguous
+  contact would fail; worth a re-check if smoke params ever change.
+- `huntersmoon`: 1px transients at all six sizes (steady run30 1px, moment
+  contacts ≤0.15s) — **within rule**, transient debris allowance.
+  Disposition: **never** — this is what the transient allowance exists for.
+
 ## `small:` may override rim appearance (phase 7m — approved by Brodan 2026-09-28)
 
 `treatRim` is in `SMALL_ALLOWED_KEYS`, scoped to rim appearance only — colour
@@ -292,6 +320,23 @@ size, and a dark silhouette needs more rim at 52px than at 141px to read at
 all. This does not open `small:` to palette or shape changes — `treatRim` is
 edge lighting on an existing sprite; the sprite itself is unchanged.
 First use: blacksun's wings (`small: { treatRim: { c:"#FF3A3A", dy:0.1, a:1 } }`).
+
+## `large:` view block (phase 7m — crate-scoped fixes)
+
+A third size scope symmetric to `small:`: `large:` merges on top of the active
+view block whenever the canvas is **at or over `LARGE_VIEW_PX = 150` px** —
+today that is exactly crate160 (ring141 at 141 px stays under it; figure160's
+body canvas is 128 px wide, also under it). It exists because the crate-160
+edge rule could not otherwise be fixed without moving pixels on the
+approval-diff cells (profile76 = 141 px circle, figure160 = body): every
+geometry parameter scales with `w`, so the only honest isolation was a size
+gate. `mergeLayerForView`/`mergeSpecForView`/`viewBlocksFor` handle it through
+the same one-level merge as `small:`; opt-in — specs without a `large:` key
+merge byte-identically at every size, and no spec field named `large` existed
+before the block was added. First use: blacksun's wings
+(`large: { r: [0.86, 0.86] }` — orbit pull-in, the amendment's first resolve
+step, clearing the crate160 top-border touch while profile76/figure160/ring141
+stay byte-identical to `58931bd`).
 
 ## fallenlight is a known multi-source flash aura (phase 7m — 2026-09-28)
 

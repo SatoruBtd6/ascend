@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { hexRgb } from "../theme.js";
 import { AURAS, resolveAuraId } from "./catalog.js";
-import { mergeViewSpec, mergeViewLayer, mergeSpecForView, mergeLayerForView, applySmallScale, SMALL_VIEW_PX } from "./specFormat.js";
+import { mergeViewSpec, mergeViewLayer, mergeSpecForView, mergeLayerForView, applySmallScale, SMALL_VIEW_PX, VIEW_BLOCKS } from "./specFormat.js";
 import { noteStrikeFlash } from "./boltClock.js";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
 export { FACE_REGION, HEAD_FROM_EYE, resolveAuraAnchors } from "./anchors.js";
@@ -638,10 +638,10 @@ export const AURA_FX = {
     // glint = per-sprite specular streak travelling the links — never the
     // flash bus, never a whole-aura pulse. The sprite's torn tail is the
     // snapped end; loose links are the drifting chainlink motes.
-    { k: "orbit", n: 11, shape: "img", src: "/aura/chain-heavy.webp", rotTracksOrbit: 1, r: [1.16, 1.22], w: [0.05, 0.09], wave: 0.05, sz: [0.9, 1.0], even: 1, jit: 0.05, wobble: 0.06, a: 0.9, glint: 1, behind: 1, treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.04, a: 0.55 }, blend: "source-over", small: { n: 9, sz: [0.72, 0.82] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.8, 0.8], w: [0, 0], sz: [1.55, 1.55], even: 1, at: 0.25, rot: 0.015, wobble: 0.12, a: 0.95, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.95, 0.95] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.85, 0.85], w: [0, 0], sz: [1.2, 1.2], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.15, a: 0.85, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.75, 0.75] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.88, 0.88], w: [0, 0], sz: [0.95, 0.95], even: 1, at: 0.34, rot: 0.05, wobble: 0.18, a: 0.75, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.6, 0.6] } },
+    { k: "orbit", n: 9, shape: "img", src: "/aura/chain-heavy.webp", rotTracksOrbit: 1, r: [1.16, 1.22], w: [0.05, 0.09], wave: 0.05, sz: [1.15, 1.3], even: 1, jit: 0.05, wobble: 0.06, a: 0.9, glint: 1, behind: 1, treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.04, a: 0.55 }, blend: "source-over", small: { n: 8, sz: [0.9, 1.0] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.75, 0.75], w: [0, 0], sz: [1.9, 1.9], even: 1, at: 0.25, rot: 0.015, wobble: 0.12, a: 0.95, glint: 1, behind: 1, blend: "source-over", small: { sz: [1.2, 1.2] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.85, 0.85], w: [0, 0], sz: [1.5, 1.5], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.15, a: 0.85, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.95, 0.95] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.88, 0.88], w: [0, 0], sz: [1.2, 1.2], even: 1, at: 0.34, rot: 0.05, wobble: 0.18, a: 0.75, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.75, 0.75] } },
     // snapped-off links drifting loose in the band
     { k: "orbit", n: 12, shape: "chainlink", c: ["#5A6478", "#8A97B0", "#3A4356"], w: [0.05, 0.12], r: [1.0, 1.26], sz: [1.1, 1.9], a: 0.8, tw: 1, small: { n: 7, sz: [0.9, 1.4] } },
   ] },
@@ -746,8 +746,8 @@ export const AURA_FX = {
       // shadowfade darkens + feathers; treatRim bakes a crimson edge catch on
       // the silhouette so the wings read against the void. During the swell
       // they grow ~1.18 and beat three times (mRot oscillation) — the flap.
-      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", treatRim: { c: "#C2001F", dy: 0.05, a: 0.85 }, r: [0.92, 0.92], w: [0, 0], sz: [2, 2], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.08, 0], [0.14, 0.05], [0.22, -0.04], [0.3, 0.05], [0.38, -0.04], [0.46, 0.03], [0.54, -0.02], [0.62, 0], [1, 0]], mScale: [[0, 1], [0.1, 1], [0.5, 1.2], [0.62, 1.22], [0.8, 1], [1, 1]], mR: [[0, 1], [0.15, 1], [0.45, 0.75], [0.68, 0.85], [0.82, 1], [1, 1]], mDim: [[0, 1], [0.5, 0.92], [0.58, 0.85], [0.7, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 2.6], [0.52, 3], [0.68, 1.2], [1, 1]], mMax: [[0, 1], [0.15, 1.6], [0.52, 1.8], [0.68, 1.1], [1, 1]] }, small: { sz: [1.3, 1.3], r: [0.95, 0.95], treatRim: { c: "#FF3A3A", dy: 0.1, a: 1 } } },
-      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", treatRim: { c: "#C2001F", dy: 0.05, a: 0.85 }, r: [0.92, 0.92], w: [0, 0], sz: [2, 2], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.08, 0], [0.14, -0.05], [0.22, 0.04], [0.3, -0.05], [0.38, 0.04], [0.46, -0.03], [0.54, 0.02], [0.62, 0], [1, 0]], mScale: [[0, 1], [0.1, 1], [0.5, 1.2], [0.62, 1.22], [0.8, 1], [1, 1]], mR: [[0, 1], [0.15, 1], [0.45, 0.75], [0.68, 0.85], [0.82, 1], [1, 1]], mDim: [[0, 1], [0.5, 0.92], [0.58, 0.85], [0.7, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 2.6], [0.52, 3], [0.68, 1.2], [1, 1]], mMax: [[0, 1], [0.15, 1.6], [0.52, 1.8], [0.68, 1.1], [1, 1]] }, small: { sz: [1.3, 1.3], r: [0.95, 0.95], treatRim: { c: "#FF3A3A", dy: 0.1, a: 1 } } },
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", treatRim: { c: "#C2001F", dy: 0.05, a: 0.85 }, r: [0.92, 0.92], w: [0, 0], sz: [2, 2], even: 1, at: -0.38, rot: 0.05, flip: 1, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.08, 0], [0.14, 0.05], [0.22, -0.04], [0.3, 0.05], [0.38, -0.04], [0.46, 0.03], [0.54, -0.02], [0.62, 0], [1, 0]], mScale: [[0, 1], [0.1, 1], [0.5, 1.2], [0.62, 1.22], [0.8, 1], [1, 1]], mR: [[0, 1], [0.15, 1], [0.45, 0.75], [0.68, 0.85], [0.82, 1], [1, 1]], mDim: [[0, 1], [0.5, 0.92], [0.58, 0.85], [0.7, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 2.6], [0.52, 3], [0.68, 1.2], [1, 1]], mMax: [[0, 1], [0.15, 1.6], [0.52, 1.8], [0.68, 1.1], [1, 1]] }, small: { sz: [1.3, 1.3], r: [0.95, 0.95], treatRim: { c: "#FF3A3A", dy: 0.1, a: 1 } }, large: { r: [0.86, 0.86] } },
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wing.webp", treat: "shadowfade", treatRim: { c: "#C2001F", dy: 0.05, a: 0.85 }, r: [0.92, 0.92], w: [0, 0], sz: [2, 2], even: 1, at: -0.12, rot: -0.05, breathe: 1, wobble: 0.03, a: 0.95, behind: 1, blend: "source-over", mRot: [[0, 0], [0.08, 0], [0.14, -0.05], [0.22, 0.04], [0.3, -0.05], [0.38, 0.04], [0.46, -0.03], [0.54, 0.02], [0.62, 0], [1, 0]], mScale: [[0, 1], [0.1, 1], [0.5, 1.2], [0.62, 1.22], [0.8, 1], [1, 1]], mR: [[0, 1], [0.15, 1], [0.45, 0.75], [0.68, 0.85], [0.82, 1], [1, 1]], mDim: [[0, 1], [0.5, 0.92], [0.58, 0.85], [0.7, 1], [1, 1]], shadow: { rate: 8, max: 20, sz: [3, 8], sp: [4, 11], c: "#050505", a: 0.42, blend: "source-over", mRate: [[0, 1], [0.15, 2.6], [0.52, 3], [0.68, 1.2], [1, 1]], mMax: [[0, 1], [0.15, 1.6], [0.52, 1.8], [0.68, 1.1], [1, 1]] }, small: { sz: [1.3, 1.3], r: [0.95, 0.95], treatRim: { c: "#FF3A3A", dy: 0.1, a: 1 } }, large: { r: [0.86, 0.86] } },
       { k: "orbit", n: 1, shape: "img", src: "/aura/book.webp", r: [1.25, 1.25], w: [0.57, 0.57], sz: [0.70, 0.70], even: 1, spin: 0.04, bob: 1, a: 0.95, blend: "source-over", mDim: [[0, 1], [0.4, 0.5], [0.56, 0.3], [0.8, 1], [1, 1]] },
       // deliberate crimson cinders — fewer shapes, larger and denser than
       // the old white leaf fall so the band isn't empty between the rim.
@@ -1169,7 +1169,7 @@ export function auraNeedsOver(aura) {
   const fx = AURA_FX[resolveAuraId(aura)];
   if (!fx) return false;
   // Over-canvas needs can live in any view block — check all merged views.
-  for (const view of ["body", "circle", "small"]) {
+  for (const view of VIEW_BLOCKS) {
     const spec = mergeViewSpec(fx, view);
     if (spec.overArt || spec.moment?.bursts?.some((b) => b.over)) return true;
     if ((spec.layers || []).some((L) => mergeViewLayer(L, view).over)) return true;

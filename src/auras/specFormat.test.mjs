@@ -11,7 +11,7 @@ import {
   mergeViewSpec, mergeViewLayer, scopedPath, applyScopedEdit,
   clearScopedOverride, hasScopedOverride, scopedOverrideViews,
   viewBlocksFor, mergeSpecForView, mergeLayerForView, applySmallScale,
-  validateSpec, SMALL_VIEW_PX,
+  validateSpec, SMALL_VIEW_PX, LARGE_VIEW_PX,
 } from "./specFormat.js";
 
 async function loadAuraFx() {
@@ -188,6 +188,28 @@ test("viewBlocksFor adds small under 110 px in either mode; boundary at exactly 
   // orthogonal: body mode inherits small: under 110 px too
   assert.deepEqual(viewBlocksFor("body", 109), ["body", "small"]);
   assert.deepEqual(viewBlocksFor("body", 128), ["body"]);
+});
+
+test("viewBlocksFor adds large at 150+ px; ring141 stays under it", () => {
+  assert.equal(LARGE_VIEW_PX, 150);
+  assert.deepEqual(viewBlocksFor("circle", 149), ["circle"]);
+  assert.deepEqual(viewBlocksFor("circle", 150), ["circle", "large"]);
+  assert.deepEqual(viewBlocksFor("circle", 160), ["circle", "large"]);
+  assert.deepEqual(viewBlocksFor("body", 150), ["body", "large"]);
+});
+
+test("large: merges most-specific-last after the view block", () => {
+  const spec = {
+    spd: 1,
+    circle: { spd: 2 },
+    large: { spd: 3 },
+    layers: [{ k: "orbit", n: 6, r: [0.9, 0.9], large: { r: [0.86, 0.86] } }],
+  };
+  assert.equal(mergeSpecForView(spec, "circle", 160).spd, 3);   // large beats circle
+  assert.equal(mergeSpecForView(spec, "circle", 141).spd, 2);   // large never merges at <150
+  assert.deepEqual(mergeLayerForView(spec.layers[0], "circle", 160).r, [0.86, 0.86]);
+  assert.deepEqual(mergeLayerForView(spec.layers[0], "circle", 141).r, [0.9, 0.9]);
+  assert.equal(mergeLayerForView(spec.layers[0], "circle", 160).n, 6);
 });
 
 test("small: merges most-specific-last — the view override survives where small is silent", () => {

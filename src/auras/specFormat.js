@@ -87,18 +87,24 @@ export const walkPath = (root, path) => path.reduce((o, k) => (o == null ? undef
 // `body:` fields apply only to body/figure renders, `circle:` only to the
 // avatar ring, `small:` on top of the active view block whenever the canvas
 // is under SMALL_VIEW_PX wide (a size scope — it fires in either mode; no
-// <110px body canvas exists today, so body rendering is byte-identical).
+// <110px body canvas exists today, so body rendering is byte-identical),
+// `large:` on top of the active view block whenever the canvas is at or over
+// LARGE_VIEW_PX (crate160 only — ring141 stays under it, so `large:` is how a
+// fix reaches the crate without moving a pixel on the tested sizes).
 // The same merge runs in the renderer (per frame mode) and in the editor
 // (the merged view a scope edits): plain-object fields merge one level deep
 // so a partial override inherits the rest of a nested block (bolts, wander,
 // ...); arrays and scalars replace wholesale.
-export const VIEW_BLOCKS = ["body", "circle", "small"];
+export const VIEW_BLOCKS = ["body", "circle", "small", "large"];
 export const SMALL_VIEW_PX = 110;
+export const LARGE_VIEW_PX = 150;
 
-// Ordered view blocks for a render: base -> view -> small, most specific last.
+// Ordered view blocks for a render: base -> view -> small|large, most specific last.
 export function viewBlocksFor(mode, w) {
   const view = mode === "body" ? "body" : "circle";
-  return w < SMALL_VIEW_PX ? [view, "small"] : [view];
+  if (w < SMALL_VIEW_PX) return [view, "small"];
+  if (w >= LARGE_VIEW_PX) return [view, "large"];
+  return [view];
 }
 
 const isPlainObject = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -120,7 +126,7 @@ export function mergeViewLayer(layer, view) {
   return isPlainObject(ov) ? mergeViewObject(layer, ov) : layer;
 }
 
-// Full chain for one render: base -> view -> small (small only under 110 px).
+// Full chain for one render: base -> view -> small (<110 px) | large (>=150 px).
 export function mergeSpecForView(spec, mode, w) {
   let out = spec;
   for (const v of viewBlocksFor(mode, w)) out = mergeViewSpec(out, v);
@@ -216,7 +222,7 @@ export function validateSpec(spec) {
 }
 
 // Layer keys that stay structural/shared — never written into a view block.
-export const VIEW_LOCKED_LAYER_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "body", "circle", "small"]);
+export const VIEW_LOCKED_LAYER_KEYS = new Set(["k", "shape", "src", "frames", "frameMode", "frameOffsets", "frameDuration", "fadeLen", "shadow", "embers", "placed", "blend", "e", "body", "circle", "small", "large"]);
 
 // The override-block path a field writes to in a scoped view — null when the
 // field must write the shared value instead ("both" scope, or a structural
