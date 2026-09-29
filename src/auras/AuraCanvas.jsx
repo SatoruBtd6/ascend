@@ -630,16 +630,18 @@ export const AURA_FX = {
     { k: "rise", n: 7, shape: "ember", c: ["#FF9340", "#FF4D00", "#FFD447"], sp: [16, 28], life: [0.9, 1.5], sz: [1.6, 2.6], sway: 10, circle: { n: 0, a: 0 } },
   ] },
   ironbound: { spd: 0.8, glow: 1.05, small: { scale: 0.6 }, layers: [
-    // signature: chain.webp, one asset across four layers — a ring of links
-    // wrapping the photo (tangent-laid, spiraling and swaying on wave) plus
-    // the three snapped chains hanging pendulum-slow off the lower rim.
+    // signature: chain-heavy.webp, one asset across four layers — a ring of
+    // heavy links wrapping the aura (tangent-laid, spiraling and swaying on
+    // wave) plus the three snapped chains hanging pendulum-slow off the lower
+    // rim on the literal pre-7m arrangement (at 0.25/0.16/0.34, r 0.8/0.85/0.88).
     // shadowfade = cold dark steel so it reads on white; rim = pale catch;
     // glint = per-sprite specular streak travelling the links — never the
-    // flash bus, never a whole-aura pulse.
-    { k: "orbit", n: 14, shape: "img", src: "/aura/chain.webp", rotTracksOrbit: 1, r: [1.16, 1.22], w: [0.05, 0.09], wave: 0.05, sz: [0.55, 0.62], even: 1, jit: 0.05, wobble: 0.06, a: 0.9, glint: 1, behind: 1, treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.04, a: 0.55 }, blend: "source-over", small: { n: 11, sz: [0.46, 0.52] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.8, 0.8], w: [0, 0], sz: [1.55, 1.55], even: 1, at: 0.25, rot: 0.015, wobble: 0.12, a: 0.95, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.95, 0.95] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.85, 0.85], w: [0, 0], sz: [1.2, 1.2], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.15, a: 0.85, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.75, 0.75] } },
-    { k: "orbit", n: 1, shape: "img", src: "/aura/chain.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.88, 0.88], w: [0, 0], sz: [0.95, 0.95], even: 1, at: 0.34, rot: 0.05, wobble: 0.18, a: 0.75, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.6, 0.6] } },
+    // flash bus, never a whole-aura pulse. The sprite's torn tail is the
+    // snapped end; loose links are the drifting chainlink motes.
+    { k: "orbit", n: 11, shape: "img", src: "/aura/chain-heavy.webp", rotTracksOrbit: 1, r: [1.16, 1.22], w: [0.05, 0.09], wave: 0.05, sz: [0.9, 1.0], even: 1, jit: 0.05, wobble: 0.06, a: 0.9, glint: 1, behind: 1, treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.04, a: 0.55 }, blend: "source-over", small: { n: 9, sz: [0.72, 0.82] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.8, 0.8], w: [0, 0], sz: [1.55, 1.55], even: 1, at: 0.25, rot: 0.015, wobble: 0.12, a: 0.95, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.95, 0.95] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.85, 0.85], w: [0, 0], sz: [1.2, 1.2], even: 1, at: 0.16, rot: -0.05, flip: 1, wobble: 0.15, a: 0.85, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.75, 0.75] } },
+    { k: "orbit", n: 1, shape: "img", src: "/aura/chain-heavy.webp", treat: "shadowfade", treatRim: { c: "#A8BEE0", dy: 0.05, a: 0.6 }, r: [0.88, 0.88], w: [0, 0], sz: [0.95, 0.95], even: 1, at: 0.34, rot: 0.05, wobble: 0.18, a: 0.75, glint: 1, behind: 1, blend: "source-over", small: { sz: [0.6, 0.6] } },
     // snapped-off links drifting loose in the band
     { k: "orbit", n: 12, shape: "chainlink", c: ["#5A6478", "#8A97B0", "#3A4356"], w: [0.05, 0.12], r: [1.0, 1.26], sz: [1.1, 1.9], a: 0.8, tw: 1, small: { n: 7, sz: [0.9, 1.4] } },
   ] },
