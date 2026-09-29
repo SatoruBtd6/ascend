@@ -5,7 +5,7 @@ export const QUEST_POOL = [
   { qid: "run", title: "Run or walk", target: 3, unit: "mi", xp: 80 },
   { qid: "water", title: "Drink water", target: 16, unit: "cups", xp: 40 },
   { qid: "plank", title: "Plank (total)", target: 5, unit: "min", xp: 50 },
-  { qid: "pullups", title: "pull-ups", target: 30, unit: "reps", xp: 70 },
+  { qid: "pullups", title: "pull-ups", target: 15, unit: "reps", xp: 70 },
   { qid: "steps", title: "Walk", target: 10000, unit: "steps", xp: 50 },
   { qid: "stretch", title: "Stretch", target: 15, unit: "min", xp: 30 },
   { qid: "lunges", title: "walking lunges", target: 60, unit: "reps", xp: 55 },

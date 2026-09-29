@@ -117,9 +117,11 @@ Brodan's decisions, recorded:
 
 **G. Personalisation curve.** Scale thresholds by the same mass blend
 `strengthScale` uses (`0.65 × bw + 0.35 × BMI-24 height mass`), with:
-  - **endurance: exponent ≈ 0.67** (matching the weighted-lift curve)
-  - **strength-limited: exponent ≈ 1.0** (near-linear in bodyweight — a heavier
-    person lifting their own body does proportionally more work per rep)
+  - **endurance: exponent 1.0** — inverse-linear in mass; the approved
+    130/170/230 lb targets (118/100/82) fit exactly this, not 0.67
+  - **strength-limited: exponent 1.3** — each rep is more work for a heavier
+    person AND heavier frames can do fewer reps at equal fitness, so the
+    discount compounds larger than endurance
   Reference point: a 170 lb / 70 in male sits at the unscaled thresholds.
   Verify against these targets for Air Squat C tier and report the actual
   numbers your implementation produces: **130 lb ≈ 118 reps, 170 lb = 100,
@@ -144,16 +146,17 @@ app) both need fixing in the same pass. For custom exercises, propose how a
 user-invented movement gets a sane multiplier and a class rather than defaulting
 to the easiest possible curve.
 
-**J. The female scale, examined not assumed.** `FEMALE_REP_SCALE = 0.7` is a
-flat multiplier. Once thresholds scale with bodyweight, part of the sex
-difference is already captured by mass — so a flat 0.7 on top may double-count.
-Analyse and propose; do not silently keep it. Report what the combined effect
-looks like for a 130 lb female under both options.
+**J. The female scale — decided.** Split by class: endurance × 0.85,
+strength-limited keeps × 0.7. The sex gap concentrates in upper-body strength
+work, so a flat multiplier was the wrong shape. (Was: `FEMALE_REP_SCALE = 0.7`
+flat on all bodyweight movements.)
 
 **K. Quest targets.** The daily quests ask for 100 air squats, 100 sit-ups,
 60 walking lunges. Under the new curve, report what tier each quest target now
 represents. If any quest target still equals a high tier, flag it — quests and
 ranks should not be telling the user two different stories.
+**Decided:** pull-up quest drops 30 → 15 (a daily quest should not be an
+A-tier ask — same fault as the 100 air squats, smaller).
 
 **L. Mandatory achievement recheck for all accounts.** Use the existing
 `achV` gate: bump the version constant and the `< 3` check so every account
