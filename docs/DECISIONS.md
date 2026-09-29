@@ -274,7 +274,9 @@ Current approval pins:
   `d195d96`: `aura:diff --only eclipseheart`, 0 differing px at
   board32/profile76/figure160 across all sampled frames.
 - `blacksun` — approved at `58931bd` (Part 4 redo 2 + small-size/wings polish:
-  wings sz 2.0, stronger rim, Umbra growth via img `mScale`).
+  wings sz 2.0, stronger rim, Umbra growth via img `mScale`); re-pinned at
+  `7dbceec` (Part 6f crate160 fix — `large:`-scoped wing pull-in;
+  profile76/figure160 byte-identical to `58931bd`, crate160 edge-clean).
 
 Real-mount evidence: every canvas size a user sees is now in the evidence
 grids — `aura:edge` and `aura:shots` cover studio-88 (w88/ringR 25) and
