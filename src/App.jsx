@@ -876,9 +876,19 @@ export default function App() {
       if (document.visibilityState !== "hidden") return;
       let interval = false;
       try { interval = (+localStorage.getItem(INTERVAL_RUN_KEY) || 0) > Date.now() - 4 * 3600 * 1000; } catch (e) { /* private mode */ }
-      const ae = document.activeElement;
-      const typing = !!(ae && (ae.isContentEditable || ae.tagName === "TEXTAREA" || (ae.tagName === "INPUT" && !/^(button|checkbox|radio|submit|range|color|file)$/.test(ae.type)))) ||
-        [...document.querySelectorAll("textarea")].some((t) => t.value);
+      // "Unsaved input" = a field whose content diverged from its rendered
+      // default: catches blurred drafts, skips untouched prefills and the
+      // always-non-empty readOnly export textarea.
+      const dirtyField = (el) => {
+        if (!el || el.disabled || el.readOnly) return false;
+        if (el.isContentEditable) return !!el.textContent;
+        if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") {
+          if (el.tagName === "INPUT" && /^(button|checkbox|radio|submit|range|color|file|hidden|image|reset)$/.test(el.type)) return false;
+          return !!el.value && el.value !== el.defaultValue;
+        }
+        return false;
+      };
+      const typing = [...document.querySelectorAll("input,textarea,[contenteditable]")].some(dirtyField);
       const why = updateReloadBlocked({ live: !!liveNow.current, workout: !!sRef.current?.active, restEnd: readRestEnd(), interval, typing, now: Date.now() });
       if (why) { D.push({ k: "update", st: "defer", why }); return; }
       try { sessionStorage.setItem(RETURN_TAB_KEY, tab); } catch (e) { /* private mode */ }
