@@ -75,6 +75,10 @@ The strike flash uses `lighter` and a radial gradient that falls off to transpar
 
 `reloadForUpdate` saves the live run (`saveLive`), writes `ascend-pending` synchronously, and only then reloads. If that write throws, it does not reload. The service-worker banner and the in-app **Update now** button both use this function. Since 7o, once a new bundle is detected the app also auto-reloads the next time the page hides, but only while `updateReloadBlocked` returns null — a live run, an unsaved workout (`s.active`), a running rest or interval timer, or a half-typed field defers it to a later hide. The hidden reload stashes `ascend-return-tab` in sessionStorage so the user lands back on the same tab.
 
+## kv key/scope immutability (7o C2, pending live run)
+
+Once the `kv_immutable_key` trigger is live, no UPDATE may change a row's `key` or `scope` — a party member passing the UPDATE USING clause could otherwise rename a row (forging owner-preserved rows via `kv_set_owner`) or move it into their own scope. Renames are delete+insert, never UPDATE. Maintenance caveat: SQL-editor edits that rename a key now fail under the trigger — delete and re-insert instead, same class of footgun as `kv_owner`.
+
 ## Service-worker caches
 
 On activate, the worker keeps the current `VERSION` cache and the previous `ascend-v*` cache, and deletes every older cache. The previous cache is what a rollback still has on the phone. Keeping every historical cache fills storage.
