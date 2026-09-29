@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, migrateAuraIds, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, BW_END_STEPS, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, migrateAuraIds, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -523,7 +523,7 @@ test("raids10 feat task unlocks Standard-Bearer at 10 clears and reports progres
 const REF = { weight: 170, height: 70, age: 25, sex: "m", activity: 1.55, goal: "lean" };
 const benchEx = { type: "weighted", group: "Chest", factor: 1 };
 const squatEx = { type: "weighted", group: "Legs", factor: 1.25 };
-const pullEx = { type: "bodyweight", group: "Back", reps: 0.85 };
+const pullEx = { type: "bodyweight", group: "Back", reps: 0.85, bw: "str" };
 
 test("female rank lines are group-scaled vs the same male inputs", () => {
   const mBench = thresholds(benchEx, REF);
@@ -539,6 +539,33 @@ test("female rank lines are group-scaled vs the same male inputs", () => {
   assert.ok(fPull[4] < mPull[4]);
   assert.ok(Math.abs(fPull[4] / mPull[4] - FEMALE_REP_SCALE) < 0.08);
   assert.deepEqual(thresholds(benchEx, { ...REF, sex: "x" }), mBench);
+});
+
+test("bodyweight classes: endurance scales with mass at the 171/72 reference, strength-limited is flat", () => {
+  const ref171 = { weight: 171, height: 72, sex: "m" };
+  const airSquat = { type: "bodyweight", group: "Legs", reps: 3, bw: "end" };
+  const pushup = { type: "bodyweight", group: "Chest", reps: 2.8, bw: "str" };
+  const burpee = { type: "bodyweight", group: "Cardio", reps: 1.2, bw: "end" };
+  const unclassed = { type: "bodyweight", group: "Core", reps: 1 };
+  // reference anchors
+  assert.deepEqual(thresholds(airSquat, ref171), [45, 99, 225, 375, 549]);
+  assert.deepEqual(thresholds(pushup, ref171), [28, 48, 67, 92, 118]);
+  assert.deepEqual(thresholds(burpee, ref171), [18, 40, 90, 150, 220]);
+  assert.deepEqual(thresholds(pullEx, ref171), [9, 14, 20, 28, 36]);
+  // strength-limited is identical at every body weight
+  assert.deepEqual(thresholds(pushup, { weight: 130, height: 70, sex: "m" }), thresholds(pushup, ref171));
+  assert.deepEqual(thresholds(pullEx, { weight: 230, height: 70, sex: "m" }), thresholds(pullEx, ref171));
+  // endurance scales: lighter owes more, heavier owes less
+  assert.deepEqual(thresholds(airSquat, { weight: 130, height: 70, sex: "m" }), [54, 120, 272, 454, 664]);
+  assert.deepEqual(thresholds(airSquat, { weight: 230, height: 70, sex: "m" }), [37, 82, 187, 312, 457]);
+  // unclassified bodyweight defaults to the endurance (harder) class
+  assert.deepEqual(thresholds(unclassed, ref171), BW_END_STEPS.map((r) => Math.round(r)));
+  // female: str flat-mass rows x0.7, end mass-scaled rows x0.85
+  const fRef = { weight: 171, height: 72, sex: "f" };
+  assert.deepEqual(thresholds(pullEx, fRef), [6, 10, 14, 20, 25]);
+  assert.deepEqual(thresholds(pushup, fRef), [20, 34, 47, 64, 83]);
+  const fLight = thresholds(airSquat, { weight: 130, height: 64, sex: "f" });
+  assert.equal(fLight[3], 413);
 });
 
 test("female calorie targets use Mifflin-St Jeor −161 on the same stats", () => {

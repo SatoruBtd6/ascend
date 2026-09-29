@@ -717,31 +717,43 @@ export function countRaidClears(s) {
 // (https://fitnesscalcs.com/reference/strength-standards-table/).
 export const RATIO_STEPS = [1.0, 1.35, 1.7, 2.1, 2.55];
 export const REP_STEPS = [10, 17, 24, 33, 42];
+export const BW_END_STEPS = [15, 33, 75, 125, 183];
 export const GROUP_HARD = { Shoulders: 1.25, Arms: 1.1 };
 export const FEMALE_GROUP_SCALE = { Chest: 0.68, Shoulders: 0.68, Arms: 0.68, Back: 0.75, Legs: 0.78, Core: 0.78 };
 export const FEMALE_REP_SCALE = 0.7;
+export const FEMALE_END_SCALE = 0.85;
 const GOAL_CAL = { cut: -400, maintain: 0, lean: 250, bulk: 450 };
 
 export function bodySex(p) {
   return p?.sex === "f" ? "f" : "m";
 }
 
-export function femaleScale(group, type) {
-  if (type === "assisted" || type === "bodyweight") return FEMALE_REP_SCALE;
+export function femaleScale(group, type, bw) {
+  if (type === "assisted") return FEMALE_REP_SCALE;
+  if (type === "bodyweight") return bw === "str" ? FEMALE_REP_SCALE : FEMALE_END_SCALE;
   return FEMALE_GROUP_SCALE[group] || 0.72;
 }
 
-export function strengthScale(p) {
+export function bodyMass(p) {
   const bw = Math.max(80, +p?.weight || 170), h = Math.max(48, +p?.height || 70) * 0.0254;
-  const frameLb = 24 * h * h * 2.2046;
-  const mass = 0.65 * bw + 0.35 * frameLb;
-  return 180 * Math.pow(mass / 180, 0.67);
+  return 0.65 * bw + 0.35 * 24 * h * h * 2.2046;
+}
+export const BW_REF_MASS = bodyMass({ weight: 171, height: 72 });
+
+export function strengthScale(p) {
+  return 180 * Math.pow(bodyMass(p) / 180, 0.67);
 }
 
 export function thresholds(ex, p) {
+  if (ex.type === "bodyweight") {
+    const str = ex.bw === "str";
+    const massF = str ? 1 : BW_REF_MASS / bodyMass(p);
+    const base = (str ? REP_STEPS : BW_END_STEPS).map((r) => Math.round(r * (ex.reps || 1) * massF));
+    const f = bodySex(p) === "f" ? femaleScale(ex.group, "bodyweight", ex.bw) : 1;
+    return f === 1 ? base : base.map((r) => Math.round(r * f));
+  }
   const f = bodySex(p) === "f" ? femaleScale(ex.group, ex.type) : 1;
   if (ex.type === "assisted") return REP_STEPS.map((r) => Math.round(r * f));
-  if (ex.type === "bodyweight") return REP_STEPS.map((r) => Math.round(r * (ex.reps || 1) * f));
   const sc = strengthScale(p) * f;
   const hard = GROUP_HARD[ex.group] || 1;
   return RATIO_STEPS.map((r) => Math.round((r * ex.factor * sc * hard) / 5) * 5);

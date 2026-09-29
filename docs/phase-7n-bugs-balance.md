@@ -107,38 +107,33 @@ Brodan's decisions, recorded:
 - **Moderate scaling strength**, matching the curve weighted lifts already use.
 - **Strength-limited bodyweight movements scale harder than endurance ones.**
 
-**F. Two movement classes.** Split bodyweight movements into:
+**F. Two movement classes — implemented.** `bw: "end" | "str"` on the exercise
+def; absent defaults to `end`.
   - **Endurance** (bounded by conditioning): Air Squat, Sit-up, Russian Twist,
-    Back Extension, Walking Lunge, Burpee, Push-up.
+    Back Extension, Walking Lunge, Burpee.
   - **Strength-limited** (bounded by strength): Pull-up, Chin-up, Dip, Hanging
-    Leg Raise.
-  Propose the mechanism — a field on the exercise definition, a lookup, whatever
-  fits the existing shape — and say where custom exercises get classified.
+    Leg Raise, Push-up (moved out of endurance on Brodan's call — A stays 92).
 
 **G. Personalisation curve.** Scale thresholds by the same mass blend
 `strengthScale` uses (`0.65 × bw + 0.35 × BMI-24 height mass`), with:
   - **endurance: exponent 1.0** — inverse-linear in mass; the approved
     130/170/230 lb targets (118/100/82) fit exactly this, not 0.67
-  - **strength-limited: exponent 1.3** — each rep is more work for a heavier
-    person AND heavier frames can do fewer reps at equal fitness, so the
-    discount compounds larger than endurance
-  Reference point: a 170 lb / 70 in male sits at the unscaled thresholds.
+  - **strength-limited: exponent 0** — DECIDED: no mass scaling. For these
+    movements bodyweight IS the resistance, so a heavier person already does
+    more work per rep; a mass discount would double-count it. Matches gym and
+    military standards for bodyweight strength movements.
+  Reference point: a 171 lb / 72 in male (Brodan's stats) sits at the unscaled
+  thresholds (`BW_REF_MASS`).
   Verify against these targets for Air Squat C tier and report the actual
   numbers your implementation produces: **130 lb ≈ 118 reps, 170 lb = 100,
   230 lb ≈ 82.** If your curve lands materially away from those, show the
   numbers rather than adjusting the target silently.
 
-**H. Rebased thresholds.** Anchor: Air Squat C = 100 reps at the reference
-profile, B ≈ 225. That implies an endurance `REP_STEPS` of roughly
-`[15, 33, 75, 125, 183]` before the per-exercise multiplier (Air Squat's
-`reps: 3` gives `[45, 100, 225, 375, 550]`, with SS from the existing
-`× 1.35` rule). Treat that as the starting point, not gospel.
-  **Produce the full rebased table for every bodyweight movement** — every tier,
-  every movement, at the reference profile, plus a second table at 130 lb and
-  230 lb so the personalisation is visible. Include the per-exercise `reps`
-  multipliers you propose changing and why. **Stop for Brodan's approval on the
-  table before implementing.** He is the one who knows what 400 air squats
-  actually feels like.
+**H. Rebased thresholds — approved and implemented.** Endurance base steps
+`BW_END_STEPS = [15, 33, 75, 125, 183]` (Air Squat A = 375 at the 171 lb / 72 in
+reference); strength-limited keeps `REP_STEPS = [10, 17, 24, 33, 42]` flat at
+every body weight. Burpee `reps` 2.0 → 1.2 (A = 150). Everything else keeps its
+existing multiplier.
 
 **I. Two specific scaling faults from the audit.** Back Extension (S at 50) and
 custom AI-generated bodyweight exercises (`reps: 1`, the easiest curve in the

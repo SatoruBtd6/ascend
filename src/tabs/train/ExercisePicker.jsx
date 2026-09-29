@@ -38,6 +38,8 @@ Respond ONLY with JSON, no markdown:
 {"name": clean title-case exercise name,
  "group": one of "Chest","Back","Legs","Shoulders","Arms","Core","Cardio",
  "type": "weighted" (tracked as lb x reps), "bodyweight" (tracked as reps), or "timed" (tracked in minutes, e.g. cardio, holds, sports),
+ "bw": for bodyweight only — "str" if the move is strength-limited where bodyweight is the resistance (pull-ups, chin-ups, dips, push-ups, hangs, muscle-ups), "end" for endurance rep moves (squats, sit-ups, lunges, burpees),
+ "reps": for bodyweight only, the rep multiplier per tier: pull-up 0.85, chin-up 0.95, dip 1.3, hanging leg raise 0.8, push-up 2.8, burpee 1.2, walking lunge 2, sit-up 3, air squat 3,
  "perHand": true if people normally count the weight per hand (dumbbells, kettlebells, single-arm cables), false for barbells, machines, two-handed cables, and plate-loaded stacks,
  "factor": for weighted only, how an elite lifter's one-rep max on this exercise compares to their bench press max, using the weight as it is entered (per hand if perHand is true). Examples: bench press = 1.0, squat = 1.25, deadlift = 1.45, overhead press = 0.63, barbell curl = 0.45, dumbbell curl per hand = 0.2, lateral raise per hand = 0.1, reverse fly machine = 0.5, rear delt dumbbell fly per hand = 0.09, machine crunch = 1.3, leg press = 2.4, chest press machine = 1.1. Machines with light-feeling stacks should get higher factors. Use 0 if not weighted,
  "xp": XP value. For weighted/bodyweight: XP per set from 5 (small isolation) to 20 (heavy full-body compound). For timed: XP per minute from 3 (easy) to 10 (very intense),
@@ -50,7 +52,10 @@ Respond ONLY with JSON, no markdown:
       const type = ["weighted", "bodyweight", "timed"].includes(r.type) ? r.type : "weighted";
       setDraft({
         name: String(r.name || q).slice(0, 40), group: GROUPS.includes(r.group) ? r.group : "Core", type,
-        factor: type === "weighted" ? Math.min(3, Math.max(0.1, +r.factor || 0.5)) : undefined, reps: type === "bodyweight" ? 1 : undefined, perHand: type === "weighted" && !!r.perHand,
+        factor: type === "weighted" ? Math.min(3, Math.max(0.1, +r.factor || 0.5)) : undefined,
+        reps: type === "bodyweight" ? Math.min(4, Math.max(0.5, +r.reps || 1)) : undefined,
+        bw: type === "bodyweight" ? (r.bw === "str" || r.bw === "end" ? r.bw : /pull|chin|dip|hang|push|leg raise|muscle[- ]?up|handstand/i.test(String(r.name || q)) ? "str" : "end") : undefined,
+        perHand: type === "weighted" && !!r.perHand,
         xp: Math.round(Math.min(type === "timed" ? 10 : 20, Math.max(type === "timed" ? 2 : 4, +r.xp || 8))),
         why: r.why || "", custom: true,
       });

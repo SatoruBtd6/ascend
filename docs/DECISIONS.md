@@ -2,6 +2,21 @@
 
 Rules a later session must not undo. Each one is the behavior the app ships.
 
+## Bodyweight rank classes (phase 7n — Brodan)
+
+Bodyweight exercises carry a `bw` class on the exercise def. Endurance moves
+(`bw: "end"` — air squat, sit-up, Russian twist, back extension, walking lunge,
+burpee) scale tiers inverse-linearly with body mass (`BW_END_STEPS`,
+exponent 1.0 vs the 171 lb / 72 in reference). Strength-limited moves
+(`bw: "str"` — pull-up, chin-up, dip, hanging leg raise, push-up) get **no mass
+scaling**: for these movements bodyweight IS the resistance, so a heavier person
+is already doing more work per rep — a mass discount on top double-counts it.
+This matches how gyms and military standards treat bodyweight strength
+movements. The female scale splits by class: endurance ×0.85 (`FEMALE_END_SCALE`),
+strength-limited ×0.7 (`FEMALE_REP_SCALE`) — the sex gap concentrates in
+upper-body strength work. Unclassified bodyweight exercises default to `end`
+(harder curve) so invented exercises cannot sandbag ranks.
+
 ## Workout credit and streaks
 
 `WORKOUT_CREDIT` in `src/math.js` is the curve. A short walk and a long lift are not the same workout: strength is piecewise on effective minutes, runs and walks use their own minutes and a lower cap, mixed sessions add both and then cap, and quest or deck sessions stay at 0. Streaks count any session that earns credit, so a short walk still keeps the day.
