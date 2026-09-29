@@ -3,16 +3,49 @@
 Read this at the start of every part, alongside `docs/phase-7m-ladder.md`.
 The ladder doc is the plan. **This doc is what has actually happened.**
 
-Last updated: end of Part 6 (all seven pilot auras approved). Next: Part 7.
+Last updated: end of Part 7 — the phase is complete. Next: Brodan pushes
+and tags v7m, then the baseline re-pins.
 
 ---
 
 ## Status
 
-Parts 1–6 complete. All seven pilot auras approved by Brodan. Part 7 (settle,
-document, ship) is next and is the last part of the phase.
+Parts 1–7 complete. All seven pilot auras approved by Brodan.
 
-`APP_VERSION` has **not** been bumped. No tag. Nothing re-pinned to v7m yet.
+`APP_VERSION = "7m"`, SW cache `ascend-v7m`, committed but **not pushed or
+tagged** — Brodan does both. After the tag: re-pin `ascend-baseline` to v7m,
+record the seven pilots' new medians as their `GRANDFATHERED` ceilings,
+retire `P7M_FAIL_EXEMPT`, and re-freeze the `ring` stress set by ring-size
+medians.
+
+## Part 7 results
+
+- **Full diff** (`aura:diff --expect blacksun,fallenlight,huntersmoon,forge,
+  standardbearer,ironbound`): **45 pass, 6 expected-diff, 0 fail**, zero
+  harness flags. `eclipseheart` is byte-identical (its approval state was
+  already in the baseline); `blacksun` differs at board32 only (the approved
+  `small: { treatRim }` wing rim, `ac3b39f`); `fallenlight` figure160 stayed
+  frozen-clean. Evidence: `evidence/aura-diff/2026-09-29-03-01-04`.
+- **Stress, 7 runs each** (median/min/max/spread of per-run p95):
+  fixed 13.5/12.5/14.7/2.2 ms (WARN >12; one run touched the 14.5 pause
+  line), ledger 11.8/11.0/13.1/2.1, revamp 12.1/11.2/14.2/3.0, spectacle
+  13.4/13.2/15.8/2.6, ring@141 11.7/10.2/13.5/3.3 — all under the 16 ms
+  gate. Evidence: `evidence/aura-stress/2026-09-29-03-03-48`,
+  `-03-05-21` (ring).
+- **stress --ab**: fixed B−A +0.9 ms (the four reworked members' real added
+  cost), ledger +0.0, revamp +0.2 — `evidence/aura-stress/2026-09-29-03-22-09`.
+- **perf --ab carve** (the only renderer change this part): −0.033 ms
+  (−4.7%), session valid — `evidence/aura-perf/2026-09-29-03-23-03`.
+- **aura:flash**: bonewright pixel-identical, flashTimes identical —
+  `evidence/aura-flash/2026-09-29-03-23-26`.
+- **Per-rung budgets live** (see `RUNG_RATIO_BUDGET`). Warners under the new
+  lines: `atlas` at board-32 (1.84x vs R3 1.7x — already costlier than the
+  proven R3 recipe); `carve`/`wyrm` keep KNOWN_OVER. Ring series: zero
+  warns. Full sweeps: `evidence/aura-perf/2026-09-29-03-15-15` (board),
+  `-03-18-58` (ring).
+- **Checks**: 228 tests, 0 lint errors (5 baseline warnings), 0 cycles,
+  `npm.cmd run check` passed.
+- **chain-heavy.webp kept** — see DECISIONS.md.
 
 ## Approval pins
 
@@ -80,6 +113,19 @@ doc's rung table and must survive into the rollout phases.
     ring`, gating on a 4-aura ring set; other sets at ring size print INFO as
     synthetic worst cases).
 
+**Part 7 additions** (Brodan's Part 7 brief, recorded in `DECISIONS.md`):
+
+13. **Per-rung ratio budgets** — `RUNG_RATIO_BUDGET` + `AURA_RUNG` in
+    `aura-sets.mjs`; an aura warns only when it costs more than its rung's
+    proven maximum. Board: 0.95/1.3/1.7/3.5/5.5x; ring: 1.3/1.3/2.7/3.6/4.5x.
+    R1's line derives from the rung's existing max member (tide), since R1
+    had no pilot.
+14. **Session validity** — under `--ab`, if the pinned stormstep reference's
+    own B−A delta crosses the FAIL threshold in either direction, every
+    verdict prints INVALID and the run exits non-zero. Caveat: the reference
+    is exempt from FAIL by position, so without this check a genuine
+    stormstep regression could only print WARN and never gate.
+
 ## Standing rules that must not be undone
 
 - **Flash rule (seizure safety).** Every flash through `noteStrikeFlash`.
@@ -136,37 +182,60 @@ doc's rung table and must survive into the rollout phases.
   touching draw order must keep `rnd()` consumption identical.
 - **studio88 "empty hole"** is correct — that cell is the aura *picker* tile,
   which has no avatar by design.
-- **Diff harness state accumulation** — ninetail showed a 7,219 px board32 diff
-  once, then four consecutive clean runs. Never reproduced in isolation, only
-  inside full-grid runs. Likeliest cause is module-level state accumulating
-  across cells in one browser session. **Unresolved. The diff gate can produce
-  false results in full-grid runs; treat a lone unexplained diff as worth a
-  re-run and an investigation, not a shrug.**
+- **Diff harness state accumulation** — the ninetail 7,219 px board32 blip
+  (interior texels shifted in the tail region, silhouette identical, all four
+  steady frames). Investigated in Part 7: in-cell renderer state was ruled
+  out (seeded RNG, flash-clock reset, synchronous captures, fresh page per
+  aura — 12/12 identical recaptures in fresh pages). The real vectors were
+  in the harness: `newPage` leaked each aura's whole browser **context**
+  (~50 live gallery canvases per leaked context, ~100 contexts per run), and
+  moment-only `auraImage` calls (vendetta's skull) could register mid-cell,
+  after the image wait. Harness hardened in Part 7: contexts now close per
+  aura, the subject's moment is warmed once per page, and every cell records
+  an image-state ledger — pending/late/mismatched image state marks the diff
+  HARNESS-suspect instead of silently passing or failing. The exact
+  mechanism was never caught live, so it is **narrowed, not proven** — a
+  lone unexplained diff still warrants a rerun and investigation. The final
+  full-grid run showed zero harness flags on all 51 auras.
 
-## Open items for Part 7
+## Open items — post-tag (Part 7 item I, Brodan's side)
 
-1. **The stress number is the phase's real open question.** Fixed-set p95 has
-   read 11.2, 13.1, 15.1, 13.5, 14.0, 12.5 ms across this batch — against a
-   14.5 ms rollout-pause line and a 16 ms hard gate (the frame-drop threshold).
-   Seven auras are done; **44 remain, 19 of them in R3, which lands in every
-   stress set.** Part 7 must settle this with a proper multi-run measurement,
-   not a single reading, and say plainly whether the remaining rollout fits
-   inside the budget or whether the rungs need cheaper recipes.
-2. **eclipseheart ring-size cost** +51% and **huntersmoon** +65.5% — both
-   exempt this phase, both baked in as ceilings at the re-pin. Per-rung ratio
-   budgets were proposed and not yet written; a single 1.3× line that every R5
-   aura permanently violates is a dead signal.
-3. **Session-validity check** (agreed for Part 7): when the pinned reference
-   aura's self-delta exceeds the FAIL threshold, that session's verdicts are
-   INVALID and a re-run is required. Currently the reference is exempted from
-   FAIL, which means a genuine stormstep regression would print WARN and could
-   not gate — that caveat is exactly why the session check is worth having.
-4. **`drawCarveSigil` `save()`/`restore()` imbalance** — a real state leak, to
-   be fixed as its own item with its own zero-pixel diff.
-5. **`chain-heavy.webp`** is unreferenced in `public/aura/` after the ironbound
-   revert. Decide whether it stays.
-6. **Per-rung ratio budgets**, the `spectacle` set freeze, the ring-set re-rank
-   by ring-size medians, and the baseline re-pin to v7m — all Part 7 items.
+1. Tag `v7m`, then `npm.cmd run aura:baseline -- v7m` to re-pin the worktree.
+2. Record the seven pilots' v7m medians as their `GRANDFATHERED` ceilings and
+   retire `P7M_FAIL_EXEMPT` — an edited aura is no longer untouched. Note the
+   ring-size series separately: eclipseheart measured ~+51% and huntersmoon
+   ~+65.5% over stormstep at ring size — both approved, both become ring
+   ceilings at the re-pin.
+3. Re-freeze the `ring` stress set by **ring-size medians**, not board — three
+   of its four members were reworked this phase.
+4. `spectacle` is already frozen: yogurt, vendetta, ascended, wheel, champion,
+   eclipseheart, blacksun, godray.
+
+## The stress answer (item J — read before planning rollout)
+
+Measured 7 runs/set at board-32 (moments forced, 4x CPU) + the ring set at
+141 px. All sets pass 16 ms today. But the rollout does **not** fit if every
+remaining aura spends its rung ceiling:
+
+- **fixed** (the binding set — 6 of its 10 members still pending, including
+  ascended R5 and nullpoint R4) has ~1.0 ms of headroom to the 14.5 pause line
+  and already crossed it once in 7 runs (max 14.7). Over 6 pending members
+  that is roughly **+0.2 ms/aura net** — nothing like the R5 ceiling's
+  ~2.7 ms. ascended alone, built anywhere near eclipseheart's recipe, puts
+  fixed over the pause line by itself.
+- **revamp** (all 10 members pending) has ~2.4 ms to 14.5 — about
+  **+0.25 ms/aura** spread evenly.
+- **ledger** ~2.7 ms headroom over 6 pending.
+- **spectacle** and **ring** are final — their members are frozen at v7m and
+  won't grow (13.4/11.7 medians).
+- The Part 6 R3 rule (+0.15 ms/aura average) is compatible with this: 19 R3
+  auras × +0.15 spread across sets lands under the pause line **if** the
+  pending R4/R5 members (ascended, vendetta, nullpoint, carve, halo,
+  brandmark) are built to near-zero net growth, not to their ceilings.
+
+Bottom line: the gate fits, the ceilings don't. Plan batches around set
+headroom, not rung budgets — and expect the pause rule to fire if the big
+pending spectacles get their full recipes.
 
 ## Rollout, after v7m
 
@@ -176,10 +245,14 @@ doc's rung table and must survive into the rollout phases.
 The **rollout stop rule**: after each batch, stress runs, and if fixed-set p95
 exceeds 14.5 ms the rollout pauses and the remaining rungs get cheaper recipes.
 
-Worth considering rather than going rung by rung: the 13 auras untouched in 7k
-(inferno, halo, godray, champion, huntersmoon, redline, bonewright,
-eclipseheart, blacksun, soon_throne, soon_seraphim, plus standardbearer and
-ironbound — the last four now done) are where the visible payoff is.
+Suggested order (cheapest gates first, so the pause rule fires late or never):
+R1/R2 stragglers first (glassfire, zeropoint, ninetail, storm, tide, sigil,
+steadybreath, iaidraw — most need little or nothing), then the 19 R3 members
+at the +0.15 ms recipe, then R4, and the remaining R5s (ascended, vendetta)
+**last and individually** — each one can eat an entire set's headroom.
+`atlas` already warns over its R3 budget at board-32 and needs a trim, not a
+raise. `carve`/`wyrm` stay in KNOWN_OVER — trimming them buys back real
+headroom.
 
 ## Working notes
 
