@@ -21,7 +21,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
   const [phase, setPhase] = useState(initial.resumed ? "resume" : "live"); // resume | live | summary
   const [wake, setWake] = useState(null);
   const [cues, setCues] = useState(s.settings?.runCues !== false);
-  const watchRef = useRef(null), wakeRef = useRef(null), lastSave = useRef(0), cuedMiles = useRef(initial.splits?.length || 0), hiddenAt = useRef(null);
+  const watchRef = useRef(null), wakeRef = useRef(null), lastSave = useRef(0), cuedMiles = useRef(initial.splits?.length || 0), hiddenAt = useRef(null), savingRef = useRef(false);
   const [gapNote, setGapNote] = useState("");
   const [SimDock, setSimDock] = useState(null);
   const simOn = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("simrun") === "1";
@@ -107,6 +107,8 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
   };
   const discard = () => ask("Discard this run? It won't be saved.", () => { clearLive(); onClose(); }, "Discard");
   const save = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     const r = runRef.current;
     const built = buildSavedRun(r);
     if (built.miles < 0.05) { ask("That run is under 0.05 miles. Discard it?", () => { clearLive(); onClose(); }, "Discard"); return; }

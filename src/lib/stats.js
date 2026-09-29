@@ -20,6 +20,7 @@ export function fillQuests(p, d, exercises) {
   return { ...p, days: { ...p.days, [d]: { ...day, list } } };
 }
 export function addWorkout(p, workout) {
+  if (workout?.id && (p.workouts || []).some((w) => w.id === workout.id)) return p;
   return { ...fillQuests(p, workout.date, workout.exercises), workouts: [...p.workouts, workout] };
 }
 // Add one completed card to today's deck session workout (creates it on the first card)
