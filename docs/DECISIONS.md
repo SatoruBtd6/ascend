@@ -2,6 +2,27 @@
 
 Rules a later session must not undo. Each one is the behavior the app ships.
 
+## kv owner trigger and NULL-owner rows (phase 7n security audit)
+
+The live `kv` table has a BEFORE INSERT/UPDATE trigger that stamps
+`owner := coalesce(old.owner, auth.uid())`. Two consequences:
+
+- **Any unowned legacy row is claimed by whoever updates it first.** A
+  byte-identical PATCH from any signed-in user takes ownership — this is how a
+  diagnostic probe accidentally claimed a user's comment. After the
+  2026-10 backfill, two `food:` catalog rows remain `owner = null` because they
+  have no `from` field. **Recommendation (Brodan's call): owner-lock them** to a
+  curator uid rather than leave them communal — they feed the shared food
+  catalog everyone logs from, and `owner IS NULL` keeps them editable and
+  deletable by any authenticated account. Communal editing buys nothing here;
+  new foods are already stamped to their creator on insert.
+- **SQL-editor maintenance UPDATEs on `kv` silently do nothing to `owner`.**
+  In the SQL editor `auth.uid()` is NULL, so the trigger writes
+  `coalesce(old.owner, NULL)` back over whatever the statement set — the
+  backfill "matched zero rows" exactly this way. Any future migration that
+  touches `kv.owner` must disable the trigger for the transaction
+  (`alter table public.kv disable trigger <name>` / `enable`), or work around it.
+
 ## Bodyweight rank classes (phase 7n — Brodan)
 
 Bodyweight exercises carry a `bw` class on the exercise def. Endurance moves
