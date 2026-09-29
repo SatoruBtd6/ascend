@@ -250,15 +250,16 @@ export function lifetimeStats(s) {
     rankTier, level: levelFromXp(s.xp).lvl, since: s.workouts[0]?.date || null,
   };
 }
-// Drop achievements that no longer hold up (e.g. ranks earned under the old, easier scale) and take back their XP
+// Drop achievements that no longer hold up (e.g. ranks earned under the old, easier scale).
+// Does NOT touch s.xp: callers must recount (reconcileRecount / recountXp) so xp and
+// every ledger (xpLog/xpDetail/xpDone) are rebuilt from records in one pass.
+export const ACH_VERSION = 4;
 export function reconcileAchievements(s, rankOnly = false) {
   const earned = new Set(earnedAchievements(s).map((a) => a.id));
-  const all = Object.fromEntries(allAchievements().map((a) => [a.id, a]));
   const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && !id.startsWith("workouts-") && (!rankOnly || id.startsWith("rank-")));
-  if (!lost.length) return { ...s, achV: 3 };
-  const refund = lost.reduce((a, id) => a + (all[id]?.xp || 0), 0);
+  if (!lost.length) return { ...s, achV: ACH_VERSION };
   const ach = { ...s.ach }; lost.forEach((id) => delete ach[id]);
-  return { ...s, ach, achV: 3, xp: Math.max(0, s.xp - refund) };
+  return { ...s, ach, achV: ACH_VERSION };
 }
 export function earnedAchievements(s) {
   const st = lifetimeStats(s);

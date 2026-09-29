@@ -1,7 +1,7 @@
 import { recountPrBonuses, gymSpecificNamesIn, retaggedWorkouts, nextXpFloor, unionAchievements, RAID_XP } from "../../math.js";
 import { findEx } from "../../lib/exercises.js";
 import { today, shift, dkey } from "../../lib/dates.js";
-import { earnedAchievements, allAchievements } from "../../lib/stats.js";
+import { earnedAchievements, allAchievements, reconcileAchievements } from "../../lib/stats.js";
 import { FUEL_XP } from "../../data/quests.js";
 import { WEEKLY_POOL, MONTHLY_POOL, WEEKLY_REPS, MONTHLY_REPS } from "../../data/challenges.js";
 import { runXpLabel } from "../../run.js";
@@ -51,6 +51,12 @@ export function xpFromRecords(s) {
   return rows.sort((a, b) => a.t - b.t);
 }
 export const XP_VERSION = 3;
+// Reconcile first, then rebuild xp + every ledger from records: the only correct
+// way to revoke achievement XP (Phase 7n A). Returns { s, rows } like recountXp;
+// callers that want the server ledger corrected should XpSync.replace(r.rows).
+export function reconcileRecount(s, { rankOnly = false, banner = false } = {}) {
+  return applyPrXpRecount(reconcileAchievements(s, rankOnly), { banner });
+}
 export function grantAchievementsKeep(s) {
   const earned = earnedAchievements(s).map((a) => a.id);
   const ach = unionAchievements(s.ach, earned, today());

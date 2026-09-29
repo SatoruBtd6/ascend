@@ -59,6 +59,14 @@ export function Status({ s, setS, gainXp, openAssistant, openSettings, openProfi
           </div>
         </div>
       )}
+
+      {s.bwNotice === "7n" && (
+        <div className="panel p-4 space-y-2" style={{ borderColor: `${C.cyan}66` }}>
+          <div className="font-bold flex items-center gap-2"><Zap size={16} style={{ color: C.cyan }} />Bodyweight exercises were rebalanced</div>
+          <div className="body text-sm" style={{ color: C.sub }}>Push-ups, pull-ups, air squats and the other rep-based movements now scale to your size — a bigger frame means each rep is more work, so tiers ask a heavier athlete for fewer reps (and lighter frames for a few more). We re-ranked every bodyweight exercise and rechecked your achievements, so some ranks, badges and XP may have moved. Everything you logged is still there.</div>
+          <button onClick={() => setS((p) => ({ ...p, bwNotice: "7n-seen" }))} className="btn px-4 py-2 text-sm">Got it</button>
+        </div>
+      )}
       <div className="panel p-5 overflow-hidden">
         <div className="absolute -right-4 -top-10 font-extrabold select-none" style={{ fontSize: 170, color: oc.color, opacity: 0.07, lineHeight: 1 }}>{oc.id}</div>
         <div className="flex items-center gap-4 relative">

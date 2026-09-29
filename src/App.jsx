@@ -11,7 +11,7 @@ import { TIER_STYLE } from "./data/achievements.js";
 import { today, uid, weekStart } from "./lib/dates.js";
 import { AskRef } from "./lib/ask.js";
 import { findEx } from "./lib/exercises.js";
-import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements } from "./lib/stats.js";
+import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements, ACH_VERSION } from "./lib/stats.js";
 import { SaveCtx } from "./ui/saveCtx.js";
 import { Sheet } from "./ui/primitives.jsx";
 import { AURAS } from "./auras/catalog.js";
@@ -331,7 +331,16 @@ export default function App() {
       if (!st.playerId) st = { ...st, playerId: window.ascendUserId || uid() + uid() };
       if (st.onboarded === false) setOnboard(0);
       else if (!st.onboarded && !st.workouts?.length) setOnboard(st.profile?.name ? 1 : 0);
-      if ((st.achV || 1) < 3) st = reconcileAchievements(st, true);
+      if ((st.achV || 1) < ACH_VERSION) {
+        // 7n: full recheck, then recount so xpLog/xpDetail/xpDone/xp drop the revoked
+        // rows too (and any older orphaned ones) — reconcile alone left them behind.
+        st = reconcileAchievements(st);
+        if ((st.workouts || []).length || (st.xp || 0) > 0 || Object.keys(st.ach || {}).length) {
+          const r = applyPrXpRecount(st, { banner: false });
+          st = { ...r.s, bwNotice: "7n" };
+          try { XpSync.replace(r.rows); } catch (e) { /* offline */ }
+        }
+      }
       if (!st.assistV) {
         const bw = Math.max(80, +st.profile?.weight || 170);
         st = { ...st, assistV: 1, workouts: (st.workouts || []).map((w) => ({ ...w, exercises: (w.exercises || []).map((ex) => (/^Assisted (Dip|Pull-up) Machine$/.test(ex.name) ? { ...ex, sets: (ex.sets || []).map((x) => (+x.w >= bw * 0.5 ? { ...x, w: Math.max(0, Math.round(bw - +x.w)) } : x)) } : ex)) })) };

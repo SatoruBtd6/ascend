@@ -3,7 +3,8 @@ import { Check, ChevronLeft, Copy, Download, Layers, Moon, Palette, Save, Share2
 import { APP_VERSION, BACKUP_KEY, DEFAULT, runningBundle } from "../../appStay.js";
 import * as D from "../../diag.js";
 import { ask } from "../../lib/ask.js";
-import { reconcileAchievements } from "../../lib/stats.js";
+import { reconcileRecount } from "../train/xpRecount.js";
+import { XpSync } from "../../lib/xpSync.js";
 import { levelFromXp, normalizeState } from "../../math.js";
 import { C } from "../../theme.js";
 import { SettingsToggle } from "../../ui/primitives.jsx";
@@ -217,7 +218,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
       <h2 className="text-lg font-bold">Achievements</h2>
       <div className="panel p-4 space-y-2">
         <div className="body text-sm" style={{ color: C.dim }}>Achievements from the old, easier rank scale were already removed. If anything else looks wrong, recheck: any badge you no longer qualify for is removed and its XP taken back.</div>
-        <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const next = reconcileAchievements(s); D.withSource("achievements", () => setS(() => next)); setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(next.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
+        <button onClick={() => ask("Recheck all achievements against your current data?", () => { const before = Object.keys(s.ach || {}).length; const r = reconcileRecount(s); D.withSource("achievements", () => setS(() => r.s)); try { XpSync.replace(r.rows); } catch (e) { /* offline */ } setMsg({ ok: true, text: `Rechecked. ${before - Object.keys(r.s.ach).length} removed.` }); }, "Recheck")} className="ghost w-full py-3 font-bold" style={{ color: C.cyan }}>Recheck achievements</button>
       </div>
 
       <h2 className="text-lg font-bold">Export / import</h2>
