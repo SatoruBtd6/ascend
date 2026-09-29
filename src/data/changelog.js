@@ -1,0 +1,21 @@
+// Hand-written per release; newest first. Surfaced in Settings → What's new.
+export const CHANGELOG = [
+  {
+    v: "7n",
+    items: [
+      "Bodyweight rank targets now fit your size: high-rep moves like air squats scale with bodyweight, while pull-ups, dips, push-ups and hangs use fixed standards. A one-time notice explains the change.",
+      "Fixed a bug that could save a workout twice, double-counting its XP and stats.",
+      "Achievements and XP now recount against your real history — totals and the XP log finally agree.",
+      "The daily pull-up quest asks for 15 instead of 30.",
+      "Privacy fix: other users' private data is no longer visible.",
+      "Recipe editing, a workout-credit log, and this update log.",
+    ],
+  },
+  {
+    v: "7m",
+    items: [
+      "Auras reworked end to end: every aura is brighter and more detailed, with a new unlock moment.",
+      "Seven auras rebuilt and approved: Eclipseheart, Blacksun, Fallen Light, Hunter's Moon, Forge, Standard-Bearer, Ironbound.",
+    ],
+  },
+];

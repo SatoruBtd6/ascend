@@ -39,14 +39,15 @@ export function Board({ s, setS, openProfile, gainXp }) {
     }
     if (keys === null) {
       const mine = s.lb ? await readCard(`lb:${s.playerId}`) : null;
-      setRows(liveBoard(mine ? [mine] : []));
+      setRows(liveBoard(mine ? [mine] : [], { ghosts: !!s.test }));
       setErr("Couldn't reach the shared leaderboard. Check your connection and tap refresh in a moment.");
     } else {
-      const cards = await Promise.all(keys.map(readCard));
-      const got = liveBoard(cards.filter(Boolean));
-      setRows(got);
-      settleSeason(s, setS, got).catch(() => {});
-      applyReigning(s, setS, got);
+      const cards = (await Promise.all(keys.map(readCard))).filter(Boolean);
+      // Season settle and the reigning badge always run on the ghost-free list:
+      // ghost cards are tester-only and must never affect standings.
+      settleSeason(s, setS, liveBoard(cards)).catch(() => {});
+      applyReigning(s, setS, liveBoard(cards));
+      setRows(liveBoard(cards, { ghosts: !!s.test }));
     }
     setLoading(false);
   };
@@ -108,13 +109,13 @@ export function Board({ s, setS, openProfile, gainXp }) {
       {view === "board" && !s.lb ? (
         <div className="panel p-4 space-y-3">
           <div className="font-bold">Join the leaderboard</div>
-          <div className="body text-sm" style={{ color: C.dim }}>{s.test ? "Ghost mode is on. Joining still writes a card, but other players won't see you and you won't raise boss HP, season standings, or duel matching." : "Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private."}</div>
+          <div className="body text-sm" style={{ color: C.dim }}>{s.test ? "Ghost mode is on. Joining writes a card only tester accounts can see — you won't raise boss HP, season standings, or duel matching." : "Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private."}</div>
           {!s.profile.name && <input className="inp" placeholder="Your name" onBlur={(e) => setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } }))} />}
           <button onClick={() => setS((p) => ({ ...p, lb: true }))} disabled={!s.profile.name} className="btn w-full py-3" style={!s.profile.name ? { opacity: 0.5 } : null}>Join as {s.profile.name || "…"}</button>
         </div>
       ) : view === "board" ? (
         <div className="body text-sm flex justify-between" style={{ color: C.dim }}>
-          <span>{s.test ? "Ghost mode: hidden from the board and boss HP" : `You're on the board as ${s.profile.name}`}</span>
+          <span>{s.test ? "Ghost mode: only testers can see you · no boss HP or standings" : `You're on the board as ${s.profile.name}`}</span>
           <button onClick={leave} className="underline" style={{ color: C.red }}>Leave</button>
         </div>
       ) : null}
@@ -148,7 +149,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
               <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="flex flex-col items-center">
                 {P.place === 1 && <Crown size={26} style={{ color: C.gold, filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} className="mb-1" />}
                 <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} look={lookOf(r)} />
-                <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} /></div>
+                <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} />{r.ghost && <span className="ml-1 text-xs font-bold uppercase" style={{ color: C.mute }}>ghost</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase truncate w-full text-center" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}{cardNeedsXpUpdate(r) ? <div style={{ color: C.mute }}>not updated yet</div> : null}</div>
                 <div className="w-full flex items-start justify-center pt-2" style={{ height: P.h, borderRadius: "4px 4px 0 0", background: PROFILE_BGS.find((b) => b.id === r.look?.bg)?.css ? `linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.6)), ${PROFILE_BGS.find((b) => b.id === r.look?.bg).css}` : `linear-gradient(180deg, ${P.glow}, ${C.bg})`, backgroundSize: "cover", border: `1px solid ${r.look?.accent || P.color}`, borderBottom: "none", boxShadow: `0 0 20px ${P.glow}` }}>
@@ -168,7 +169,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
               <span className="w-7 text-center text-lg font-extrabold" style={{ color: C.dim }}>{i + 4}</span>
               <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} look={lookOf(r)} />
               <div className="flex-1 min-w-0 ml-1">
-                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{isMutualNemesis(s, r) && <span className="ml-1" title="Your Nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
+                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{r.ghost && <span className="ml-1 text-xs font-bold uppercase" style={{ color: C.mute }}>ghost</span>}{isMutualNemesis(s, r) && <span className="ml-1" title="Your Nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="body text-xs" style={{ color: C.dim }}><span className="ranklabel">{r.rank}{r.div ? ` ${r.div}` : ""}</span> · Level {r.lvl} · {r.streak} day streak</div>
               </div>

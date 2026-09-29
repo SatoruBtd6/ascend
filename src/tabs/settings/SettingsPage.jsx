@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, ChevronLeft, Copy, Download, Layers, Moon, Palette, Save, Share2, Shield, Sun, Timer as TimerIcon, Type, Upload, Volume2, VolumeX } from "lucide-react";
+import { Check, ChevronLeft, Copy, Download, Layers, Moon, Palette, Save, Share2, Sun, Timer as TimerIcon, Type, Upload, Volume2, VolumeX } from "lucide-react";
 import { APP_VERSION, BACKUP_KEY, DEFAULT, runningBundle } from "../../appStay.js";
 import * as D from "../../diag.js";
 import { ask } from "../../lib/ask.js";
@@ -11,10 +11,13 @@ import { SettingsToggle } from "../../ui/primitives.jsx";
 import { stripGhostCosmetics } from "../profile/unlock.js";
 import { VOICE_STYLES } from "../train/sterling.js";
 import { exportFood, exportWorkouts, importWorkoutsFromCsv } from "./csvIO.js";
+import { CreditLedger } from "./CreditLedger.jsx";
 import { DedupeSettings } from "./DedupeSettings.jsx";
 import { GymsSettings } from "./GymsSettings.jsx";
 import { decodeSave, encodeSave } from "./saveCodec.js";
 import { SupportForm } from "./SupportForm.jsx";
+import { TesterAudit } from "./TesterAudit.jsx";
+import { WhatsNew } from "./WhatsNew.jsx";
 export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveDiag, onReplayTutorial }) {
   const st = s.settings || {};
   const setSet = (k, v) => setS((p) => ({ ...p, settings: { ...p.settings, [k]: v, savedAt: Date.now() } }));
@@ -22,14 +25,26 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   const [copied, setCopied] = useState(false);
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState(null);
-  const [testerKey, setTesterKey] = useState("");
   const [testerOk, setTesterOk] = useState(false);
-  const [testerErr, setTesterErr] = useState(false);
   const [impMsg, setImpMsg] = useState(null);
   const impRef = useRef(null);
   const [diagOn, setDiagOn] = useState(() => D.on());
   const [diagCopied, setDiagCopied] = useState(false);
+  const [page, setPage] = useState(null); // "whatsnew" | "credit" | "audit"
   const verTaps = useRef([]);
+  const verTimer = useRef(null);
+  // 5 taps on the version number toggles the diagnostic log, 7 unlocks the
+  // tester block. One debounced count so a 7-tap burst doesn't fire the 5-tap.
+  const versionTap = () => {
+    verTaps.current.push(Date.now());
+    if (verTimer.current) clearTimeout(verTimer.current);
+    verTimer.current = setTimeout(() => {
+      const n = verTaps.current.filter((x) => Date.now() - x < 3000).length;
+      verTaps.current = [];
+      if (n >= 7) setTesterOk(true);
+      else if (n >= 5) { setDiagOn(D.toggle(s.playerId)); setDiagCopied(false); }
+    }, 350);
+  };
 
   const makeSave = async () => {
     const c = await encodeSave(s);
@@ -54,12 +69,25 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
     }
   };
 
+  if (page === "whatsnew") return <WhatsNew onBack={() => setPage(null)} />;
+  if (page === "credit") return <CreditLedger s={s} onBack={() => setPage(null)} />;
+  if (page === "audit") return <TesterAudit onBack={() => setPage(null)} />;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
         <h1 className="text-2xl font-bold glowtext">Settings</h1>
       </div>
+
+      <button onClick={() => { setPage("whatsnew"); setS((p) => ({ ...p, seenVersion: APP_VERSION })); }} className="panel p-4 w-full flex items-center gap-3 text-left">
+        <Layers size={22} style={{ color: C.cyan }} />
+        <div className="flex-1 min-w-0">
+          <div className="font-bold">What's new in {APP_VERSION}</div>
+          <div className="body text-xs" style={{ color: C.dim }}>The latest changes, and older versions.</div>
+        </div>
+        {s.seenVersion !== APP_VERSION && <span aria-label="New since you last looked" style={{ width: 9, height: 9, borderRadius: 999, background: C.cyan, boxShadow: `0 0 8px ${C.cyan}` }} />}
+      </button>
 
       <h2 className="text-lg font-bold">Appearance</h2>
       <div className="panel p-4 space-y-4">
@@ -155,6 +183,13 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
           <div className="body text-xs mt-0.5" style={{ color: C.dim }}>Draw a card, do the reps</div>
         </button>
       </div>
+      <button onClick={() => setPage("credit")} className="panel p-4 w-full flex items-center gap-3 text-left">
+        <TimerIcon size={22} style={{ color: C.cyan }} />
+        <div className="flex-1 min-w-0">
+          <div className="font-bold">Workout credit log</div>
+          <div className="body text-xs" style={{ color: C.dim }}>What each session counted toward streaks, duels and the board.</div>
+        </div>
+      </button>
 
       <h2 className="text-lg font-bold">Gyms</h2>
       <GymsSettings s={s} setS={setS} />
@@ -169,41 +204,20 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
         </div>
       )}
 
-      <div className="panel p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <Shield size={22} style={{ color: C.cyan }} />
-          <div className="flex-1 min-w-0">
-            <div className="font-bold">Tester tools</div>
-            <div className="body text-xs" style={{ color: C.dim }}>Password required. Ghost mode hides this profile from other players and unlocks every aura, title, and border for preview. Turning it off puts real unlocks back.</div>
-          </div>
-        </div>
-        {!testerOk ? (
-          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (testerKey === "Tester") { setTesterOk(true); setTesterErr(false); setTesterKey(""); } else setTesterErr(true); }}>
-            <input type="password" className="inp flex-1" placeholder="Tester password" value={testerKey} onChange={(e) => { setTesterKey(e.target.value); setTesterErr(false); }} autoComplete="off" aria-label="Tester password" />
-            <button type="submit" className="btn px-4 py-2 text-sm">Unlock</button>
-          </form>
-        ) : (
+      {testerOk && (
+        <div className="panel p-4 space-y-3">
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="font-bold">Ghost / test account</div>
-              <div className="body text-xs" style={{ color: C.dim }}>{s.test ? "Hidden from boards, bosses, seasons, and duels. All cosmetics are unlocked." : "Off. Your real unlocks apply."}</div>
+              <div className="body text-xs" style={{ color: C.dim }}>{s.test ? "Only tester accounts can see this one on the board. No boss damage, no season standings, no duel matching. All cosmetics are unlocked." : "Off. Your real unlocks apply."}</div>
             </div>
             <SettingsToggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => (p.test ? stripGhostCosmetics(p) : { ...p, test: true }))} />
           </div>
-        )}
-        {testerErr && <div className="body text-xs" style={{ color: C.red }}>Wrong password.</div>}
-      </div>
+          {s.test && <button onClick={() => setPage("audit")} className="ghost w-full py-3 text-sm font-bold" style={{ color: C.cyan }}>Audit another account</button>}
+        </div>
+      )}
 
-      <button type="button" onClick={() => {
-        const t = Date.now();
-        verTaps.current = verTaps.current.filter((x) => t - x < 2500);
-        verTaps.current.push(t);
-        if (verTaps.current.length >= 5) {
-          verTaps.current = [];
-          setDiagOn(D.toggle(s.playerId));
-          setDiagCopied(false);
-        }
-      }} className="body text-xs text-center w-full" style={{ color: C.mute, background: "transparent", border: "none", padding: 0 }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</button>
+      <button type="button" onClick={versionTap} className="body text-xs text-center w-full" style={{ color: C.mute, background: "transparent", border: "none", padding: 0 }}>Ascend version {APP_VERSION}{runningBundle() ? ` · build ${runningBundle().replace(/^index-|\.js$/g, "")}` : ""}</button>
       <div className="body text-xs text-center" style={{ color: C.mute }}>State {saveDiag?.kb ?? 0} KB{saveDiag?.ms != null ? ` · last save ${saveDiag.ms} ms` : ""}</div>
       {diagOn && (
         <div className="grid grid-cols-2 gap-2">

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { C } from "../../theme.js";
 import { SEARCH_CAP } from "../train/searchCap.js";
 export const EMPTY_ARR = [];
 export const foodNorm = (n) => String(n || "").toLowerCase().replace(/[’']/g, "");
 
-export const FoodResultList = React.memo(function FoodResultList({ items, savedNames, onAdd, onRemoveSaved }) {
+export const FoodResultList = React.memo(function FoodResultList({ items, savedNames, onAdd, onRemoveSaved, onEditSaved }) {
   const [more, setMore] = useState(false);
   useEffect(() => { setMore(false); }, [items]);
   const cap = more ? items.length : SEARCH_CAP;
@@ -19,6 +19,7 @@ export const FoodResultList = React.memo(function FoodResultList({ items, savedN
               <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
               <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
             </button>
+            {f.meal && savedNames?.has(f.name) && onEditSaved && <button aria-label={`Edit ${f.name}`} onClick={() => onEditSaved(f)} className="px-2" style={{ color: C.mute }}><Pencil size={15} /></button>}
             {savedNames?.has(f.name) && onRemoveSaved && <button aria-label={`Remove ${f.name} from saved`} onClick={() => onRemoveSaved(f.name)} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
           </div>
         ))}

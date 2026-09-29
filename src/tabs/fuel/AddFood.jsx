@@ -24,6 +24,7 @@ export function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const [src, setSrc] = useState("All");
   const [found, setFound] = useState(null);
   const [building, setBuilding] = useState(false);
+  const [editing, setEditing] = useState(null); // saved meal being edited
   const [scanning, setScanning] = useState(false);
   const barRef = useRef(null);
   const onBarcode = async (e) => {
@@ -54,6 +55,7 @@ export function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
   const list = useMemo(() => (needle ? indexed.filter((x) => x.n.includes(needle)) : indexed).map((x) => x.f), [indexed, needle]);
   const savedNames = useMemo(() => new Set(saved.map((f) => f.name)), [saved]);
   const onRemoveSaved = useCallback((name) => setS((x) => ({ ...x, savedFoods: (x.savedFoods || []).filter((y) => y.name !== name) })), [setS]);
+  const onEditSaved = useCallback((f) => { setEditing(f); setBuilding(true); }, []);
 
   const callClaude = async (prompt) => {
     const ck = `food:${q.trim().toLowerCase()}`;
@@ -97,7 +99,7 @@ export function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
     onAdd(clean);
   };
 
-  if (building) return <MealBuilder s={s} setS={setS} pool={[...saved, ...community, ...RESTAURANT_FOODS, ...FOODS]} onBack={() => setBuilding(false)} onDone={(meal) => { setBuilding(false); onAdd(meal); }} />;
+  if (building) return <MealBuilder s={s} setS={setS} pool={[...saved, ...community, ...RESTAURANT_FOODS, ...FOODS]} initial={editing} onBack={() => { setBuilding(false); setEditing(null); }} onDone={(meal) => { const wasEditing = !!editing; setBuilding(false); setEditing(null); if (!wasEditing) onAdd(meal); }} />;
 
   return (
     <div className="space-y-3">
@@ -176,7 +178,7 @@ export function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
       {src === "Community feed" && <CommunityMeals s={s} setS={setS} onAdd={onAdd} />}
       {src !== "Community feed" && list.length === 0 && <Empty>No match here. Tap "Look up restaurant online" to search the restaurant's nutrition info.</Empty>}
       {src !== "Community feed" && list.length > 0 && (
-        <FoodResultList items={list} savedNames={savedNames} onAdd={onAdd} onRemoveSaved={onRemoveSaved} />
+        <FoodResultList items={list} savedNames={savedNames} onAdd={onAdd} onRemoveSaved={onRemoveSaved} onEditSaved={onEditSaved} />
       )}
       <div className="body text-xs pt-2" style={{ color: C.mute }}>Built-in restaurant numbers come from published nutrition info as of September 2026. Items marked approx. are less certain, and portions vary by location.</div>
     </div>

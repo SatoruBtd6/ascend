@@ -417,24 +417,35 @@ function creditDef(s, name, findEx) {
   return { name, type: "weighted", group: "Other" };
 }
 
-export function workoutCredit(s, w, findEx) {
-  if (!w || w.source === "quest" || w.source === "deck") return 0;
+export function creditBreakdown(s, w, findEx) {
+  const out = { skipped: false, sets: 0, strengthMin: 0, runMin: 0, walkMin: 0, strength: 0, cardio: 0, capped: false, total: 0 };
+  if (!w || w.source === "quest" || w.source === "deck") { out.skipped = true; return out; }
   const { run, walk } = cardioMinutesOf(w);
-  const cardio = Math.min(WORKOUT_CREDIT.cardioCap, run / WORKOUT_CREDIT.runDiv + walk / WORKOUT_CREDIT.walkDiv);
-  let sets = 0;
+  out.runMin = round1(run);
+  out.walkMin = round1(walk);
+  const cardioRaw = run / WORKOUT_CREDIT.runDiv + walk / WORKOUT_CREDIT.walkDiv;
+  out.cardio = Math.min(WORKOUT_CREDIT.cardioCap, cardioRaw);
+  if (cardioRaw > WORKOUT_CREDIT.cardioCap) out.capped = true;
   (w.exercises || []).forEach((ex) => {
     if (creditNameIs(WORKOUT_CREDIT.runNames, ex.name) || creditNameIs(WORKOUT_CREDIT.walkNames, ex.name)) return;
     if (creditDef(s, ex.name, findEx).type === "timed") return;
-    workSets(ex.sets).forEach((st) => { if (+st.r > 0) sets++; });
+    workSets(ex.sets).forEach((st) => { if (+st.r > 0) out.sets++; });
   });
-  let strength = 0;
-  if (sets > 0) {
+  if (out.sets > 0) {
     const hasDuration = w.minutes != null && w.minutes !== "" && Number.isFinite(+w.minutes);
-    const duration = hasDuration ? +w.minutes : sets * WORKOUT_CREDIT.noDurationPerSet;
-    const effective = Math.min(duration, sets * WORKOUT_CREDIT.setCapMinutes);
-    strength = Math.min(WORKOUT_CREDIT.strengthCap, creditFromMinutes(effective));
+    const duration = hasDuration ? +w.minutes : out.sets * WORKOUT_CREDIT.noDurationPerSet;
+    const effective = Math.min(duration, out.sets * WORKOUT_CREDIT.setCapMinutes);
+    out.strengthMin = round1(effective);
+    const raw = creditFromMinutes(effective);
+    out.strength = Math.min(WORKOUT_CREDIT.strengthCap, raw);
+    if (raw > WORKOUT_CREDIT.strengthCap) out.capped = true;
   }
-  return Math.min(WORKOUT_CREDIT.mixedCap, strength + cardio);
+  if (out.strength + out.cardio > WORKOUT_CREDIT.mixedCap) out.capped = true;
+  out.total = Math.min(WORKOUT_CREDIT.mixedCap, out.strength + out.cardio);
+  return out;
+}
+export function workoutCredit(s, w, findEx) {
+  return creditBreakdown(s, w, findEx).total;
 }
 
 // Your usual training hour, as a median of the hours you've started past workouts.
@@ -1479,7 +1490,7 @@ export function claimUnscopedPending(pending, playerId) {
 }
 
 export function overlayOwnBoardRow(rows, live, playerId, flags = {}) {
-  if (!playerId || !live || !flags.lb || flags.test) return rows || [];
+  if (!playerId || !live || !flags.lb) return rows || [];
   const key = `lb:${playerId}`;
   const mine = { ...live, id: playerId, key };
   const others = (rows || []).filter((r) => r && r.key !== key && r.id !== playerId);
@@ -1497,8 +1508,8 @@ export function nextPublishBackoff(attempt, base = 1200, max = 30000) {
   return Math.min(max, base * (2 ** Math.min(n, 8)));
 }
 
-export function shouldPublishLbCard({ loaded, lb, test, name, noPersist } = {}) {
-  return !!(loaded && lb && name && !test && !noPersist);
+export function shouldPublishLbCard({ loaded, lb, name, noPersist } = {}) {
+  return !!(loaded && lb && name && !noPersist);
 }
 
 export async function tryPublish(write, payload, { attempt = 0, schedule } = {}) {

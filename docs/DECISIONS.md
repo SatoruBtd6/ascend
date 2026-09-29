@@ -16,6 +16,15 @@ The live `kv` table has a BEFORE INSERT/UPDATE trigger that stamps
   catalog everyone logs from, and `owner IS NULL` keeps them editable and
   deletable by any authenticated account. Communal editing buys nothing here;
   new foods are already stamped to their creator on insert.
+- **Part 3 (N–R), 2026-10.** Recipes are editable in place (saved copy and
+  shared `food:` slug updated; logged meals keep their baked-in values —
+  history must not move). Workout credit stays computed, not recorded; the
+  credit log derives every row via `creditBreakdown`. Ghost accounts publish
+  `lb:` cards and appear on the board only for test-mode viewers;
+  `settleSeason`/`applyReigning` always run on the ghost-free list. Tester
+  tools unlock via 7 taps on the version number — the old password was in
+  the bundle and protected nothing; the allowlist RPC `kv_audit_state` is
+  the only real gate for foreign-state reads.
 - **SQL-editor maintenance UPDATEs on `kv` silently do nothing to `owner`.**
   In the SQL editor `auth.uid()` is NULL, so the trigger writes
   `coalesce(old.owner, NULL)` back over whatever the statement set — the

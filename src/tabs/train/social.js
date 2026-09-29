@@ -2,7 +2,7 @@ import { overallInfo } from "../../lib/stats.js";
 import { findEx } from "../../lib/exercises.js";
 export const publishShared = async (key, obj) => { try { if (window.__ascendNoPersist) return; if (window.storage?.set) await window.storage.set(key, JSON.stringify(obj), true); } catch (e) { /* offline or preview */ } };
 export const slug = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
-export function liveBoard(rows) { return (rows || []).filter((r) => !r?.ghost); }
+export function liveBoard(rows, { ghosts = false } = {}) { return (rows || []).filter((r) => ghosts || !r?.ghost); }
 export function postFeed(s, type, text, extra = {}, eventId = null) {
   if (!s.lb || !s.profile.name) return;
   const key = eventId ? `feed:${s.playerId}_${eventId}` : `feed:${Date.now()}_${s.playerId}`;

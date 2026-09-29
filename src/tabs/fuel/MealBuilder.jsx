@@ -4,9 +4,10 @@ import * as D from "../../diag.js";
 import { C } from "../../theme.js";
 import { publishShared, slug } from "../train/social.js";
 import { NumField } from "../../ui/NumField.jsx";
-export function MealBuilder({ s, setS, pool, onDone, onBack }) {
-  const [name, setName] = useState("");
-  const [items, setItems] = useState([]);
+export function MealBuilder({ s, setS, pool, onDone, onBack, initial }) {
+  const editing = initial?.name || null;
+  const [name, setName] = useState(initial?.name || "");
+  const [items, setItems] = useState(initial?.ingredients || []);
   const [q, setQ] = useState("");
   const [desc, setDesc] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,15 +36,17 @@ export function MealBuilder({ s, setS, pool, onDone, onBack }) {
   };
   const save = () => {
     const meal = { name: name.trim() || "My meal", meal: true, ingredients: items, cal: Math.round(tot.cal), p: Math.round(tot.p), c: Math.round(tot.c), f: Math.round(tot.f), r: "Meals" };
-    setS((x) => ({ ...x, savedFoods: [meal, ...(x.savedFoods || []).filter((y) => y.name !== meal.name)].slice(0, 80) }));
+    setS((x) => ({ ...x, savedFoods: [meal, ...(x.savedFoods || []).filter((y) => y.name !== meal.name && y.name !== editing)].slice(0, 80) }));
     publishShared(`food:${slug(meal.name)}`, { ...meal, by: s.profile.name || "a player", t: Date.now() });
+    // Renamed recipes unpublish the old shared slug — the row is ours (owner = auth.uid()).
+    if (editing && slug(editing) !== slug(meal.name)) window.storage?.delete(`food:${slug(editing)}`, true).catch(() => {});
     onDone(meal);
   };
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold glowtext">Create a meal</h1>
+        <h1 className="text-2xl font-bold glowtext">{editing ? "Edit meal" : "Create a meal"}</h1>
       </div>
       <div className="body text-sm" style={{ color: C.dim }}>Build a shake or a full meal once, and it saves with all its ingredients. It's shared with everyone, so your cousins can log it in one tap too.</div>
       <input className="inp font-bold" placeholder="Meal name, e.g. Post-workout shake" value={name} onChange={(e) => setName(e.target.value)} {...D.fuelBind("fuel-meal-name")} data-diag="fuel-meal-name" />
@@ -75,7 +78,7 @@ export function MealBuilder({ s, setS, pool, onDone, onBack }) {
           <div className="flex justify-between font-bold pt-2" style={{ borderTop: `1px solid ${C.line}` }}><span>Total</span><span style={{ color: C.gold }}>{Math.round(tot.cal)} cal · P {Math.round(tot.p)} · C {Math.round(tot.c)} · F {Math.round(tot.f)}</span></div>
         </div>
       )}
-      <button onClick={save} disabled={!items.length} className="btn w-full py-3" style={!items.length ? { opacity: 0.5 } : null}>Save meal, share it, and log it</button>
+      <button onClick={save} disabled={!items.length} className="btn w-full py-3" style={!items.length ? { opacity: 0.5 } : null}>{editing ? "Save changes" : "Save meal, share it, and log it"}</button>
     </div>
   );
 }

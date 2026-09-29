@@ -99,3 +99,27 @@ create policy "kv delete" on public.kv for delete to authenticated
 -- public.step_tokens   — ALL  uid = auth.uid()  (with_check same)
 -- public.step_sync_log — SELECT uid = auth.uid()
 -- Both self-only; no shared reads.
+
+-- ============================================================
+-- Tester audit RPC (phase 7n, item R) — run once in the SQL editor to enable.
+-- security definer: bypasses RLS and returns another user's whole state blob.
+-- The allowlist inside is the ONLY gate — NULL for everyone not listed.
+-- The Settings tester block (unlocked by 7 taps on the version number, then
+-- Ghost mode on) calls this; without the function the UI exists but yields
+-- no data. Nothing client-side can read foreign state without it.
+-- ============================================================
+create or replace function public.kv_audit_state(p_uid uuid)
+returns json language sql stable security definer set search_path = public as $$
+  select case when auth.uid() in ('3502ef55-bea7-4bd6-8c54-feed26219ec2'::uuid)
+    then (select value::jsonb from public.kv where scope = 'user:' || p_uid::text and key = 'ascend-state')
+    else null end;
+$$;
+
+-- Owner-lock the two communal food: rows left NULL by the backfill
+-- (Brodan owns the shared catalog rather than leaving it editable by all).
+-- Same trigger footgun as the backfill — disable the owner trigger inside
+-- the transaction or auth.uid()=NULL rewrites owner back to NULL:
+--   alter table public.kv disable trigger <kv owner trigger name>;
+--   update public.kv set owner = '3502ef55-bea7-4bd6-8c54-feed26219ec2'::uuid
+--   where scope = 'shared' and owner is null and key like 'food:%';
+--   alter table public.kv enable trigger <kv owner trigger name>;

@@ -1,7 +1,7 @@
 // Simulation tests for the pure math in math.js. Run with: node --test src
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, BW_END_STEPS, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, migrateAuraIds, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
+import { pickNextGoal, usualTrainHour, workSets, crewQuestProgress, resolveWorldFirst, mergeState, persistAck, persistMerge, parseNumInput, shouldDeferPersist, shouldWritePending, WORKOUT_SAVE_DELAY_MS, normalizeState, shouldSkipSave, stateKeysChanged, activeShape, activeIsUrgent, saveIsUrgent, saveDelayMs, haversineMeters, inGymRadius, presenceActive, prunePresence, pingActive, checkGymPin, canProposeRaid, canReadyUp, applyRaidAction, reconcileRaid, archiveRaidClear, missedRaidClears, countRaidClears, tickRaid, raidActive, RAID_NEED, RAID_MS, RAID_COUNTDOWN_MS, PRESENCE_MS, GYM_RADIUS_M, thresholds, targets, applyBodyType, FEMALE_GROUP_SCALE, FEMALE_REP_SCALE, BW_END_STEPS, bodySex, ANIME_CRATE_WEIGHTS, ANIME_RARITY_ORDER, ANIME_PITY_AT, rollAnimeRarity, migrateAnimeCrateState, migrateAuraIds, exKey, isLegacyAssisted, isGymSpecific, inGymBucket, workoutGym, tagWorkouts, pickPreferredExercise, duplicateExerciseGroups, rewriteExerciseNames, applyExerciseMerge, EXERCISE_NAME_FIELDS, LEGACY_ASSISTED_CUTOFF, rankUpCeremony, withSilentRankSnap, PR_BONUS, scoreExercisePrs, recountPrBonuses, dryRunPrRecount, nextXpFloor, xpAtLevelStart, levelFromXp, unionAchievements, effW, gymSpecificNamesIn, retaggedWorkouts, overlayOwnBoardRow, cardNeedsXpUpdate, tryPublish, nextPublishBackoff, shouldPublishLbCard, creditBreakdown, round2, settingsKey, pendingKey, verifiedCopyKey, claimUnscopedSettings, mergeScopedSettings, claimUnscopedPending, stripGhostCosmeticsState, classifyKvError, readAccountBlob, persistWouldWipe, canPersistAccount, hydrateWritePlan, guardedAccountWrite, looksLikeDefaultBlob, isVerifiedLocalCopy, makeVerifiedCopy } from "./math.js";
 
 test("usualTrainHour falls back to 8pm until there's enough history", () => {
   assert.equal(usualTrainHour([]), 20);
@@ -1036,14 +1036,16 @@ test("own Board row uses live s.xp and re-ranks against others", () => {
   assert.equal(ranked[1].id, "me");
 });
 
-test("own Board row overlays only when joined and not in ghost mode", () => {
+test("own Board row overlays whenever joined, including ghost mode", () => {
   const rows = [{ key: "lb:a", id: "a", name: "A", xp: 500 }];
   const live = { name: "Me", xp: 100, xpV: 3 };
   const joined = overlayOwnBoardRow(rows, live, "me", { lb: true });
   assert.equal(joined[0].id, "me");
   assert.equal(joined.length, 2);
   assert.deepEqual(overlayOwnBoardRow(rows, live, "me", { lb: false }), rows);
-  assert.deepEqual(overlayOwnBoardRow(rows, live, "me", { lb: true, test: true }), rows);
+  const ghost = overlayOwnBoardRow(rows, live, "me", { lb: true, test: true });
+  assert.equal(ghost[0].id, "me");
+  assert.equal(ghost.length, 2);
 });
 
 test("a card with xpV < 3 is marked, current cards are not", () => {
@@ -1081,6 +1083,36 @@ test("publish-on-load fires after a recount", async () => {
   assert.equal(writes.length, 1);
   assert.equal(writes[0].xp, 48000);
   assert.equal(writes[0].xpV, 3);
+});
+
+test("ghost accounts publish cards — visibility is a viewer filter, not publish-side", () => {
+  assert.equal(shouldPublishLbCard({ loaded: true, lb: true, test: true, name: "Ghost", noPersist: false }), true);
+  assert.equal(shouldPublishLbCard({ loaded: true, lb: false, test: true, name: "Ghost", noPersist: false }), false);
+  assert.equal(shouldPublishLbCard({ loaded: true, lb: true, test: true, name: "", noPersist: false }), false);
+});
+
+test("creditBreakdown itemizes minutes, caps and skipped sessions", () => {
+  const weighted = () => ({ name: "x", type: "weighted" });
+  const lift = { id: "1", date: "2026-10-05", exercises: [{ name: "Bench Press", sets: [{ r: 5 }, { r: 5 }, { r: 5 }, { r: 5 }] }], minutes: 45 };
+  const b = creditBreakdown({}, lift, weighted);
+  assert.equal(b.sets, 4);
+  assert.equal(b.strengthMin, 20); // clamped to 4 sets x 5 min
+  assert.equal(b.cardio, 0);
+  assert.equal(b.total, b.strength);
+  assert.equal(workoutCredit({}, lift, weighted), b.total); // same number, folded path
+
+  const mixed = { id: "2", date: "2026-10-05", exercises: [{ name: "Squat", sets: [{ r: 5 }, { r: 5 }] }, { name: "Running", sets: [{ r: 90 }] }], minutes: 60 };
+  const m = creditBreakdown({}, mixed, weighted);
+  assert.equal(m.sets, 2); // Running reps are minutes, not sets
+  assert.equal(m.runMin, 90);
+  assert.equal(m.cardio, 0.75); // cardio cap
+  assert.equal(m.strengthMin, 10); // 2 sets x 5 min beats the 60 logged
+  assert.equal(m.capped, true);
+  assert.equal(m.total, round2(m.strength + m.cardio)); // 1.10, under the 1.25 mixed cap
+
+  const deck = creditBreakdown({}, { source: "deck", exercises: [] });
+  assert.equal(deck.skipped, true);
+  assert.equal(deck.total, 0);
 });
 
 test("scoped settings key — two users in one browser keep separate settings", () => {
