@@ -26,6 +26,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState(null);
   const [testerOk, setTesterOk] = useState(false);
+  const [uidCopied, setUidCopied] = useState(false);
   const [impMsg, setImpMsg] = useState(null);
   const impRef = useRef(null);
   const [diagOn, setDiagOn] = useState(() => D.on());
@@ -213,6 +214,10 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
             </div>
             <SettingsToggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => (p.test ? stripGhostCosmetics(p) : { ...p, test: true }))} />
           </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0 body text-xs truncate" style={{ color: C.mute }}>auth uid: {window.ascendUserId || "?"}</div>
+            <button onClick={async () => { try { await navigator.clipboard.writeText(window.ascendUserId || ""); setUidCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost px-3 py-1 text-xs font-bold flex items-center gap-1" style={{ color: C.cyan }}>{uidCopied ? <Check size={12} /> : <Copy size={12} />}{uidCopied ? "Copied" : "Copy"}</button>
+          </div>
           {s.test && <button onClick={() => setPage("audit")} className="ghost w-full py-3 text-sm font-bold" style={{ color: C.cyan }}>Audit another account</button>}
         </div>
       )}
@@ -221,7 +226,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
       <div className="body text-xs text-center" style={{ color: C.mute }}>State {saveDiag?.kb ?? 0} KB{saveDiag?.ms != null ? ` · last save ${saveDiag.ms} ms` : ""}</div>
       {diagOn && (
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7m" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
+          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(D.formatDump({ version: APP_VERSION, sw: "ascend-v7n" })); setDiagCopied(true); } catch (e) { /* clipboard blocked */ } }} className="ghost py-3 text-sm font-bold">{diagCopied ? "Copied" : "Copy diagnostic log"}</button>
           <button type="button" onClick={() => { D.clear(); setDiagCopied(false); }} className="ghost py-3 text-sm font-bold">Clear</button>
         </div>
       )}

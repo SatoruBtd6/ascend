@@ -101,18 +101,53 @@ create policy "kv delete" on public.kv for delete to authenticated
 -- Both self-only; no shared reads.
 
 -- ============================================================
--- Tester audit RPC (phase 7n, item R) — run once in the SQL editor to enable.
--- security definer: bypasses RLS and returns another user's whole state blob.
--- The allowlist inside is the ONLY gate — NULL for everyone not listed.
--- The Settings tester block (unlocked by 7 taps on the version number, then
--- Ghost mode on) calls this; without the function the UI exists but yields
--- no data. Nothing client-side can read foreign state without it.
+-- Tester audit RPCs (phase 7n, item R) — run once in the SQL editor to enable.
+-- security definer: bypasses RLS. The allowlist in kv_audit_allowed is the
+-- ONLY gate — every other function returns {ok:false, reason:'denied'} and
+-- nothing else for non-allowlisted callers (they cannot distinguish a real
+-- account from a missing one). The Settings tester block (unlocked by 7 taps
+-- on the version number, then Ghost mode on) calls these; without them the UI
+-- exists but yields no data. Nothing client-side reads foreign state without
+-- these functions. Add tester uids in kv_audit_allowed ONLY.
 -- ============================================================
+create or replace function public.kv_audit_allowed()
+returns boolean language sql stable security definer set search_path = public as $$
+  select auth.uid() in ('3502ef55-bea7-4bd6-8c54-feed26219ec2'::uuid);
+$$;
+
+-- Account picker for the audit view. Enumerates user scopes so an account
+-- with a name but no lb: card still appears (has_card=false, "no card" tag).
+create or replace function public.kv_audit_roster()
+returns json language sql stable security definer set search_path = public as $$
+  select case when public.kv_audit_allowed()
+    then json_build_object('ok', true, 'accounts', (
+      select coalesce(json_agg(row_to_json(t) order by lower(coalesce(t.name, '~')), t.uid), '[]'::json)
+      from (
+        select substring(k.scope from 6)::uuid as uid,
+               nullif(btrim(v->'profile'->>'name'), '') as name,
+               v->>'playerId' as player_id,
+               coalesce((v->>'test')::boolean, false) as test,
+               exists (select 1 from public.kv lb
+                       where lb.scope = 'shared'
+                         and lb.key = 'lb:' || (v->>'playerId')) as has_card
+        from public.kv k
+        cross join lateral (select k.value::jsonb) v
+        where k.key = 'ascend-state' and k.scope like 'user:%' and k.value like '{%'
+      ) t))
+    else json_build_object('ok', false, 'reason', 'denied') end;
+$$;
+
+-- The audited blob, envelope-shaped so an allowlisted caller can tell
+-- "denied" from "account exists but empty". Denied callers get 'denied'
+-- whether or not the account exists.
 create or replace function public.kv_audit_state(p_uid uuid)
 returns json language sql stable security definer set search_path = public as $$
-  select case when auth.uid() in ('3502ef55-bea7-4bd6-8c54-feed26219ec2'::uuid)
-    then (select value::jsonb from public.kv where scope = 'user:' || p_uid::text and key = 'ascend-state')
-    else null end;
+  select case when public.kv_audit_allowed()
+    then coalesce(
+      (select json_build_object('ok', true, 'state', value::jsonb)
+       from public.kv where scope = 'user:' || p_uid::text and key = 'ascend-state'),
+      json_build_object('ok', false, 'reason', 'no_state'))
+    else json_build_object('ok', false, 'reason', 'denied') end;
 $$;
 
 -- Owner-lock the two communal food: rows left NULL by the backfill

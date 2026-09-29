@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { fmtDay } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
@@ -8,24 +8,36 @@ import { creditBreakdown, levelFromXp, round2 } from "../../math.js";
 import { C } from "../../theme.js";
 import { CreditLedger } from "./CreditLedger.jsx";
 
-// Read-only audit of another account's state blob. The server function
-// kv_audit_state is the gate: it returns NULL unless the caller's auth uid is
-// in its allowlist, so this panel shows nothing without server-side approval.
+// Read-only audit of another account's state blob. Server functions
+// kv_audit_roster / kv_audit_state are the gate: both return 'denied' unless
+// the caller's auth uid is in the allowlist inside kv_audit_allowed. Without
+// them this page exists but yields no data — by design.
+const rpc = async (fn, body) => {
+  const h = await XpSync.headers();
+  if (!h) return { ok: false, reason: "offline" };
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: "POST", headers: h, body: JSON.stringify(body || {}) });
+  return r.ok ? await r.json() : { ok: false, reason: "error" };
+};
+
 export function TesterAudit({ onBack }) {
-  const [uid, setUid] = useState("");
+  const [roster, setRoster] = useState(null); // null = loading, [] = denied/empty
+  const [pick, setPick] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [st, setSt] = useState(null);
-  const load = async () => {
-    const target = uid.trim();
-    if (!target) return;
-    setBusy(true); setErr(""); setSt(null);
+  useEffect(() => {
+    rpc("kv_audit_roster").then((j) => {
+      if (j?.ok) setRoster(j.accounts || []);
+      else setRoster([]);
+    }).catch(() => setRoster([]));
+  }, []);
+  const load = async (uid) => {
+    if (!uid) return;
+    setPick(uid); setBusy(true); setErr(""); setSt(null);
     try {
-      const h = await XpSync.headers();
-      const r = h ? await fetch(`${SB_URL}/rest/v1/rpc/kv_audit_state`, { method: "POST", headers: h, body: JSON.stringify({ p_uid: target }) }) : null;
-      const j = r?.ok ? await r.json() : null;
-      if (!j) setErr("No access, or that account has no saved state.");
-      else setSt(typeof j === "string" ? JSON.parse(j) : j);
+      const j = await rpc("kv_audit_state", { p_uid: uid });
+      if (!j?.ok) setErr(j?.reason === "denied" ? "This account isn't on the audit allowlist." : j?.reason === "no_state" ? "That account has no saved state." : "Lookup failed — check the connection.");
+      else setSt(typeof j.state === "string" ? JSON.parse(j.state) : j.state);
     } catch (e) { setErr("Lookup failed — check the connection."); }
     setBusy(false);
   };
@@ -48,11 +60,18 @@ export function TesterAudit({ onBack }) {
         <h1 className="text-2xl font-bold glowtext">Audit account</h1>
       </div>
       <div className="panel p-4 space-y-2">
-        <div className="body text-xs" style={{ color: C.dim }}>Read-only look at another account's XP log, workout credit and fuel log. Server-side allowlist decides who can use it.</div>
-        <div className="flex gap-2">
-          <input className="inp" placeholder="Account auth uid" value={uid} onChange={(e) => setUid(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} />
-          <button onClick={load} disabled={busy || !uid.trim()} className="btn px-4 text-sm">{busy ? <Loader2 size={16} className="animate-spin" /> : "Load"}</button>
-        </div>
+        <div className="body text-xs" style={{ color: C.dim }}>Read-only look at an account's XP log, workout credit and fuel log. Server-side allowlist decides who can use it.</div>
+        {roster === null && <div className="body text-xs flex items-center gap-1.5" style={{ color: C.mute }}><Loader2 size={12} className="animate-spin" />Loading accounts…</div>}
+        {roster && roster.length === 0 && <div className="body text-xs" style={{ color: C.red }}>No accounts returned — this account isn't on the audit allowlist.</div>}
+        {roster && roster.length > 0 && (
+          <select className="inp w-full" value={pick} onChange={(e) => load(e.target.value)} disabled={busy} aria-label="Account to audit">
+            <option value="">Pick an account…</option>
+            {roster.map((a) => (
+              <option key={a.uid} value={a.uid}>{a.name || "(unnamed)"}{a.test ? " · test" : ""}{a.has_card ? "" : " · no card"} — {String(a.uid).slice(0, 8)}</option>
+            ))}
+          </select>
+        )}
+        {busy && <div className="body text-xs flex items-center gap-1.5" style={{ color: C.mute }}><Loader2 size={12} className="animate-spin" />Loading state…</div>}
         {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
       </div>
       {st && (
