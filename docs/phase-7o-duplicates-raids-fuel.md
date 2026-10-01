@@ -74,6 +74,19 @@ same state.
 **Then stop and report.** A–C are diagnosis and proposal; build only what is
 trivial and self-evidently safe, and say which.
 
+**E. Bodyweight rescore bug (added mid-phase, shipped).** Scoring used to read
+`s.profile.weight` at evaluation time, so any weight change retroactively
+rescored all history — gaining weight granted XP/rank/achievements, losing
+weight stripped them. Fixed: every workout row stamps `bw` (bodyweight) at
+completion, and historical scoring resolves the stamped weight — for pre-stamp
+rows, the nearest `weightLog` entry by workout date, falling back to current
+profile weight only when no log exists. `rank-*` achievements are now a
+ratchet: once earned they are never revoked by reconcile. **Ship-order rule:
+this fix and the dedupe cleanup both move XP — they must land in separate
+pushes so each delta stays attributable.** Weight fix first (no mass recount;
+each account's stored XP stands until its next recount); Brodan presses
+"Recheck achievements" once after it ships; the dedupe cleanup ships later.
+
 ---
 
 ## Part 2 — run/walk

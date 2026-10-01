@@ -1,6 +1,6 @@
 import { exKey, workSets, inGymBucket, workoutGym, isLegacyAssisted } from "../../math.js";
 import { findEx } from "../../lib/exercises.js";
-import { overallInfo, rankedLifts, isWorkout, bestValue } from "../../lib/stats.js";
+import { overallInfo, rankedLifts, isWorkout, bestValue, profileAt } from "../../lib/stats.js";
 export const namesMatch = (a, b) => { const k = exKey(a); return !!k && k === exKey(b); };
 export function gymLabel(s, id) {
   if (id == null || id === "") return "";
@@ -18,7 +18,7 @@ export function pastSessions(s, name, excludeId, n = 3) {
     if (!ex) continue;
     const sets = workSets(ex.sets).filter((st) => +st.r > 0 || +st.w > 0);
     if (!sets.length) continue;
-    out.push({ date: w.date, sets, id: w.id, title: w.title || "", gym: workoutGym(w) });
+    out.push({ date: w.date, sets, id: w.id, title: w.title || "", gym: workoutGym(w), bw: w.bw });
   }
   return out;
 }
@@ -109,7 +109,7 @@ export function stalledLifts(s) {
   rankedLifts(s).forEach((r) => {
     const sess = pastSessions(s, r.e.name, null, 3);
     if (sess.length < 3) return;
-    const bests = sess.map((ps) => Math.max(...ps.sets.map((st) => bestValue(r.e, st, s.profile))));
+    const bests = sess.map((ps) => Math.max(...ps.sets.map((st) => bestValue(r.e, st, profileAt(s, ps)))));
     if (bests[0] <= bests[1] && bests[1] <= bests[2]) out.push({ name: r.e.name, best: Math.round(bests[0]) });
   });
   return out;

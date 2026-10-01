@@ -29,7 +29,7 @@ export function Quests({ s, setS, gainXp }) {
       const sets = [];
       if (def.type === "timed") sets.push({ w: "", r: extra, done: true });
       else { const size = questStep(q); let left = extra; while (left > 0) { sets.push({ w: "", r: Math.min(size, left), done: true }); left -= size; } }
-      logged = { id: uid(), date: d, source: "quest", xp: 0, volume: 0, exercises: [{ name: exName, sets }] };
+      logged = { id: uid(), date: d, source: "quest", xp: 0, volume: 0, exercises: [{ name: exName, sets }], bw: +s.profile?.weight || null };
     }
     setS((p) => ({
       ...p,

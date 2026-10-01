@@ -21,7 +21,9 @@ export function fillQuests(p, d, exercises) {
 }
 export function addWorkout(p, workout) {
   if (workout?.id && (p.workouts || []).some((w) => w.id === workout.id)) return p;
-  return { ...fillQuests(p, workout.date, workout.exercises), workouts: [...p.workouts, workout] };
+  // Stamp the bodyweight the work was done at; edits never rewrite it.
+  const w = +workout?.bw > 0 ? workout : { ...workout, bw: +p.profile?.weight || null };
+  return { ...fillQuests(p, w.date, w.exercises), workouts: [...p.workouts, w] };
 }
 // Add one completed card to today's deck session workout (creates it on the first card)
 export function addDeckSet(p, sessionId, name, reps, xp) {
@@ -37,7 +39,7 @@ export function addDeckSet(p, sessionId, name, reps, xp) {
       return { ...w, exercises, xp: (w.xp || 0) + xp };
     });
   } else {
-    workouts = [...p.workouts, { id: sessionId, date: d, source: "deck", exercises: [{ name, sets: [set] }], xp, volume: 0 }];
+    workouts = [...p.workouts, { id: sessionId, date: d, source: "deck", exercises: [{ name, sets: [set] }], xp, volume: 0, bw: +p.profile?.weight || null }];
   }
   return { ...fillQuests(p, d, [{ name, sets: [set] }]), workouts };
 }
@@ -77,24 +79,47 @@ export function bestValue(def, st, p, ex) {
   if (def.type === "bodyweight") return (+st.r || 0) * (1 + (+st.w || 0) / Math.max(80, +p.weight || 170));
   return e1rm(effW(def, ex, +st.w || 0), +st.r);
 }
+// 7o Bug 2: score every performance at the bodyweight it was done at, not at
+// today's profile weight. Each workout carries a `bw` stamp written at log
+// time; rows that predate the stamp resolve the nearest weightLog entry by
+// date, and only fall back to the current profile when no log exists.
+export function weightAtDate(s, date) {
+  const log = s?.weightLog;
+  if (!log || typeof log !== "object") return null;
+  let pick = null, best = Infinity;
+  for (const [d, v] of Object.entries(log)) {
+    if (!Number.isFinite(+v) || +v <= 0) continue;
+    const dist = Math.abs(Date.parse(d) - Date.parse(date || today()));
+    if (dist < best || (dist === best && (pick == null || d < pick))) { best = dist; pick = d; }
+  }
+  return pick == null ? null : +log[pick];
+}
+export function profileAt(s, w) {
+  const stamped = +w?.bw;
+  const bw = Number.isFinite(stamped) && stamped > 0 ? stamped : weightAtDate(s, w?.date);
+  return bw == null ? s.profile : { ...s.profile, weight: bw };
+}
 export function computeBests(s) {
   const b = {};
-  s.workouts.forEach((w) => w.exercises.forEach((ex) => {
-    const def = findEx(s, ex.name);
-    if (def.type === "timed") return;
-    if (!inGymBucket(s, w, def)) return;
-    if (isLegacyAssisted(w, def)) return;
-    workSets(ex.sets).forEach((st) => {
-      const v = bestValue(def, st, s.profile, ex);
-      const k = def.type === "assisted" ? def.rankAs : ex.name;
-      if (v > (b[k] || 0)) b[k] = v;
+  s.workouts.forEach((w) => {
+    const pW = profileAt(s, w);
+    w.exercises.forEach((ex) => {
+      const def = findEx(s, ex.name);
+      if (def.type === "timed") return;
+      if (!inGymBucket(s, w, def)) return;
+      if (isLegacyAssisted(w, def)) return;
+      workSets(ex.sets).forEach((st) => {
+        const v = bestValue(def, st, pW, ex);
+        const k = def.type === "assisted" ? def.rankAs : ex.name;
+        if (v > (b[k]?.v || 0)) b[k] = { v, p: pW };
+      });
     });
-  }));
+  });
   return b;
 }
 export function rankedLifts(s) {
   const bests = computeBests(s);
-  return allExercises(s).filter((e) => e.type !== "timed" && bests[e.name]).map((e) => ({ e, best: bests[e.name], ...rankFor(e, bests[e.name], s.profile) }));
+  return allExercises(s).filter((e) => e.type !== "timed" && bests[e.name]).map((e) => ({ e, best: bests[e.name].v, ...rankFor(e, bests[e.name].v, bests[e.name].p) }));
 }
 export function groupScores(s) {
   const g = {};
@@ -170,6 +195,8 @@ export function workoutXp(s, exercises, bests, opts = {}) {
   void bests;
   const skipPr = opts.skipPr || bests == null;
   const workout = opts.workout || { gym: s.currentGym ?? null, date: opts.date || today() };
+  const bw = +workout.bw > 0 ? +workout.bw : workout.date >= today() ? +s.profile?.weight || null : weightAtDate(s, workout.date);
+  const pW = bw == null ? s.profile : { ...s.profile, weight: bw };
   const history = skipPr ? null : (opts.history || collectPrHistory(s, findEx, { excludeId: opts.excludeId }));
   const usedByName = new Map();
   let xp = 0, prs = 0, volume = 0, sets = 0;
@@ -182,29 +209,30 @@ export function workoutXp(s, exercises, bests, opts = {}) {
     let si = 0;
     workSets(ex.sets).forEach((st) => {
       sets++;
-      const { xp: sx, note } = setXp(s, def, st, ex);
+      const { xp: sx, note } = setXp({ ...s, profile: pW }, def, st, ex);
       line.xp += sx; xp += sx;
       const label = (def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`) + (st.drop ? " drop" : "");
       const pr = flags[si]?.pr || false;
       si++;
       if (pr) prs++;
-      if (def.type !== "timed") volume += (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0);
+      if (def.type !== "timed") volume += (def.type === "assisted" ? movedLb(pW, st.w) : (+st.w || 0)) * (+st.r || 0);
       line.sets.push({ label, xp: sx, note, pr });
     });
     lines.push(line);
   });
-  return { xp: xp + prs * PR_BONUS, prs, volume, sets, lines, prBonus: prs * PR_BONUS };
+  return { xp: xp + prs * PR_BONUS, prs, volume, sets, lines, prBonus: prs * PR_BONUS, bw };
 }
 export function workoutRecap(s, workout) {
+  const pW = profileAt(s, workout);
   const lifts = (workout.exercises || []).map((ex) => {
     const def = findEx(s, ex.name);
     const working = workSets(ex.sets).filter((st) => +st.r > 0);
     let rank = null, best = 0;
     if (def.type !== "timed" && working.length) {
-      best = Math.max(...working.map((st) => bestValue(def, st, s.profile, ex)));
-      rank = rankFor(def, best, s.profile);
+      best = Math.max(...working.map((st) => bestValue(def, st, pW, ex)));
+      rank = rankFor(def, best, pW);
     }
-    const vol = working.reduce((a, st) => a + (def.type === "assisted" ? movedLb(s.profile, st.w) : (+st.w || 0)) * (+st.r || 0), 0);
+    const vol = working.reduce((a, st) => a + (def.type === "assisted" ? movedLb(pW, st.w) : (+st.w || 0)) * (+st.r || 0), 0);
     return { name: ex.name, group: def.group, rank, best, vol, sets: working, drops: working.filter((st) => st.drop).length };
   }).filter((l) => l.sets.length);
   const scored = lifts.filter((l) => l.rank);
@@ -223,13 +251,14 @@ export function lifetimeStats(s) {
   }));
   const bests = computeBests(s);
   s.workouts.forEach((w) => {
+    const pW = profileAt(s, w);
     workouts += workoutCredit(s, w);
     w.exercises.forEach((ex) => {
       const def = findEx(s, ex.name);
       workSets(ex.sets).forEach((st) => {
         const r = +st.r || 0, wt = +st.w || 0;
         if (def.type === "timed") { if (def.group === "Cardio") miles += wt; return; }
-        reps += r; volume += (def.type === "assisted" ? movedLb(s.profile, wt) : wt) * r;
+        reps += r; volume += (def.type === "assisted" ? movedLb(pW, wt) : wt) * r;
         if (/push-?up/i.test(ex.name)) pushups += r;
         if (/pull-?up|chin-?up/i.test(ex.name)) pullups += r;
       });
@@ -246,17 +275,20 @@ export function lifetimeStats(s) {
   const rankTier = overall >= 5 ? 5 : maxScore >= 5 ? 4 : maxScore >= 4 ? 3 : maxScore >= 3 ? 2 : maxScore >= 2 ? 1 : 0;
   return {
     yogurt: Math.round(yogurt * 10) / 10, steps: Object.values(s.steps || {}).reduce((a, n) => a + (+n || 0), 0), miles: Math.round(miles * 10) / 10, volume: Math.round(volume), reps, workouts: round2(workouts), pushups, pullups, quests, longestStreak: longest,
-    bench: Math.round(bests["Bench Press"] || 0), squat: Math.round(bests["Squat"] || 0), deadlift: Math.round(bests["Deadlift"] || 0),
+    bench: Math.round(bests["Bench Press"]?.v || 0), squat: Math.round(bests["Squat"]?.v || 0), deadlift: Math.round(bests["Deadlift"]?.v || 0),
     rankTier, level: levelFromXp(s.xp).lvl, since: s.workouts[0]?.date || null,
   };
 }
-// Drop achievements that no longer hold up (e.g. ranks earned under the old, easier scale).
+// Drop achievements that no longer hold up (e.g. badges earned under the old, easier scale).
 // Does NOT touch s.xp: callers must recount (reconcileRecount / recountXp) so xp and
 // every ledger (xpLog/xpDetail/xpDone) are rebuilt from records in one pass.
+// rank-* is a ratchet (7o Bug 2, Brodan's call): it records the highest rank ever
+// achieved and is never revoked — not by a weight change, not by dedupe or workout
+// deletion. A future deliberate rescale can opt out with keepRanks=false.
 export const ACH_VERSION = 4;
-export function reconcileAchievements(s, rankOnly = false) {
+export function reconcileAchievements(s, rankOnly = false, keepRanks = true) {
   const earned = new Set(earnedAchievements(s).map((a) => a.id));
-  const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && !id.startsWith("workouts-") && (!rankOnly || id.startsWith("rank-")));
+  const lost = Object.keys(s.ach || {}).filter((id) => !earned.has(id) && !id.startsWith("workouts-") && (!rankOnly || id.startsWith("rank-")) && !(keepRanks && id.startsWith("rank-")));
   if (!lost.length) return { ...s, achV: ACH_VERSION };
   const ach = { ...s.ach }; lost.forEach((id) => delete ach[id]);
   return { ...s, ach, achV: ACH_VERSION };

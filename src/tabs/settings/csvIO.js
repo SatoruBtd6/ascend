@@ -105,7 +105,7 @@ export function importWorkoutsFromCsv(s, text) {
     if (fingerprints.has(fp)) { skipped++; continue; }
     fingerprints.add(fp);
     const res = workoutXp(acc, exercises, computeBests(acc), { workout: { gym: null, date: sess.date }, history: collectPrHistory(acc, findEx) });
-    const workout = { id: uid(), date: sess.date, title: sess.title, exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, source: "import" };
+    const workout = { id: uid(), date: sess.date, title: sess.title, exercises, volume: res.volume, xp: res.xp, lines: res.lines, prBonus: res.prBonus, source: "import", ...(res.bw > 0 ? { bw: res.bw } : {}) };
     acc = { ...acc, workouts: [...acc.workouts, workout] };
     added.push(workout);
   }

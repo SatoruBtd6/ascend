@@ -1,14 +1,15 @@
 import { monthKey, today } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
-import { movedLb } from "../../lib/stats.js";
+import { movedLb, profileAt } from "../../lib/stats.js";
 import { workSets } from "../../math.js";
 export function dayDamageMap(s, mk = monthKey()) {
   const out = {};
   (s.workouts || []).filter((w) => w.date.startsWith(mk)).forEach((w) => {
+    const pW = profileAt(s, w);
     let dmg = 0;
     w.exercises.forEach((ex) => { const def = findEx(s, ex.name); workSets(ex.sets).forEach((st) => {
       if (def.type === "timed") { if (def.group === "Cardio") dmg += (+st.w || 0) * 800; return; }
-      const wt = def.type === "assisted" ? movedLb(s.profile, +st.w || 0) : +st.w || 0;
+      const wt = def.type === "assisted" ? movedLb(pW, +st.w || 0) : +st.w || 0;
       dmg += wt * (+st.r || 0) + (+st.r || 0) * 5;
     }); });
     out[w.date] = (out[w.date] || 0) + dmg;

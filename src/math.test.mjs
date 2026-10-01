@@ -1337,7 +1337,7 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
 });
 
 import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
-import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements } from "./lib/stats.js";
+import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo } from "./lib/stats.js";
 import { cardScore, selfScore } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
 import { AURA_TASKS } from "./tabs/profile/unlock.js";
@@ -1425,7 +1425,9 @@ test("Show Up uses floored credit and never revokes an earned tier", () => {
   assert.equal(next.ach["miles-4"], undefined);
 });
 
-test("reconcile drops the ach key but leaves xp to the recount; the fold rebuilds every ledger", () => {
+test("reconcile ratchets rank-* but still drops other unearned ids", () => {
+  // 7o Bug 2: rank-* means "highest rank achieved" — reconcile never revokes it,
+  // even when the qualifying rows are gone. Non-rank ids still reconcile away.
   const s = {
     profile: { weight: 170, sex: "m" },
     workouts: [{ id: "w1", date: "2026-09-20", xp: 100, exercises: [{ name: "Bench Press", sets: [{ w: 135, r: 5, done: true }] }] }],
@@ -1434,20 +1436,49 @@ test("reconcile drops the ach key but leaves xp to the recount; the fold rebuild
     xpLog: { "2026-09-20": 700 },
     xpDetail: { "2026-09-20": [{ m: "Workout", a: 100, t: 1 }, { m: "Achievement: Ascension III", a: 600, t: 2 }] },
     xpDone: { wo_w1: 1, "ach_rank-2": 1 },
-    ach: { "rank-2": "2026-09-20" },
+    ach: { "rank-2": "2026-09-20", "miles-4": "2026-09-20" },
     achV: 3,
   };
   const rec = reconcileAchievements(s);
-  assert.equal(rec.ach["rank-2"], undefined);
+  assert.equal(rec.ach["rank-2"], "2026-09-20"); // ratchet holds
+  assert.equal(rec.ach["miles-4"], undefined);   // non-rank still revoked
   assert.equal(rec.xp, 700); // xp no longer hand-adjusted — recount owns it
+  // deliberate opt-out still revokes rank-* (a future rescale, e.g.)
+  assert.equal(reconcileAchievements(s, false, false).ach["rank-2"], undefined);
   const r = reconcileRecount(s);
   const logSum = Object.values(r.s.xpLog).reduce((a, v) => a + v, 0);
   assert.equal(r.s.xp, logSum);
   const allDetail = Object.values(r.s.xpDetail || {}).flat();
-  assert.equal(allDetail.some((e) => /^Achievement: Ascension III/.test(e.m || "")), false);
-  // xpDone keeps the key as a dedupe tombstone (carries no XP); the rebuilt ledger rows must not
-  assert.equal(r.rows.some((row) => row.e === "ach_rank-2"), false);
+  assert.equal(allDetail.some((e) => /^Achievement: Ascension III/.test(e.m || "")), true);
+  assert.equal(r.rows.some((row) => row.e === "ach_rank-2"), true);
   assert.equal(r.s.achV, 4);
+});
+
+test("stamped workouts score identically under any current profile weight", () => {
+  // 7o Bug 2 regression: changing today's bodyweight must not rescore history.
+  const w = { id: "w1", date: "2026-01-10", xp: 0, bw: 170, exercises: [{ name: "Pull-up", sets: [{ w: "", r: 12, done: true }] }] };
+  const at = (weight) => ({ profile: { weight, sex: "m", height: 70 }, workouts: [w], days: {}, meals: {}, steps: {} });
+  const a = rankedLifts(at(170)), b = rankedLifts(at(240));
+  assert.equal(a.length, 1);
+  assert.equal(a[0].best, b[0].best);
+  assert.equal(a[0].score, b[0].score);
+  assert.equal(a[0].label, b[0].label);
+  assert.equal(overallInfo(at(170)).score, overallInfo(at(240)).score);
+  assert.deepEqual(earnedAchievements(at(170)).map((x) => x.id), earnedAchievements(at(240)).map((x) => x.id));
+});
+
+test("weightAtDate resolves the nearest log entry; ties and gaps are deterministic", () => {
+  const s = { profile: { weight: 300 }, weightLog: { "2026-01-01": 200, "2026-01-11": 160 } };
+  assert.equal(weightAtDate(s, "2026-01-04"), 200);
+  assert.equal(weightAtDate(s, "2026-01-09"), 160);
+  assert.equal(weightAtDate(s, "2026-01-06"), 200); // exact tie → the earlier entry wins
+  const none = { profile: { weight: 300 } };
+  assert.equal(weightAtDate(none, "2026-01-06"), null);
+  assert.equal(profileAt(none, { date: "2026-01-06" }).weight, 300); // no log → current profile
+  // and an unstamped old row resolves through the log, not the current profile
+  const unstamped = { profile: { weight: 300 }, weightLog: { "2026-01-01": 200 } };
+  assert.equal(profileAt(unstamped, { date: "2026-01-03" }).weight, 200);
+  assert.equal(profileAt(unstamped, { date: "2026-01-03", bw: 175 }).weight, 175); // stamp wins over the log
 });
 
 test("workout duels created under 7d sum credit and older ones still count sessions", () => {

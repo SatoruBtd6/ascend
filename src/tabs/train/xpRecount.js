@@ -54,8 +54,8 @@ export const XP_VERSION = 3;
 // Reconcile first, then rebuild xp + every ledger from records: the only correct
 // way to revoke achievement XP (Phase 7n A). Returns { s, rows } like recountXp;
 // callers that want the server ledger corrected should XpSync.replace(r.rows).
-export function reconcileRecount(s, { rankOnly = false, banner = false } = {}) {
-  return applyPrXpRecount(reconcileAchievements(s, rankOnly), { banner });
+export function reconcileRecount(s, { rankOnly = false, banner = false, keepRanks = true } = {}) {
+  return applyPrXpRecount(reconcileAchievements(s, rankOnly, keepRanks), { banner });
 }
 export function grantAchievementsKeep(s) {
   const earned = earnedAchievements(s).map((a) => a.id);

@@ -9,7 +9,7 @@ import { Bar } from "../../ui/primitives.jsx";
 import { RankBadge } from "../train/RankBadge.jsx";
 export function RankGuideRow({ e, p, bests }) {
   const steps = thresholds(e, p);
-  const cur = bests[e.name] ? rankFor(e, bests[e.name], p) : null;
+  const cur = bests[e.name] ? rankFor(e, bests[e.name].v, bests[e.name].p) : null;
   return (
     <div className="grid items-center gap-1 py-2 text-sm" style={{ gridTemplateColumns: "1.6fr repeat(5, 1fr)", borderTop: `1px solid rgba(0,217,255,.10)` }}>
       <div className="min-w-0">

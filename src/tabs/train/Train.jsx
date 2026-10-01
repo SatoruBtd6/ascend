@@ -89,7 +89,7 @@ export function Train({ s, setS, gainXp, openRun }) {
   const lastSets = (name) => lastWorkingSets(s, name, a?.editId)?.sets || [];
   const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
   const sessionGym = () => (a.gym !== undefined ? a.gym : s.currentGym) ?? null;
-  const xpOpts = () => ({ history: collectPrHistory(s, findEx, { excludeId: a?.editId }), workout: { gym: sessionGym(), date: a?.date || today() }, excludeId: a?.editId });
+  const xpOpts = () => ({ history: collectPrHistory(s, findEx, { excludeId: a?.editId }), workout: { gym: sessionGym(), date: a?.date || today(), ...(a?.editId ? { bw: s.workouts.find((w) => w.id === a.editId)?.bw } : {}) }, excludeId: a?.editId });
 
   const finish = () => {
     const exercises = cleaned(a.exercises);
@@ -116,9 +116,9 @@ export function Train({ s, setS, gainXp, openRun }) {
       if (!gymChanged) gainXp(delta, "Workout updated", `wo_${a.editId}_e${Date.now().toString(36)}`);
       return;
     }
-    const { xp, prs, volume, lines, prBonus, sets } = workoutXp(s, exercises, { ...bests }, opts);
+    const { xp, prs, volume, lines, prBonus, sets, bw: res_bw } = workoutXp(s, exercises, { ...bests }, opts);
     const d = today();
-    const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
+    const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(res_bw > 0 ? { bw: res_bw } : {}), ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));

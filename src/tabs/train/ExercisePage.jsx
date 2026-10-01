@@ -3,7 +3,7 @@ import { ChevronLeft, Youtube } from "lucide-react";
 import { C } from "../../theme.js";
 import { isGymSpecific, workoutGym, isLegacyAssisted } from "../../math.js";
 import { findEx } from "../../lib/exercises.js";
-import { rankedLifts, bestValue } from "../../lib/stats.js";
+import { rankedLifts, bestValue, profileAt } from "../../lib/stats.js";
 import { fmtDay } from "../../lib/dates.js";
 import { RankBadge } from "./RankBadge.jsx";
 import { LineChart } from "./LineChart.jsx";
@@ -24,7 +24,7 @@ export function ExercisePage({ s, setS, name, onBack, openMuscle }) {
     if (!ex) return;
     const sets = (ex.sets || []).filter((st) => +st.r > 0);
     if (!sets.length) return;
-    const best = def.type === "timed" ? Math.max(...sets.map((st) => +st.r)) : Math.max(...sets.map((st) => bestValue(def, st, p, ex)));
+    const best = def.type === "timed" ? Math.max(...sets.map((st) => +st.r)) : Math.max(...sets.map((st) => bestValue(def, st, profileAt(s, w), ex)));
     const vol = sets.reduce((a, st) => a + (+st.w || 0) * (+st.r || 0), 0);
     sessions.push({ d: w.date, best, vol, sets, id: w.id, title: w.title, gym: workoutGym(w), legacy: isLegacyAssisted(w, def) });
   });
