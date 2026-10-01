@@ -68,6 +68,20 @@ exposed only inside the tester audit panel as a confirm-first one-time
 cleanup (it previews the revoke count before running); it exists to unwind
 bug-produced rank grants, not as maintenance tooling.
 
+## crewmem self-heal trust boundary (phase 7o)
+
+`loadCrewRoster` self-heals a missing `crewmem:<code>:<playerId>` row. The
+membership claim is: the crew record exists AND the client's own `s.crew.code`
+points at it. `members[]` cannot be the check — it is owner-write-only, so the
+exact accounts the heal is for never appear in it. The `crewmem` row is
+therefore self-asserted by design: the `kv insert` policy lets any authenticated
+user write `scope='shared'`, so RLS cannot distinguish a genuine member from a
+forged claim anyway; the row IS the claim. Consequences accepted: anyone who
+learns a crew code can self-insert membership (same as joining by code today);
+stale `s.crew` pointing at a still-live recycled code heals into it (the user
+already sees that crew's data, so no information boundary is crossed). The heal
+never writes `crew:`/`members[]` — those remain owner-only.
+
 ## Workout credit and streaks
 
 `WORKOUT_CREDIT` in `src/math.js` is the curve. A short walk and a long lift are not the same workout: strength is piecewise on effective minutes, runs and walks use their own minutes and a lower cap, mixed sessions add both and then cap, and quest or deck sessions stay at 0. Streaks count any session that earns credit, so a short walk still keeps the day.

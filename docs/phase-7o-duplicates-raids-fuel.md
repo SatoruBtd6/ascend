@@ -87,6 +87,15 @@ pushes so each delta stays attributable.** Weight fix first (no mass recount;
 each account's stored XP stands until its next recount); Brodan presses
 "Recheck achievements" once after it ships; the dedupe cleanup ships later.
 
+**Mixed ledger note:** until an account next hits a recount trigger (Recheck,
+CSV import, exercise merge, gym retag, the audit-panel unwind), its stored
+`s.xp` stays old-model while every new workout adds new-model XP — a mixed
+ledger, indefinitely, for a user who never presses Recheck. Accepted
+consequence: the ledger still sums and the rank ratchet keeps badges, so the
+only drift is the XP number lagging what a recount would compute. Deliberate —
+a mass recount on deploy would mix this fix's delta with everyone's next
+recount and make the deltas unattributable.
+
 ---
 
 ## Part 2 — run/walk
