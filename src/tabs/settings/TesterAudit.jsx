@@ -7,7 +7,7 @@ import { SB_URL, XpSync } from "../../lib/xpSync.js";
 import { creditBreakdown, levelFromXp, round2, workoutDupes } from "../../math.js";
 import { recountXp, reconcileRecount } from "../train/xpRecount.js";
 import { ask } from "../../lib/ask.js";
-import { D } from "../../diag.js";
+import * as D from "../../diag.js";
 import { C } from "../../theme.js";
 import { CreditLedger } from "./CreditLedger.jsx";
 
