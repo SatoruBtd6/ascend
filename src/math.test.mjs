@@ -418,6 +418,37 @@ test("leaving GPS range drops ready and aborts countdown", () => {
   assert.equal(gone.ready.c, undefined);
 });
 
+test("ready gate is client-only: a self-supplied presence stamp passes", () => {
+  // 7o Bug 1: applyRaidAction trusts the presence map the caller hands it.
+  // Crew.jsx merges local s.atGym in, so a member whose shared crewpres write
+  // silently failed can still ready on their own device.
+  const r = propose();
+  const denied = applyRaidAction(r, "ready", { playerId: "m", presence: {}, now: 1 });
+  assert.equal(denied.ok, false);
+  assert.equal(denied.reason, "not-at-gym");
+  const stale = applyRaidAction(r, "ready", { playerId: "m", presence: { m: 1 - PRESENCE_MS - 1 }, now: 1 });
+  assert.equal(stale.ok, false);
+  const ok = applyRaidAction(r, "ready", { playerId: "m", presence: { m: 1 }, now: 1 });
+  assert.equal(ok.ok, true);
+  assert.ok(ok.raid.ready.m);
+});
+
+test("hit gate also reads the caller's presence map, not the server row", () => {
+  let r = propose();
+  const pres = at(["h", "a", "b", "c"]);
+  r = applyRaidAction(r, "ready", { playerId: "h", presence: pres, now: 1 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "a", presence: pres, now: 2 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "b", presence: pres, now: 3 }).raid;
+  r = applyRaidAction(r, "ready", { playerId: "c", presence: pres, now: 4 }).raid;
+  r = tickRaid(r, { now: 4 + RAID_COUNTDOWN_MS, presence: pres });
+  assert.ok(raidActive(r, 4 + RAID_COUNTDOWN_MS));
+  const denied = applyRaidAction(r, "hit", { playerId: "m", presence: pres, now: 4 + RAID_COUNTDOWN_MS });
+  assert.equal(denied.ok, false);
+  assert.equal(denied.reason, "not-at-gym");
+  const selfStamp = applyRaidAction(r, "hit", { playerId: "m", presence: { ...pres, m: 4 + RAID_COUNTDOWN_MS }, now: 4 + RAID_COUNTDOWN_MS });
+  assert.equal(selfStamp.ok, true);
+});
+
 test("host leaving the lobby transfers host and does not cancel others", () => {
   let r = propose();
   const pres = at(["h", "a"]);

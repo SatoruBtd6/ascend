@@ -1,5 +1,5 @@
-import { GYM_RADIUS_M, RAID_NEED, applyRaidAction, checkGymPin, prunePresence, raidPhase } from "../../math.js";
-import { casPres, casRaid, patchGhost } from "../train/raidIO.js";
+import { GYM_RADIUS_M, RAID_NEED, applyRaidAction, checkGymPin, presenceActive, prunePresence, raidPhase } from "../../math.js";
+import { casPres, casRaid, patchGhost, readPres } from "../train/raidIO.js";
 export const IOS_LOC = "On iPhone: Settings → Privacy & Security → Location Services (on), then Settings → Apps → Safari → Location → Allow. Reload this page in Safari (not an in-app browser) and tap Allow when asked. The site has to be HTTPS.";
 export const fmtHMS = (sec) => {
   const s = Math.max(0, Math.floor(+sec || 0));
@@ -38,7 +38,8 @@ export async function attemptCheckIn(s, setS, pin) {
     const pos = await getGps({ test: s.test, gym: pin });
     const chk = checkGymPin(pos, pin);
     if (!chk.ok) return { ok: false, msg: chk.reason === "too-far" ? `You have to be within ${GYM_RADIUS_M} m of the crew gym.` : "Crew gym isn't set yet." };
-    await stampPresence(s, setS, Date.now(), false);
+    const st = await stampPresence(s, setS, Date.now(), false);
+    if (st && st.ok === false) return { ok: false, msg: "Check-in didn't reach the crew — check your connection and try again." };
     return { ok: true };
   } catch (e) {
     return { ok: false, msg: locErrorText(e) };
@@ -59,15 +60,27 @@ export async function stampPresence(s, setS, t, drop = false) {
       return { ...g, presence, raid };
     });
     setS((p) => ({ ...p, atGym: drop ? null : now }));
-    return;
+    return { ok: true };
   }
   setS((p) => ({ ...p, atGym: drop ? null : now }));
-  if (!s.crew?.code) return;
+  if (!s.crew?.code) return { ok: true };
   const wrote = await casPres(s.crew.code, (rec) => {
     const at = { ...(rec.at || {}) };
     if (drop) delete at[s.playerId];
     else at[s.playerId] = now;
     return { ...rec, at };
   });
-  if (drop) await casRaid(s.crew.code, "drop", { playerId: s.playerId, now, presence: prunePresence(wrote?.at, now), memberCount: RAID_NEED });
+  if (drop) {
+    await casRaid(s.crew.code, "drop", { playerId: s.playerId, now, presence: prunePresence(wrote?.at, now), memberCount: RAID_NEED });
+    return { ok: !!wrote };
+  }
+  // 7o: a denied shared write throws inside casPres and comes back null — or
+  // "succeeds" locally while the crew row never changes. Either way the crew
+  // cannot see the stamp, so check-in is a lie unless the row reads back.
+  // One extra shared read per check-in is the price of honesty here.
+  if (typeof navigator !== "undefined" && !navigator.onLine) return { ok: true };
+  const back = await readPres(s.crew.code);
+  if (presenceActive(back?.at?.[s.playerId], now)) return { ok: true };
+  setS((p) => ({ ...p, atGym: null }));
+  return { ok: false };
 }
