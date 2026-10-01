@@ -11,11 +11,19 @@ export async function listCrewMemberIds(code, rec, rows) {
     const list = await window.storage.list(`crewmem:${code}:`, true);
     fromKeys = (list?.keys || []).map((k) => k.slice(`crewmem:${code}:`.length)).filter(Boolean);
   } catch { /* shared list may fail offline */ }
-  return [...new Set([...fromCards, ...fromRec, ...fromKeys])];
+  return { ids: [...new Set([...fromCards, ...fromRec, ...fromKeys])], memKeys: fromKeys };
 }
 export async function loadCrewRoster(code, s, rows) {
   const rec = await readCrew(code);
-  const ids = await listCrewMemberIds(code, rec, rows);
+  const { ids, memKeys } = await listCrewMemberIds(code, rec, rows);
+  // 7o Bug 1d: a member whose join predates the crewmem write — or whose insert
+  // was silently denied — has no crewmem row, so kv_crew_member can't grant them
+  // and every crew shared write fails. Claim it here: the crew existing and
+  // s.crew pointing at it is the membership claim; the write is idempotent and
+  // only attempted while the row is missing, so loaded crew pages self-heal.
+  if (rec && s?.playerId && !s.test && s.crew?.code === code && !memKeys.includes(s.playerId)) {
+    try { await window.storage.set(`crewmem:${code}:${s.playerId}`, JSON.stringify({ id: s.playerId, name: s.profile?.name || "", since: today(), uid: window.ascendUserId || null }), true); } catch { /* denied or offline — retried on next load */ }
+  }
   if (s?.playerId && !s.test && !ids.includes(s.playerId)) ids.push(s.playerId);
   const byId = new Map();
   (rows || []).forEach((r) => { if (r.id && !r.ghost) byId.set(r.id, r); });

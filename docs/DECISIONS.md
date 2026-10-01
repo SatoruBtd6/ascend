@@ -47,6 +47,27 @@ strength-limited ×0.7 (`FEMALE_REP_SCALE`) — the sex gap concentrates in
 upper-body strength work. Unclassified bodyweight exercises default to `end`
 (harder curve) so invented exercises cannot sandbag ranks.
 
+## Stamped bodyweight scoring and the rank ratchet (phase 7o — Brodan)
+
+Workout rows carry `bw`: the profile weight at completion time, stamped once
+and never rewritten by edits or recounts. Scoring resolves bodyweight per row
+via `profileAt`: stamped `bw` → nearest `weightLog` entry by workout date (ties
+go to the earlier day, no distance cap) → current profile weight. The last
+fallback keeps the old bug alive for accounts with no `weightLog` at all —
+their unstamped history still rescales when weight changes; see the 7o report
+for the blast-radius query and backfill proposal.
+
+`rank-*` achievements are **ratcheted: never revoked** — not on weight change,
+not by ordinary Recheck, and not when qualifying history is deleted or deduped
+away. "Highest rank achieved" is the product statement; it is deliberately
+different from non-rank achievements, which still reconcile and can be removed.
+This means a user who deletes their entire workout history keeps the badges —
+accepted consequence, written here so it is not rediscovered later. The
+deliberate escape hatch is `reconcileRecount(s, { keepRanks: false })`,
+exposed only inside the tester audit panel as a confirm-first one-time
+cleanup (it previews the revoke count before running); it exists to unwind
+bug-produced rank grants, not as maintenance tooling.
+
 ## Workout credit and streaks
 
 `WORKOUT_CREDIT` in `src/math.js` is the curve. A short walk and a long lift are not the same workout: strength is piecewise on effective minutes, runs and walks use their own minutes and a lower cap, mixed sessions add both and then cap, and quest or deck sessions stay at 0. Streaks count any session that earns credit, so a short walk still keeps the day.

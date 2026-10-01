@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { fmtDay } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
-import { mealTotals } from "../../lib/stats.js";
+import { allAchievements, earnedAchievements, mealTotals } from "../../lib/stats.js";
 import { SB_URL, XpSync } from "../../lib/xpSync.js";
 import { creditBreakdown, levelFromXp, round2, workoutDupes } from "../../math.js";
-import { recountXp } from "../train/xpRecount.js";
+import { recountXp, reconcileRecount } from "../train/xpRecount.js";
+import { ask } from "../../lib/ask.js";
+import { D } from "../../diag.js";
 import { C } from "../../theme.js";
 import { CreditLedger } from "./CreditLedger.jsx";
 
@@ -20,12 +22,13 @@ const rpc = async (fn, body) => {
   return r.ok ? await r.json() : { ok: false, reason: "error" };
 };
 
-export function TesterAudit({ onBack }) {
+export function TesterAudit({ s, setS, onBack }) {
   const [roster, setRoster] = useState(null); // null = loading, [] = denied/empty
   const [pick, setPick] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [st, setSt] = useState(null);
+  const [note, setNote] = useState("");
   useEffect(() => {
     rpc("kv_audit_roster").then((j) => {
       if (j?.ok) setRoster(j.accounts || []);
@@ -54,6 +57,16 @@ export function TesterAudit({ onBack }) {
     () => Object.entries(st?.meals || {}).filter(([, m]) => (m || []).length).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 14),
     [st]
   );
+  // 7o Bug 2 unwind preview: what reconcileRecount(keepRanks:false) would remove
+  // from THIS account — every held achievement the current history doesn't earn,
+  // including ratcheted rank-* badges. Same filter reconcileAchievements uses.
+  const unwind = useMemo(() => {
+    if (!s?.ach) return { ids: [], xp: 0 };
+    const earned = new Set(earnedAchievements(s).map((a) => a.id));
+    const byId = new Map(allAchievements().map((a) => [a.id, a]));
+    const ids = Object.keys(s.ach).filter((id) => !earned.has(id) && !id.startsWith("workouts-")).sort();
+    return { ids, xp: ids.reduce((a, id) => a + (byId.get(id)?.xp || 0), 0) };
+  }, [s]);
   // 7o Part 1A: classify duplicate workout rows — byte-identical copies (safe
   // to thin), identical-minus-id rows (safe), and same-id copies that differ
   // (manual review only — a resumed run can re-save richer data). Read-only:
@@ -95,6 +108,35 @@ export function TesterAudit({ onBack }) {
         {busy && <div className="body text-xs flex items-center gap-1.5" style={{ color: C.mute }}><Loader2 size={12} className="animate-spin" />Loading state…</div>}
         {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
       </div>
+      {roster && roster.length > 0 && s && setS && (
+        <div className="panel p-4 space-y-2" style={{ borderColor: C.red }}>
+          <div className="font-semibold text-sm" style={{ color: C.red }}>One-time cleanup — your account</div>
+          <div className="body text-xs" style={{ color: C.dim }}>
+            Rank badges are ratcheted: once earned they are never revoked, including on weight changes, workout deletion and dedupe. This is the deliberate one-time exception — it revokes every held badge your current history does not earn (ratchet included) and recounts XP without them. Run it once, after the weight-fix deploy and one ordinary Recheck. It is not routine maintenance.
+          </div>
+          {unwind.ids.length === 0 ? (
+            <div className="body text-xs" style={{ color: C.mute }}>Nothing to unwind — every held achievement is earned at current history.</div>
+          ) : (
+            <button
+              className="ghost w-full py-3 text-sm font-bold"
+              style={{ color: C.red }}
+              onClick={() => ask(
+                `Remove ${unwind.ids.length} unearned badge${unwind.ids.length === 1 ? "" : "s"} (${unwind.ids.join(", ")}) and take back ${unwind.xp.toLocaleString()} XP? One-time cleanup — the rank ratchet stays on after this.`,
+                () => {
+                  const r = reconcileRecount(s, { keepRanks: false });
+                  D.withSource("rank-unwind", () => setS(() => r.s));
+                  try { XpSync.replace(r.rows); } catch (e) { /* sync ledger best-effort */ }
+                  setNote(`Removed ${unwind.ids.length} badge${unwind.ids.length === 1 ? "" : "s"}; XP ${(s.xp || 0).toLocaleString()} → ${(r.s.xp || 0).toLocaleString()}.`);
+                },
+                "Remove"
+              )}
+            >
+              Revoke {unwind.ids.length} unearned badge{unwind.ids.length === 1 ? "" : "s"} (−{unwind.xp.toLocaleString()} XP)
+            </button>
+          )}
+          {note && <div className="body text-xs" style={{ color: C.gold }}>{note}</div>}
+        </div>
+      )}
       {st && (
         <>
           <div className="panel p-4 flex items-center justify-between">

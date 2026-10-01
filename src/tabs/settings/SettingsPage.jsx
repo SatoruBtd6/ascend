@@ -70,7 +70,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   };
 
   if (page === "whatsnew") return <WhatsNew onBack={() => setPage(null)} />;
-  if (page === "audit") return <TesterAudit onBack={() => setPage(null)} />;
+  if (page === "audit") return <TesterAudit s={s} setS={setS} onBack={() => setPage(null)} />;
 
   return (
     <div className="space-y-4">

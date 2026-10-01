@@ -1584,3 +1584,49 @@ test("updateReloadBlocked defers while anything live is running", () => {
   assert.equal(updateReloadBlocked({ interval: true, now }), "interval-timer");
   assert.equal(updateReloadBlocked({ typing: true, now }), "typing");
 });
+
+// 7o Bug 1d: members whose join predates the crewmem write (or whose insert was
+// silently denied) have no crewmem row, so kv_crew_member can't grant them any
+// shared write. loadCrewRoster heals it on load — idempotent, missing-row only.
+import { loadCrewRoster } from "./tabs/board/crewIO.js";
+
+const mockStorage = (initial = {}) => {
+  const store = new Map(Object.entries(initial));
+  const sets = [];
+  globalThis.window = {
+    storage: {
+      get: async (key) => (store.has(key) ? { value: store.get(key) } : null),
+      list: async (prefix) => ({ keys: [...store.keys()].filter((k) => k.startsWith(prefix)) }),
+      set: async (key, value) => { sets.push(key); store.set(key, value); },
+      delete: async (key) => { store.delete(key); },
+    },
+  };
+  return { store, sets };
+};
+
+test("crewmem self-heal: a missing member row is inserted exactly once", async () => {
+  const { store, sets } = mockStorage({ "crew:ABCDEF": JSON.stringify({ code: "ABCDEF", members: ["pid1", "pid2"] }) });
+  const s = { playerId: "pid2", crew: { code: "ABCDEF" }, profile: { name: "Me" } };
+  const got = await loadCrewRoster("ABCDEF", s, []);
+  assert.deepEqual(sets, ["crewmem:ABCDEF:pid2"]);
+  assert.equal(JSON.parse(store.get("crewmem:ABCDEF:pid2")).id, "pid2");
+  assert.ok(got.rows.some((r) => r.id === "pid2"));
+  await loadCrewRoster("ABCDEF", s, []); // second load sees the row — no spam
+  assert.equal(sets.length, 1);
+  delete globalThis.window;
+});
+
+test("crewmem self-heal: no write for a dead crew, a different claimed crew, or test accounts", async () => {
+  const { sets } = mockStorage({
+    "crew:OTHER1": JSON.stringify({ code: "OTHER1", members: ["pid9"] }),
+    "crew:ABCDEF": JSON.stringify({ code: "ABCDEF", members: ["pid1"] }),
+  });
+  // stale local code — the crew record is gone
+  await loadCrewRoster("GONE42", { playerId: "pid1", crew: { code: "GONE42" }, profile: {} }, []);
+  // crew exists but this client claims a different one — not our membership to heal
+  await loadCrewRoster("OTHER1", { playerId: "pid1", crew: { code: "ABCDEF" }, profile: {} }, []);
+  // test accounts never write shared rows
+  await loadCrewRoster("ABCDEF", { playerId: "pid1", crew: { code: "ABCDEF" }, profile: {}, test: true }, []);
+  assert.equal(sets.length, 0);
+  delete globalThis.window;
+});
