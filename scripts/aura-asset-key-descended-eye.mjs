@@ -1,5 +1,5 @@
 // aura-asset-key-descended-eye — one-off magenta key/despill/trim for
-// public/aura/descended-eye-src.png -> public/aura/descended-eye.webp
+// public/aura/descended-eye-src.webp -> public/aura/descended-eye.webp
 // (512x512, alpha). Clone of aura-asset-key.mjs with SRC/DST retargeted and the
 // ring-radius stats kept (harmless on a non-ring sprite — they just report
 // extent). Source magenta #C2185B sits at hue ~336 inside the 296-352 window.
@@ -9,7 +9,8 @@ import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { REPO, CURR_URL, CURR_PORT, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
 
-const SRC = "aura/descended-eye-src.png";
+// src archived at evidence/aura-asset-src/ — copy back to public/aura/ before re-running
+const SRC = "aura/descended-eye-src.webp";
 const DST = join(REPO, "public", "aura", "descended-eye.webp");
 const DELETE_SRC = process.argv.includes("--rm-src");
 const OUT_PX = 512;

@@ -1,5 +1,5 @@
 // aura-asset-key-descended-emblem — one-off magenta key/despill/crop/trim for
-// public/aura/descended-emblem-src.png -> public/aura/descended-emblem.webp
+// public/aura/descended-emblem-src.webp -> public/aura/descended-emblem.webp
 // (512x512, alpha). Clone of aura-asset-key.mjs retargeted, PLUS a crop: the
 // source is the full emblem image (wings + gothic A + interlaced ribbon) but
 // only the A+ribbon centre is wanted — the wing layer comes from
@@ -12,12 +12,13 @@ import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { REPO, CURR_URL, CURR_PORT, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
 
-const SRC = "aura/descended-emblem-src.png";
+// src archived at evidence/aura-asset-src/ — copy back to public/aura/ before re-running
+const SRC = "aura/descended-emblem-src.webp";
 const DST = join(REPO, "public", "aura", "descended-emblem.webp");
 const DELETE_SRC = process.argv.includes("--rm-src");
 const OUT_PX = 512;
 // TUNE after first run — normalized source-space rect around the A+ribbon.
-const CROP = [0.28, 0.22, 0.72, 0.72];
+const CROP = [0.33, 0.26, 0.67, 0.70];
 
 async function loadChromium() {
   const dir = join(process.cwd(), "node_modules", "playwright-core");

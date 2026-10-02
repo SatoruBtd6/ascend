@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { REPO, CURR_URL, CURR_PORT, assertPortFree, startVite, waitReady, evidenceDir, stopServers } from "./aura-lib.mjs";
 
+// src archived at evidence/aura-asset-src/ — copy back to public/aura/ before re-running
 const SRC = "aura/descended-wings-src.png";
 const DST = join(REPO, "public", "aura", "descended-wings.webp");
 const DELETE_SRC = process.argv.includes("--rm-src");
@@ -21,8 +22,10 @@ const OUT_PX = 512;
 // cx/cy = centre of the rect (0..1 across the trim box), w/h = rect size,
 // deg = rotation. Two entries expected for the two diagonal bars.
 const STRIP = [
-  // { cx: 0.44, cy: 0.66, w: 0.06, h: 0.30, deg: 35 },
-  // { cx: 0.56, cy: 0.66, w: 0.06, h: 0.30, deg: -35 },
+  { cx: 0.30, cy: 0.588, w: 0.227, h: 0.079, deg: 43 },   // left diagonal strut cluster
+  { cx: 0.698, cy: 0.588, w: 0.227, h: 0.079, deg: -43 }, // right mirror
+  { cx: 0.29, cy: 0.75, w: 0.15, h: 0.06, deg: 43 },      // left strut tails
+  { cx: 0.71, cy: 0.75, w: 0.15, h: 0.06, deg: -43 },     // right strut tails
 ];
 
 async function loadChromium() {

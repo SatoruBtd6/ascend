@@ -821,10 +821,11 @@ const ASC_RING_HOLE = 0.672, ASC_RING_TIP = 0.98;
 const DESC_WINGS_SRC = "/aura/descended-wings.webp";
 const DESC_EMBLEM_SRC = "/aura/descended-emblem.webp";
 const DESC_EYE_SRC = "/aura/descended-eye.webp";
-// Geometry fractions of each sprite's half-width — TUNE after keying once
-// the real art lands (measure like ASC_RING_*). Sockets sit evenly spaced at
-// this radius around the emblem; eye sprite reach ~0.5 of its half.
-const DESC_SOCK_R = 0.62, DESC_WING_REACH = 0.97, DESC_EMBLEM_REACH = 0.9, DESC_EYE_REACH = 0.55;
+// Geometry fractions measured off the keyed sprites — reach values are the
+// median opaque extent as a fraction of sprite half-width (from the keying
+// stats). Sockets (the eight almond inlays at the wing shoulders) sit at
+// ~0.74 of the wings sprite's half-width.
+const DESC_SOCK_FRAC = 0.74, DESC_WING_REACH = 0.87, DESC_EMBLEM_REACH = 0.9, DESC_EYE_REACH = 0.68;
 // Rotation speed cap — Ascended's peak element speed is the glyphring eyes at
 // 24 × w0.16 = 3.84 rad/s; Descended's wing wheel peaks below it.
 const DESC_WMAX = 3.4;
@@ -2145,7 +2146,7 @@ export const AURA_ART = {
   // ≥1.2s fall); nothing is tied to rotation phase. UNENFORCED parts resting
   // on this spec: the wing flood alpha ramp, the eye brighten/fade swells and
   // the launch. Under reduced motion: frozen rest pose, eyes open mid-dim.
-  descended: ({ pass, g, clock, cx, cy, rx, ry, w, h, unit, reduce, cc, mode, anchors }) => {
+  descended: ({ pass, g, clock, cx, cy, rx, ry, w, h, unit, reduce, cc }) => {
     if (pass !== "main") return null;
     const m = Math.min(w, h);
     const small = m < 110;
@@ -2183,10 +2184,10 @@ export const AURA_ART = {
       }));
     }
     const R = Math.min(rx, ry);
-    // sockets ride the wing shoulders just off the photo rim — clamped so
-    // small canvases (board 59px etc.) keep the sprites inside the border
-    const sockR = Math.min(R * (1.28 + DESC_SOCK_R * 0), Math.min(cx, w - cx, cy, h - cy) * 0.82);
     const wingD = m * 0.94; // tips reach DESC_WING_REACH of the sprite half — stays inside the border
+    // sockets ride the wing shoulders at the measured sprite radius — clamped
+    // so small canvases (board 59px etc.) keep the sprites inside the border
+    const sockR = Math.min(DESC_SOCK_FRAC * wingD * 0.5, Math.min(cx, w - cx, cy, h - cy) * 0.82);
     const wingCx = cx, wingCy = cy;
     const dprSprite = (img, x, y, d, a, rotA = 0) => {
       if (d <= 3 || a <= 0.01) return;
@@ -2238,9 +2239,13 @@ export const AURA_ART = {
     }
     // --- emblem (stationary, behind photo in ring view; visible in body) ---
     if (emb?.ready && !emb.failed) {
-      const hx = mode === "body" && anchors?.face ? anchors.face.x : cx;
-      const hy = mode === "body" && anchors?.face ? anchors.face.y + anchors.face.eyeX * HEAD_FROM_EYE * 0.4 : cy;
-      dprSprite(emb.img, hx, hy, Math.min(m * 0.42, rx * 2 * DESC_EMBLEM_REACH), 0.95);
+      // emblem stays at canvas centre — in body mode it sits behind the
+      // figure's torso, mirroring how it sits behind the photo in ring view
+      const embD = Math.min(m * 0.42, rx * 2 * DESC_EMBLEM_REACH);
+      const ePad = embD / 2 * DESC_EMBLEM_REACH + 2;
+      const hx = Math.max(ePad, Math.min(w - ePad, cx));
+      const hy = Math.max(ePad, Math.min(h - ePad, cy));
+      dprSprite(emb.img, hx, hy, embD, 0.95);
     }
     // --- eyes ---
     const eyeD = Math.max(4, m * 0.115);
@@ -2273,13 +2278,13 @@ export const AURA_ART = {
       }
       // keep every pixel inside the frame — eyes never leave the border
       const eyeReady = eye?.ready && !eye.failed;
-      const half = (eyeD / 2) * (eyeReady ? DESC_EYE_REACH : 1);
+      const half = (eyeD / 2) * (eyeReady ? DESC_EYE_REACH : 1) + 1;
       ex = Math.max(half + 1, Math.min(w - half - 1, ex));
       ey = Math.max(half + 1, Math.min(h - half - 1, ey));
       if (eyeReady) {
         g.save(); g.translate(ex, ey); g.rotate(face); g.scale(1, Math.max(0.12, lid));
         g.globalAlpha = Math.min(1, eyeA);
-        g.shadowColor = "#C2001F"; g.shadowBlur = 4 * unit * Math.min(1, eyeA);
+        if (!small) { g.shadowColor = "#C2001F"; g.shadowBlur = 4 * unit * Math.min(1, eyeA); }
         g.drawImage(eye.img, -eyeD / 2, -eyeD / 2, eyeD, eyeD);
         g.restore();
       } else {
