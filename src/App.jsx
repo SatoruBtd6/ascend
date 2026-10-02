@@ -200,16 +200,31 @@ export default function App() {
   useEffect(() => { const v = () => { if (document.visibilityState === "visible") pullSteps(); }; document.addEventListener("visibilitychange", v); return () => document.removeEventListener("visibilitychange", v); }, []);
   // Old home-screen installs (black-translucent status bar captured at
   // install time) clip position:fixed painting at a layout viewport that is
-  // short by the status-bar height. In that mode only, the shell switches to
-  // a document-positioned box — document content paints to the screen edge —
-  // and the document scroll that would otherwise expose is suppressed.
+  // short by the status-bar height. env() can read 0 during the first frames
+  // of a standalone launch, so a false detection must not stick — re-check
+  // on animation frames, load, resize and rotation until it settles.
+  const [legacySA, setLegacySA] = useState(legacyStandalone);
   useEffect(() => {
-    if (!LEGACY_SA) return;
+    if (legacySA) return;
+    let dead = false, raf = 0, tries = 0;
+    const check = () => { if (!dead && legacyStandalone()) setLegacySA(true); };
+    const poll = () => { check(); if (!dead && !legacyStandalone() && ++tries < 120) raf = requestAnimationFrame(poll); };
+    poll();
+    window.addEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    window.addEventListener("load", check);
+    return () => { dead = true; cancelAnimationFrame(raf); window.removeEventListener("resize", check); window.removeEventListener("orientationchange", check); window.removeEventListener("load", check); };
+  }, [legacySA]);
+  // In that mode only, the shell switches to a document-positioned box —
+  // document content paints to the screen edge — and the document scroll
+  // that would otherwise expose is suppressed.
+  useEffect(() => {
+    if (!legacySA) return;
     document.documentElement.classList.add("legacy-sa");
     const clamp = () => { if (window.scrollY) window.scrollTo(0, 0); };
     window.addEventListener("scroll", clamp, { passive: true });
     return () => { document.documentElement.classList.remove("legacy-sa"); window.removeEventListener("scroll", clamp); };
-  }, []);
+  }, [legacySA]);
   useEffect(() => {
     const on = (e) => {
       const kind = e.detail; setBurst({ kind, id: Date.now() });
@@ -1162,9 +1177,6 @@ export default function App() {
 // import.meta.env.DEV makes the render path dead code in production builds;
 // the component is tree-shaken.
 const DBG = import.meta.env.DEV && typeof window !== "undefined" && (new URLSearchParams(window.location.search).has("debug") || navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
-// Old-install standalone mode is a launch-time property — it never changes
-// during a session, so compute once.
-const LEGACY_SA = typeof window !== "undefined" && legacyStandalone();
 function DebugPane() {
   const ref = useRef(null);
   const [lines, setLines] = useState([]);
@@ -1181,6 +1193,7 @@ function DebugPane() {
         `visVP h=${vv ? vv.height.toFixed(1) : "?"} offTop=${vv ? vv.offsetTop.toFixed(1) : "?"}`,
         `docEl clientH=${document.documentElement.clientHeight}`,
         `standalone mq=${matchMedia("(display-mode: standalone)").matches} nav=${!!navigator.standalone}`,
+        `legacySA()=${legacyStandalone()} cls=${document.documentElement.classList.contains("legacy-sa")}`,
         `root rectH=${root ? root.getBoundingClientRect().height.toFixed(0) : "?"} csH=${root ? getComputedStyle(root).height : "?"}`,
         `scroll rectH=${sc ? sc.getBoundingClientRect().height.toFixed(0) : "?"} scrollH=${sc ? sc.scrollHeight : "?"}`,
         `nav top=${navR ? navR.top.toFixed(0) : "?"} bottom=${navR ? navR.bottom.toFixed(0) : "?"}`,

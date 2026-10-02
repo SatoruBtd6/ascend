@@ -14,9 +14,11 @@ export const scrollPageTop = () => {
 // that position:fixed content cannot paint into. New installs (status bar
 // "black") place the webview below the bar and report envT=0. Detect the old
 // mode: standalone + nonzero top inset + the missing height equals it.
+// env() can resolve to 0 during the first frames of a standalone launch, so
+// only a positive result is cached — callers may re-poll a false.
 let _legacySA;
 export const legacyStandalone = () => {
-  if (_legacySA !== undefined) return _legacySA;
+  if (_legacySA) return true;
   _legacySA = false;
   try {
     const sa = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
