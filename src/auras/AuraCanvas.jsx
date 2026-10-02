@@ -485,6 +485,19 @@ export const AURA_FX = {
       { k: "orbit", n: 4, shape: "star", c: ["#FFFFFF", "#FFD447", "#7DF9FF"], w: [0.5, 1], r: [0.98, 1.08], sz: [1.8, 2.8], tw: 1 },
       { k: "rise", n: 3, shape: "sparkle", c: ["#FFF6C9", "#FFD447"], sp: [10, 18], life: [1.6, 2.6], sz: [1.8, 2.8], sway: 8, tw: 1, low: 1 },
     ] },
+  // Descended: monthly champion award — blackened-iron wing wheel, crimson
+  // eyes. The whole 45s sequence lives in AURA_ART.descended (painter-driven
+  // off `clock`, no moment spec) — the layers here are ambient only: a
+  // gunmetal ring with crimson groove light and a slow ash drift. No flashes,
+  // no brightness tied to rotation — see the painter's header comment.
+  descended: { spd: 0.9, glow: 0.5, art: "descended",
+    dark: { mid: "#07080C", ring: "#14161C" },
+    rings: [{ r: 1.1, c: "#23262B", spin: 0.02, a: 0.8, w: 2.2, filigree: 16, ink: 1 }],
+    small: { scale: 0.6 },
+    layers: [
+      { k: "rise", n: 6, shape: "smoke", c: ["#0E1016", "#1A0509"], sp: [4, 9], life: [2.2, 3.4], sz: [2, 3.2], sway: 3, spawnR: [1.0, 1.08], blend: "source-over", a: 0.42, low: 1, small: { n: 4 } },
+      { k: "orbit", n: 5, shape: "ember", c: ["#FF5A1F", "#C2001F"], w: [0.05, 0.12], r: [0.98, 1.08], sz: [0.6, 1.0], tw: 1, a: 0.5, small: { n: 3 } },
+    ] },
   soon_throne: { spd: 1.15, glow: 0.55, rays: { n: 8, c: "#C9A8FF", spin: 0.16, len: 1.35, a: 0.16 }, layers: [{ k: "orbit", n: 16, shape: "dot", c: ["#C9A8FF", "#7DF9FF"], w: [0.5, 0.9], r: [1, 1.2], sz: [1.8, 3.2], tw: 1 }] },
   soon_seraphim: { spd: 1.2, glow: 0.58, rays: { n: 10, c: "#FFD447", spin: 0.2, len: 1.38, a: 0.16 }, layers: [{ k: "orbit", n: 14, shape: "star", c: ["#FFFFFF", "#FFD447"], w: [0.45, 0.85], r: [1.02, 1.2], sz: [1.2, 2.2], tw: 1 }] },
   // Hunter's Moon: a pale full moon perched behind the photo's top rim, cold
@@ -800,6 +813,21 @@ const OPH_SRC = "__ophanim";
 // inner hole edge 0.672, band outer edge ~0.85, spike tips ~0.98.
 const ASC_RING_SRC = "/aura/ascended-ring.webp";
 const ASC_RING_HOLE = 0.672, ASC_RING_TIP = 0.98;
+// Descended (fallen counterpart): three keyed assets. The wing wheel is a
+// full ring of eight wings in mirrored pairs with eight empty sockets at the
+// shoulders — it rotates behind the stationary centre emblem. The eye sprite
+// is one ornate eye, cloned eight times: seated in the sockets at rest,
+// launched on independent wander paths during the watching beat.
+const DESC_WINGS_SRC = "/aura/descended-wings.webp";
+const DESC_EMBLEM_SRC = "/aura/descended-emblem.webp";
+const DESC_EYE_SRC = "/aura/descended-eye.webp";
+// Geometry fractions of each sprite's half-width — TUNE after keying once
+// the real art lands (measure like ASC_RING_*). Sockets sit evenly spaced at
+// this radius around the emblem; eye sprite reach ~0.5 of its half.
+const DESC_SOCK_R = 0.62, DESC_WING_REACH = 0.97, DESC_EMBLEM_REACH = 0.9, DESC_EYE_REACH = 0.55;
+// Rotation speed cap — Ascended's peak element speed is the glyphring eyes at
+// 24 × w0.16 = 3.84 rad/s; Descended's wing wheel peaks below it.
+const DESC_WMAX = 3.4;
 export function ophWingRec() {
   let rec = _auraImageCache.get(OPH_SRC);
   if (rec) return rec;
@@ -2103,6 +2131,170 @@ export const AURA_ART = {
     c.fillStyle = hg; c.beginPath(); c.arc(cx, hy, hr, 0, Math.PI * 2); c.fill();
     c.restore();
   },
+  // Descended: the fallen counterpart — a black wing-wheel of eight mirrored
+  // wings with empty eye sockets at the shoulders, rotating behind a
+  // stationary gothic emblem; eight ornate eyes ride the sockets at rest.
+  // A 45s cycle driven by `clock`, not the moment system — that is also how
+  // the sequence suppresses at small size: below 110px the painter simply
+  // renders the rest pose forever. Beats: REST 0-6s, SURGE 6-14s (crimson
+  // flood + smooth spin-up + eye brighten, one continuous swell each),
+  // RELEASE ~14s (hard arrest + radial launch), WATCHING 14-40s (fixed
+  // per-eye wander paths, independent blinks), RETURN 40-45s.
+  // Flash safety: this aura never calls noteStrikeFlash — there is no flash
+  // event at all. Every brightness change is a keyframed swell (≥0.8s rise,
+  // ≥1.2s fall); nothing is tied to rotation phase. UNENFORCED parts resting
+  // on this spec: the wing flood alpha ramp, the eye brighten/fade swells and
+  // the launch. Under reduced motion: frozen rest pose, eyes open mid-dim.
+  descended: ({ pass, g, clock, cx, cy, rx, ry, w, h, unit, reduce, cc, mode, anchors }) => {
+    if (pass !== "main") return null;
+    const m = Math.min(w, h);
+    const small = m < 110;
+    const wings = auraImage(DESC_WINGS_SRC), emb = auraImage(DESC_EMBLEM_SRC), eye = auraImage(DESC_EYE_SRC);
+    const ready = wings?.ready && !wings.failed;
+    const CYC = 45;
+    // accumulate rotation once per frame (wheel-painter pattern)
+    const dt = Math.max(0, Math.min(0.12, clock - (cc._dt ?? clock)));
+    cc._dt = clock;
+    const frozen = reduce || small;
+    const t = frozen ? 0 : clock % CYC;
+    // omega: 0 in rest; smooth accel through surge; hard arrest at 14; still
+    // during watching/return. Ascended peaks at 3.84 rad/s — cap at 3.4.
+    const om = frozen ? 0 : (keyAt([[0, 0], [6, 0], [8, 0.55], [10, 1.6], [12, 2.6], [14, DESC_WMAX], [14.45, 0], [45, 0]], t) ?? 0);
+    cc._rot = (cc._rot || 0) + om * dt;
+    const rot = cc._rot || 0;
+    // wing crimson flood: alpha swell + a front radius expanding shoulder->
+    // tips through surge, holding a dim residue through watching, falling off
+    // across return. All ramps ≥0.8s up / ≥1.2s down.
+    const tintA = frozen ? 0.16 : (keyAt([[0, 0.12], [6, 0.12], [10, 0.5], [14, 0.85], [15.6, 0.16], [40, 0.14], [44, 0], [45, 0]], t) ?? 0);
+    const floodK = frozen ? 0.55 : (keyAt([[0, 0], [6, 0], [14, 1], [45, 1]], t) ?? 0);
+    // eye brightness: dim rest -> full over surge (8s swell) -> settled dim in
+    // watching -> back to rest. One continuous swell, never pulsing.
+    const eyeA = frozen ? 0.55 : (keyAt([[0, 0.4], [6, 0.4], [14, 1], [16.5, 0.6], [40, 0.55], [43.8, 0.4], [45, 0.4]], t) ?? 0.4);
+    // per-eye fixed parameters, seeded once per instance
+    if (!cc._eyes) {
+      cc._eyes = Array.from({ length: 8 }, (_, i) => ({
+        ang: (i / 8) * Math.PI * 2,
+        reach: rnd(0.16, 0.3),                    // radial launch distance (×rx)
+        launch: rnd(0.6, 1.3),                    // staggered launch ease duration
+        driftW: rnd(0.06, 0.16) * (i % 2 ? -1 : 1), // wander angular speed rad/s
+        bobA: rnd(0.04, 0.1), bobF: rnd(0.5, 0.9), bobP: rnd(0, Math.PI * 2), // radial bob
+        faceW: rnd(-0.25, 0.25),                   // slow facing rotation
+        blinkP: rnd(3.5, 8.5), blinkO: rnd(0, 8),  // independent blink period/offset
+      }));
+    }
+    const R = Math.min(rx, ry);
+    // sockets ride the wing shoulders just off the photo rim — clamped so
+    // small canvases (board 59px etc.) keep the sprites inside the border
+    const sockR = Math.min(R * (1.28 + DESC_SOCK_R * 0), Math.min(cx, w - cx, cy, h - cy) * 0.82);
+    const wingD = m * 0.94; // tips reach DESC_WING_REACH of the sprite half — stays inside the border
+    const wingCx = cx, wingCy = cy;
+    const dprSprite = (img, x, y, d, a, rotA = 0) => {
+      if (d <= 3 || a <= 0.01) return;
+      g.save(); g.translate(x, y); if (rotA) g.rotate(rotA);
+      g.globalAlpha = Math.min(1, a);
+      g.drawImage(img, -d / 2, -d / 2, d, d); g.restore();
+    };
+    // --- wings ---
+    if (ready) {
+      const breathe = frozen ? 1 : 1 + 0.015 * Math.sin(clock * 1.05);
+      // motion blur: trailing copies scale with speed — acceleration reads
+      // through smear, not brightness
+      const smear = Math.min(2, Math.floor(om / 1.1));
+      for (let s = smear; s > 0; s--) dprSprite(wings.img, wingCx, wingCy, wingD * breathe, 0.16 * (om / DESC_WMAX), rot - om * 0.045 * s);
+      dprSprite(wings.img, wingCx, wingCy, wingD * breathe, 0.96, rot);
+      // crimson flood: tinted copy clipped to the flood front (disc growing
+      // from the shoulder radius outward to the wing tips)
+      if (tintA > 0.01) {
+        if (!cc._tint && typeof document !== "undefined") {
+          const cv = document.createElement("canvas"); cv.width = cv.height = wings.img.width;
+          const g2 = cv.getContext("2d");
+          g2.drawImage(wings.img, 0, 0);
+          g2.globalCompositeOperation = "source-atop";
+          g2.fillStyle = "#C2001F"; g2.fillRect(0, 0, cv.width, cv.height);
+          cc._tint = cv;
+        }
+        if (cc._tint) {
+          g.save(); g.translate(wingCx, wingCy); g.rotate(rot);
+          const hw = wings.img.width / 2;
+          const inPx = hw * (sockR * 2 / wingD), outPx = hw * DESC_WING_REACH;
+          g.scale(wingD * breathe / wings.img.width, wingD * breathe / wings.img.width);
+          g.beginPath(); g.arc(0, 0, inPx + (outPx - inPx) * floodK, 0, Math.PI * 2); g.clip();
+          g.globalAlpha = Math.min(1, tintA);
+          g.drawImage(cc._tint, -hw, -hw);
+          g.restore();
+        }
+      }
+    } else {
+      // placeholder silhouette until the keyed art lands — small wing stubs
+      // rooted at each socket, sized to stay inside the frame at every canvas
+      g.save(); g.translate(wingCx, wingCy); g.rotate(rot);
+      g.strokeStyle = `rgba(20,24,32,0.9)`; g.lineWidth = Math.max(1, 2 * unit);
+      const stub = Math.max(1.2, Math.min(rx * 0.42, Math.min(cx, w - cx, cy, h - cy) - sockR - 2));
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.beginPath(); g.ellipse(Math.cos(a) * (sockR + stub * 0.5), Math.sin(a) * (sockR + stub * 0.5), stub * 0.5, stub * 0.18, a, 0, Math.PI * 2); g.stroke();
+      }
+      g.restore();
+    }
+    // --- emblem (stationary, behind photo in ring view; visible in body) ---
+    if (emb?.ready && !emb.failed) {
+      const hx = mode === "body" && anchors?.face ? anchors.face.x : cx;
+      const hy = mode === "body" && anchors?.face ? anchors.face.y + anchors.face.eyeX * HEAD_FROM_EYE * 0.4 : cy;
+      dprSprite(emb.img, hx, hy, Math.min(m * 0.42, rx * 2 * DESC_EMBLEM_REACH), 0.95);
+    }
+    // --- eyes ---
+    const eyeD = Math.max(4, m * 0.115);
+    for (let i = 0; i < 8; i++) {
+      const E = cc._eyes[i];
+      let ex, ey, lid = 1, face = E.ang + Math.PI / 2;
+      if (frozen || t < 14) {
+        // seated: rides the rotating wing sockets
+        const a = E.ang + rot;
+        ex = cx + Math.cos(a) * sockR; ey = cy + Math.sin(a) * sockR;
+        face = a + Math.PI / 2;
+      } else if (t < 40) {
+        // launch + wander: radial kick eased per-eye, then a fixed Lissajous
+        const k = Math.min(1, (t - 14) / E.launch), ease = 1 - Math.pow(1 - k, 3);
+        const out = R * (E.reach + E.bobA * Math.sin(t * E.bobF + E.bobP)) * ease;
+        const a = E.ang + rot + E.driftW * (t - 14);
+        ex = cx + Math.cos(a) * (sockR + out); ey = cy + Math.sin(a) * (sockR + out);
+        face = a + Math.PI / 2 + E.faceW * (t - 14);
+        const bt = (t + E.blinkO) % E.blinkP;
+        if (bt < 0.22) lid = 1 - 0.85 * Math.sin(Math.PI * bt / 0.22);
+      } else {
+        // return: blend wander position back into the (now still) socket
+        const k = (t - 40) / 5, ease = k * k * (3 - 2 * k);
+        const wAng = E.ang + rot + E.driftW * (t - 14);
+        const wOut = R * E.reach + R * E.bobA * Math.sin(t * E.bobF + E.bobP);
+        const wx = cx + Math.cos(wAng) * (sockR + wOut), wy = cy + Math.sin(wAng) * (sockR + wOut);
+        const sA = E.ang + rot, sx = cx + Math.cos(sA) * sockR, sy = cy + Math.sin(sA) * sockR;
+        ex = wx + (sx - wx) * ease; ey = wy + (sy - wy) * ease;
+        face = (wAng + Math.PI / 2 + E.faceW * (t - 14)) * (1 - ease) + (sA + Math.PI / 2) * ease;
+      }
+      // keep every pixel inside the frame — eyes never leave the border
+      const eyeReady = eye?.ready && !eye.failed;
+      const half = (eyeD / 2) * (eyeReady ? DESC_EYE_REACH : 1);
+      ex = Math.max(half + 1, Math.min(w - half - 1, ex));
+      ey = Math.max(half + 1, Math.min(h - half - 1, ey));
+      if (eyeReady) {
+        g.save(); g.translate(ex, ey); g.rotate(face); g.scale(1, Math.max(0.12, lid));
+        g.globalAlpha = Math.min(1, eyeA);
+        g.shadowColor = "#C2001F"; g.shadowBlur = 4 * unit * Math.min(1, eyeA);
+        g.drawImage(eye.img, -eyeD / 2, -eyeD / 2, eyeD, eyeD);
+        g.restore();
+      } else {
+        // placeholder: almond eye with crimson iris
+        g.save(); g.translate(ex, ey); g.rotate(face); g.scale(1, Math.max(0.12, lid));
+        g.globalAlpha = Math.min(1, eyeA);
+        g.fillStyle = "#1A1D24"; g.strokeStyle = "#3A4048"; g.lineWidth = Math.max(0.8, unit * 0.7);
+        g.beginPath(); g.ellipse(0, 0, eyeD / 2, eyeD / 3.2, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+        g.fillStyle = "#C2001F"; g.beginPath(); g.arc(0, 0, eyeD / 6.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#0A0A0E"; g.beginPath(); g.arc(0, 0, eyeD / 13, 0, Math.PI * 2); g.fill();
+        g.restore();
+      }
+    }
+    return null;
+  },
   // Living Wheel: the baked eye rings (big ornate golden eyes + vein arcs),
   // the vein web between them, and the brake-disc heat moment. Heat is a
   // slow ramp — dull red at the rim creeping inward through orange to
@@ -3353,9 +3545,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   if (aura === "ledger") { auraImage("/aura/robe-ledger.webp"); auraImage("/aura/mask-ledger.webp"); }
   if (fx.art === "ophanim") { ophWingRec(); auraImage(ASC_RING_SRC); }
   if (fx.art === "wheel") auraImage(WHEEL_EYE_SRC);
+  if (fx.art === "descended") { auraImage(DESC_WINGS_SRC); auraImage(DESC_EMBLEM_SRC); auraImage(DESC_EYE_SRC); }
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
-  const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
+  const fit = aura === "ascended" || aura === "descended" ? 1 : (mode === "body" ? 0.84 : 1);
   const rx = Math.max(10, (mode === "body" ? w * 0.28 : ringR) * fit);
   const ry = Math.max(10, (mode === "body" ? h * 0.36 : ringR) * fit);
   const anchors = resolveAuraAnchors(mode, { w, h, cx, cy, rx, ry }, figure);
@@ -4674,7 +4867,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
 export function AuraRing({ aura, size, style, children }) {
   aura = resolveAuraId(aura);
   if (!AURA_FX[aura]) return null;
-  const k = aura === "ascended" ? 1.5 : 1.28;
+  const k = aura === "ascended" || aura === "descended" ? 1.5 : 1.28;
   const w = Math.round(size * k);
-  return <AuraCanvas aura={aura} w={w} h={w} ringR={size / (aura === "ascended" ? 2.15 : 2.7)} style={style}>{children}</AuraCanvas>;
+  return <AuraCanvas aura={aura} w={w} h={w} ringR={size / (aura === "ascended" || aura === "descended" ? 2.15 : 2.7)} style={style}>{children}</AuraCanvas>;
 }

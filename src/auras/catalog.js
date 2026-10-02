@@ -29,6 +29,7 @@ export const AURAS = [
   { id: "champion", name: "Champion", how: "Win a season", season: true, group: "special", colors: ["#FFD447", "#FF9340"] },
   { id: "vendetta", name: "Vendetta", how: "Beat your Nemesis in 5 duels", nemesis: 5, group: "special", colors: ["#FF1F4B", "#3A0010"] },
   { id: "ascended", name: "Ascended", how: "Reigning #1 on the season board", reigning: true, group: "special", colors: ["#FFD447", "#7DF9FF"] },
+  { id: "descended", name: "Descended", how: "Monthly champion — awarded once, kept forever", award: true, group: "special", colors: ["#C2001F", "#14161C"] },
   { id: "huntersmoon", name: "Hunter's Moon", how: "Land the killing blow on a global boss", worldFirst: true, group: "special", colors: ["#C2001F", "#E4E8F2"] },
   { id: "wheel", name: "Living Wheel", how: "Finish #1 two seasons in a row", seraph: true, group: "special", colors: ["#38C6FF", "#FFD447"] },
   { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },

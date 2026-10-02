@@ -15,7 +15,7 @@ export function Avatar({ src, name, size = 48, ring, look }) {
   const auraOn = !!(look?.aura && look.aura !== "none");
   if (!border && !auraOn) return inner;
   const pad = border ? Math.max(3, Math.round(size / (border.img ? 10 : 22))) : 0;
-  const ringScale = look?.aura === "ascended" ? 1.34 : 1.45;
+  const ringScale = look?.aura === "ascended" || look?.aura === "descended" ? 1.34 : 1.45;
   const photo = <div className="relative" style={{ borderRadius: 999, overflow: "hidden" }}>{inner}</div>;
   return (
     <div className="relative shrink-0 flex items-center justify-center" style={{ width: size + pad * 2, height: size + pad * 2 }}>

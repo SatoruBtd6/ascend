@@ -35,6 +35,7 @@ export function unlocked(item, s) {
   if (item.crate && s.crateUnlocks?.[item.id]) return true;
   if (item.soon) return false;
   if (item.reigning) return !!s.lbReigning;
+  if (item.award) return !!s.auraUnlocks?.[item.id];
   if (item.worldFirst) return Object.keys(s.worldFirsts || {}).length > 0;
   if (item.seraph) return backToBackSeasonFirsts(s);
   if (item.seasonFirst) return Object.values(s.seasonBadges || {}).some((b) => b.place === 1);
