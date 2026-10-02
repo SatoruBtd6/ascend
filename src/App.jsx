@@ -1124,7 +1124,7 @@ export default function App() {
         </button>
       )}
 
-      <nav className="fixed bottom-0 inset-x-0 z-40" style={{ background: C.glass, borderTop: `1px solid ${C.glassLine}`, backdropFilter: "blur(22px) saturate(150%)", WebkitBackdropFilter: "blur(22px) saturate(150%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <nav className="sticky bottom-0 z-40" style={{ background: C.glass, borderTop: `1px solid ${C.glassLine}`, backdropFilter: "blur(22px) saturate(150%)", WebkitBackdropFilter: "blur(22px) saturate(150%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="max-w-md mx-auto grid grid-cols-7">
           {tabs.map(([id, Icon, label]) => (
             <button key={id} onClick={() => setTab(id)} className="pt-2.5 pb-3 flex flex-col items-center gap-1 relative" style={{ fontSize: 10, color: tab === id ? C.cyan : C.mute, filter: tab === id ? `drop-shadow(0 0 6px ${C.glow})` : "none" }}>
