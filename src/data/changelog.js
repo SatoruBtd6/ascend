@@ -7,6 +7,12 @@ export const CHANGELOG = [
       "Monthly prize: hold #1 on the month board to wear that month's aura — finish the month #1 to keep it forever.",
       "Earned auras are now permanent — Ascended stays with everyone who already holds it.",
       "The board is now a monthly race — the prize aura and top-3 medals settle every month, and the champion's podium aura animates.",
+      "Cardio XP now pays for pace, not just time — the same effort earns the same on every machine.",
+      "The second cardio number is per machine: miles on Running, Walking, Cycling and Elliptical, floors on Stairmaster, meters on Rowing Machine and Swimming. Jump Rope and Battle Ropes stay time-only.",
+      "Your pace target starts from a typical baseline and adjusts to you over your first sessions on each machine. Workouts you already logged keep exactly the XP they earned.",
+      "Reorder exercises any time a workout is editable: press and hold a row — or grab the ≡ handle on its left — and drag. The list scrolls for you near the top and bottom edges.",
+      "Fixed the exercise options menu showing the workout through it.",
+      "Fixed a double-tap on Finish saving the same workout twice and counting its XP twice.",
     ],
   },
   {
