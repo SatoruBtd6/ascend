@@ -1,6 +1,14 @@
 // Hand-written per release; newest first. Surfaced in Settings → What's new.
 export const CHANGELOG = [
   {
+    v: "7r",
+    items: [
+      "The Crew tab is tidied like your profile — check-in is the first thing you see, gym controls sit behind a menu, and bosses, quests and rivalry collapse into one-tap rows.",
+      "Crew members now show as an overlapping avatar row — tap a face to open their profile.",
+      "Fixed crew quests sometimes counting fewer members than your crew actually has — weekly targets now match your real crew size.",
+    ],
+  },
+  {
     v: "7q",
     items: [
       "Your profile is tidied into sections — stats sit right under your name, and everything else opens with one tap.",

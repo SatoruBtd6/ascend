@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Dumbbell, Footprints, Loader2, Swords, Zap } from "lucide-react";
+import { ChevronDown, Dumbbell, Footprints, Loader2, Swords, Zap } from "lucide-react";
 import { ask } from "../../lib/ask.js";
 import { today, uid } from "../../lib/dates.js";
 import { C } from "../../theme.js";
-import { Empty } from "../../ui/primitives.jsx";
+import { Disclosure, Empty } from "../../ui/primitives.jsx";
 import { Avatar, FancyName } from "../profile/Avatar.jsx";
 import { nemesisWins } from "../profile/rivalryStats.js";
 import { fmtShort } from "../train/helpers.js";
@@ -81,18 +81,15 @@ export function RivalryCard({ s, setS, rows, openProfile }) {
       {s.nemesis?.id && mutual ? (() => {
         const rec = rivalRecord(s, s.nemesis.id);
         return (
-          <div className="panel p-4 space-y-3" style={{ borderColor: "rgba(255,45,111,.55)", background: "linear-gradient(160deg, rgba(122,0,25,.28), transparent 60%)" }}>
-            <div className="flex items-center gap-3">
-              <button onClick={() => openProfile(nemCard.id)} aria-label={`Open ${nemCard.name}'s profile`}><Avatar src={nemCard.avatar} name={nemCard.name} size={52} look={nemCard.look} /></button>
+          <div className="panel p-3 space-y-2.5" style={{ borderColor: "rgba(255,45,111,.55)", background: "linear-gradient(160deg, rgba(122,0,25,.28), transparent 60%)" }}>
+            <div className="flex items-center gap-2.5">
+              <button onClick={() => openProfile(nemCard.id)} aria-label={`Open ${nemCard.name}'s profile`}><Avatar src={nemCard.avatar} name={nemCard.name} size={40} look={nemCard.look} /></button>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold uppercase tracking-wider" style={{ color: "#FF6B8F" }}>😈 Your Nemesis</div>
-                <div className="text-lg font-bold truncate"><FancyName name={nemCard.name} look={nemCard.look} /></div>
-                <div className="body text-xs" style={{ color: C.dim }}>Rivals since {fmtShort(s.nemesis.since || today())}</div>
+                <div className="font-bold truncate"><FancyName name={nemCard.name} look={nemCard.look} /></div>
               </div>
-              <div className="text-center shrink-0">
-                <div className="text-2xl font-extrabold tabular-nums" aria-label={`Record ${rec.w} wins, ${rec.l} losses${rec.t ? `, ${rec.t} ties` : ""}`}><span style={{ color: C.green }}>{rec.w}</span><span style={{ color: C.mute }}>–</span><span style={{ color: "#FF6B8F" }}>{rec.l}</span>{rec.t ? <><span style={{ color: C.mute }}>–</span><span style={{ color: C.dim }}>{rec.t}</span></> : null}</div>
-                <div className="body" style={{ fontSize: 10.5, color: C.mute }}>lifetime W–L{rec.t ? "–T" : ""}</div>
-              </div>
+              <div className="font-extrabold tabular-nums shrink-0" aria-label={`Record ${rec.w} wins, ${rec.l} losses${rec.t ? `, ${rec.t} ties` : ""}`}><span style={{ color: C.green }}>{rec.w}</span><span style={{ color: C.mute }}>–</span><span style={{ color: "#FF6B8F" }}>{rec.l}</span>{rec.t ? <><span style={{ color: C.mute }}>–</span><span style={{ color: C.dim }}>{rec.t}</span></> : null}</div>
+              {!challenge && <button onClick={() => setChallenge(true)} className="btn px-3 py-1.5 text-xs shrink-0 flex items-center gap-1"><Swords size={12} />Challenge</button>}
             </div>
             <div className="grid grid-cols-3 gap-2">
               {NEMESIS_REWARDS.map((r) => { const got = wins >= r.wins; return (
@@ -102,7 +99,7 @@ export function RivalryCard({ s, setS, rows, openProfile }) {
                 </div>
               ); })}
             </div>
-            {challenge ? <DuelButton s={s} targetId={nemCard.id} targetName={nemCard.name} targetUid={nemCard.uid} nemesis onSent={() => setChallenge(false)} /> : <button onClick={() => setChallenge(true)} className="btn w-full py-2.5 text-sm flex items-center justify-center gap-2"><Swords size={16} />Challenge {nemCard.name}</button>}
+            {challenge && <DuelButton s={s} targetId={nemCard.id} targetName={nemCard.name} targetUid={nemCard.uid} nemesis onSent={() => setChallenge(false)} />}
           </div>
         );
       })() : s.nemesis?.id ? (
@@ -114,9 +111,22 @@ export function RivalryCard({ s, setS, rows, openProfile }) {
   );
 }
 
-export function DuelsPanel({ s, setS, gainXp, rows, openProfile }) {
+export function DuelsSection(props) {
+  const { s } = props;
+  const [open, setOpen] = useState(false);
   const [duels, setDuels] = useState(null);
   useEffect(() => { readShared("duel:").then((d) => setDuels(d.filter((x) => x.from === s.playerId || x.to === s.playerId).sort((a, b) => (b.t || 0) - (a.t || 0)))).catch(() => setDuels([])); }, []);
+  const incoming = props.rows.filter((r) => r.rivalWith === s.playerId && r.id !== s.playerId && s.nemesis?.id !== r.id && !(s.rivalDeclined || {})[r.id]).length;
+  const pending = (duels || []).filter((d) => d.status === "pending" && d.to === s.playerId && Date.now() - (d.t || 0) <= 7 * 86400000).length;
+  const actionable = incoming + pending;
+  const rec = s.nemesis?.id ? rivalRecord(s, s.nemesis.id) : null;
+  const recTxt = rec ? `${rec.w}–${rec.l}${rec.t ? `–${rec.t}` : ""}` : "";
+  const right = actionable ? `${actionable} action${actionable === 1 ? "" : "s"}${recTxt ? ` · ${recTxt}` : ""}` : recTxt;
+  return <Disclosure title="Duels & rivalry" right={right} open={open} onToggle={() => setOpen((o) => !o)}><DuelsPanel {...props} duels={duels} setDuels={setDuels} /></Disclosure>;
+}
+export function DuelsPanel({ s, setS, gainXp, rows, openProfile, duels, setDuels }) {
+  const [openId, setOpenId] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const cardOf = (id) => rows.find((r) => r.id === id || r.key === `lb:${id}`);
   const accept = async (d) => {
     const other = cardOf(d.from);
@@ -125,47 +135,68 @@ export function DuelsPanel({ s, setS, gainXp, rows, openProfile }) {
   };
   const remove = async (d) => { try { await window.storage.delete(d.key, true); setDuels((x) => x.filter((y) => y.key !== d.key)); } catch (e) { /* ignore */ } };
   const claim = (d) => { setS((p) => ({ ...p, duelClaimed: { ...(p.duelClaimed || {}), [d.id]: true } })); gainXp(DUEL_XP, "Duel win", `duel_${d.id}`); };
+  const shown = showAll ? duels : duels?.slice(0, 5);
   return (
-    <div className="space-y-3">
-      <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} />Duels &amp; rivalry</h2>
+    <div className="pt-1">
       <RivalryCard s={s} setS={setS} rows={rows} openProfile={openProfile} />
-      {duels === null && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading duels…</div>}
+      {duels === null && <div className="flex items-center gap-2 body text-sm mt-2" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading duels…</div>}
       {duels?.length === 0 && <Empty>No duels yet. Open someone's profile from the board and challenge them: most XP, most steps, or most workouts over 7 days.</Empty>}
-      {duels?.map((d) => {
+      {shown?.map((d) => {
         const me = d.from === s.playerId, other = me ? d.toName : d.fromName, otherId = me ? d.to : d.from;
         const oc = cardOf(otherId), mc = cardOf(s.playerId);
         const saved = (s.duelResults || {})[d.id];
         const st = saved ? { ...duelState(d, s, oc), phase: "done", r: saved.r, mine: saved.mine, theirs: saved.theirs } : duelState(d, s, oc);
         const c = DUEL_CONDS[st.cond], fmtV = (v) => (v == null ? "?" : st.cond === "workouts" && (d.rule || 0) >= 1 ? (Math.round(Number(v) * 10) / 10).toFixed(1) : Number(v).toLocaleString());
         const expired = d.status === "pending" && Date.now() - (d.t || 0) > 7 * 86400000;
+        const isOpen = openId === d.key;
+        const word = expired ? ["Expired", C.mute]
+          : d.status === "pending" ? (me ? ["Sent", C.dim] : ["Pending", C.cyan])
+          : st.phase === "done" ? (st.r === "w" ? ["Won", C.gold] : st.r === "l" ? ["Lost", "#FF6B8F"] : ["Tied", C.dim])
+          : st.phase === "live" ? [`Day ${st.day}/7`, C.cyan]
+          : ["Waiting", C.dim];
         return (
-          <div key={d.key} className="panel p-3 space-y-1.5" style={d.nemesis ? { borderColor: "rgba(255,45,111,.5)" } : null}>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 text-right min-w-0"><div className="font-bold text-sm truncate"><FancyName name={s.profile.name} look={s.profile.look} /></div>{mc?.title && <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: s.profile.look?.accent || C.cyan }}>{mc.title}</div>}</div>
-              <span className="font-extrabold px-2" style={{ color: "#FF2D6F", fontFamily: "'Cinzel', serif" }}>VS</span>
-              <button onClick={() => openProfile(otherId)} className="flex-1 text-left min-w-0"><div className="font-bold text-sm truncate"><FancyName name={other} look={oc?.look} /></div>{oc?.title && <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: oc?.look?.accent || C.cyan }}>{oc.title}</div>}</button>
-            </div>
-            <div className="flex items-center justify-center gap-2 flex-wrap body text-xs" style={{ color: C.dim }}>
-              <span className="font-bold px-2" style={{ borderRadius: 999, color: C.cyan, border: `1px solid ${C.cyan}55` }}>{c.label}</span>
-              {d.nemesis && <span className="font-bold px-2" style={{ borderRadius: 999, color: "#FF6B8F", border: "1px solid rgba(255,45,111,.5)" }}>😈 Nemesis duel</span>}
-              <span>{st.w ? `${fmtShort(st.w.start)} – ${fmtShort(st.w.end)}` : "Starts the day it's accepted"}{st.phase === "live" ? ` · day ${st.day} of 7` : ""}</span>
-            </div>
-            {d.forfeit && <div className="body text-xs text-center" style={{ color: C.orange }}>Loser: {d.forfeit}</div>}
-            {expired ? <div className="body text-xs text-center" style={{ color: C.mute }}>Expired. Never accepted.</div>
-              : d.status === "pending" && !me ? <div className="grid grid-cols-2 gap-2"><button onClick={() => remove(d)} className="ghost py-2 text-sm">Decline</button><button onClick={() => accept(d)} className="btn py-2 text-sm">Accept · starts today</button></div>
-              : d.status === "pending" ? <div className="body text-xs text-center" style={{ color: C.dim }}>Waiting for {other} to accept.</div> : null}
-            {st.phase === "live" && <div className="body text-sm text-center">You <b className="tabular-nums">{fmtV(st.mine)}</b> · {other} <b className="tabular-nums">{fmtV(st.theirs)}</b> <span style={{ color: C.dim }}>{c.unit}</span></div>}
-            {st.phase === "waiting" && <div className="body text-xs text-center" style={{ color: C.dim }}>Finished. Waiting for {other} to open the app so their final score posts.</div>}
-            {st.phase === "done" && (
-              <div className="font-bold text-center" style={{ color: st.r === "w" ? C.gold : st.r === "l" ? "#FF6B8F" : C.dim }}>
-                {st.r === "t" ? `Dead heat, ${fmtV(st.mine)} each.` : st.r === "w" ? `You won ${fmtV(st.mine)} to ${fmtV(st.theirs)}` : `${other} won ${fmtV(st.theirs)} to ${fmtV(st.mine)}`}
-                {st.r === "w" && !(s.duelClaimed || {})[d.id] && <button onClick={() => claim(d)} className="btn px-3 py-1 text-xs ml-2">Claim {DUEL_XP} XP</button>}
+          <div key={d.key} style={{ borderBottom: `1px solid rgba(255,255,255,.08)` }}>
+            <button type="button" onClick={() => setOpenId(isOpen ? null : d.key)} aria-expanded={isOpen} className="w-full flex items-center gap-2 py-2.5 text-left">
+              <span className="flex-1 min-w-0 truncate font-semibold text-sm">{other}{d.nemesis ? " 😈" : ""}</span>
+              <span className="body text-xs shrink-0" style={{ color: C.dim }}>{st.w ? `${fmtShort(st.w.start)}–${fmtShort(st.w.end)}` : "—"}</span>
+              <span className="body text-xs font-bold shrink-0" style={{ color: word[1] }}>{word[0]}</span>
+              <ChevronDown size={14} className="shrink-0" style={{ color: C.mute, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .25s ease-out" }} />
+            </button>
+            <div style={{ display: "grid", gridTemplateRows: isOpen ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+              <div style={{ overflow: "hidden", minHeight: 0, opacity: isOpen ? 1 : 0, transition: "opacity .22s ease-out" }}>
+                {isOpen && (
+                  <div className="pb-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 text-right min-w-0"><div className="font-bold text-sm truncate"><FancyName name={s.profile.name} look={s.profile.look} /></div>{mc?.title && <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: s.profile.look?.accent || C.cyan }}>{mc.title}</div>}</div>
+                      <span className="font-extrabold px-2" style={{ color: "#FF2D6F", fontFamily: "'Cinzel', serif" }}>VS</span>
+                      <button onClick={() => openProfile(otherId)} className="flex-1 text-left min-w-0"><div className="font-bold text-sm truncate"><FancyName name={other} look={oc?.look} /></div>{oc?.title && <div className="text-xs font-bold uppercase tracking-wider truncate" style={{ color: oc?.look?.accent || C.cyan }}>{oc.title}</div>}</button>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 flex-wrap body text-xs" style={{ color: C.dim }}>
+                      <span className="font-bold px-2" style={{ borderRadius: 999, color: C.cyan, border: `1px solid ${C.cyan}55` }}>{c.label}</span>
+                      {d.nemesis && <span className="font-bold px-2" style={{ borderRadius: 999, color: "#FF6B8F", border: "1px solid rgba(255,45,111,.5)" }}>😈 Nemesis duel</span>}
+                      <span>{st.w ? `${fmtShort(st.w.start)} – ${fmtShort(st.w.end)}` : "Starts the day it's accepted"}{st.phase === "live" ? ` · day ${st.day} of 7` : ""}</span>
+                    </div>
+                    {d.forfeit && <div className="body text-xs text-center" style={{ color: C.orange }}>Loser: {d.forfeit}</div>}
+                    {expired ? <div className="body text-xs text-center" style={{ color: C.mute }}>Expired. Never accepted.</div>
+                      : d.status === "pending" && !me ? <div className="grid grid-cols-2 gap-2"><button onClick={() => remove(d)} className="ghost py-2 text-sm">Decline</button><button onClick={() => accept(d)} className="btn py-2 text-sm">Accept · starts today</button></div>
+                      : d.status === "pending" ? <div className="body text-xs text-center" style={{ color: C.dim }}>Waiting for {other} to accept.</div> : null}
+                    {st.phase === "live" && <div className="body text-sm text-center">You <b className="tabular-nums">{fmtV(st.mine)}</b> · {other} <b className="tabular-nums">{fmtV(st.theirs)}</b> <span style={{ color: C.dim }}>{c.unit}</span></div>}
+                    {st.phase === "waiting" && <div className="body text-xs text-center" style={{ color: C.dim }}>Finished. Waiting for {other} to open the app so their final score posts.</div>}
+                    {st.phase === "done" && (
+                      <div className="font-bold text-center" style={{ color: st.r === "w" ? C.gold : st.r === "l" ? "#FF6B8F" : C.dim }}>
+                        {st.r === "t" ? `Dead heat, ${fmtV(st.mine)} each.` : st.r === "w" ? `You won ${fmtV(st.mine)} to ${fmtV(st.theirs)}` : `${other} won ${fmtV(st.theirs)} to ${fmtV(st.mine)}`}
+                        {st.r === "w" && !(s.duelClaimed || {})[d.id] && <button onClick={() => claim(d)} className="btn px-3 py-1 text-xs ml-2">Claim {DUEL_XP} XP</button>}
+                      </div>
+                    )}
+                    <div className="text-center"><button onClick={() => ask("Delete this duel? Your win/loss record stays saved.", () => remove(d), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button></div>
+                  </div>
+                )}
               </div>
-            )}
-            <div className="text-center"><button onClick={() => ask("Delete this duel? Your win/loss record stays saved.", () => remove(d), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button></div>
+            </div>
           </div>
         );
       })}
+      {duels?.length > 5 && !showAll && <button type="button" onClick={() => setShowAll(true)} className="ghost w-full py-2 mt-2 text-sm font-semibold">Show all {duels.length}</button>}
     </div>
   );
 }

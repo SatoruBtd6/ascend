@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { AURAS } from "../../auras/catalog.js";
 import { fmtDay, monthKey, today } from "../../lib/dates.js";
 import { isWorkout } from "../../lib/stats.js";
@@ -94,49 +95,62 @@ export function BossFight({ s, setS, gainXp, rows, openProfile, scope = "global"
     setS((p) => ({ ...p, loot: { ...(p.loot || {}), bosses: [...new Set([...(p.loot?.bosses || []), boss.id])], claimed: { ...(p.loot?.claimed || {}), [`${mk}_${scope}`]: true } } }));
     gainXp(BOSS_XP, `Defeated ${boss.name}`, `boss_${mk}_${boss.id}${crewId ? `_${crewId}` : ""}`); juice("pr");
   };
+  const [det, setDet] = useState(false);
+  const hitters = dmg.filter((x) => x.d > 0);
   return (
-    <div className="panel p-5 space-y-4 overflow-hidden" style={{ borderColor: `${boss.color}55` }}>
-      <div className="relative -mx-5 -mt-5 px-5 pt-4 pb-1 flex flex-col items-center text-center" style={{ background: dead ? "none" : `radial-gradient(70% 75% at 50% 48%, ${pct <= 0.5 ? "rgba(255,45,45,.16)" : `${boss.color}22`}, transparent 72%)` }}>
-        <div className="flex items-center gap-2">
-          <span className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>{scope === "crew" ? `${crew?.name || "Crew"} boss` : `Global boss · ${monthName}`}</span>
-          {pct <= 0.5 && !dead && <span className="text-xs font-extrabold px-2" style={{ borderRadius: 999, color: "#fff", background: "#D61F3A", boxShadow: "0 0 12px rgba(255,45,45,.6)", animation: "aurapulse 1.1s ease-in-out infinite" }}>Enraged</span>}
+    <div className="panel p-4 overflow-hidden" style={{ borderColor: `${boss.color}55` }}>
+      <button type="button" onClick={() => setDet((o) => !o)} aria-expanded={det} className="w-full flex items-center gap-3 text-left">
+        <div className="relative shrink-0" style={{ width: 96, height: 96 }}>
+          <div aria-hidden="true" style={{ position: "absolute", inset: -8, borderRadius: "50%", background: dead ? "none" : `radial-gradient(closest-side, ${pct <= 0.5 ? "rgba(255,45,45,.16)" : `${boss.color}22`}, transparent 72%)` }} />
+          <div aria-hidden="true" style={{ position: "absolute", left: "12%", right: "12%", bottom: 2, height: 10, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(0,0,0,.55), transparent)" }} />
+          <BossArt boss={boss} pct={pct} dead={dead} hit={hit} size={96} />
         </div>
-        <div className="relative mt-2" style={{ width: 156, height: 156 }}>
-          <div aria-hidden="true" style={{ position: "absolute", left: "12%", right: "12%", bottom: 2, height: 14, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(0,0,0,.55), transparent)" }} />
-          <BossArt boss={boss} pct={pct} dead={dead} hit={hit} size={156} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="body text-xs font-semibold uppercase tracking-wider truncate" style={{ color: C.dim }}>{scope === "crew" ? `${crew?.name || "Crew"} boss` : `Global boss · ${monthName}`}</span>
+            {pct <= 0.5 && !dead && <span className="text-xs font-extrabold px-2 shrink-0" style={{ borderRadius: 999, color: "#fff", background: "#D61F3A", boxShadow: "0 0 12px rgba(255,45,45,.6)", animation: "aurapulse 1.1s ease-in-out infinite" }}>Enraged</span>}
+          </div>
+          <div className="font-bold truncate" style={{ fontSize: 17, color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
+          <div className="h-2.5 mt-1.5 overflow-hidden" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)", boxShadow: pct <= 0.5 && !dead ? "0 0 14px rgba(255,45,45,.5)" : "none" }}>
+            <div className="h-full" style={{ width: `${(left / hp) * 100}%`, borderRadius: 999, background: `linear-gradient(90deg, #FF2D6F, ${boss.color})`, transition: "width .8s cubic-bezier(.2,.8,.2,1)", boxShadow: `0 0 14px ${boss.color}` }} />
+          </div>
+          <div className="body text-xs mt-1" style={{ color: C.dim }}>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</div>
         </div>
-        <div className="text-xl font-bold mt-1" style={{ color: dead ? C.dim : C.text, textDecoration: dead ? "line-through" : "none" }}>{boss.name}</div>
-        <div className="body text-xs" style={{ color: C.dim }}>{boss.tag}</div>
-        {scope === "global" && worldFirst && <div className="body text-xs font-semibold mt-1" style={{ color: "#C2001F" }}>World First · {worldFirst.id === s.playerId ? "you" : worldFirst.name} landed the killing blow</div>}
-      </div>
-      <div>
-        <div className="h-4 overflow-hidden relative" style={{ borderRadius: 999, background: "rgba(255,255,255,.08)", boxShadow: pct <= 0.5 && !dead ? "0 0 14px rgba(255,45,45,.5)" : "none" }}>
-          <div className="h-full" style={{ width: `${(left / hp) * 100}%`, borderRadius: 999, background: `linear-gradient(90deg, #FF2D6F, ${boss.color})`, transition: "width .8s cubic-bezier(.2,.8,.2,1)", boxShadow: `0 0 14px ${boss.color}` }} />
-        </div>
-        <div className="flex justify-between body text-xs mt-1.5" style={{ color: C.dim }}><span>{dead ? "Defeated" : `${left.toLocaleString()} HP left`}</span><span>{hp.toLocaleString()} HP</span></div>
-      </div>
+        <ChevronRight size={18} className="shrink-0" style={{ color: C.mute, transform: det ? "rotate(90deg)" : "none", transition: "transform .25s ease-out" }} />
+      </button>
+      {scope === "global" && worldFirst && <div className="body text-xs font-semibold mt-2" style={{ color: "#C2001F" }}>World First · {worldFirst.id === s.playerId ? "you" : worldFirst.name} landed the killing blow</div>}
       {scope === "crew" && raidActive(raid) && (
-        <div className="body text-xs font-bold flex justify-between" style={{ color: C.orange }}>
+        <div className="body text-xs font-bold flex justify-between mt-2" style={{ color: C.orange }}>
           <span>Raid night live · {fmtClock(Math.max(0, Math.ceil((raid.end - Date.now()) / 1000)))}</span>
           <span>{Object.keys(raid.hits || {}).length}/{RAID_NEED} logged{raid.cleared ? " · cleared" : ""}</span>
         </div>
       )}
-      <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? `Crew HP is ${hp.toLocaleString()} for ${players} member${players === 1 ? "" : "s"} (same formula as the global boss: 150k + 150k per person). Only damage after you joined counts (joined ${fmtDay(s.crew?.since || today())}).` : `Scaled to the ${players} player${players === 1 ? "" : "s"} on the board (${hp.toLocaleString()} HP).`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
-      {dmg.filter((x) => x.d > 0).length > 0 && (
-        <div className="space-y-1.5">
-          {dmg.filter((x) => x.d > 0).map(({ r, d }) => (
-            <button key={r.key || r.id} onClick={() => openProfile(r.id)} className="w-full flex items-center gap-2 text-sm">
-              <span className="flex-1 text-left truncate"><FancyName name={r.name} look={r.look} /></span>
-              <span className="body text-xs" style={{ color: C.dim }}>{Math.round((d / Math.max(1, total)) * 100)}%</span>
-              <span className="font-semibold tabular-nums">{d.toLocaleString()}</span>
-            </button>
-          ))}
+      {hitters.length > 0 && <div className="body text-xs mt-2" style={{ color: C.dim }}>Top: <button onClick={() => openProfile(hitters[0].r.id)} className="font-semibold" style={{ color: C.sub }}>{hitters[0].r.name}</button> · {Math.round((hitters[0].d / Math.max(1, total)) * 100)}%</div>}
+      {dead && mine > 0 && !claimed && <button onClick={claim} className="btn w-full py-3 mt-2">Claim loot</button>}
+      {claimed && <div className="body text-sm mt-2" style={{ color: C.green }}>Loot claimed. Equip it in Profile → Customize.</div>}
+      {dead && mine === 0 && <div className="body text-xs mt-2" style={{ color: C.dim }}>Log a workout this month to earn a share of the loot.</div>}
+      <div style={{ display: "grid", gridTemplateRows: det ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, opacity: det ? 1 : 0, transition: "opacity .22s ease-out" }}>
+          {det && (
+            <div className="pt-3 space-y-2">
+              <div className="body text-xs" style={{ color: C.dim }}>{boss.tag}</div>
+              <div className="body text-xs" style={{ color: C.dim }}>{scope === "crew" ? `Crew HP is ${hp.toLocaleString()} for ${players} member${players === 1 ? "" : "s"} (same formula as the global boss: 150k + 150k per person). Only damage after you joined counts (joined ${fmtDay(s.crew?.since || today())}).` : `Scaled to the ${players} player${players === 1 ? "" : "s"} on the board (${hp.toLocaleString()} HP).`} Every pound lifted is 1 damage, every rep is 5, and every cardio mile is 800. Logging 8h sleep and a good mood adds up to a 1.1× multiplier today (yours: {buffToday(s)}×). Loot: the {AURAS.find((a) => a.loot === boss.id)?.name} aura, the {boss.title} title, the Bone crown border, and {BOSS_XP} XP for everyone who hit it.</div>
+              {hitters.length > 0 && (
+                <div className="space-y-1.5">
+                  {hitters.map(({ r, d }) => (
+                    <button key={r.key || r.id} onClick={() => openProfile(r.id)} className="w-full flex items-center gap-2 text-sm">
+                      <span className="flex-1 text-left truncate"><FancyName name={r.name} look={r.look} /></span>
+                      <span className="body text-xs" style={{ color: C.dim }}>{Math.round((d / Math.max(1, total)) * 100)}%</span>
+                      <span className="font-semibold tabular-nums">{d.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {scope === "global" && <PastKills s={s} />}
+            </div>
+          )}
         </div>
-      )}
-      {dead && mine > 0 && !claimed && <button onClick={claim} className="btn w-full py-3">Claim loot</button>}
-      {claimed && <div className="body text-sm text-center" style={{ color: C.green }}>Loot claimed. Equip it in Profile → Customize.</div>}
-      {dead && mine === 0 && <div className="body text-xs text-center" style={{ color: C.dim }}>Log a workout this month to earn a share of the loot.</div>}
-      {scope === "global" && <PastKills s={s} />}
+      </div>
     </div>
   );
 }

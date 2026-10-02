@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronRight, Info, MoreHorizontal } from "lucide-react";
 import { ask } from "../../lib/ask.js";
 import { today, weekStart } from "../../lib/dates.js";
 import { RAID_COUNTDOWN_MS, RAID_NEED, RAID_XP, applyRaidAction, canProposeRaid, crewQuestProgress, missedRaidClears, presenceActive, prunePresence, raidActive, raidCountdownLeft, raidPhase, tickRaid } from "../../math.js";
 import { C } from "../../theme.js";
-import { Bar } from "../../ui/primitives.jsx";
-import { Avatar, FancyName } from "../profile/Avatar.jsx";
+import { Bar, Disclosure } from "../../ui/primitives.jsx";
+import { Avatar } from "../profile/Avatar.jsx";
 import { profileCard } from "../profile/profileCard.js";
 import { CrewBanner } from "../profile/profileWidgets.jsx";
 import { casPres, casRaid, ghostBundle, patchGhost, readPres, readRaid, readRaidHist } from "../train/raidIO.js";
 import { liveBoard } from "../train/social.js";
 import { cardId, crewCode, loadCrewRoster, readCrew, writeCrewMembership } from "./crewIO.js";
-import { attemptCheckIn, fmtAgo, fmtHMS, getGps, locErrorText } from "./gymPresence.js";
-export function CrewQuests({ s, setS, rows, crew, code }) {
+import { attemptCheckIn, fmtHMS, getGps, locErrorText } from "./gymPresence.js";
+export function CrewQuests({ s, setS, rows, crew, code, onCount }) {
   const ws = weekStart();
   const myCard = useMemo(() => profileCard(s), [s]);
   // Headcount comes from the crew record as well as the loaded rows: the roster can still be
@@ -27,17 +28,14 @@ export function CrewQuests({ s, setS, rows, crew, code }) {
   const reporting = cards.filter((c) => c.wk?.key === ws).length;
   const key = `${code}_${ws}`;
   const earned = !!s.crewBanners?.[key];
+  useEffect(() => { onCount?.(`${quests.filter((q) => q.done).length} of ${quests.length}`); });
   useEffect(() => {
     if (!done || earned || !code) return;
     setS((p) => (p.crewBanners?.[key] ? p : { ...p, crewBanners: { ...(p.crewBanners || {}), [key]: { code, week: ws, t: Date.now() } } }));
   }, [done, earned, key]);
   return (
-    <div className="panel p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="font-bold text-sm">Crew quests · this week</div>
-        {(earned || done) && <CrewBanner count={Object.keys(s.crewBanners || {}).length} />}
-      </div>
-      <div className="body text-xs" style={{ color: C.dim }}>Pooled across all {members} member{members === 1 ? "" : "s"}. Clear all three by Saturday night for a crew banner. No effect on the boss.</div>
+    <div className="space-y-2 pt-2">
+      {(earned || done) && <div className="flex justify-end"><CrewBanner count={Object.keys(s.crewBanners || {}).length} /></div>}
       {reporting < members && <div className="body text-xs" style={{ color: C.mute }}>{members - reporting} member{members - reporting === 1 ? "" : "s"} haven't opened the new version this week, so their progress still reads zero.</div>}
       {quests.map((q) => (
         <div key={q.id} className="space-y-1">
@@ -120,61 +118,85 @@ export function RaidNight({ s, setS, crew, code, people, presence, raid, setRaid
   const myGym = presenceActive(presM?.[s.playerId], now);
   const myReady = readyIds.includes(s.playerId);
   const canRaid = canProposeRaid(n);
+  const [openD, setOpenD] = useState(false);
+  const [info, setInfo] = useState(false);
+  const rowStatus = live
+    ? `Live · ${fmtHMS(Math.max(0, Math.ceil((raid.end - now) / 1000)))}`
+    : lobby && cd != null ? `Starts in ${cd || "GO"}`
+    : lobby ? `${readyIds.length} of ${n} ready` : "";
   return (
-    <div className="panel p-3 space-y-2" style={{ borderColor: live || (cd != null && cd <= 3) ? C.orange : C.border }}>
-      <div className="font-bold text-sm">Raid night</div>
-      <div className="body text-xs" style={{ color: C.dim }}>Ready up at the crew gym. After 3 people ready, a 3-2-1 starts the raid. Then you have 3 hours to log a workout there. +{RAID_XP} XP each if {RAID_NEED} of you finish. Boss HP is unchanged.</div>
-      {!canRaid && <div className="body text-xs" style={{ color: C.orange }}>Crews need {RAID_NEED} members to raid.</div>}
-      {lobby && (
-        <div className="space-y-1">
-          {(people || []).map((p) => {
-            const st = raidStatus(p.id, p.id === s.playerId ? presM : presence, raid, now);
-            const label = st === "ready" ? "ready" : st === "at-gym" ? "at the gym" : "not here";
-            const col = st === "ready" ? C.green : st === "at-gym" ? C.cyan : C.mute;
-            return (
-              <div key={p.id} className="flex justify-between text-xs">
-                <span className="truncate font-semibold">{p.name || "Teammate"}{p.id === s.playerId ? " (you)" : ""}{raid?.by === p.id ? " · host" : ""}</span>
-                <span style={{ color: col }}>{label}</span>
+    <div>
+      <button type="button" onClick={() => setOpenD((o) => !o)} aria-expanded={openD} className="w-full flex items-center gap-2 py-2.5 text-left" style={{ borderTop: `1px solid rgba(255,255,255,.08)` }}>
+        <span className="flex-1 min-w-0 truncate font-semibold text-sm" style={{ color: live || (cd != null && cd <= 3) ? C.orange : C.text }}>Raid night</span>
+        {rowStatus && <span className="body text-xs font-bold shrink-0 tabular-nums" style={{ color: live || cd != null ? C.orange : C.dim }}>{rowStatus}</span>}
+        <ChevronRight size={16} className="shrink-0" style={{ color: C.mute, transform: openD ? "rotate(90deg)" : "none", transition: "transform .25s ease-out" }} />
+      </button>
+      <div style={{ display: "grid", gridTemplateRows: openD ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, opacity: openD ? 1 : 0, transition: "opacity .22s ease-out" }}>
+          {openD && (
+            <div className="pb-2 space-y-2">
+              <div className="flex justify-end -my-1"><button type="button" aria-label="Raid rules" onClick={() => setInfo((i) => !i)} className="p-1" style={{ color: info ? C.cyan : C.mute }}><Info size={14} /></button></div>
+              {info && <div className="body text-xs" style={{ color: C.dim }}>Ready up at the crew gym. After 3 people ready, a 3-2-1 starts the raid. Then you have 3 hours to log a workout there. +{RAID_XP} XP each if {RAID_NEED} of you finish. Boss HP is unchanged.</div>}
+              {!canRaid && <div className="body text-xs" style={{ color: C.orange }}>Crews need {RAID_NEED} members to raid.</div>}
+              {lobby && (
+                <div className="space-y-1">
+                  {(people || []).map((p) => {
+                    const st = raidStatus(p.id, p.id === s.playerId ? presM : presence, raid, now);
+                    const label = st === "ready" ? "ready" : st === "at-gym" ? "at the gym" : "not here";
+                    const col = st === "ready" ? C.green : st === "at-gym" ? C.cyan : C.mute;
+                    return (
+                      <div key={p.id} className="flex justify-between text-xs">
+                        <span className="truncate font-semibold">{p.name || "Teammate"}{p.id === s.playerId ? " (you)" : ""}{raid?.by === p.id ? " · host" : ""}</span>
+                        <span style={{ color: col }}>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {lobby && cd != null && (
+                <div className="text-center space-y-1">
+                  <div className="font-extrabold tabular-nums" style={{ fontSize: 42, color: C.orange, lineHeight: 1 }}>{cd || "GO"}</div>
+                  <div className="body text-xs font-bold" style={{ color: C.sub }}>Starting with {readyIds.map((id) => names[id] || "Teammate").join(", ")}</div>
+                </div>
+              )}
+              {live && (
+                <>
+                  <div className="flex justify-between text-sm font-bold tabular-nums"><span style={{ color: C.orange }}>Live · {fmtHMS(Math.max(0, Math.ceil((raid.end - now) / 1000)))}</span><span>{Object.keys(raid.hits || {}).length}/{RAID_NEED} logged</span></div>
+                  {Object.values(raid.hits || {}).map((h, i) => <div key={i} className="body text-xs" style={{ color: C.sub }}>{h.name} · {Math.round(h.vol || 0).toLocaleString()} lb</div>)}
+                  {raid.cleared && <div className="body text-xs font-bold" style={{ color: C.green }}>Raid cleared.</div>}
+                </>
+              )}
+              {raid?.cleared && raid.end > now - 6 * 3600 * 1000 && !live && !lobby && (
+                <div className="body text-xs" style={{ color: C.green }}>Last raid cleared · {Object.keys(raid.hits || {}).length} raiders</div>
+              )}
+              {raid?.cancelled && !live && !lobby && <div className="body text-xs" style={{ color: C.mute }}>Last raid cancelled. Nothing awarded.</div>}
+              {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
+              <div className="flex flex-col gap-1.5">
+                {!lobby && !live && canRaid && <button type="button" disabled={busy} onClick={() => act("propose")} className="btn w-full py-2.5 text-sm">Propose raid</button>}
+                {lobby && !myReady && !myGym && <button type="button" disabled={ciBusy} onClick={checkIn} className="btn w-full py-2.5 text-sm">{ciBusy ? "Checking…" : "Check in at the gym"}</button>}
+                {lobby && !myReady && myGym && <button type="button" disabled={busy} onClick={() => act("ready")} className="btn w-full py-2.5 text-sm">Ready</button>}
+                {lobby && myReady && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm font-bold">Leave lobby</button>}
+                {lobby && !myReady && raid?.in?.[s.playerId] && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm">Leave lobby</button>}
+                {(lobby || (live && !raid.cleared)) && raid?.by === s.playerId && <button type="button" disabled={busy} onClick={() => act("cancel")} className="ghost w-full py-2 text-sm" style={{ color: C.red }}>Cancel raid</button>}
               </div>
-            );
-          })}
+              {lobby && <div className="body text-[11px]" style={{ color: C.mute }}>Host: {hostName}. If they leave, someone still in the lobby takes over.</div>}
+            </div>
+          )}
         </div>
-      )}
-      {lobby && cd != null && (
-        <div className="text-center space-y-1">
-          <div className="font-extrabold tabular-nums" style={{ fontSize: 42, color: C.orange, lineHeight: 1 }}>{cd || "GO"}</div>
-          <div className="body text-xs font-bold" style={{ color: C.sub }}>Starting with {readyIds.map((id) => names[id] || "Teammate").join(", ")}</div>
-        </div>
-      )}
-      {live && (
-        <>
-          <div className="flex justify-between text-sm font-bold tabular-nums"><span style={{ color: C.orange }}>Live · {fmtHMS(Math.max(0, Math.ceil((raid.end - now) / 1000)))}</span><span>{Object.keys(raid.hits || {}).length}/{RAID_NEED} logged</span></div>
-          {Object.values(raid.hits || {}).map((h, i) => <div key={i} className="body text-xs" style={{ color: C.sub }}>{h.name} · {Math.round(h.vol || 0).toLocaleString()} lb</div>)}
-          {raid.cleared && <div className="body text-xs font-bold" style={{ color: C.green }}>Raid cleared.</div>}
-        </>
-      )}
-      {raid?.cleared && raid.end > now - 6 * 3600 * 1000 && !live && !lobby && (
-        <div className="body text-xs" style={{ color: C.green }}>Last raid cleared · {Object.keys(raid.hits || {}).length} raiders</div>
-      )}
-      {raid?.cancelled && !live && !lobby && <div className="body text-xs" style={{ color: C.mute }}>Last raid cancelled. Nothing awarded.</div>}
-      {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
-      <div className="flex flex-col gap-1.5">
-        {!lobby && !live && canRaid && <button type="button" disabled={busy} onClick={() => act("propose")} className="btn w-full py-2.5 text-sm">Propose raid</button>}
-        {lobby && !myReady && !myGym && <button type="button" disabled={ciBusy} onClick={checkIn} className="btn w-full py-2.5 text-sm">{ciBusy ? "Checking…" : "Check in at the gym"}</button>}
-        {lobby && !myReady && myGym && <button type="button" disabled={busy} onClick={() => act("ready")} className="btn w-full py-2.5 text-sm">Ready</button>}
-        {lobby && myReady && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm font-bold">Leave lobby</button>}
-        {lobby && !myReady && raid?.in?.[s.playerId] && <button type="button" disabled={busy} onClick={() => act("leave")} className="ghost w-full py-2 text-sm">Leave lobby</button>}
-        {(lobby || (live && !raid.cleared)) && raid?.by === s.playerId && <button type="button" disabled={busy} onClick={() => act("cancel")} className="ghost w-full py-2 text-sm" style={{ color: C.red }}>Cancel raid</button>}
       </div>
-      {lobby && <div className="body text-[11px]" style={{ color: C.mute }}>Host: {hostName}. If they leave, someone still in the lobby takes over.</div>}
     </div>
   );
 }
-export function CrewGymBlock({ s, setS, crew, setCrew, presence, people, ghost }) {
+export function CrewCheckIn({ s, setS, crew, setCrew, presence, people, ghost, children }) {
   const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ciBusy, setCiBusy] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [info, setInfo] = useState(false);
   const now = Date.now();
   const owner = crew?.owner === s.playerId;
+  const gymPin = ghost ? ghostBundle(s).gym : crew?.gym;
   const pinGym = async () => {
     setBusy(true); setMsg("");
     try {
@@ -205,19 +227,49 @@ export function CrewGymBlock({ s, setS, crew, setCrew, presence, people, ghost }
     } catch (e) { setMsg("Couldn't unpin. Check your connection."); }
     setBusy(false);
   }, "Unpin");
-  const at = people.filter((p) => presenceActive(presence?.[p.id], now));
+  const checkIn = async () => {
+    setCiBusy(true); setErr("");
+    const got = await attemptCheckIn(s, setS, gymPin);
+    if (!got.ok) setErr(got.msg);
+    setCiBusy(false);
+  };
+  const presM = { ...(presence || {}), [s.playerId]: Math.max(+(presence?.[s.playerId] || 0), +(s.atGym || 0)) };
+  const at = people.filter((p) => presenceActive(presM?.[p.id], now));
+  const here = presenceActive(presM?.[s.playerId], now);
   return (
-    <div className="panel p-3 space-y-2">
-      <div className="font-bold text-sm">Crew gym</div>
-      <div className="body text-xs" style={{ color: C.dim }}>{crew?.gym ? "Pinned. Only the crew creator can move or unpin it. We never save your phone's coordinates — only this gym pin." : "The crew creator pins the gym while standing in it. Raids and check-ins use that pin."}</div>
-      {owner && <button type="button" disabled={busy} onClick={pinGym} className="ghost w-full py-2 text-sm font-bold" style={{ color: C.cyan }}>{crew?.gym ? "Move gym to where I am" : "Set gym to where I am"}</button>}
-      {owner && crew?.gym && <button type="button" disabled={busy} onClick={unpinGym} className="ghost w-full py-2 text-sm font-bold" style={{ color: C.red }}>Unpin gym</button>}
-      {!owner && !crew?.gym && <div className="body text-xs" style={{ color: C.orange }}>Ask the crew creator to pin a gym.</div>}
-      {msg && <div className="body text-xs" style={{ color: C.sub }}>{msg}</div>}
-      <div className="body text-xs font-bold" style={{ color: C.dim }}>At the gym now</div>
-      {at.length === 0 ? <div className="body text-xs" style={{ color: C.mute }}>Nobody's checked in.</div> : at.map((p) => (
-        <div key={p.id} className="flex justify-between text-xs"><span className="truncate">{p.name}{p.id === s.playerId ? " (you)" : ""}</span><span style={{ color: C.green }}>{fmtAgo(presence[p.id], now)}</span></div>
-      ))}
+    <div>
+      <div className="flex items-center gap-1.5" style={{ minHeight: 20 }}>
+        {at.length === 0 ? (
+          <div className="body text-xs" style={{ color: C.mute }}>Nobody's here yet.</div>
+        ) : (
+          <>
+            {at.slice(0, 6).map((p, i) => <span key={p.id} style={{ marginLeft: i === 0 ? 0 : -4 }}><Avatar src={p.avatar} name={p.name} size={20} look={p.look} /></span>)}
+            <span className="body text-xs ml-1 truncate" style={{ color: C.sub }}>{at.map((p) => (p.id === s.playerId ? "you" : p.name)).join(", ")} at the gym</span>
+          </>
+        )}
+      </div>
+      <button type="button" disabled={ciBusy} onClick={checkIn} className="btn w-full py-3 mt-2 text-sm font-bold">{ciBusy ? "Checking…" : here ? "At the gym ✓" : "Check in at the gym"}</button>
+      {err && <div className="body text-xs mt-1.5" style={{ color: C.orange }}>{err}</div>}
+      <div className="relative flex items-center gap-1 mt-1.5">
+        <span className="flex-1 min-w-0 truncate body text-xs" style={{ color: C.mute }}>{gymPin ? (ghost ? "Test gym · pinned" : "Crew gym · pinned") : "No gym pinned"}</span>
+        <button type="button" aria-label="Gym pin privacy" onClick={() => setInfo((i) => !i)} className="p-1.5 shrink-0" style={{ color: info ? C.cyan : C.mute }}><Info size={14} /></button>
+        {owner && (
+          <button type="button" aria-label="Gym menu" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} className="flex items-center justify-center shrink-0" style={{ minWidth: 32, minHeight: 32, color: C.mute }}><MoreHorizontal size={16} /></button>
+        )}
+        {menu && owner && (
+          <>
+            <div className="fixed inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setMenu(false)} />
+            <div role="menu" className="panel z-20 p-1" style={{ position: "absolute", right: 0, top: "100%", minWidth: 210, background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
+              <button role="menuitem" disabled={busy} className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13 }} onClick={() => { setMenu(false); pinGym(); }}>{gymPin ? "Move gym to where I am" : "Set gym to where I am"}</button>
+              {gymPin && <button role="menuitem" disabled={busy} className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13, color: C.red, borderTop: `1px solid ${C.glassLine}` }} onClick={() => { setMenu(false); unpinGym(); }}>Unpin gym</button>}
+            </div>
+          </>
+        )}
+      </div>
+      {info && <div className="body text-xs mt-0.5" style={{ color: C.mute }}>{gymPin ? "Pinned by the crew creator. We never save your phone's coordinates — only this gym pin." : "The crew creator pins the gym while standing in it. Raids and check-ins use that pin."}</div>}
+      {!owner && !gymPin && <div className="body text-xs mt-0.5" style={{ color: C.orange }}>Ask the crew creator to pin a gym.</div>}
+      {msg && <div className="body text-xs mt-0.5" style={{ color: C.sub }}>{msg}</div>}
+      {children}
     </div>
   );
 }
@@ -227,7 +279,7 @@ export function GhostCrew({ s, setS, gainXp }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   const people = [
-    { id: s.playerId, name: s.profile.name || "You" },
+    { id: s.playerId, name: s.profile.name || "You", avatar: s.profile.avatar, look: s.profile.look },
     ...Object.values(g.mocks || {}),
   ];
   const presence = prunePresence({ ...(g.presence || {}) }, now);
@@ -263,12 +315,64 @@ export function GhostCrew({ s, setS, gainXp }) {
           </div>
         ))}
       </div>
-      <CrewGymBlock s={s} setS={setS} crew={{ ...g.crew, gym: g.gym }} setCrew={() => {}} presence={presence} people={people} ghost />
-      <RaidNight s={s} setS={setS} crew={g.crew} code={g.crew.code} people={people} presence={presence} raid={tickRaid(g.raid, { now, presence })} setRaid={(r) => patchGhost(setS, (prev) => ({ ...prev, raid: r }))} ghost gainXp={gainXp} />
+      <CrewCheckIn s={s} setS={setS} crew={{ ...g.crew, gym: g.gym }} setCrew={() => {}} presence={presence} people={people} ghost>
+        <RaidNight s={s} setS={setS} crew={g.crew} code={g.crew.code} people={people} presence={presence} raid={tickRaid(g.raid, { now, presence })} setRaid={(r) => patchGhost(setS, (prev) => ({ ...prev, raid: r }))} ghost gainXp={gainXp} />
+      </CrewCheckIn>
     </div>
   );
 }
-export function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
+function CrewHeader({ s, mine, crew, memberRows, openProfile, onLeave }) {
+  const [menu, setMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard?.writeText(mine.code); } catch { /* clipboard blocked */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+  const share = async () => {
+    const text = `Join my Ascend crew ${crew?.name || mine.name} — code ${mine.code}`;
+    try { if (navigator.share) { await navigator.share({ title: "Ascend crew", text }); return; } } catch { /* cancelled */ }
+    copy();
+  };
+  return (
+    <div className="relative">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-extrabold truncate" style={{ fontSize: 22 }}>{crew?.name || mine.name}</div>
+          <button type="button" onClick={copy} className="font-mono font-bold text-sm" style={{ color: C.cyan }}>{mine.code}{copied && <span className="ml-2" style={{ fontFamily: "'Inter',system-ui,sans-serif", color: C.mute }}>Copied</span>}</button>
+        </div>
+        <button type="button" aria-label="Crew menu" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} className="flex items-center justify-center shrink-0" style={{ minWidth: 40, minHeight: 40, marginTop: -8, marginRight: -8, color: C.mute }}><MoreHorizontal size={20} /></button>
+      </div>
+      {menu && (
+        <>
+          <div className="fixed inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setMenu(false)} />
+          <div role="menu" className="panel z-20 p-1" style={{ position: "absolute", right: 0, top: 44, minWidth: 180, background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
+            <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13 }} onClick={() => { setMenu(false); copy(); }}>Copy code</button>
+            <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13 }} onClick={() => { setMenu(false); share(); }}>Share</button>
+            <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13, color: C.red, borderTop: `1px solid ${C.glassLine}` }} onClick={() => { setMenu(false); onLeave(); }}>Leave crew</button>
+          </div>
+        </>
+      )}
+      <div className="flex items-center mt-2">
+        {memberRows.map((r, i) => (
+          <button key={r.id || r.key} type="button" onClick={() => openProfile?.(r.id)} aria-label={`Open ${r.name || "member"}'s profile`} style={{ marginLeft: i === 0 ? 0 : -8, position: "relative", zIndex: memberRows.length - i }}>
+            <Avatar src={r.avatar} name={r.name} size={36} look={r.look} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+export function CrewQuestsSection({ s, setS, rows, crew, code }) {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState("");
+  return (
+    <Disclosure title="Crew quests" right={count} open={open} onToggle={() => setOpen((o) => !o)} keepMounted>
+      <CrewQuests s={s} setS={setS} rows={rows} crew={crew} code={code} onCount={setCount} />
+    </Disclosure>
+  );
+}
+export function CrewPanel({ s, setS, rows, openProfile, gainXp, children }) {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [crew, setCrew] = useState(null);
@@ -336,40 +440,29 @@ export function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
     }, "Leave for good"), 80);
   }, "Continue");
   const memberRows = liveBoard(roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [])).filter((r) => !(s.test && r.id === s.playerId)).map((r) => (r.id ? r : { ...r, id: cardId(r) }));
-  const headcount = Math.max(memberRows.length, new Set([...(crew?.members || []), s.playerId]).size, 1);
   const presence = prunePresence(pres?.at, Date.now());
-  const people = memberRows.map((r) => ({ id: r.id, name: r.name }));
-  if (s.test) return <GhostCrew s={s} setS={setS} gainXp={gainXp} />;
+  const people = memberRows.map((r) => ({ id: r.id, name: r.name, avatar: r.avatar, look: r.look }));
+  if (s.test) return <div className="space-y-4"><GhostCrew s={s} setS={setS} gainXp={gainXp} />{children?.({ memberRows: [], crew: null })}</div>;
   if (mine?.code) {
     return (
-      <div className="panel p-4 space-y-2">
-        <div className="flex justify-between items-start"><div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Your crew</div><div className="font-bold">{crew?.name || mine.name}</div></div><div className="text-right"><div className="font-mono font-bold" style={{ color: C.cyan }}>{mine.code}</div><div className="body text-xs" style={{ color: C.dim }}>{headcount} member{headcount === 1 ? "" : "s"}</div></div></div>
-        <div className="body text-xs" style={{ color: C.dim }}>Share the code so others can join. Your crew boss is sized to your crew.</div>
-        <div className="space-y-1.5">
-          {memberRows.map((r) => (
-            <button key={r.id || r.key} onClick={() => openProfile?.(r.id)} className="w-full flex items-center gap-2 text-left py-1">
-              <Avatar src={r.avatar} name={r.name} size={28} look={r.look} />
-              <span className="flex-1 min-w-0 truncate font-semibold text-sm"><FancyName name={r.name} look={r.look} /></span>
-              {r.id === s.playerId && <span className="body text-xs" style={{ color: C.cyan }}>you</span>}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => navigator.clipboard?.writeText(mine.code)} className="ghost flex-1 py-2 text-sm font-semibold" style={{ color: C.cyan }}>Copy code</button>
-          <button type="button" onClick={leave} className="ghost px-3 py-2 text-sm" style={{ color: C.red }}>Leave</button>
-        </div>
-        <CrewQuests s={s} setS={setS} rows={memberRows} crew={crew} code={mine.code} />
-        <CrewGymBlock s={s} setS={setS} crew={crew} setCrew={setCrew} presence={presence} people={people} />
-        <RaidNight s={s} setS={setS} crew={crew} code={mine.code} people={people} presence={presence} raid={raid} setRaid={setRaid} gainXp={gainXp} />
+      <div className="space-y-4">
+        <CrewHeader s={s} mine={mine} crew={crew} memberRows={memberRows} openProfile={openProfile} onLeave={leave} />
+        <CrewCheckIn s={s} setS={setS} crew={crew} setCrew={setCrew} presence={presence} people={people}>
+          <RaidNight s={s} setS={setS} crew={crew} code={mine.code} people={people} presence={presence} raid={raid} setRaid={setRaid} gainXp={gainXp} />
+        </CrewCheckIn>
+        {children?.({ memberRows, crew })}
       </div>
     );
   }
   return (
-    <div className="panel p-4 space-y-3">
-      <div><div className="font-bold">Start or join a crew</div><div className="body text-xs mt-0.5" style={{ color: C.dim }}>Crews get their own boss, sized to how many of you there are. You'll still fight the global boss with everyone.</div></div>
-      <div className="flex gap-2"><input className="inp text-sm" placeholder="Crew name" value={name} onChange={(e) => setName(e.target.value)} /><button onClick={create} disabled={busy} className="btn px-4 text-sm whitespace-nowrap">Create</button></div>
-      <div className="flex gap-2"><input className="inp text-sm font-mono" placeholder="Invite code" value={code} maxLength={8} onChange={(e) => setCode(e.target.value.toUpperCase())} /><button onClick={join} disabled={busy || code.trim().length < 4} className="ghost px-4 text-sm font-bold" style={{ color: C.cyan }}>Join</button></div>
-      {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
+    <div className="space-y-4">
+      <div className="panel p-4 space-y-3">
+        <div><div className="font-bold">Start or join a crew</div><div className="body text-xs mt-0.5" style={{ color: C.dim }}>Crews get their own boss, sized to how many of you there are. You'll still fight the global boss with everyone.</div></div>
+        <div className="flex gap-2"><input className="inp text-sm" placeholder="Crew name" value={name} onChange={(e) => setName(e.target.value)} /><button onClick={create} disabled={busy} className="btn px-4 text-sm whitespace-nowrap">Create</button></div>
+        <div className="flex gap-2"><input className="inp text-sm font-mono" placeholder="Invite code" value={code} maxLength={8} onChange={(e) => setCode(e.target.value.toUpperCase())} /><button onClick={join} disabled={busy || code.trim().length < 4} className="ghost px-4 text-sm font-bold" style={{ color: C.cyan }}>Join</button></div>
+        {err && <div className="body text-sm" style={{ color: C.red }}>{err}</div>}
+      </div>
+      {children?.({ memberRows: [], crew: null })}
     </div>
   );
 }
