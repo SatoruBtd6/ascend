@@ -826,6 +826,16 @@ const DESC_EYE_SRC = "/aura/descended-eye.webp";
 // stats). Sockets (the eight almond inlays at the wing shoulders) sit at
 // ~0.74 of the wings sprite's half-width.
 const DESC_SOCK_FRAC = 0.74, DESC_WING_REACH = 0.9, DESC_EMBLEM_REACH = 0.9, DESC_EYE_REACH = 0.68;
+// Socket centres measured on the NORMALIZED wing sprite (post-reach-fix), as
+// [x,y] fractions of the sprite half-width, y-down. The keyed art is four
+// mirrored wing clusters — each carries one large hollow plus a smaller
+// secondary hollow — so the sockets do NOT lie on one even circle; seating
+// eyes on the old 8-way ring left them in dead feather space. Measured at
+// 4x on the normalized canvas (evidence/_probe-sockets/norm-tune.png).
+const DESC_SOCKS = [
+  [-0.336, -0.336], [-0.414, -0.191], [0.336, -0.336], [0.414, -0.191],
+  [-0.422, 0.258], [-0.277, 0.375], [0.422, 0.258], [0.277, 0.375],
+];
 // Rotation speed cap — Ascended's peak element speed is the glyphring eyes at
 // 24 × w0.16 = 3.84 rad/s; Descended's wing wheel peaks below it.
 const DESC_WMAX = 3.4;
@@ -2136,15 +2146,18 @@ export const AURA_ART = {
   // wings with eye sockets at the shoulders, rotating behind a stationary
   // gothic emblem. A 45s cycle driven by `clock`, not the moment system — that
   // is also how the sequence suppresses at small size: below 110px the painter
-  // simply renders the rest pose forever. Beats: REST 0-6s (eyes seated in
-  // their sockets, lids near-closed), SURGE 6-14s (smooth spin-up; the wing
-  // mass shears tangentially so the feathers trail the spin like dragged
-  // weight), ARREST ~14s (wings overrun the stop once, settle back; eyes snap
-  // open and pull out of their sockets INWARD, converging on the avatar
-  // centre), WATCHING 14-40s (all eight drift on independent bounded paths
-  // over the front of the avatar — drawn on the over canvas, same layer as
-  // Atlas's near-side sphere), RETURN 40-45s (deliberate drift back to the
-  // sockets, lids closing as they seat).
+  // simply renders the rest pose forever. Beats: REST 0-6s (eyes open and
+  // visibly seated in the wing sockets, drawn with the wings on the main
+  // canvas), SURGE 6-14s (eyes stay seated, riding the wheel as it spins up
+  // — smooth accel; the wing mass shears tangentially so the feathers trail
+  // the spin like dragged weight), ARREST ~14s (wings overrun the stop once,
+  // settle back; eyes pull out of their sockets INWARD, converging on the
+  // avatar centre — the launch frame is the layer handoff: airborne eyes
+  // move to the over canvas, same layer as Atlas's near-side sphere, at an
+  // identical pixel position so there is no pop), WATCHING 14-40s (all
+  // eight drift on independent bounded paths over the front of the
+  // avatar), RETURN 40-45s (deliberate drift back to the sockets; once
+  // reseated they hand back to the main canvas with the wings).
   // Wings carry a steady edge treatment — a near-black bleed hugging the
   // silhouette with crimson showing through it — constant alpha, no pulse.
   // Flash safety: this aura never calls noteStrikeFlash — there is no flash
@@ -2158,13 +2171,17 @@ export const AURA_ART = {
     const wings = auraImage(DESC_WINGS_SRC), emb = auraImage(DESC_EMBLEM_SRC), eye = auraImage(DESC_EYE_SRC);
     const ready = wings?.ready && !wings.failed;
     const eyeReady = eye?.ready && !eye.failed;
-    // --- over pass: the eyes live on the over canvas (above the avatar,
-    // same layer as Atlas's near-side sphere) ---
-    function eyeDraw(gg, F) {
+    // --- eyes: seated eyes draw with the wings on the main canvas so they
+    // sit inside the socket art; airborne eyes draw on the over canvas
+    // (above the avatar, same layer as Atlas's near-side sphere). The
+    // handoff happens at launch/reseat while the eye is at the socket —
+    // identical pixels on either layer, so no visible pop. ---
+    function eyeDraw(gg, F, layer) {
       const halo = glowSprite("#C2001F");
       for (let i = 0; i < 8; i++) {
         const P = F.eyePos[i];
         if (!P) continue;
+        if (layer && P.onMain !== (layer === "main")) continue;
         gg.save(); gg.translate(P.x, P.y); gg.rotate(P.face); gg.scale(1, Math.max(0.12, P.lid));
         gg.globalAlpha = Math.min(1, F.eyeA);
         if (eyeReady) {
@@ -2185,7 +2202,7 @@ export const AURA_ART = {
       }
     }
     if (pass === "over") {
-      if (cc._descF) eyeDraw(over || g, cc._descF);
+      if (cc._descF) eyeDraw(over || g, cc._descF, "over");
       return null;
     }
     if (pass !== "main") return null;
@@ -2211,13 +2228,17 @@ export const AURA_ART = {
     // trails — deformation, not a brightness effect.
     const overV = frozen ? 0 : (((keyAt(overKeys, t + 0.04) ?? 0) - (keyAt(overKeys, t - 0.04) ?? 0)) / 0.08);
     const lagK = Math.max(-0.08, Math.min(0.08, -(om + overV) * 0.05));
-    // eye brightness: dim rest -> full over surge (8s swell) -> settled in
-    // watching -> back to rest. One continuous swell, never pulsing.
-    const eyeA = frozen ? 0.55 : (keyAt([[0, 0.5], [6, 0.5], [14, 1], [16.5, 0.8], [40, 0.7], [43.8, 0.5], [45, 0.5]], t) ?? 0.5);
-    // lids: near-closed while seated (they read as empty sockets), snap open
-    // at the arrest, close as they seat. 59px tiles keep the open-lid rest
-    // look — the watcher phase never runs there anyway.
-    const lidBase = small ? 1 : (keyAt([[0, 0.25], [13.9, 0.25], [14.5, 1], [43.2, 1], [44.6, 0.25], [45, 0.25]], t) ?? 0.25);
+    const breathe = frozen ? 1 : 1 + 0.015 * Math.sin(clock * 1.05);
+    // eye brightness: bright enough to read seated in the socket at rest ->
+    // full over surge (8s swell) -> settled in watching -> holds through the
+    // return and reseat. One continuous swell, never pulsing. Small sizes
+    // keep the approved 0.55 rest alpha.
+    const eyeA = small ? 0.55 : frozen ? 0.7 : (keyAt([[0, 0.7], [6, 0.7], [14, 1], [16.5, 0.8], [40, 0.7], [45, 0.7]], t) ?? 0.7);
+    // lids: visibly open while seated — the eyes must read as eyes in the
+    // sockets at rest, not empty holes (near-closed 0.25 was the bug Brodan
+    // saw). 59px tiles keep the open-lid rest look — the watcher phase
+    // never runs there anyway.
+    const lidBase = small ? 1 : (keyAt([[0, 0.9], [13.9, 0.9], [14.5, 1], [43.2, 1], [44.6, 0.9], [45, 0.9]], t) ?? 0.9);
     // per-eye fixed parameters, seeded once per instance
     if (!cc._eyes) {
       cc._eyes = Array.from({ length: 8 }, (_, i) => ({
@@ -2286,7 +2307,6 @@ export const AURA_ART = {
     };
     // --- wings ---
     if (ready) {
-      const breathe = frozen ? 1 : 1 + 0.015 * Math.sin(clock * 1.05);
       // silhouette atmosphere: near-black bleed hugging the wings with
       // crimson showing through at the rim. Constant alpha — atmosphere, not
       // a pulse; both rotate and shear with the wings so they stay hugged.
@@ -2352,9 +2372,25 @@ export const AURA_ART = {
     const eyePos = F.eyePos;
     for (let i = 0; i < 8; i++) {
       const E = cc._eyes[i];
-      const sA = E.ang + rot;
-      const sx = cx + Math.cos(sA) * sockR, sy = cy + Math.sin(sA) * sockR;
-      let ex = sx, ey = sy, lid = lidBase, face = sA + Math.PI / 2;
+      // seat: at large sizes the measured socket centres (DESC_SOCKS) are
+      // carried through the wing's own transform chain — breathe scale,
+      // tangential lag shear, rotation — so the eyes ride the actual art.
+      // Small sizes keep the approved even-ring seat at the legacy radius.
+      let sx, sy, face;
+      if (small) {
+        const sA = E.ang + rot;
+        sx = cx + Math.cos(sA) * sockR; sy = cy + Math.sin(sA) * sockR;
+        face = sA + Math.PI / 2;
+      } else {
+        const [fx, fy] = DESC_SOCKS[i];
+        const px = fx * wingD * 0.5 * breathe, py = fy * wingD * 0.5 * breathe;
+        const qx = px + lagK * py, qy = py;
+        const cr = Math.cos(rot), sr = Math.sin(rot);
+        sx = wingCx + qx * cr - qy * sr;
+        sy = wingCy + qx * sr + qy * cr;
+        face = Math.atan2(sy - wingCy, sx - wingCx) + Math.PI / 2;
+      }
+      let ex = sx, ey = sy, lid = lidBase, onMain = !small;
       if (!frozen && t >= 14) {
         // pull out of the socket INWARD, crowd near centre, disperse onto
         // bounded wander paths over the photo, drift back and seat
@@ -2367,6 +2403,7 @@ export const AURA_ART = {
         const kR = smooth((t - 40) / 5);
         px += (sx - px) * kR; py += (sy - py) * kR;
         ex = px; ey = py;
+        onMain = kR >= 0.995;
         // face along the direction of travel
         const dx = ex - (E._px ?? ex), dy = ey - (E._py ?? ey);
         if (Math.hypot(dx, dy) > 0.05) face = Math.atan2(dy, dx) + Math.PI / 2;
@@ -2380,10 +2417,11 @@ export const AURA_ART = {
       const half = Math.max((eyeD / 2) * (eyeReady ? DESC_EYE_REACH : 1), eyeD) + 1;
       ex = Math.max(half + 1, Math.min(w - half - 1, ex));
       ey = Math.max(half + 1, Math.min(h - half - 1, ey));
-      eyePos[i] = { x: ex, y: ey, lid, face, d: eyeD };
+      eyePos[i] = { x: ex, y: ey, lid, face, d: eyeD, onMain };
     }
-    // no over canvas mounted (tests, direct makeAura callers): draw eyes here
-    if (!over) eyeDraw(g, F);
+    // seated eyes ride the wings on the main canvas; when no over canvas is
+    // mounted (tests, direct makeAura callers) every eye draws here
+    eyeDraw(g, F, over ? "main" : null);
     return null;
   },
   // Living Wheel: the baked eye rings (big ornate golden eyes + vein arcs),
