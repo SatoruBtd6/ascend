@@ -129,7 +129,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
 
   if (phase === "resume") {
     return (
-      <div style={shell} className="fillv px-5 flex flex-col justify-center">
+      <div style={shell} className="px-5 flex flex-col justify-center">
         <div className="panel p-5 space-y-3 max-w-md mx-auto w-full">
           <div className="text-xl font-bold">Unfinished {run.mode === "walk" ? "walk" : "run"}</div>
           <div className="body text-sm" style={{ color: C.dim }}>{(run.dist / MI_M).toFixed(2)} mi so far. The app closed during it. Pick up where you left off, or finish and save it now.</div>
@@ -147,7 +147,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
     const secs = runElapsed(run);
     const sum = preview;
     return (
-      <div style={shell} className="fillv px-5">
+      <div style={shell} className="px-5">
         <div className="max-w-md mx-auto space-y-4 pt-2">
           <div className="text-2xl font-bold">{sum.title} complete</div>
           {path.length > 1 ? <RouteMap lines={[...(guide ? [{ pts: guide, color: C.mute, weight: 4, dash: "6 8", opacity: 0.7 }] : []), { pts: path, color: C.cyan, startDot: true }]} height={220} /> : <div className="panel p-4 body text-sm" style={{ color: C.dim }}>No GPS path was recorded.</div>}
@@ -169,7 +169,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
   }
 
   return (
-    <div style={shell} className="fillv px-4">
+    <div style={shell} className="px-4">
       <div className="max-w-md mx-auto space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 body text-xs font-semibold" style={{ color: gpsColor }}><span style={{ width: 8, height: 8, borderRadius: 999, background: gpsColor, boxShadow: `0 0 8px ${gpsColor}` }} />{gps.status === "waiting" ? "Finding GPS…" : gps.status === "weak" ? `Weak GPS ${gps.msg}` : gps.status === "error" ? "GPS problem" : `GPS ${gps.msg}`}</div>

@@ -5,7 +5,7 @@ export function Ceremony({ c, onClose }) {
   const rank = c.rank;
   useEffect(() => { SFX.rankUp(); const t = setTimeout(onClose, 9000); return () => clearTimeout(t); }, []);
   return (
-    <div className="fixed fillv inset-0 z-[70] flex flex-col items-center justify-center p-6" style={{ background: "radial-gradient(60% 50% at 50% 45%, rgba(0,0,0,.6), rgba(0,0,0,.95))", backdropFilter: "blur(6px)" }} onClick={onClose} role="dialog" aria-label="Rank up">
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center p-6" style={{ background: "radial-gradient(60% 50% at 50% 45%, rgba(0,0,0,.6), rgba(0,0,0,.95))", backdropFilter: "blur(6px)" }} onClick={onClose} role="dialog" aria-label="Rank up">
       <style>{`@keyframes cerein{0%{transform:scale(.3) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
         @keyframes ceretext{0%{transform:translateY(20px);opacity:0}100%{transform:none;opacity:1}}
         @keyframes cerespark{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}}`}</style>
