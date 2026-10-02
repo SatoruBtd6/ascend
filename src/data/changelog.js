@@ -1,6 +1,14 @@
 // Hand-written per release; newest first. Surfaced in Settings → What's new.
 export const CHANGELOG = [
   {
+    v: "7o",
+    items: [
+      "Fixed workouts saving at the wrong bodyweight: historical XP and achievements now use the weight you logged at the time.",
+      "Crew fixes: everyone can check in at the gym and ready up for raids, not just the crew owner.",
+      "Update fixes: new versions reach your device more reliably.",
+    ],
+  },
+  {
     v: "7n",
     items: [
       "Bodyweight rank targets now fit your size: high-rep moves like air squats scale with bodyweight, while pull-ups, dips, push-ups and hangs use fixed standards. A one-time notice explains the change.",

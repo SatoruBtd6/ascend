@@ -1,5 +1,5 @@
 // Ascend service worker: keeps the app opening with no signal.
-const VERSION = "ascend-v7n";
+const VERSION = "ascend-v7o";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/apple-touch-icon.png", "/icon-192.png", "/logo.webp", "/logo-sm.webp",
   "/avatars/E.webp", "/avatars/D.webp", "/avatars/C.webp", "/avatars/B.webp", "/avatars/A.webp", "/avatars/S.webp", "/avatars/SS.webp",
   "/avatars/E-f.webp", "/avatars/D-f.webp", "/avatars/C-f.webp", "/avatars/B-f.webp", "/avatars/A-f.webp", "/avatars/S-f.webp", "/avatars/SS-f.webp"];
@@ -9,7 +9,11 @@ const PRECACHE = [];
 self.addEventListener("install", (e) => {
   e.waitUntil((async () => {
     const cache = await caches.open(VERSION);
-    await cache.addAll(SHELL);
+    try {
+      await cache.addAll(SHELL);
+    } catch (err) {
+      console.warn("[ascend] shell cache failed, continuing install", err);
+    }
     if (PRECACHE.length) {
       try {
         await cache.addAll(PRECACHE);
