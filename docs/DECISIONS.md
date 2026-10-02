@@ -648,7 +648,9 @@ path — the only writers are additive merges on the owning account's own blob.
   client stamps `auraUnlocks.descended` and `monthBadges[key]`. If the winner
   never opens the app, the record exists but the aura is never granted.
   Tie-break: first to reach the tied total by ledger day; same-day ties fall
-  back to player id for determinism.
+  back to player id for determinism. **Known bias, not a neutral rule:** the
+  id fallback is stable, so the same account wins every same-day tie
+  permanently — accepted at this scale (approved by Brodan, 7o Part A).
 - **No runtime strip path may come back.** The `applyReigning` aura swap,
   the Board `lookOf` fallback, and the ProfilePage viewer fallback were all
   deleted on purpose. Published `look`s are authoritative.
