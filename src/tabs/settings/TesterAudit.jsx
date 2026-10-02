@@ -23,7 +23,8 @@ const rpc = async (fn, body) => {
 };
 
 export function TesterAudit({ s, setS, onBack }) {
-  const [roster, setRoster] = useState(null); // null = loading, [] = denied/empty
+  const [roster, setRoster] = useState(null); // null = loading, [] = denied/empty/failed
+  const [rosterWhy, setRosterWhy] = useState(""); // "denied" | "offline" | "error" | "" when roster is []
   const [pick, setPick] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -31,9 +32,11 @@ export function TesterAudit({ s, setS, onBack }) {
   const [note, setNote] = useState("");
   useEffect(() => {
     rpc("kv_audit_roster").then((j) => {
+      const reason = j?.ok ? "ok" : j?.reason || "error";
       if (j?.ok) setRoster(j.accounts || []);
-      else setRoster([]);
-    }).catch(() => setRoster([]));
+      else { setRoster([]); setRosterWhy(reason); }
+      D.push({ k: "audit", st: "roster", reason, n: j?.ok ? (j.accounts || []).length : 0 });
+    }).catch(() => { setRoster([]); setRosterWhy("error"); D.push({ k: "audit", st: "roster", reason: "error" }); });
   }, []);
   const load = async (uid) => {
     if (!uid) return;
@@ -61,12 +64,19 @@ export function TesterAudit({ s, setS, onBack }) {
   // from THIS account — every held achievement the current history doesn't earn,
   // including ratcheted rank-* badges. Same filter reconcileAchievements uses.
   const unwind = useMemo(() => {
-    if (!s?.ach) return { ids: [], xp: 0 };
+    if (!s?.ach) return { ids: [], xp: 0, held: 0 };
     const earned = new Set(earnedAchievements(s).map((a) => a.id));
     const byId = new Map(allAchievements().map((a) => [a.id, a]));
-    const ids = Object.keys(s.ach).filter((id) => !earned.has(id) && !id.startsWith("workouts-")).sort();
-    return { ids, xp: ids.reduce((a, id) => a + (byId.get(id)?.xp || 0), 0) };
+    const held = Object.keys(s.ach).filter((id) => !id.startsWith("workouts-"));
+    const ids = held.filter((id) => !earned.has(id)).sort();
+    return { ids, held: held.length, xp: ids.reduce((a, id) => a + (byId.get(id)?.xp || 0), 0) };
   }, [s]);
+  // Diagnostics: a panel that renders nothing is indistinguishable from a
+  // broken one — the roster outcome and preview numbers land in the log so
+  // "Copy diagnostic log" shows which branch ran.
+  useEffect(() => {
+    if (s) D.push({ k: "audit", st: "unwind", n: unwind.ids.length, held: unwind.held || 0, xp: unwind.xp });
+  }, [s, unwind]);
   // 7o Part 1A: classify duplicate workout rows — byte-identical copies (safe
   // to thin), identical-minus-id rows (safe), and same-id copies that differ
   // (manual review only — a resumed run can re-save richer data). Read-only:
@@ -96,7 +106,14 @@ export function TesterAudit({ s, setS, onBack }) {
       <div className="panel p-4 space-y-2">
         <div className="body text-xs" style={{ color: C.dim }}>Read-only look at an account's XP log, workout credit and fuel log. Server-side allowlist decides who can use it.</div>
         {roster === null && <div className="body text-xs flex items-center gap-1.5" style={{ color: C.mute }}><Loader2 size={12} className="animate-spin" />Loading accounts…</div>}
-        {roster && roster.length === 0 && <div className="body text-xs" style={{ color: C.red }}>No accounts returned — this account isn't on the audit allowlist.</div>}
+        {roster && roster.length === 0 && (
+          <div className="body text-xs" style={{ color: C.red }}>
+            {rosterWhy === "denied" ? "Denied — this account's auth uid isn't in kv_audit_allowed."
+              : rosterWhy === "offline" ? "No auth token — this session isn't signed in, so the audit RPCs can't run."
+              : rosterWhy ? `Audit roster request failed (${rosterWhy}).`
+              : "Allowlist OK but returned zero accounts — no ascend-state rows found."}
+          </div>
+        )}
         {roster && roster.length > 0 && (
           <select className="inp w-full" value={pick} onChange={(e) => load(e.target.value)} disabled={busy} aria-label="Account to audit">
             <option value="">Pick an account…</option>
@@ -108,14 +125,18 @@ export function TesterAudit({ s, setS, onBack }) {
         {busy && <div className="body text-xs flex items-center gap-1.5" style={{ color: C.mute }}><Loader2 size={12} className="animate-spin" />Loading state…</div>}
         {err && <div className="body text-xs" style={{ color: C.red }}>{err}</div>}
       </div>
-      {roster && roster.length > 0 && s && setS && (
+      {s && setS && (
         <div className="panel p-4 space-y-2" style={{ borderColor: C.red }}>
           <div className="font-semibold text-sm" style={{ color: C.red }}>One-time cleanup — your account</div>
           <div className="body text-xs" style={{ color: C.dim }}>
             Rank badges are ratcheted: once earned they are never revoked, including on weight changes, workout deletion and dedupe. This is the deliberate one-time exception — it revokes every held badge your current history does not earn (ratchet included) and recounts XP without them. Run it once, after the weight-fix deploy and one ordinary Recheck. It is not routine maintenance.
           </div>
-          {unwind.ids.length === 0 ? (
-            <div className="body text-xs" style={{ color: C.mute }}>Nothing to unwind — every held achievement is earned at current history.</div>
+          {roster === null ? (
+            <div className="body text-xs flex items-center gap-1.5" style={{ color: C.mute }}><Loader2 size={12} className="animate-spin" />Checking audit allowlist…</div>
+          ) : roster.length === 0 ? (
+            <div className="body text-xs" style={{ color: C.dim }}>Cleanup is unavailable until the audit allowlist check above passes — it stays hidden rather than running ungated.</div>
+          ) : unwind.ids.length === 0 ? (
+            <div className="body text-xs" style={{ color: C.mute }}>{s?.ach ? `Nothing to unwind — all ${unwind.held} held badge${unwind.held === 1 ? "" : "s"} are earned at current history.` : "Nothing to unwind — this account holds no achievement data."}</div>
           ) : (
             <button
               className="ghost w-full py-3 text-sm font-bold"
