@@ -65,6 +65,11 @@ const SIZES = [
   { label: "crate160", w: 160, h: 160, mode: "circle", ringR: 46 },
   { label: "figure128x163", w: 128, h: 163, mode: "body", ringR: 128 / 3.456 },
 ];
+// Deliberate edge bleed (Brodan-approved, phase 7o): Descended's wing tips run
+// off the canvas at the large display sizes by design — "too big for the
+// frame" is the effect. Contact is still measured and printed (marked BLEED),
+// it just doesn't fail the gate. Small sizes still gate normally.
+const EDGE_BLEED_OK = { descended: new Set(["ring141", "crate160", "figure128x163"]) };
 
 const OUT = evidenceDir("aura-edge");
 const header = [];
@@ -247,9 +252,11 @@ for (const aura of list) {
   for (const SZ of SIZES) {
     const c = B[SZ.label];
     const bad = cellsBad(c);
-    const line = `${bad ? "FAIL" : "PASS"} ${aura.padEnd(14)} ${SZ.label.padEnd(14)} ${cellLine(c)}`;
+    const bleedOk = EDGE_BLEED_OK[aura]?.has(SZ.label);
+    const verdict = bad ? (bleedOk ? "BLEED" : "FAIL") : "PASS";
+    const line = `${verdict} ${aura.padEnd(14)} ${SZ.label.padEnd(14)} ${cellLine(c)}`;
     lines.push(line); console.log(line);
-    if (bad) auraFail = true;
+    if (bad && !bleedOk) auraFail = true;
     if (A) {
       const a = A[SZ.label];
       const aline = `  A ${" ".repeat(15)}${SZ.label.padEnd(14)} ${cellLine(a)}`;

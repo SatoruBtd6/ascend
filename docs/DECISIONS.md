@@ -665,3 +665,12 @@ path — the only writers are additive merges on the owning account's own blob.
   same-size canvas — so real art reach lands at `DESC_WING_REACH` (now 0.90)
   before drawing. If the wings asset is ever re-keyed, re-measure; a sprite
   that already fits loses nothing (normalize becomes a no-op scale ~1).
+- **Descended wingtips intentionally bleed past the canvas** at the large
+  display sizes (ring, crate, figure; `m >= 110`, `wingD = 1.45m` — art reach
+  ~1.31x canvas half). Brodan approved the full-bleed look for this aura;
+  small tiles (crew/board/studio) stay hard-clamped because they sit
+  side-by-side. `aura:edge` carries the explicit exception list
+  `EDGE_BLEED_OK` — those cells report as `BLEED` with measured contact, not
+  `FAIL`. The edge rule itself still protects a real thing: painted pixels
+  clip at the canvas bitmap (a flat cut), they can never overlap neighbouring
+  DOM — so the consequence of exceeding it is visual only.

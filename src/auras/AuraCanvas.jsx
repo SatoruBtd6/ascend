@@ -2259,15 +2259,24 @@ export const AURA_ART = {
       g3.translate(W / 2, W / 2); g3.scale(sc, sc);
       g3.drawImage(wings.img, -ox, -oy);
       wings._norm = oc;
+      // the sockets ride the art — normalizing shrinks them inward by the
+      // same scale, so their fraction of the normalized half is 0.74·sc
+      wings._sockF = DESC_SOCK_FRAC * sc;
     }
     if (wings?._norm) wingImg = wings._norm;
-    // bigger wheel (was m*0.94). The min() is the edge guarantee: normalized
-    // reach x bleed scale x breathe x worst tangential shear must keep the
-    // atmosphere at least 2px inside the border at every canvas size.
-    const wingD = Math.min(m * 0.98, (m - 4) / (DESC_WING_REACH * 1.015 * 1.04 * 1.04));
-    // sockets ride the wing shoulders at the measured sprite radius — clamped
-    // so small canvases (board 59px etc.) keep the sprites inside the border
-    const sockR = Math.min(DESC_SOCK_FRAC * wingD * 0.5, Math.min(cx, w - cx, cy, h - cy) * 0.82);
+    // Small sizes keep the clamped wheel — board/crew tiles sit side by side
+    // and a clipped sprite reads as broken there. At the big sizes the wings
+    // are deliberately oversized: ~1.31x of canvas half, tips running off the
+    // frame — "too big for the body" is the intent (Brodan, phase 7o).
+    const wingD = small
+      ? Math.min(m * 0.98, (m - 4) / (DESC_WING_REACH * 1.015 * 1.04 * 1.04))
+      : m * 1.45;
+    // sockets ride the wing shoulders at the measured sprite radius. Small
+    // sizes keep the pre-normalization seat (approved look); large sizes use
+    // the fraction the normalized art actually places the sockets at.
+    const sockR = small
+      ? Math.min(DESC_SOCK_FRAC * wingD * 0.5, Math.min(cx, w - cx, cy, h - cy) * 0.82)
+      : (wings?._sockF ?? DESC_SOCK_FRAC) * wingD * 0.5;
     const wingCx = cx, wingCy = cy;
     const dprSprite = (img, x, y, d, a, rotA = 0) => {
       if (d <= 3 || a <= 0.01) return;
