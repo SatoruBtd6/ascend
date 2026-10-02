@@ -210,7 +210,7 @@ export function normalizeState(s) {
 
   const topArr = ["workouts", "savedRoutes", "dayTemplates", "custom", "chat", "presets", "savedFoods", "crateLog", "gyms"];
   topArr.forEach((k) => { if (!Array.isArray(out[k])) set(k, asArr(out[k], k)); });
-  const topObj = ["xpLog", "days", "meals", "weekly", "monthly", "rankHist", "steps", "stepXp", "loot", "seasonBadges", "nemesisSeen", "roasts", "checkins", "water", "measure", "groupClaimed", "duelClaimed", "bossRecaps", "worldFirsts", "wfClaim", "crewBanners", "fuelClaimed", "ach", "mogClaimed", "xpDetail", "xpDone", "weightLog", "crateUnlocks", "auraUnlocks", "duelResults", "gymSpecific"];
+  const topObj = ["xpLog", "days", "meals", "weekly", "monthly", "rankHist", "steps", "stepXp", "loot", "seasonBadges", "nemesisSeen", "roasts", "checkins", "water", "measure", "groupClaimed", "duelClaimed", "bossRecaps", "worldFirsts", "wfClaim", "crewBanners", "fuelClaimed", "ach", "mogClaimed", "xpDetail", "xpDone", "weightLog", "crateUnlocks", "auraUnlocks", "duelResults", "gymSpecific", "monthBadges"];
   topObj.forEach((k) => { if (!isObj(out[k])) set(k, asObj(out[k], k)); });
 
   set("xp", asNum(out.xp, "xp"));

@@ -630,6 +630,25 @@ path — the only writers are additive merges on the owning account's own blob.
   account: nobody can come to be wearing it without having legitimately held
   it, so wearing is proof of prior ownership. Do not remove the clause before
   every current wearer is stamped.
+- **…except the live leader.** Wearing while `lbReigning` is true does NOT
+  grant ownership — the reigning #1 wears Ascended on loan and must not
+  convert the loan. This is a heuristic, not proof: there is no provenance bit
+  separating a past holder from a loaned wearer, and if the leader loses #1
+  before deploy while still wearing it, the grace clause will grandfather
+  them. The safeguard is therefore manual: **anyone wearing Ascended on loan
+  switches to another aura before this ships**, then re-confirms. Stale
+  `auraPrev`, a published board `look`, or a cached profile all display the
+  aura but none of them count as "wearing" — only `profile.look.aura` does.
+  A queued offline write on a second device could still resurrect a switched
+  aura, so don't open Ascend on other devices between switching and deploy.
+- **Month settle is client-driven, same shape as the season settle.** Any
+  client that loads the board after rollover writes `month:<YYYY-MM>` once —
+  winner or an explicit empty `winners: []` record, so a month with no
+  qualifier stays closed. The record names the winner; only the winner's own
+  client stamps `auraUnlocks.descended` and `monthBadges[key]`. If the winner
+  never opens the app, the record exists but the aura is never granted.
+  Tie-break: first to reach the tied total by ledger day; same-day ties fall
+  back to player id for determinism.
 - **No runtime strip path may come back.** The `applyReigning` aura swap,
   the Board `lookOf` fallback, and the ProfilePage viewer fallback were all
   deleted on purpose. Published `look`s are authoritative.

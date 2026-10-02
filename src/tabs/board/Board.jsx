@@ -9,12 +9,12 @@ import { Empty, Title } from "../../ui/primitives.jsx";
 import { Avatar, FancyName } from "../profile/Avatar.jsx";
 import { PROFILE_BGS, lookStyle } from "../profile/lookConsts.js";
 import { profileCard } from "../profile/profileCard.js";
-import { seasonKey } from "../profile/season.js";
+import { seasonKey, settleMonth } from "../profile/season.js";
 import { liveBoard } from "../train/social.js";
 import { isMutualNemesis } from "./duels.js";
 import { Feed } from "./Feed.jsx";
 import { Crew } from "./Gym.jsx";
-import { SeasonBanner, applyReigning, settleSeason } from "./season.jsx";
+import { PrizeBanner, SeasonBanner, applyReigning, settleSeason } from "./season.jsx";
 export function Board({ s, setS, openProfile, gainXp }) {
   const [view, setView] = useState("board");
   const [rows, setRows] = useState([]);
@@ -46,6 +46,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
       // Season settle and the reigning badge always run on the ghost-free list:
       // ghost cards are tester-only and must never affect standings.
       settleSeason(s, setS, liveBoard(cards)).catch(() => {});
+      settleMonth(s, setS, liveBoard(cards)).catch(() => {});
       applyReigning(s, setS, liveBoard(cards));
       setRows(liveBoard(cards, { ghosts: !!s.test }));
     }
@@ -128,7 +129,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
         </div>
       )}
       {sort === "season" && <SeasonBanner />}
-      {sort === "month" && <div className="body text-xs" style={{ color: C.mute }}>XP earned since the 1st. Resets every month, so anyone can take the top spot.</div>}
+      {sort === "month" && <PrizeBanner />}
       {sort === "muscle" && <div className="body text-xs" style={{ color: C.mute }}>Ranked by each player's best lift in {muscle}. Numbers hide, ranks show.</div>}
       {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Board score is the points you have right now. Workouts, lift ranks, quests, fuel, steps, challenges, streak, and sleep/mood check-ins all add. Aura Spin auras multiply that. Each spin spends points and drops your place.</div>}
 

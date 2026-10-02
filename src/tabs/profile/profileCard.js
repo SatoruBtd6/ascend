@@ -6,7 +6,7 @@ import { dayDamageMap } from "./bossDamage.js";
 import { dailyStats } from "./dailyStats.js";
 import { pointsOf } from "./points.js";
 import { nemesisWins } from "./rivalryStats.js";
-import { prevSeasonKey, seasonKey, seasonXp } from "./season.js";
+import { monthXp, prevMonthKey, prevSeasonKey, seasonKey, seasonXp } from "./season.js";
 import { equippedTitle } from "./titles.js";
 import { bestTier } from "./unlock.js";
 export function profileCard(s) {
@@ -23,7 +23,10 @@ export function profileCard(s) {
     xpV: s.xpV || LB_XP_VERSION,
     streak: streakOf(s), week: round1((s.workouts || []).filter((w) => w.date >= ws).reduce((a, w) => a + workoutCredit(s, w), 0)), weekOf: ws, updated: Date.now(),
     ach: Object.keys(s.ach || {}), stats: st, weightLog: s.profile.shareWeight ? Object.fromEntries(wl) : null,
-    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); workSets(ex.sets).forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: round1(s.workouts.filter((w) => w.date.startsWith(mk)).reduce((a, w) => a + workoutCredit(s, w), 0)), volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10 }; })(),
+    month: (() => { const mk = monthKey(); let volume = 0, reps = 0, miles = 0; s.workouts.filter((w) => w.date.startsWith(mk)).forEach((w) => w.exercises.forEach((ex) => { const d = findEx(s, ex.name); workSets(ex.sets).forEach((st) => { if (d.type === "timed") { if (d.group === "Cardio") miles += +st.w || 0; } else { reps += +st.r || 0; volume += (+st.w || 0) * (+st.r || 0); } }); })); return { key: mk, dd: dayDamageMap(s, mk), xp: Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk)).reduce((a, [, v]) => a + v, 0), workouts: round1(s.workouts.filter((w) => w.date.startsWith(mk)).reduce((a, w) => a + workoutCredit(s, w), 0)), volume: Math.round(volume), reps, miles: Math.round(miles * 10) / 10, xpd: Object.fromEntries(Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(mk))) }; })(),
+    // prevMonth keeps last month's xp (and its per-day ledger for tie-breaks)
+    // readable by the month settle after this card republishes under a new key.
+    prevMonth: (() => { const pm = prevMonthKey(monthKey()); return { key: pm, xp: monthXp(s, pm), xpd: Object.fromEntries(Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(pm))) }; })(),
     uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null, daily: dailyStats(s), rivalWith: s.nemesis?.id || null, nemWins: nemesisWins(s),
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
     badges: s.seasonBadges || {},

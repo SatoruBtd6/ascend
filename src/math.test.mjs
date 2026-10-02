@@ -1205,11 +1205,32 @@ test("award auras: stamp grants ownership, wearing survives without a stamp, non
   assert.equal(unlocked(asc, { auraUnlocks: { ascended: "2026-10-01" }, profile: { look: {} } }), true);
   // pre-stamp grace: a player still wearing it from when it was held is never stripped
   assert.equal(unlocked(asc, { profile: { look: { aura: "ascended" } } }), true);
+  // …but the live leader wears it on loan — reigning blocks the grace clause
+  assert.equal(unlocked(asc, { lbReigning: true, profile: { look: { aura: "ascended" } } }), false);
   // visible-but-unobtainable for everyone else
   assert.equal(unlocked(asc, { profile: { look: { aura: "ember" } } }), false);
   assert.equal(unlocked(asc, {}), false);
   assert.equal(unlocked(desc, { auraUnlocks: { descended: "2026-11-01" }, profile: { look: {} } }), true);
   assert.equal(unlocked(desc, {}), false);
+});
+
+test("pickMonthWinner: highest month XP wins, ties go to first to reach", () => {
+  const mk = "2026-09";
+  const row = (id, xp, xpd, prev = false) => ({ id, name: id, ...(prev ? { prevMonth: { key: mk, xp, xpd } } : { month: { key: mk, xp, xpd } }) });
+  assert.equal(pickMonthWinner([], mk), null);
+  assert.equal(pickMonthWinner([row("a", 0, {})], mk), null); // no qualifier
+  // clear winner
+  assert.deepEqual(pickMonthWinner([row("a", 100, {}), row("b", 200, {})], mk), { id: "b", name: "b", xp: 200 });
+  // tie: b reached 200 on the 10th, c on the 20th — b wins
+  const t = pickMonthWinner([
+    row("b", 200, { "2026-09-10": 200 }),
+    row("c", 200, { "2026-09-05": 100, "2026-09-20": 100 }),
+  ], mk);
+  assert.equal(t.id, "b");
+  // republished card: last month's numbers live under prevMonth
+  assert.equal(pickMonthWinner([row("d", 150, {}, true), row("e", 90, {})], mk).id, "d");
+  // stale month keys don't count
+  assert.equal(pickMonthWinner([{ id: "f", name: "f", month: { key: "2026-08", xp: 999 } }], mk), null);
 });
 
 test("stripGhostCosmetics never strips a worn award aura, stamped or not", () => {
@@ -1382,6 +1403,7 @@ import { WEEKLY_POOL } from "./data/challenges.js";
 import { AURA_TASKS, unlocked, stripGhostCosmetics } from "./tabs/profile/unlock.js";
 import { auraById } from "./auras/catalog.js";
 import { monthKey, prevMonthKey, monthXp } from "./tabs/profile/season.js";
+import { pickMonthWinner } from "./tabs/profile/season.js";
 import { reconcileRecount } from "./tabs/train/xpRecount.js";
 
 const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-9, `${label || ""} ${a} vs ${b}`);

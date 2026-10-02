@@ -3524,7 +3524,7 @@ const shiftHex = (hex, desat, invert) => {
   return `#${hexChannel(out[0])}${hexChannel(out[1])}${hexChannel(out[2])}`;
 };
 
-export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }) {
+export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, clock0 }) {
   aura = resolveAuraId(aura); // legacy ids from old saves/cards render the renamed spec
   // View-scoped spec overrides: `body:` fields apply only to body/figure
   // renders, `circle:` only to the avatar ring, `small:` on top of either when
@@ -3564,7 +3564,10 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure }
   const scale = Math.max(0.7, Math.min(1.25, (w * h) / (140 * 140)));
   const unit = Math.max(w < 110 ? 1.15 : 0.75, Math.min(rx, ry) / 48);
   const onRing = (ang, k = 1) => [cx + Math.cos(ang) * rx * k, cy + Math.sin(ang) * ry * k];
-  let time = 0, clock = 0;
+  // clock0 is opt-in: callers that need an instance to mount mid-cycle (the
+  // monthly prize banner opens Descended inside the spin-up surge) pass the
+  // offset in seconds. Every existing mount passes nothing and starts at 0.
+  let time = 0, clock = Math.max(0, +clock0 || 0);
   let boltT = fx.bolts?.burst ? rnd(0.35, 0.9) : (fx.bolts?.every ? rnd(...fx.bolts.every) : 0), bolt = null;
   let liveBolts = [], burstLeft = 0, burstGap = 0.16, strike = 0, flashLeft = 0, flTryAt = 0;
   let flashState = { last: null, burstFlashed: false };
@@ -4833,7 +4836,7 @@ export function fireAuraMoment(aura) {
   for (const inst of auraLiveInstances.get(resolveAuraId(aura)) || []) { try { inst.forceMoment?.(); } catch (e) { /* dev-only */ } }
 }
 
-export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance }) {
+export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance, clock0 }) {
   aura = resolveAuraId(aura); // leaderboard cards from older builds still carry the old id
   const ref = useRef(null);
   const overRef = useRef(null);
@@ -4842,7 +4845,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     const cv = ref.current;
     if (!cv || !AURA_FX[aura] || typeof window === "undefined") return;
     let inst = null;
-    try { inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2, overCanvas: needs ? overRef.current : null, figure }); } catch (e) { return; }
+    try { inst = makeAura(cv, { aura, w, h, mode, ringR: ringR || Math.min(w, h) / 3.2, overCanvas: needs ? overRef.current : null, figure, clock0 }); } catch (e) { return; }
     if (!inst) return;
     try { onInstance?.(inst); } catch (e) { /* consumer hook only */ }
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
@@ -4854,7 +4857,7 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     const untrack = trackAuraInstance(aura, inst);
     AuraLoop.add(inst);
     return () => { AuraLoop.remove(inst); untrack(); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
-  }, [aura, w, h, mode, ringR, needs, overSlot, figure]);
+  }, [aura, w, h, mode, ringR, needs, overSlot, figure, clock0]);
   if (!AURA_FX[aura]) return null;
   const overCanvas = needs ? (
     <canvas ref={overRef} aria-hidden="true" className="absolute pointer-events-none" style={{ left: 0, top: 0, width: w, height: h, zIndex: 2 }} />

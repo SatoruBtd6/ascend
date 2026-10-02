@@ -20,6 +20,9 @@ export default function Auth() {
   if (import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("auras") === "1") {
     return <DevOnlyAuraGallery />;
   }
+  if (import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("prize") === "1") {
+    return <DevOnlyPrizeBanner />;
+  }
   const [session, setSession] = useState(undefined);
   const [mode, setMode] = useState("signin"); // signin | signup | forgot | recover
   const [email, setEmail] = useState(() => { try { return localStorage.getItem("ascend-email") || ""; } catch { return ""; } });
@@ -133,6 +136,18 @@ function DevOnlyAuraGallery() {
     let on = true;
     if (import.meta.env.DEV) {
       import("./auras/devGallery.jsx").then((m) => { if (on) setView(() => m.DevAuraGallery); });
+    }
+    return () => { on = false; };
+  }, []);
+  return View ? <View /> : null;
+}
+
+function DevOnlyPrizeBanner() {
+  const [View, setView] = useState(null);
+  useEffect(() => {
+    let on = true;
+    if (import.meta.env.DEV) {
+      import("./tabs/board/season.jsx").then((m) => { if (on) setView(() => m.DevPrizeBanner); });
     }
     return () => { on = false; };
   }, []);

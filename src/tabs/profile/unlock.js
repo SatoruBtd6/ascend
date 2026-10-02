@@ -35,11 +35,14 @@ export function unlocked(item, s) {
   if (item.crate && s.crateUnlocks?.[item.id]) return true;
   if (item.soon) return false;
   if (item.reigning) return !!s.lbReigning;
-  // award: ownership is the stamped auraUnlocks entry — OR currently wearing
-  // it, which can only have happened while it was legitimately held (this is
-  // what makes the Ascended grandfathering gap-free: wearing survives until
-  // the stamp lands, and the stamp then makes it permanent).
-  if (item.award) return !!s.auraUnlocks?.[item.id] || s.profile?.look?.aura === item.id;
+  // award: ownership is the stamped auraUnlocks entry — OR still wearing it
+  // from when it was legitimately held (bridges the pre-stamp window so a
+  // deployed build can't strip a holder before their stamp lands). The
+  // lbReigning exclusion is required: the live #1 wears Ascended on LOAN and
+  // must not convert the loan into ownership — there is no provenance bit
+  // separating a past holder from a loaned wearer, so reigning is the only
+  // discriminator we have. See docs/DECISIONS.md (phase 7o Part A).
+  if (item.award) return !!s.auraUnlocks?.[item.id] || (!s.lbReigning && s.profile?.look?.aura === item.id);
   if (item.worldFirst) return Object.keys(s.worldFirsts || {}).length > 0;
   if (item.seraph) return backToBackSeasonFirsts(s);
   if (item.seasonFirst) return Object.values(s.seasonBadges || {}).some((b) => b.place === 1);
