@@ -1527,7 +1527,8 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
 });
 
 import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
-import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout } from "./lib/stats.js";
+import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout, workoutXp, cardioSteps } from "./lib/stats.js";
+import { CARDIO_METRIC } from "./data/cardio.js";
 import { cardScore, selfScore } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
 import { AURA_TASKS, BORDERS, unlocked, stripGhostCosmetics } from "./tabs/profile/unlock.js";
@@ -1835,4 +1836,58 @@ test("addWorkout dedupes by id: a repeated finish writes one row", () => {
   assert.equal(once.workouts.length, 1);
   assert.equal(twice.workouts.length, 1);
   assert.equal(twice, once); // no-op: same object back
+});
+
+test("cardio pace scoring: cv2 rows pay a pace bonus; older rows keep flat miles", () => {
+  const s = { profile: { weight: 170, sex: "m", height: 70, age: 25 }, workouts: [], custom: [], community: { ex: [] } };
+  const stair = [{ name: "Stairmaster", sets: [{ w: 120, r: 30, done: true }] }];
+  const wo = { date: "2026-10-02", gym: null };
+  // Legacy row (no cv): the second field is still the old flat miles formula.
+  const legacy = workoutXp(s, stair, null, { workout: wo });
+  assert.equal(legacy.xp, 30 * 6 + 120 * 10);
+  // cv:2 row: 120 fl / 30 min = 4 fl/min — mid-seed pace → base +30%.
+  const fresh = workoutXp(s, stair, null, { workout: { ...wo, cv: 2 } });
+  assert.equal(fresh.xp, Math.round(30 * 6 * 1.3));
+  // Second metric left blank → time base only, no penalty.
+  const bare = workoutXp(s, [{ name: "Stairmaster", sets: [{ w: "", r: 30, done: true }] }], null, { workout: { ...wo, cv: 2 } });
+  assert.equal(bare.xp, 180);
+});
+
+test("equal effort pays an equal share of base on every cardio machine", () => {
+  const s = { profile: { weight: 170, sex: "m" }, workouts: [], custom: [], community: { ex: [] } };
+  const wo = { cv: 2, date: "2026-10-02", gym: null };
+  // Both paces sit exactly at seed rung 3 of their machine: 0.108 mi/min run
+  // (3.24 mi in 30 min) vs 4 fl/min stair (120 fl in 30 min). Same 6/min base,
+  // same +30% — no soft-machine farming.
+  const run = workoutXp(s, [{ name: "Running", sets: [{ w: 3.24, r: 30, done: true }] }], null, { workout: wo });
+  const stair = workoutXp(s, [{ name: "Stairmaster", sets: [{ w: 120, r: 30, done: true }] }], null, { workout: wo });
+  assert.equal(run.xp, stair.xp);
+  assert.equal(run.xp, Math.round(30 * 6 * 1.3));
+});
+
+test("cardio ladder recentres on the user's own pace over the first 5 sessions", () => {
+  const mkW = (id, floors, min) => ({ id, cv: 2, date: "2026-10-01", exercises: [{ name: "Stairmaster", sets: [{ w: floors, r: min, done: true }] }] });
+  assert.deepEqual(cardioSteps({ workouts: [] }, "Stairmaster"), CARDIO_METRIC["Stairmaster"].seed);
+  // Four sessions at 8 fl/min — above the whole seed — pull the ladder partway.
+  const s4 = { workouts: [1, 2, 3, 4].map((i) => mkW(`w${i}`, 160, 20)) };
+  const mid4 = cardioSteps(s4, "Stairmaster")[2];
+  assert.ok(mid4 > 4 && mid4 < 8, `blended mid rung ${mid4}`);
+  // Five sessions → fully personal: mid rung lands on their usual pace.
+  const s5 = { workouts: [...s4.workouts, mkW("w5", 160, 20)] };
+  near(cardioSteps(s5, "Stairmaster")[2], 8, "personal mid rung");
+  // Repeating the usual pace scores mid-ladder, not top-rung.
+  const res = workoutXp({ ...s5, profile: { weight: 170 } }, [{ name: "Stairmaster", sets: [{ w: 160, r: 20, done: true }] }], null, { workout: { cv: 2, date: "2026-10-02", gym: null } });
+  assert.equal(res.xp, Math.round(20 * 6 * 1.3));
+});
+
+test("floors and meters never inflate the miles tally; legacy rows keep theirs", () => {
+  const s = {
+    profile: { weight: 170, sex: "m" }, meals: {}, steps: {}, days: {}, custom: [], community: { ex: [] },
+    workouts: [
+      { id: "old", date: "2026-09-01", exercises: [{ name: "Stairmaster", sets: [{ w: 100, r: 30, done: true }] }] },
+      { id: "new1", cv: 2, date: "2026-10-02", exercises: [{ name: "Stairmaster", sets: [{ w: 100, r: 30, done: true }] }] },
+      { id: "new2", cv: 2, date: "2026-10-02", exercises: [{ name: "Running", sets: [{ w: 3, r: 30, done: true }] }] },
+    ],
+  };
+  assert.equal(lifetimeStats(s).miles, 103); // 100 legacy "miles" + 3 real
 });

@@ -1,4 +1,5 @@
 import { workSets, thresholds, inGymBucket, isLegacyAssisted, PR_BONUS, collectPrHistory, scoreExercisePrs, prKey, levelFromXp, effW, workoutCredit as creditOf, cardioMinutesOf, round1, round2 } from "../math.js";
+import { CARDIO_METRIC, CARDIO_VERSION, cardioMeta } from "../data/cardio.js";
 import { QUEST_POOL, QUEST_EX } from "../data/quests.js";
 import { TIER_STYLE, ACH_SERIES, ROMAN } from "../data/achievements.js";
 import { RANKS, DIVS, GROUP_WEIGHT } from "../data/ranks.js";
@@ -169,7 +170,36 @@ export const newDay = () => {
   return { list, rerolls: 0, bonuses: 0 };
 };
 
-export function setXp(s, def, st, ex) {
+// Per-machine pace ladder: the seed keeps its shape but recentres on the
+// user's median logged pace, blended in across their first 5 sessions on that
+// machine (then fully personal). Only cv>=2 rows are sampled, so meters/floors
+// never mix with the old "miles" field, and run rows (never cv-stamped) don't
+// feed it. Keeping the seed's shape avoids a degenerate flat ladder when a
+// user's paces cluster.
+export function cardioSteps(s, name) {
+  const meta = CARDIO_METRIC[name];
+  if (!meta) return null;
+  const paces = [];
+  (s.workouts || []).forEach((w) => {
+    if (!(w.cv >= CARDIO_VERSION)) return;
+    (w.exercises || []).forEach((ex) => {
+      if (ex.name !== name) return;
+      workSets(ex.sets).forEach((st) => {
+        const amt = +st.w || 0, min = +st.r || 0;
+        if (amt > 0 && min >= 5) paces.push(amt / min);
+      });
+    });
+  });
+  const recent = paces.slice(-40);
+  if (!recent.length) return meta.seed;
+  const sorted = [...recent].sort((a, b) => a - b);
+  const median = sorted[Math.floor((sorted.length - 1) / 2)];
+  const t = Math.min(1, paces.length / 5);
+  const scale = 1 + t * (median / meta.seed[2] - 1);
+  return meta.seed.map((v) => v * scale);
+}
+
+export function setXp(s, def, st, ex, pace) {
   if (def.type === "assisted") {
     const base = findEx(s, def.rankAs), eq = assistedReps(s.profile, st);
     const out = setXp(s, { ...base, xp: def.xp }, { r: eq, w: 0 }, ex);
@@ -178,8 +208,16 @@ export function setXp(s, def, st, ex) {
   const p = s.profile, r = +st.r || 0, w = def.type === "weighted" ? effW(def, ex, +st.w || 0) : +st.w || 0;
   if (r <= 0) return { xp: 0, note: "" };
   if (def.type === "timed") {
-    const mi = def.group === "Cardio" ? w : 0;
-    return { xp: Math.round(r * def.xp + mi * 10), note: `${r} min × ${def.xp}${mi ? ` + ${mi} mi × 10` : ""}` };
+    const meta = cardioMeta(def);
+    const amt = def.group === "Cardio" ? w : 0;
+    // cv>=2 rows score the second metric as pace against the per-machine
+    // ladder: equal effort pays an equal share of the base on any machine.
+    if (meta && pace?.cv >= CARDIO_VERSION) {
+      const steps = pace.steps(def.name);
+      const bonus = amt > 0 ? Math.min(Math.round(r * def.xp * 0.6), Math.round(r * def.xp * Math.min(scoreFor(amt / r, steps), 6) * 0.1)) : 0;
+      return { xp: Math.round(r * def.xp) + bonus, note: `${r} min × ${def.xp}${bonus ? ` + ${bonus} ${rankFromScore(scoreFor(amt / r, steps)).label} pace` : ""}` };
+    }
+    return { xp: Math.round(r * def.xp + amt * 10), note: `${r} min × ${def.xp}${amt ? ` + ${amt} mi × 10` : ""}` };
   }
   const steps = thresholds(def, p), sTop = steps[4];
   const bw = Math.max(80, +p.weight || 170);
@@ -198,6 +236,11 @@ export function workoutXp(s, exercises, bests, opts = {}) {
   const bw = +workout.bw > 0 ? +workout.bw : workout.date >= today() ? +s.profile?.weight || null : weightAtDate(s, workout.date);
   const pW = bw == null ? s.profile : { ...s.profile, weight: bw };
   const history = skipPr ? null : (opts.history || collectPrHistory(s, findEx, { excludeId: opts.excludeId }));
+  // Pace context for cardio scoring: cv comes from the workout being scored
+  // (unstamped = pre-pace-model row = flat miles forever). Ladders build once
+  // per machine per call.
+  const paceSteps = new Map();
+  const pace = { cv: +workout.cv || 0, steps: (name) => { if (!paceSteps.has(name)) paceSteps.set(name, cardioSteps(s, name)); return paceSteps.get(name); } };
   const usedByName = new Map();
   let xp = 0, prs = 0, volume = 0, sets = 0;
   const lines = [];
@@ -209,9 +252,10 @@ export function workoutXp(s, exercises, bests, opts = {}) {
     let si = 0;
     workSets(ex.sets).forEach((st) => {
       sets++;
-      const { xp: sx, note } = setXp({ ...s, profile: pW }, def, st, ex);
+      const { xp: sx, note } = setXp({ ...s, profile: pW }, def, st, ex, pace);
       line.xp += sx; xp += sx;
-      const label = (def.type === "timed" ? `${st.w ? `${st.w} mi · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`) + (st.drop ? " drop" : "");
+      const cUnit = cardioMeta(def)?.unit;
+      const label = (def.type === "timed" ? `${st.w ? `${st.w} ${cUnit || "mi"} · ` : ""}${st.r} min` : def.type === "assisted" ? `${st.r} reps, ${+st.w || 0} lb assist` : st.w ? `${st.w}×${st.r}` : `${st.r} reps`) + (st.drop ? " drop" : "");
       const pr = flags[si]?.pr || false;
       si++;
       if (pr) prs++;
@@ -242,6 +286,11 @@ export function workoutRecap(s, workout) {
 export function allAchievements() {
   return ACH_SERIES.flatMap((series) => series.steps.map((v, i) => ({ id: `${series.key}-${i}`, series, tier: i + 1 + (series.tierOffset || 0), value: v, title: series.names ? series.names[i] : `${series.title} ${ROMAN[i]}`, desc: series.labels ? series.labels[i] : `${v.toLocaleString()} ${series.unit}`, xp: TIER_STYLE[i + 1 + (series.tierOffset || 0)].xp })));
 }
+// Miles aggregation: cv>=2 rows count st.w as miles only on machines whose
+// metric IS miles (Stairmaster floors are not miles). Older rows counted
+// whatever the then-"Miles" field held — keep that, so lifetime stats and
+// mile achievements never lose ground retroactively.
+const cardioMi = (def, st, w) => (def.group !== "Cardio" ? 0 : !(w?.cv >= CARDIO_VERSION) || cardioMeta(def)?.unit === "mi" ? +st.w || 0 : 0);
 export function lifetimeStats(s) {
   let miles = 0, volume = 0, reps = 0, workouts = 0, pushups = 0, pullups = 0, yogurt = 0;
   Object.values(s.meals || {}).forEach((list) => (list || []).forEach((m) => {
@@ -257,7 +306,7 @@ export function lifetimeStats(s) {
       const def = findEx(s, ex.name);
       workSets(ex.sets).forEach((st) => {
         const r = +st.r || 0, wt = +st.w || 0;
-        if (def.type === "timed") { if (def.group === "Cardio") miles += wt; return; }
+        if (def.type === "timed") { miles += cardioMi(def, st, w); return; }
         reps += r; volume += (def.type === "assisted" ? movedLb(pW, wt) : wt) * r;
         if (/push-?up/i.test(ex.name)) pushups += r;
         if (/pull-?up|chin-?up/i.test(ex.name)) pullups += r;
@@ -313,7 +362,7 @@ export const rangeStats = (s, from, to = "9999") => {
     if (creditNow > 0) creditDays.add(w.date);
     const cm = cardioMinutesOf(w);
     cardioMin += cm.run + cm.walk;
-    w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") { if (workSets(ex.sets).length) groups.add(d.group); } else if (d.group === "Cardio") workSets(ex.sets).forEach((st) => { miles += +st.w || 0; }); });
+    w.exercises.forEach((ex) => { const d = findEx(s, ex.name); if (d.type !== "timed") { if (workSets(ex.sets).length) groups.add(d.group); } else workSets(ex.sets).forEach((st) => { miles += cardioMi(d, st, w); }); });
   });
   const quests = Object.entries(s.days || {}).filter(([d]) => d >= from && d <= to).reduce((a, [, day]) => a + (day.list || []).filter((q) => q.claimed).length, 0);
   const fuel = Object.keys(s.fuelClaimed || {}).filter((d) => d >= from && d <= to).length;

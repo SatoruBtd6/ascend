@@ -33,6 +33,7 @@ import { Beeper } from "./beeper.js";
 import { noteRaidHitFor } from "./raidIO.js";
 import { deleteSetAt, restoreSetAt } from "./setUndo.js";
 import { applyPrXpRecount } from "./xpRecount.js";
+import { cardioMeta, CARDIO_VERSION } from "../../data/cardio.js";
 import { XpSync } from "../../lib/xpSync.js";
 export function Train({ s, setS, gainXp, openRun }) {
   D.noteRender("Train");
@@ -99,7 +100,7 @@ export function Train({ s, setS, gainXp, openRun }) {
   const lastSets = (name) => lastWorkingSets(s, name, a?.editId)?.sets || [];
   const cleaned = (ws) => ws.map((e) => ({ ...e, sets: e.sets.filter((st) => st.done && +st.r > 0) })).filter((e) => e.sets.length);
   const sessionGym = () => (a.gym !== undefined ? a.gym : s.currentGym) ?? null;
-  const xpOpts = () => ({ history: collectPrHistory(s, findEx, { excludeId: a?.editId }), workout: { gym: sessionGym(), date: a?.date || today(), ...(a?.editId ? { bw: s.workouts.find((w) => w.id === a.editId)?.bw } : {}) }, excludeId: a?.editId });
+  const xpOpts = () => ({ history: collectPrHistory(s, findEx, { excludeId: a?.editId }), workout: { gym: sessionGym(), date: a?.date || today(), ...(a?.editId ? { bw: s.workouts.find((w) => w.id === a.editId)?.bw, cv: s.workouts.find((w) => w.id === a.editId)?.cv } : { cv: CARDIO_VERSION }) }, excludeId: a?.editId });
 
   const finish = () => {
     // Double-tap guard: every repeat of this finish — second tap, stale
@@ -135,7 +136,7 @@ export function Train({ s, setS, gainXp, openRun }) {
     }
     const { xp, prs, volume, lines, prBonus, sets, bw: res_bw } = workoutXp(s, exercises, { ...bests }, opts);
     const d = today();
-    const workout = { id: a.id || uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(res_bw > 0 ? { bw: res_bw } : {}), ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
+    const workout = { id: a.id || uid(), date: d, title: a.title || "", preset: a.preset || "", cv: CARDIO_VERSION, exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(res_bw > 0 ? { bw: res_bw } : {}), ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
@@ -379,7 +380,7 @@ export function Train({ s, setS, gainXp, openRun }) {
         const def = findEx(s, ex.name);
         const timed = def.type === "timed";
         const cardio = timed && def.group === "Cardio";
-        const showW = !timed || cardio;
+        const showW = !timed || (cardio && !!cardioMeta(def));
         const prev = lastSets(ex.name);
         const past = pastSessions(s, ex.name, a.editId, 3);
         const upd = (si, patch) => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: e.sets.map((st, j) => j !== si ? st : { ...st, ...patch }) }) }));
@@ -500,7 +501,7 @@ export function Train({ s, setS, gainXp, openRun }) {
             )}
             {setHint && ei === 0 && <div className="body text-xs mb-2" style={{ color: C.mute }}>Tap a set number to mark warm-up or drop set</div>}
             <div className="setgrid grid gap-2 text-xs body mb-1 px-1" style={{ gridTemplateColumns: cols, color: C.mute }}>
-              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : mode === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
+              <span>Set</span><span>Previous</span>{showW && <span>{cardio ? cardioMeta(def)?.label || "Miles" : def.type === "assisted" ? "Assist lb" : def.type === "bodyweight" ? "+lb" : mode === "hand" ? "lb/hand" : "lb"}</span>}<span>{timed ? "Minutes" : "Reps"}</span><span /><span />
             </div>
             {ex.sets.map((st, si) => {
               const pv = prev[si];

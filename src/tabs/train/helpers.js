@@ -1,6 +1,7 @@
 import { exKey, workSets, inGymBucket, workoutGym, isLegacyAssisted } from "../../math.js";
 import { findEx } from "../../lib/exercises.js";
 import { overallInfo, rankedLifts, isWorkout, bestValue, profileAt } from "../../lib/stats.js";
+import { cardioMeta } from "../../data/cardio.js";
 export const namesMatch = (a, b) => { const k = exKey(a); return !!k && k === exKey(b); };
 export function gymLabel(s, id) {
   if (id == null || id === "") return "";
@@ -63,7 +64,7 @@ export function applyTargetSets(lastSets, target) {
   });
 }
 export const setLabel = (def, st) => {
-  const core = def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}mi ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`;
+  const core = def.type === "assisted" ? `${st.r} (−${+st.w || 0})` : def.type === "timed" ? `${st.w ? `${st.w}${cardioMeta(def)?.unit || "mi"} ` : ""}${st.r}m` : st.w ? `${st.w}×${st.r}` : `${st.r}`;
   return st.warm ? `${core} W` : st.drop ? `${core} drop` : core;
 };
 export function rankSnapshot(s) {
