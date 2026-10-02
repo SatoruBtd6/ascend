@@ -773,7 +773,7 @@ export default function App() {
     return () => { clearTimeout(t); document.removeEventListener("visibilitychange", v); };
   }, [loaded, s.lb]);
 
-  // Reigning season #1: Ascended Ophanim is only equipped while you actually hold the top spot
+  // Reigning month #1: Ascended Ophanim is only equipped while you actually hold the top spot
   useEffect(() => {
     if (!loaded || !s.lb || !window.storage?.list) return;
     let stop = false;

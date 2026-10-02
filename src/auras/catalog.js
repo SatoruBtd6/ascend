@@ -31,7 +31,7 @@ export const AURAS = [
   { id: "ascended", name: "Ascended", how: "Retired — held by its champion", award: true, group: "special", colors: ["#FFD447", "#7DF9FF"] },
   { id: "descended", name: "Descended", how: "Monthly champion — awarded once, kept forever", award: true, group: "special", colors: ["#C2001F", "#14161C"] },
   { id: "huntersmoon", name: "Hunter's Moon", how: "Land the killing blow on a global boss", worldFirst: true, group: "special", colors: ["#C2001F", "#E4E8F2"] },
-  { id: "wheel", name: "Living Wheel", how: "Finish #1 two seasons in a row", seraph: true, group: "special", colors: ["#38C6FF", "#FFD447"] },
+  { id: "wheel", name: "Living Wheel", how: "Finish #1 in back-to-back months", seraph: true, group: "special", colors: ["#38C6FF", "#FFD447"] },
   { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },
   { id: "soon_seraphim", name: "Seraphim", how: "Coming soon", soon: true, group: "soon", colors: ["#FFFFFF", "#FFD447"] },
   { id: "sigil", name: "Spirit Spark", how: "Aura Spin · uncommon · embers that refuse to fade", crate: true, group: "crate", rarity: "uncommon", ptsMult: 0.03, colors: ["#FFB86B", "#FFD447"] },

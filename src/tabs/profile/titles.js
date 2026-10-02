@@ -1,6 +1,6 @@
 import { allAchievements, overallInfo } from "../../lib/stats.js";
 import { nemesisWins } from "./rivalryStats.js";
-import { prevSeasonKey } from "./season.js";
+import { prevMonthKey, prevSeasonKey } from "./season.js";
 export const TITLE_NONE = { id: "none", name: "" };
 export const TITLES = [
   { id: "showup", name: "Regular", req: (s) => !!s.ach?.["workouts-0"], how: "Show Up I" },
@@ -38,17 +38,28 @@ export const TITLES = [
   { id: "crate_certified", name: "Certified", req: (s) => !!s.crateUnlocks?.crate_certified, how: "Aura Spin · common", crate: true },
   { id: "crate_ascended", name: "Ascended", req: (s) => !!s.crateUnlocks?.crate_ascended, how: "Aura Spin · uncommon", crate: true },
   { id: "crate_built_different", name: "Built Different", req: (s) => !!s.crateUnlocks?.crate_built_different, how: "Aura Spin · uncommon", crate: true },
-  { id: "champion", name: "Season Champion", req: (s) => Object.values(s.seasonBadges || {}).some((b) => b.place === 1), how: "Finish a season in 1st" },
-  { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length > 0, how: "Finish a season in the top 3" },
-  { id: "reigning", name: "Reigning", req: (s) => !!s.lbReigning, how: "Hold #1 on the season board" },
+  { id: "champion", name: "Season Champion", req: (s) => boardFirsts(s), how: "Finish #1 on a monthly board" },
+  { id: "contender", name: "Contender", req: (s) => Object.keys(s.seasonBadges || {}).length + Object.keys(s.monthBadges || {}).length > 0, how: "Finish a month in the top 3" },
+  { id: "reigning", name: "Reigning", req: (s) => !!s.lbReigning, how: "Hold #1 on the month board" },
   { id: "nemesis_slayer", name: "Nemesis Slayer", req: (s) => nemesisWins(s) >= 3, how: "Beat your Nemesis in 3 duels" },
   { id: "world_first", name: "World First", req: (s) => Object.keys(s.worldFirsts || {}).length > 0, how: "Land the killing blow on a global boss" },
-  { id: "seraph_title", name: "Seraph", req: (s) => backToBackSeasonFirsts(s), how: "Finish #1 two seasons in a row" },
+  { id: "seraph_title", name: "Seraph", req: (s) => backToBackSeasonFirsts(s) || backToBackMonthFirsts(s), how: "Finish #1 in back-to-back months" },
 ];
+// A board #1 from either cycle — the quarterly season is retired (phase 7p)
+// but every badge it stamped still counts; nothing already earned is lost.
+export function boardFirsts(s) {
+  return Object.values(s.seasonBadges || {}).some((b) => b?.place === 1)
+    || Object.values(s.monthBadges || {}).some((b) => b?.place === 1);
+}
 // Two seasons back to back at the top of the board
 export function backToBackSeasonFirsts(s) {
   const b = s.seasonBadges || {};
   return Object.entries(b).some(([k, v]) => v?.place === 1 && b[prevSeasonKey(k)]?.place === 1);
+}
+// Two months back to back at the top of the board
+export function backToBackMonthFirsts(s) {
+  const b = s.monthBadges || {};
+  return Object.entries(b).some(([k, v]) => v?.place === 1 && b[prevMonthKey(k)]?.place === 1);
 }
 export const TITLE_LEGACY = { wyrmslayer: "boss_wyrm", icebreaker: "boss_colossus", gravebane: "boss_gravemaw", rookie: "none" };
 export function titleIdOf(s) {

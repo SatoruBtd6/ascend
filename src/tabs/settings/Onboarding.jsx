@@ -5,7 +5,6 @@ import { bodySex } from "../../math.js";
 import { C } from "../../theme.js";
 import { NumField } from "../../ui/NumField.jsx";
 import { Avatar } from "../profile/Avatar.jsx";
-import { seasonKey } from "../profile/season.js";
 import { logTutorialWeight } from "./onboardingWeight.js";
 export function Onboarding({ s, setS, step, onNext }) {
   const p = s.profile;
@@ -62,7 +61,7 @@ export function Onboarding({ s, setS, step, onNext }) {
   }
   return wrap(
     <div className="panel p-5 space-y-4">
-      <div><div className="text-xl font-bold">Join the season</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Season {seasonKey().split("-S")[1]} is live. Joining puts you on the leaderboard, the feed, boss fights, and duels. Your food log and workout details stay private.</div></div>
+      <div><div className="text-xl font-bold">Join the board</div><div className="body text-sm mt-1" style={{ color: C.dim }}>Every month is a fresh race for the top spot. Joining puts you on the leaderboard, the feed, boss fights, and duels. Your food log and workout details stay private.</div></div>
       <div className="panel p-3 flex items-center gap-3" style={{ background: "transparent" }}>
         <Avatar name={p.name} size={44} ring={C.cyan} />
         <div className="min-w-0"><div className="font-bold truncate">{p.name}</div><div className="body text-xs" style={{ color: C.dim }}>{p.weight} lb · {ft}'{inch}" · {GOALS.find((g) => g.id === p.goal)?.label}</div></div>

@@ -9,17 +9,17 @@ import { Empty, Title } from "../../ui/primitives.jsx";
 import { Avatar, FancyName } from "../profile/Avatar.jsx";
 import { PROFILE_BGS, lookStyle } from "../profile/lookConsts.js";
 import { profileCard } from "../profile/profileCard.js";
-import { seasonKey, settleMonth } from "../profile/season.js";
+import { settleMonth } from "../profile/season.js";
 import { liveBoard } from "../train/social.js";
 import { isMutualNemesis } from "./duels.js";
 import { Feed } from "./Feed.jsx";
 import { Crew } from "./Gym.jsx";
-import { PrizeBanner, SeasonBanner, applyReigning, settleSeason } from "./season.jsx";
+import { PrizeBanner, applyReigning, settleSeason } from "./season.jsx";
 export function Board({ s, setS, openProfile, gainXp }) {
   const [view, setView] = useState("board");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState("season");
+  const [sort, setSort] = useState("month");
   const [muscle, setMuscle] = useState("Chest");
   const [err, setErr] = useState("");
 
@@ -43,8 +43,10 @@ export function Board({ s, setS, openProfile, gainXp }) {
       setErr("Couldn't reach the shared leaderboard. Check your connection and tap refresh in a moment.");
     } else {
       const cards = (await Promise.all(keys.map(readCard))).filter(Boolean);
-      // Season settle and the reigning badge always run on the ghost-free list:
-      // ghost cards are tester-only and must never affect standings.
+      // The month settle (primary), the retired season settle (still mints
+      // earned quarterly badges during overlap), and the reigning badge all
+      // run on the ghost-free list: ghost cards are tester-only and must
+      // never affect standings.
       settleSeason(s, setS, liveBoard(cards)).catch(() => {});
       settleMonth(s, setS, liveBoard(cards)).catch(() => {});
       applyReigning(s, setS, liveBoard(cards));
@@ -71,10 +73,9 @@ export function Board({ s, setS, openProfile, gainXp }) {
   const displayRows = overlayOwnBoardRow(rows, liveMine, s.playerId, { lb: s.lb, test: s.test });
   const ws = weekStart();
   const mk = monthKey();
-  const sk = seasonKey();
   const SORTS = {
-    season: ["Season", "season XP", (r) => (r.season?.key === sk ? r.season.xp : 0)],
-    points: ["Points", "pts", (r) => r.points || 0], xp: ["XP", "XP", (r) => r.xp || 0], month: ["Month", "XP this month", (r) => (r.month?.key === mk ? r.month.xp : 0)],
+    month: ["Month", "XP this month", (r) => (r.month?.key === mk ? r.month.xp : 0)],
+    points: ["Points", "pts", (r) => r.points || 0], xp: ["XP", "XP", (r) => r.xp || 0],
     streak: ["Streak", "days", (r) => r.streak || 0], week: ["Week", "workouts", (r) => (r.weekOf === ws ? r.week : 0), (r) => (Math.round(((r.weekOf === ws ? r.week : 0) || 0) * 10) / 10).toFixed(1)],
     muscle: ["Muscles", "", (r) => r.groups?.[muscle] || 0, (r) => { const sc = r.groups?.[muscle] || 0; return sc ? rankFromScore(sc).label : "–"; }],
   };
@@ -106,7 +107,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
       {view === "board" && !s.lb ? (
         <div className="panel p-4 space-y-3">
           <div className="font-bold">Join the leaderboard</div>
-          <div className="body text-sm" style={{ color: C.dim }}>{s.test ? "Ghost mode is on. Joining writes a card only tester accounts can see — you won't raise boss HP, season standings, or duel matching." : "Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private."}</div>
+          <div className="body text-sm" style={{ color: C.dim }}>{s.test ? "Ghost mode is on. Joining writes a card only tester accounts can see — you won't raise boss HP, monthly standings, or duel matching." : "Everyone using this app will see your profile: name, photo, level, points, rank, streak, achievements, lifetime stats, top lifts, and weight trend. Your food log and individual workouts stay private."}</div>
           {!s.profile.name && <input className="inp" placeholder="Your name" onBlur={(e) => setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } }))} />}
           <button onClick={() => setS((p) => ({ ...p, lb: true }))} disabled={!s.profile.name} className="btn w-full py-3" style={!s.profile.name ? { opacity: 0.5 } : null}>Join as {s.profile.name || "…"}</button>
         </div>
@@ -128,7 +129,6 @@ export function Board({ s, setS, openProfile, gainXp }) {
           {Object.keys(GROUP_WEIGHT).map((gk) => <button key={gk} onClick={() => setMuscle(gk)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: muscle === gk ? C.cyan : C.soft, color: muscle === gk ? "#001018" : C.text, border: `1px solid ${C.border}` }}>{gk}</button>)}
         </div>
       )}
-      {sort === "season" && <SeasonBanner />}
       {sort === "month" && <PrizeBanner />}
       {sort === "muscle" && <div className="body text-xs" style={{ color: C.mute }}>Ranked by each player's best lift in {muscle}. Numbers hide, ranks show.</div>}
       {sort === "points" && <div className="body text-xs" style={{ color: C.mute }}>Board score is the points you have right now. Workouts, lift ranks, quests, fuel, steps, challenges, streak, and sleep/mood check-ins all add. Aura Spin auras multiply that. Each spin spends points and drops your place.</div>}
@@ -145,7 +145,15 @@ export function Board({ s, setS, openProfile, gainXp }) {
             return (
               <button key={r.key} onClick={() => openProfile(r.key.slice(3))} className="flex flex-col items-center">
                 {P.place === 1 && <Crown size={26} style={{ color: C.gold, filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} className="mb-1" />}
-                <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} look={lookOf(r)} />
+                {/* Podium #1 showcase (phase 7p): a Descended worn here gets a
+                    117px aura canvas — over the painter's 110px small gate, so
+                    the full sequence runs — mounted at clock0=6 and delayed
+                    ~11s so the prize banner's surge finishes first. Only #1:
+                    Descended is kept forever, so multiple holders will share a
+                    podium in later months, and uncapped they would bust the
+                    frame budget. #2/#3 stay at the frozen rest pose. */}
+                <Avatar src={r.avatar} name={r.name} size={P.place === 1 ? 48 : 38} ring={rank.color} look={lookOf(r)}
+                  {...(P.place === 1 && lookOf(r).aura === "descended" ? { auraSize: 78, auraClock0: 6, auraDelay: 11000 } : {})} />
                 <div className="font-bold text-sm mt-2 text-center w-full truncate"><FancyName name={r.name} look={r.look} style={{ color: isMe(r) ? C.cyan : C.text }} />{r.ghost && <span className="ml-1 text-xs font-bold uppercase" style={{ color: C.mute }}>ghost</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase truncate w-full text-center" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="text-xs body mb-2" style={{ color: C.dim }}>{show(r)} {unit}{cardNeedsXpUpdate(r) ? <div style={{ color: C.mute }}>not updated yet</div> : null}</div>
@@ -166,7 +174,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
               <span className="w-7 text-center text-lg font-extrabold" style={{ color: C.dim }}>{i + 4}</span>
               <Avatar src={r.avatar} name={r.name} size={32} ring={rank.color} look={lookOf(r)} />
               <div className="flex-1 min-w-0 ml-1">
-                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{r.ghost && <span className="ml-1 text-xs font-bold uppercase" style={{ color: C.mute }}>ghost</span>}{isMutualNemesis(s, r) && <span className="ml-1" title="Your Nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Season champion">🏆</span>}</div>
+                <div className="font-bold truncate"><FancyName name={r.name} look={r.look} style={{ color: r.look?.bg && r.look.bg !== "none" ? "#fff" : C.text }} />{isMe(r) && <span className="body text-xs ml-2" style={{ color: C.cyan }}>you</span>}{r.ghost && <span className="ml-1 text-xs font-bold uppercase" style={{ color: C.mute }}>ghost</span>}{isMutualNemesis(s, r) && <span className="ml-1" title="Your Nemesis">😈</span>}{Object.values(r.badges || {}).some((b) => b.place === 1) && <span className="ml-1" title="Board champion">🏆</span>}</div>
                 {r.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: r.look?.accent || C.cyan }}>{r.title}</div>}
                 <div className="body text-xs" style={{ color: C.dim }}><span className="ranklabel">{r.rank}{r.div ? ` ${r.div}` : ""}</span> · Level {r.lvl} · {r.streak} day streak</div>
               </div>

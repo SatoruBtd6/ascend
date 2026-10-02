@@ -3,7 +3,7 @@ import { shift } from "../../lib/dates.js";
 import { activeDays, groupScores } from "../../lib/stats.js";
 import { stripGhostCosmeticsState, countRaidClears } from "../../math.js";
 import { nemesisWins } from "./rivalryStats.js";
-import { backToBackSeasonFirsts, equippedTitle } from "./titles.js";
+import { backToBackMonthFirsts, backToBackSeasonFirsts, boardFirsts, equippedTitle } from "./titles.js";
 export const BORDERS = [
   { id: "none", name: "Default", how: "" },
   { id: "steel", name: "Steel", how: "Any lift at D", tier: 1, css: "linear-gradient(135deg,#dfe6ee,#6f7c8c,#dfe6ee)" },
@@ -11,8 +11,8 @@ export const BORDERS = [
   { id: "prism", name: "Prism", how: "Any lift at A", tier: 4, css: "conic-gradient(#ff3cac,#ffb43c,#3cff9e,#3cc8ff,#9b5cff,#ff3cac)", spin: true },
   { id: "obsidian", name: "Obsidian", how: "Any lift at S", tier: 5, css: "conic-gradient(#000,#FFD447,#000,#FFD447,#000)", spin: true },
   { id: "bone", name: "Bone crown", how: "Defeat any boss", loot: "any", css: "linear-gradient(135deg,#f4ead2,#8a7a5c,#f4ead2)" },
-  { id: "laurel", name: "Laurel", how: "Top 3 in a season", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
-  { id: "seraph", name: "Ophanim", how: "Finish a season as global #1", seasonFirst: true, img: "/season-one.svg", spin: true },
+  { id: "laurel", name: "Laurel", how: "Top 3 on a monthly board", season: true, css: "linear-gradient(135deg,#caffb0,#2f8f3a,#caffb0)" },
+  { id: "seraph", name: "Ophanim", how: "Finish a month as global #1", seasonFirst: true, img: "/season-one.svg", spin: true },
   { id: "relic", name: "Pulse", how: "Aura Spin · rare", crate: true, effect: "pulse", css: "linear-gradient(135deg,#7DF9FF,#38C6FF)" },
   { id: "orbit", name: "Orbit", how: "Aura Spin · rare", crate: true, effect: "orbit", css: "conic-gradient(#38C6FF,transparent,#FFD447,transparent,#38C6FF)" },
   { id: "chase", name: "Chase", how: "Aura Spin · rare", crate: true, effect: "chase", css: "conic-gradient(from 0deg,transparent 0 70%,#fff 88%,#38C6FF 100%)" },
@@ -44,14 +44,16 @@ export function unlocked(item, s) {
   // discriminator we have. See docs/DECISIONS.md (phase 7o Part A).
   if (item.award) return !!s.auraUnlocks?.[item.id] || (!s.lbReigning && s.profile?.look?.aura === item.id);
   if (item.worldFirst) return Object.keys(s.worldFirsts || {}).length > 0;
-  if (item.seraph) return backToBackSeasonFirsts(s);
-  if (item.seasonFirst) return Object.values(s.seasonBadges || {}).some((b) => b.place === 1);
+  if (item.seraph) return backToBackSeasonFirsts(s) || backToBackMonthFirsts(s);
+  // seasonFirst/season read both badge maps — the quarterly season is retired
+  // (phase 7p) but its badges still count, and month badges mint the same way
+  if (item.seasonFirst) return boardFirsts(s);
   if (item.task) return !!s.auraUnlocks?.[item.id] || AURA_TASKS[item.task](s).done;
   if (item.nemesis) return nemesisWins(s) >= item.nemesis;
   if (item.tier !== undefined) return bestTier(s) >= item.tier;
   if (item.loot) return item.loot === "any" ? (s.loot?.bosses || []).length > 0 : (s.loot?.bosses || []).includes(item.loot);
   if (item.ach) return !!s.ach?.[item.ach];
-  if (item.season) return item.id === "champion" ? Object.values(s.seasonBadges || {}).some((b) => b.place === 1) : Object.keys(s.seasonBadges || {}).length > 0;
+  if (item.season) return item.id === "champion" ? boardFirsts(s) : Object.keys(s.seasonBadges || {}).length + Object.keys(s.monthBadges || {}).length > 0;
   return false;
 }
 export function stripGhostCosmetics(s) {

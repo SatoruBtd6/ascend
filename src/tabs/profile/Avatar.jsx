@@ -4,7 +4,7 @@ import { ACH_ICONS, TIER_STYLE } from "../../data/achievements.js";
 import { C, RAINBOW } from "../../theme.js";
 import { NAME_FONTS } from "./lookConsts.js";
 import { BORDERS } from "./unlock.js";
-export function Avatar({ src, name, size = 48, ring, look }) {
+export function Avatar({ src, name, size = 48, ring, look, auraSize, auraClock0, auraDelay }) {
   const color = ring || C.cyan;
   const border = BORDERS.find((b) => b.id === look?.border && (b.css || b.img));
   const inner = src ? (
@@ -21,7 +21,7 @@ export function Avatar({ src, name, size = 48, ring, look }) {
     <div className="relative shrink-0 flex items-center justify-center" style={{ width: size + pad * 2, height: size + pad * 2 }}>
       {border?.img && <img src={border.img} alt="" aria-hidden="true" style={{ position: "absolute", inset: -Math.round(size * 0.08), width: size + pad * 2 + Math.round(size * 0.16), height: size + pad * 2 + Math.round(size * 0.16), objectFit: "contain", pointerEvents: "none", animation: "rkspin 14s linear infinite", filter: "drop-shadow(0 0 8px rgba(255,212,71,.8))" }} />}
       {border?.css && <AnimatedBorder border={border} color={look?.accent || color} />}
-      {auraOn ? <AuraRing aura={look.aura} size={(size + pad * 2) * ringScale} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>{photo}</AuraRing> : photo}
+      {auraOn ? <AuraRing aura={look.aura} size={auraSize || (size + pad * 2) * ringScale} clock0={auraClock0} startDelay={auraDelay} style={{ left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>{photo}</AuraRing> : photo}
     </div>
   );
 }

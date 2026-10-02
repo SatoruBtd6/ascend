@@ -12,12 +12,12 @@ export { monthKey };
 export const prevMonthKey = (key) => { const [y, m] = key.split("-").map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`; };
 export const nextMonthStart = (key) => { const [y, m] = key.split("-").map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`; };
 export const monthXp = (s, key) => Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(key)).reduce((t, [, v]) => t + v, 0);
-// Pure: the month's champion off the published board cards. Winner = highest
-// month XP. Ties go to the card whose ledger reached the tied total on the
-// earliest day (xpLog is per-day, so a same-day tie falls back to id for
+// Pure: the month's podium off the published board cards, top 3. Ordered by
+// month XP desc; ties go to the card whose ledger reached the tied total on
+// the earliest day (xpLog is per-day, so a same-day tie falls back to id for
 // determinism — no coin flips). A republished card contributes its prevMonth
-// snapshot.
-export function pickMonthWinner(rows, key) {
+// snapshot. (phase 7p: month is the season — top-3 feeds laurel/contender.)
+export function pickMonthWinners(rows, key) {
   const stat = (r) => {
     const m = r.month?.key === key ? r.month : (r.prevMonth?.key === key ? r.prevMonth : null);
     return { xp: m?.xp || 0, xpd: m?.xpd || {} };
@@ -27,29 +27,35 @@ export function pickMonthWinner(rows, key) {
     for (const d of Object.keys(xpd).sort()) { acc += xpd[d] || 0; if (acc >= total) return d; }
     return "9999-99"; // no day data — loses every tie
   };
-  const cands = (rows || []).map((r) => ({ r, ...stat(r) })).filter((c) => c.xp > 0);
-  if (!cands.length) return null;
-  const topXp = Math.max(...cands.map((c) => c.xp));
-  const win = cands.filter((c) => c.xp === topXp).sort((a, b) => {
-    const ra = reach(a.xpd, topXp), rb = reach(b.xpd, topXp);
-    return ra !== rb ? (ra < rb ? -1 : 1) : String(a.r.id || a.r.key).localeCompare(String(b.r.id || b.r.key));
-  })[0].r;
-  return { id: win.id || (win.key || "").slice(3), name: win.name, xp: topXp };
+  return (rows || []).map((r) => ({ r, ...stat(r) })).filter((c) => c.xp > 0)
+    .sort((a, b) => b.xp - a.xp
+      || reach(a.xpd, a.xp).localeCompare(reach(b.xpd, b.xp))
+      || String(a.r.id || a.r.key).localeCompare(String(b.r.id || b.r.key)))
+    .slice(0, 3)
+    .map((c, i) => ({ id: c.r.id || (c.r.key || "").slice(3), name: c.r.name, xp: c.xp, place: i + 1 }));
+}
+export function pickMonthWinner(rows, key) {
+  const w = pickMonthWinners(rows, key)[0];
+  return w ? { id: w.id, name: w.name, xp: w.xp } : null;
 }
 // Month settle (phase 7o Part A): mirrors the season settle. Any client that
 // loads the board after rollover writes the shared `month:<YYYY-MM>` record
 // once — including a no-qualifier record, so an empty month stays closed
-// instead of retrying. Only the named winner's own client then stamps
-// auraUnlocks.descended — per-account ownership, never a shared write.
+// instead of retrying. The podium (top 3) stamp monthBadges; only the #1
+// winner's own client stamps auraUnlocks.descended — per-account ownership,
+// never a shared write.
 export async function settleMonth(s, setS, rows, storage = window.storage) {
   const last = prevMonthKey(monthKey());
   let rec = null;
   try { const r = await storage.get(`month:${last}`, true); rec = r?.value ? JSON.parse(r.value) : null; } catch (e) { rec = null; }
   if (!rec) {
-    const win = pickMonthWinner(rows, last);
-    rec = { key: last, winners: win ? [{ ...win, place: 1 }] : [], t: Date.now() };
+    rec = { key: last, winners: pickMonthWinners(rows, last), t: Date.now() };
     try { await storage.set(`month:${last}`, JSON.stringify(rec), true); } catch (e) { /* someone else already wrote it */ }
   }
   const mine = rec.winners?.find((w) => w.id === s.playerId);
-  if (mine) setS((p) => ({ ...p, auraUnlocks: { ...(p.auraUnlocks || {}), descended: p.auraUnlocks?.descended || today() }, monthBadges: { ...(p.monthBadges || {}), [last]: { place: mine.place, xp: mine.xp } } }));
+  if (mine) setS((p) => ({
+    ...p,
+    auraUnlocks: mine.place === 1 ? { ...(p.auraUnlocks || {}), descended: p.auraUnlocks?.descended || today() } : p.auraUnlocks,
+    monthBadges: { ...(p.monthBadges || {}), [last]: { place: mine.place, xp: mine.xp } },
+  }));
 }

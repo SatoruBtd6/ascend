@@ -1233,6 +1233,85 @@ test("pickMonthWinner: highest month XP wins, ties go to first to reach", () => 
   assert.equal(pickMonthWinner([{ id: "f", name: "f", month: { key: "2026-08", xp: 999 } }], mk), null);
 });
 
+test("pickMonthWinners: top 3 ranked, first-to-reach breaks ties at every place", () => {
+  const mk = "2026-09";
+  const row = (id, xp, xpd, prev = false) => ({ id, name: id, ...(prev ? { prevMonth: { key: mk, xp, xpd } } : { month: { key: mk, xp, xpd } }) });
+  // clean ordering by xp, places 1..3, fourth cut off
+  assert.deepEqual(pickMonthWinners([row("a", 300, {}), row("b", 200, {}), row("c", 100, {}), row("d", 50, {})], mk).map((w) => [w.id, w.place]), [["a", 1], ["b", 2], ["c", 3]]);
+  // tie for 2nd/3rd: e reached 200 on the 5th, f on the 20th — e takes 2nd
+  const w = pickMonthWinners([row("top", 500, {}), row("e", 200, { "2026-09-05": 200 }), row("f", 200, { "2026-09-20": 200 })], mk);
+  assert.deepEqual(w.map((x) => [x.id, x.place]), [["top", 1], ["e", 2], ["f", 3]]);
+  // fewer than 3 qualifiers → shorter list; none → empty record (month stays closed)
+  assert.deepEqual(pickMonthWinners([row("a", 100, {})], mk).map((x) => x.place), [1]);
+  assert.deepEqual(pickMonthWinners([row("a", 0, {})], mk), []);
+});
+
+test("settleMonth: records the top 3, stamps monthBadges, Descended only for #1", async () => {
+  const last = prevMonthKey(monthKey());
+  const rows = ["a", "b", "c", "d"].map((id, i) => ({ id, name: id, prevMonth: { key: last, xp: 400 - i * 100, xpd: {} } }));
+  const store = {};
+  const storage = { get: async (k) => (store[k] ? { value: store[k] } : null), set: async (k, v) => { store[k] = v; } };
+  // #2's own client stamps a badge but no aura
+  const s2 = { playerId: "b" };
+  let next2 = null;
+  await settleMonth(s2, (f) => { next2 = f(s2); }, rows, storage);
+  assert.equal(next2.monthBadges[last].place, 2);
+  assert.equal(next2.auraUnlocks, undefined);
+  // #1's own client stamps the badge AND the Descended award
+  const s1 = { playerId: "a" };
+  let next1 = null;
+  await settleMonth(s1, (f) => { next1 = f(s1); }, rows, storage);
+  assert.equal(next1.monthBadges[last].place, 1);
+  assert.ok(next1.auraUnlocks.descended);
+  // the shared record holds all three places and is written once
+  assert.deepEqual(JSON.parse(store[`month:${last}`]).winners.map((x) => x.place), [1, 2, 3]);
+  // a legacy one-winner record still stamps its champion's badge
+  const store2 = { [`month:${last}`]: JSON.stringify({ key: last, winners: [{ id: "z", name: "z", xp: 1, place: 1 }], t: 1 }) };
+  const storage2 = { get: async (k) => (store2[k] ? { value: store2[k] } : null), set: async () => {} };
+  const sz = { playerId: "z" };
+  let nextz = null;
+  await settleMonth(sz, (f) => { nextz = f(sz); }, [], storage2);
+  assert.equal(nextz.monthBadges[last].place, 1);
+  assert.ok(nextz.auraUnlocks.descended);
+});
+
+test("board badges: Ophanim, Laurel, champion and contender read month and season badges alike", () => {
+  const oph = BORDERS.find((b) => b.id === "seraph");
+  const lau = BORDERS.find((b) => b.id === "laurel");
+  const title = (id) => TITLES.find((x) => x.id === id);
+  const monthly = { monthBadges: { "2026-08": { place: 1, xp: 1 } } };
+  const monthlyTop3 = { monthBadges: { "2026-08": { place: 3, xp: 1 } } };
+  const legacy = { seasonBadges: { "2025-S4": { place: 1, xp: 1 } } };   // earned before 7p — must survive
+  const legacyTop3 = { seasonBadges: { "2025-S4": { place: 2, xp: 1 } } };
+  for (const s of [monthly, legacy]) {
+    assert.equal(unlocked(oph, s), true);
+    assert.equal(title("champion").req(s), true);
+  }
+  for (const s of [monthlyTop3, legacyTop3]) {
+    assert.equal(unlocked(lau, s), true);
+    assert.equal(title("contender").req(s), true);
+    assert.equal(unlocked(oph, s), false);
+    assert.equal(title("champion").req(s), false);
+  }
+  assert.equal(unlocked(oph, {}), false);
+  assert.equal(unlocked(lau, {}), false);
+});
+
+test("back-to-back #1s unlock Living Wheel and Seraph via months or seasons", () => {
+  const wheel = auraById("wheel");
+  const seraphTitle = TITLES.find((x) => x.id === "seraph_title");
+  const months = { monthBadges: { "2026-08": { place: 1 }, "2026-07": { place: 1 } } };
+  const seasons = { seasonBadges: { "2026-S1": { place: 1 }, "2026-S2": { place: 1 } } }; // legacy progress still counts
+  const mixed = { seasonBadges: { "2026-S1": { place: 1 } }, monthBadges: { "2026-08": { place: 1 } } };
+  const single = { monthBadges: { "2026-08": { place: 1 } } };
+  assert.equal(unlocked(wheel, months), true);
+  assert.equal(unlocked(wheel, seasons), true);
+  assert.equal(unlocked(wheel, single), false);
+  assert.equal(unlocked(wheel, mixed), false); // one of each is not back-to-back
+  assert.equal(seraphTitle.req(months), true);
+  assert.equal(seraphTitle.req(seasons), true);
+});
+
 test("stripGhostCosmetics never strips a worn award aura, stamped or not", () => {
   // the 4d guarantee: first load after deploy, stamp not landed yet, aura survives
   const unstamped = { test: true, workouts: [], exercises: [], profile: { name: "Finn", look: { aura: "ascended", auraPrev: "ember", border: "none" } } };
@@ -1400,10 +1479,11 @@ import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
 import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo } from "./lib/stats.js";
 import { cardScore, selfScore } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
-import { AURA_TASKS, unlocked, stripGhostCosmetics } from "./tabs/profile/unlock.js";
+import { AURA_TASKS, BORDERS, unlocked, stripGhostCosmetics } from "./tabs/profile/unlock.js";
+import { TITLES } from "./tabs/profile/titles.js";
 import { auraById } from "./auras/catalog.js";
 import { monthKey, prevMonthKey, monthXp } from "./tabs/profile/season.js";
-import { pickMonthWinner } from "./tabs/profile/season.js";
+import { pickMonthWinner, pickMonthWinners, settleMonth } from "./tabs/profile/season.js";
 import { reconcileRecount } from "./tabs/train/xpRecount.js";
 
 const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-9, `${label || ""} ${a} vs ${b}`);

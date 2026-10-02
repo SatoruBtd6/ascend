@@ -93,7 +93,7 @@ export function LookStudio({ s, setS }) {
           );
         })}
 
-        {tab === "titles" && [["progress", "Milestones"], ["crate", "Aura Spin"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Seasons"], ["soon", "Coming soon"]].map(([g, label]) => {
+        {tab === "titles" && [["progress", "Milestones"], ["crate", "Aura Spin"], ["boss", "Boss slayer"], ["rivalry", "Rivalry"], ["season", "Board"], ["soon", "Coming soon"]].map(([g, label]) => {
           const list = TITLES.filter((t) => titleGroup(t) === g);
           return (
             <div key={g} className="space-y-2">
@@ -120,7 +120,7 @@ export function LookStudio({ s, setS }) {
             <StudioHead>Exclusive achievements</StudioHead>
             <div className="body text-xs -mt-1.5" style={{ color: C.dim }}>Not earnable yet. They're here so the grind has a ceiling to chase.</div>
             <div className="grid grid-cols-2 gap-2">
-              {[["Perfect Season", "Hit every daily quest for a full season"], ["First Blood", "Land the first hit on a new global boss"], ["Untouchable", "Hold #1 for 30 days straight"]].map(([name, how]) => (
+              {[["Perfect Month", "Hit every daily quest for a full month"], ["First Blood", "Land the first hit on a new global boss"], ["Untouchable", "Hold #1 for 30 days straight"]].map(([name, how]) => (
                 <div key={name} className="text-left px-3 py-2.5 flex items-start gap-2" style={{ borderRadius: 12, background: C.glass, border: `1px solid ${C.glassLine}` }}>
                   <span className="flex-1 min-w-0">
                     <span className="block text-xs font-bold tracking-wider uppercase truncate" style={{ color: C.mute }}>{name}</span>

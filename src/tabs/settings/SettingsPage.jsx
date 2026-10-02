@@ -201,7 +201,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="font-bold">Ghost / test account</div>
-              <div className="body text-xs" style={{ color: C.dim }}>{s.test ? "Only tester accounts can see this one on the board. No boss damage, no season standings, no duel matching. All cosmetics are unlocked." : "Off. Your real unlocks apply."}</div>
+              <div className="body text-xs" style={{ color: C.dim }}>{s.test ? "Only tester accounts can see this one on the board. No boss damage, no monthly standings, no duel matching. All cosmetics are unlocked." : "Off. Your real unlocks apply."}</div>
             </div>
             <SettingsToggle label="Ghost / test account" on={!!s.test} onClick={() => setS((p) => (p.test ? stripGhostCosmetics(p) : { ...p, test: true }))} />
           </div>

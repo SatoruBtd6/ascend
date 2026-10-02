@@ -1,7 +1,7 @@
 import { C } from "../../theme.js";
 import { AuraCanvas } from "../../auras/AuraCanvas.jsx";
 import { auraById } from "../../auras/catalog.js";
-import { monthKey, nextMonthStart, nextSeasonStart, prevSeasonKey, seasonKey, seasonXp } from "../profile/season.js";
+import { monthKey, monthXp, nextMonthStart, prevSeasonKey, seasonKey } from "../profile/season.js";
 export async function settleSeason(s, setS, rows) {
   const last = prevSeasonKey(seasonKey());
   let rec = null;
@@ -15,10 +15,12 @@ export async function settleSeason(s, setS, rows) {
   const mine = rec.winners?.find((w) => w.id === s.playerId);
   if (mine && !s.seasonBadges?.[last]) setS((p) => ({ ...p, seasonBadges: { ...(p.seasonBadges || {}), [last]: { place: mine.place, xp: mine.xp } } }));
 }
+// Reigning rides the monthly cycle (phase 7p): the quarterly season is
+// retired, so the live #1 is the top of the month board.
 export function applyReigning(s, setS, rows) {
-  const sk = seasonKey();
-  const xpOf = (r) => (r?.season?.key === sk ? r.season.xp : 0) || 0;
-  const mine = seasonXp(s, sk);
+  const mk = monthKey();
+  const xpOf = (r) => (r?.month?.key === mk ? r.month.xp : 0) || 0;
+  const mine = monthXp(s, mk);
   const myId = s.playerId;
   const bestOther = (rows || []).filter((r) => (r.id || (r.key || "").slice(3)) !== myId).reduce((m, r) => Math.max(m, xpOf(r)), 0);
   const on = !!s.lb && !s.test && mine > 0 && mine > bestOther;
@@ -28,29 +30,21 @@ export function applyReigning(s, setS, rows) {
   // for the Reigning title and board highlights.
   setS((p) => (!!p.lbReigning === on ? p : { ...p, lbReigning: on }));
 }
-export function SeasonBanner() {
-  const key = seasonKey();
-  const days = Math.max(0, Math.ceil((new Date(nextSeasonStart(key) + "T00:00") - new Date()) / 86400000));
-  return (
-    <div className="panel px-4 py-3 flex items-center justify-between">
-      <div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Season {key.split("-S")[1]} · {key.slice(0, 4)}</div><div className="text-sm font-semibold">Finish the season #1 to keep the Ophanim border.</div></div>
-      <div className="text-right"><div className="text-xl font-bold tabular-nums">{days}</div><div className="body text-xs" style={{ color: C.dim }}>days left</div></div>
-    </div>
-  );
-}
 // Monthly prize banner — two columns, borderless surface. Variant A is the
 // spec build: preview on the left, three stacked text lines on the right, the
 // aura is the only colour. Variant B is the earlier labelled layout, kept for
 // Brodan's phone pass at ?prize=1. The preview mounts Descended at clock0=6s
-// so it opens inside the spin-up surge, then loops the normal 45s cycle —
-// painter timeline untouched.
+// so it opens inside the spin-up surge, plays through the arrest and eye
+// launch (landing around t=17s mid-watch — eyes over the avatar make a good
+// still), then freezes so the podium #1 aura is the only Descended running
+// on the board (phase 7p sequential handoff — the two never animate at once).
 export function PrizeBanner({ variant = "a" }) {
   const mk = monthKey();
   const monthName = new Date(mk + "-15T12:00").toLocaleDateString(undefined, { month: "long" });
   const days = Math.max(0, Math.ceil((new Date(nextMonthStart(mk) + "T00:00") - new Date()) / 86400000));
   const preview = (
     <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
-      <AuraCanvas aura="descended" w={120} h={120} clock0={6} />
+      <AuraCanvas aura="descended" w={120} h={120} clock0={6} freezeAfter={11000} />
     </div>
   );
   if (variant === "b") {

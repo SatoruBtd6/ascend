@@ -674,3 +674,34 @@ path — the only writers are additive merges on the owning account's own blob.
   `FAIL`. The edge rule itself still protects a real thing: painted pixels
   clip at the canvas bitmap (a flat cut), they can never overlap neighbouring
   DOM — so the consequence of exceeding it is visual only.
+
+## Podium #1 is the only Descended that may animate on the board (phase 7p — approved by Brodan)
+
+- **Only podium #1 animates; #2 and #3 stay at the frozen rest pose — this
+  cap is permanent.** Descended is kept forever (`auraUnlocks` is additive and
+  never cleared), so multiple holders will share a podium in later months.
+  Three uncapped animated Descended measured ~16.5 ms — over the 16 ms fail
+  line. Do not remove the cap; if a second animated copy is ever wanted, it
+  must come with a fresh measured budget, not a deleted constant.
+- **How #1 animates:** the podium Avatar gets an aura-size override
+  (`auraSize: 78` → 117 px canvas, over the painter's 110 px small gate) so
+  the full approved sequence runs with zero painter changes. The photo layout
+  is untouched. It mounts at `clock0=6` so viewers land on the surge.
+- **Banner → podium handoff is sequential, never simultaneous.** The prize
+  banner's preview (`freezeAfter: 11000`) mounts at `clock0=6`, plays the
+  surge → arrest → eye launch, and freezes ~t=17 mid-watch — a stable frame
+  with the eyes over the avatar. The podium instance mounts at `clock0=6`
+  behind `startDelay: 11000`: it paints its surge-start frame as a still
+  during the banner's run, then joins the loop the moment the banner freezes
+  and plays its own surge from the top. One animated Descended at a time,
+  no visible mid-drift cut.
+- **The quarterly season is retired; the month is the season.** Season sort
+  chip and SeasonBanner removed; the board defaults to the month sort so the
+  prize banner shows on open. `settleSeason` still runs (in-progress
+  quarterly badges land; old builds' `prevSeason` reads stay valid) but no
+  season UI remains. `applyReigning` compares current-month XP; Ophanim,
+  Laurel, champion/contender/reigning and Living Wheel/Seraph all read
+  `monthBadges` OR `seasonBadges` — nothing already earned is lost.
+  `settleMonth` records the top 3 (same first-to-reach tie-break); Descended
+  still goes only to place 1. Cards keep publishing `season`/`prevSeason`
+  for mixed-version rollout.

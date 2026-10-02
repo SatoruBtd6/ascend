@@ -29,7 +29,9 @@ export function profileCard(s) {
     prevMonth: (() => { const pm = prevMonthKey(monthKey()); return { key: pm, xp: monthXp(s, pm), xpd: Object.fromEntries(Object.entries(s.xpLog || {}).filter(([d]) => d.startsWith(pm))) }; })(),
     uid: window.ascendUserId || null, tier: bestTier(s), crew: s.crew?.code ? { code: s.crew.code, since: s.crew.since || today() } : null, daily: dailyStats(s), rivalWith: s.nemesis?.id || null, nemWins: nemesisWins(s),
     season: { key: seasonKey(), xp: seasonXp(s, seasonKey()) }, prevSeason: { key: prevSeasonKey(seasonKey()), xp: seasonXp(s, prevSeasonKey(seasonKey())) },
-    badges: s.seasonBadges || {},
+    // both badge maps publish — the board 🏆 marker and any badge-driven
+    // cosmetic read the union; monthly badges mint the same shape (phase 7p)
+    badges: { ...(s.monthBadges || {}), ...(s.seasonBadges || {}) },
     reigning: !!s.lbReigning,
     ghost: !!s.test,
     // Crew weekly quest pool + how many crew banners this player has earned

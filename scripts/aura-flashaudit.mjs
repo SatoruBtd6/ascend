@@ -160,10 +160,14 @@ if (list.length > 0) {
       const cv2 = document.createElement("canvas"); cv2.width = cv2.height = 141;
       return mod.makeAura(cv, { aura, w: 141, h: 141, mode: "circle", ringR: 141 / 3.456, overCanvas: mod.auraNeedsOver(aura) ? cv2 : null });
     }).filter(Boolean);
+    // The shared page clock advances once per frame, matching AuraLoop's
+    // real tick — advancing it inside the instance loop ran it 52x fast and
+    // compressed the combined flashTimes timeline (~52x too many "per
+    // second"), which made the page-wide cap look breached when it held.
     for (let f = 0; f < SECS * 60; f++) {
+      window.__clock.set(window.__clock.get() + 1 / 60);
       for (const inst of insts) {
         if (inst.moment == null && typeof inst.forceMoment === "function") inst.forceMoment();
-        window.__clock.set(window.__clock.get() + 1 / 60);
         inst.frame(1 / 60);
       }
     }

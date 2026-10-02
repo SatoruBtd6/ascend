@@ -3,7 +3,7 @@ import { Check, ChevronLeft, Layers, Loader2 } from "lucide-react";
 import { fmtDay, monthKey } from "../../lib/dates.js";
 import { C } from "../../theme.js";
 import { Empty } from "../../ui/primitives.jsx";
-import { seasonKey, seasonStart, seasonXp } from "../profile/season.js";
+import { seasonKey, seasonStart } from "../profile/season.js";
 import { XpSync } from "../../lib/xpSync.js";
 export const CARD_GAP_MS = 15 * 60000;
 export const isCardFlip = (x) => /^deck_/.test(x.event_id || "") || /^Card deck( ·| cleared)/.test(x.source || "");
@@ -30,7 +30,10 @@ export function XpLedger({ s, onBack, drawer = false }) {
   const [pending, setPending] = useState(() => XpSync.pending());
   const sk = seasonKey(), seasonFrom = seasonStart(sk), monthFrom = `${monthKey()}-01`;
   const sumRange = (from) => Object.entries(s.xpLog || {}).filter(([d]) => d >= from).reduce((a, [, v]) => a + v, 0);
-  const totals = { all: s.xp || 0, season: seasonXp(s, sk), month: sumRange(monthFrom) };
+  // quarterly season is retired (phase 7p): the month is the visible cycle.
+  // The server summary still gets seasonFrom — old servers/clients expect it —
+  // but the season cell is gone from the totals row.
+  const totals = { all: s.xp || 0, month: sumRange(monthFrom) };
   const local = useMemo(() => Object.entries(s.xpDetail || {}).flatMap(([d, list]) => (list || []).map((x, i) => ({ event_id: `${d}_${i}`, amount: x.a, source: x.m, day: d, at: new Date(x.t || `${d}T12:00`).toISOString() }))).sort((a, b) => (a.at < b.at ? 1 : -1)), [s.xpDetail]);
   const load = async (offset = 0) => {
     await XpSync.flush();
@@ -45,15 +48,15 @@ export function XpLedger({ s, onBack, drawer = false }) {
   const list = useMemo(() => groupCardSessions(src === "server" ? rows || [] : local), [src, rows, local]);
   const groups = [];
   list.forEach((x) => { const g = groups[groups.length - 1]; if (g && g.day === x.day) g.items.push(x); else groups.push({ day: x.day, items: [x] }); });
-  const matches = sum && +sum.total === totals.all && +sum.season === totals.season && +sum.month === totals.month;
+  const matches = sum && +sum.total === totals.all && +sum.month === totals.month;
   const rc = s.xpRecount;
   const fmtT = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   return (
     <div className="space-y-4">
       {!drawer && <div className="flex items-center gap-2"><button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button><h1 className="text-2xl font-bold glowtext">XP history</h1></div>}
       <div className="panel p-4 space-y-3">
-        <div className="grid grid-cols-3 gap-2 text-center">
-          {[["All time", totals.all], ["This season", totals.season], ["This month", totals.month]].map(([l, v]) => <div key={l}><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums glowtext">{v.toLocaleString()}</div></div>)}
+        <div className="grid grid-cols-2 gap-2 text-center">
+          {[["All time", totals.all], ["This month", totals.month]].map(([l, v]) => <div key={l}><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums glowtext">{v.toLocaleString()}</div></div>)}
         </div>
         <div className="body text-xs flex items-center gap-1.5" style={{ color: pending ? C.orange : matches ? C.green : C.dim }}>
           {pending ? <><Loader2 size={12} className="animate-spin" />{pending} {pending === 1 ? "entry" : "entries"} waiting to sync</> : matches ? <><Check size={13} />Every point is logged, and the server totals match these numbers.</> : src === "server" ? "Checking totals…" : src === "local" ? "Showing what's saved on this phone. The full log loads when you're online." : "Loading…"}

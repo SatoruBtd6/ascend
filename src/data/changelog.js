@@ -6,6 +6,7 @@ export const CHANGELOG = [
       "New top-tier aura: Descended — a wheel of black fallen wings whose eyes pull free and watch you, awarded monthly.",
       "Monthly prize: finish #1 on the month board to keep that month's aura forever.",
       "Earned auras are now permanent — Ascended stays with everyone who already holds it.",
+      "The board is now a monthly race — the prize aura and top-3 medals settle every month, and the champion's podium aura animates.",
     ],
   },
   {

@@ -4960,7 +4960,7 @@ export function fireAuraMoment(aura) {
   for (const inst of auraLiveInstances.get(resolveAuraId(aura)) || []) { try { inst.forceMoment?.(); } catch (e) { /* dev-only */ } }
 }
 
-export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance, clock0 }) {
+export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children, overSlot, figure, onInstance, clock0, startDelay, freezeAfter }) {
   aura = resolveAuraId(aura); // leaderboard cards from older builds still carry the old id
   const ref = useRef(null);
   const overRef = useRef(null);
@@ -4979,9 +4979,16 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
     let io = null;
     if (typeof IntersectionObserver !== "undefined") { io = new IntersectionObserver((es) => { inst.visible = es[0]?.isIntersecting ?? true; }, { rootMargin: "80px" }); io.observe(cv); }
     const untrack = trackAuraInstance(aura, inst);
-    AuraLoop.add(inst);
-    return () => { AuraLoop.remove(inst); untrack(); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
-  }, [aura, w, h, mode, ringR, needs, overSlot, figure, clock0]);
+    // Sequential handoff (phase 7p): startDelay holds the instance out of
+    // the render loop (it still paints its first frame) so another aura can
+    // run its highlight first; freezeAfter stops it permanently — used so
+    // the prize banner's surge plays before the podium #1 aura takes over.
+    const timers = [];
+    if (startDelay > 0) timers.push(setTimeout(() => AuraLoop.add(inst), startDelay));
+    else AuraLoop.add(inst);
+    if (freezeAfter > 0) timers.push(setTimeout(() => { inst.visible = false; io?.disconnect(); }, freezeAfter));
+    return () => { timers.forEach(clearTimeout); AuraLoop.remove(inst); untrack(); io?.disconnect(); try { onInstance?.(null); } catch (e) { /* consumer hook only */ } };
+  }, [aura, w, h, mode, ringR, needs, overSlot, figure, clock0, startDelay, freezeAfter]);
   if (!AURA_FX[aura]) return null;
   const overCanvas = needs ? (
     <canvas ref={overRef} aria-hidden="true" className="absolute pointer-events-none" style={{ left: 0, top: 0, width: w, height: h, zIndex: 2 }} />
@@ -4996,10 +5003,10 @@ export function AuraCanvas({ aura, w, h, mode = "circle", ringR, style, children
   );
 }
 // Drop-in replacement for the old ring. `size` is the ring's outer size as before; the canvas is larger so particles can drift out.
-export function AuraRing({ aura, size, style, children }) {
+export function AuraRing({ aura, size, style, children, clock0, startDelay }) {
   aura = resolveAuraId(aura);
   if (!AURA_FX[aura]) return null;
   const k = aura === "ascended" || aura === "descended" ? 1.5 : 1.28;
   const w = Math.round(size * k);
-  return <AuraCanvas aura={aura} w={w} h={w} ringR={size / (aura === "ascended" || aura === "descended" ? 2.15 : 2.7)} style={style}>{children}</AuraCanvas>;
+  return <AuraCanvas aura={aura} w={w} h={w} ringR={size / (aura === "ascended" || aura === "descended" ? 2.15 : 2.7)} style={style} clock0={clock0} startDelay={startDelay}>{children}</AuraCanvas>;
 }
