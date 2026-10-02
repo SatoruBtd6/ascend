@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, RefreshCw, Sparkles, Swords } from "lucide-react";
 import { DAILY_REROLLS, QUEST_EX, questStep } from "../../data/quests.js";
-import { today, uid } from "../../lib/dates.js";
+import { today } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
 import { makeQuest, newDay } from "../../lib/stats.js";
 import { C } from "../../theme.js";
@@ -29,11 +29,13 @@ export function Quests({ s, setS, gainXp }) {
       const sets = [];
       if (def.type === "timed") sets.push({ w: "", r: extra, done: true });
       else { const size = questStep(q); let left = extra; while (left > 0) { sets.push({ w: "", r: Math.min(size, left), done: true }); left -= size; } }
-      logged = { id: uid(), date: d, source: "quest", xp: 0, volume: 0, exercises: [{ name: exName, sets }], bw: +s.profile?.weight || null };
+      logged = { id: `quest_${d}_${q.id}`, date: d, source: "quest", xp: 0, volume: 0, exercises: [{ name: exName, sets }], bw: +s.profile?.weight || null };
     }
+    // gate inside the updater: a second tap on the same quest sees claimed=true
+    // and can't append a second row (the logged id is deterministic anyway)
     setS((p) => ({
       ...p,
-      workouts: logged ? [...p.workouts, logged] : p.workouts,
+      workouts: logged && !p.days[d].list.find((y) => y.id === q.id)?.claimed ? [...p.workouts, logged] : p.workouts,
       days: { ...p.days, [d]: { ...p.days[d], list: p.days[d].list.map((y) => y.id === q.id ? { ...y, claimed: true } : y) } },
     }));
     gainXp(q.xp, `Quest: ${q.title}`, `quest_${d}_${q.id}`);

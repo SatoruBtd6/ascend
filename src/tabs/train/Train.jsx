@@ -59,6 +59,16 @@ export function Train({ s, setS, gainXp, openRun }) {
   const [setUndo, setSetUndo] = useState(null);
   const undoSeq = useRef(0);
   const doneTapRef = useRef({});
+  const finishingRef = useRef(null);
+  // Exercise drag-to-reorder (phase 7p): press-and-hold ~300ms picks the row
+  // up (lift, shadow, list dims), siblings slide aside over 200ms ease-out,
+  // release drops it. Sets live inside the exercise object, so a reorder can
+  // never lose logged work. dragRef holds the live gesture; dragUi is the
+  // render-facing snapshot.
+  const rowRefs = useRef([]);
+  const dragRef = useRef(null);
+  const [dragUi, setDragUi] = useState(null);
+  const buzz = () => { try { navigator.vibrate?.(12); } catch (e) { /* haptics optional */ } };
   const setHintKey = () => `ascend-set-type-hint:${typeof window !== "undefined" ? (window.ascendUserId || "anon") : "anon"}`;
   const [setHint, setSetHint] = useState(() => { try { return localStorage.getItem(setHintKey()) !== "1"; } catch { return true; } });
   const dismissSetHint = () => { setSetHint(false); try { localStorage.setItem(setHintKey(), "1"); } catch { /* */ } };
@@ -92,6 +102,13 @@ export function Train({ s, setS, gainXp, openRun }) {
   const xpOpts = () => ({ history: collectPrHistory(s, findEx, { excludeId: a?.editId }), workout: { gym: sessionGym(), date: a?.date || today(), ...(a?.editId ? { bw: s.workouts.find((w) => w.id === a.editId)?.bw } : {}) }, excludeId: a?.editId });
 
   const finish = () => {
+    // Double-tap guard: every repeat of this finish — second tap, stale
+    // closure, a retried save — must land on the SAME workout id so
+    // addWorkout's id dedupe collapses it instead of writing a second row
+    // (and double-counting the XP). The id is stamped on `active` at start.
+    const finKey = a.id || a.editId || "legacy";
+    if (finishingRef.current === finKey) return;
+    finishingRef.current = finKey;
     const exercises = cleaned(a.exercises);
     if (!exercises.length) { setS((p) => ({ ...p, active: null })); return; }
     const opts = xpOpts();
@@ -118,7 +135,7 @@ export function Train({ s, setS, gainXp, openRun }) {
     }
     const { xp, prs, volume, lines, prBonus, sets, bw: res_bw } = workoutXp(s, exercises, { ...bests }, opts);
     const d = today();
-    const workout = { id: uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(res_bw > 0 ? { bw: res_bw } : {}), ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
+    const workout = { id: a.id || uid(), date: d, title: a.title || "", preset: a.preset || "", exercises, volume, xp, lines, prBonus, minutes: Math.round((Date.now() - a.start) / 60000), startedAt: a.start, ...(res_bw > 0 ? { bw: res_bw } : {}), ...(((a.gym !== undefined ? a.gym : s.currentGym) || null) ? { gym: a.gym !== undefined ? a.gym : s.currentGym } : {}) };
     const after = { ...s, workouts: [...s.workouts, workout] };
     const suggestions = exercises.map((e) => ({ name: e.name, next: suggestNext(after, e.name) })).filter((x) => x.next);
     setS((p) => ({ ...addWorkout(p, workout), active: null, lastSummary: { xp, prs, volume, minutes: workout.minutes, title: workout.title, suggestions, prNames: lines.filter((l) => l.sets.some((st) => st.pr)).map((l) => l.name), recap: workoutRecap({ ...p, workouts: [...p.workouts, workout] }, workout), sets, workoutId: workout.id } }));
@@ -129,6 +146,31 @@ export function Train({ s, setS, gainXp, openRun }) {
     fireRest(null);
   };
 
+  // Commit a reorder: splice the row to its landing slot and clear dangling
+  // superset links — the moved row's own ss (its old "next" is gone), the row
+  // that linked INTO it, and whichever row it lands under (whose link would
+  // now point at the moved row instead of its real partner).
+  const moveExercise = (from, to) => setActive((w) => {
+    const list = [...w.exercises];
+    const oldPrev = list[from - 1] || null;
+    const [m] = list.splice(from, 1);
+    const moved = m.ss ? { ...m, ss: false } : m;
+    list.splice(to, 0, moved);
+    const newPrev = to > 0 ? list[to - 1] : null;
+    return { ...w, exercises: list.map((e) => (e.ss && (e === oldPrev || e === newPrev) ? { ...e, ss: false } : e)) };
+  });
+  // Pixel shift per row during a drag: the held row follows the finger, rows
+  // between old and new slots slide aside by the held row's footprint.
+  const dragShift = (i) => {
+    const d = dragUi;
+    if (!d) return 0;
+    const held = (dragRef.current?.slots?.[d.from]?.h || 0) + (dragRef.current?.gap || 0);
+    if (i === d.from) return d.dy;
+    if (d.to > d.from && i > d.from && i <= d.to) return -held;
+    if (d.to < d.from && i >= d.to && i < d.from) return held;
+    return 0;
+  };
+
   const addExercise = (name) => {
     const prev = lastWorkingSets(s, name, a?.editId);
     setActive((w) => ({ ...w, exercises: [...w.exercises, { name, sets: prev ? cloneSets(prev.sets) : [{ w: "", r: "", done: false }] }] }));
@@ -136,7 +178,7 @@ export function Train({ s, setS, gainXp, openRun }) {
     window.scrollTo?.(0, 0);
   };
   const startPreset = (pr) => {
-    setS((p) => ({ ...p, active: { start: Date.now(), preset: pr.name, title: pr.name, gym: p.currentGym ?? null, exercises: (pr.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
+    setS((p) => ({ ...p, active: { id: uid(), start: Date.now(), preset: pr.name, title: pr.name, gym: p.currentGym ?? null, exercises: (pr.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
     setShowPresets(false); window.scrollTo?.(0, 0);
   };
   const savePreset = () => {
@@ -151,7 +193,7 @@ export function Train({ s, setS, gainXp, openRun }) {
   };
 
   if (a && picker) return <ExercisePicker s={s} setS={setS} onPick={addExercise} onBack={() => setPicker(false)} />;
-  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { start: Date.now(), title, gym: p.currentGym ?? null, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
+  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { id: uid(), start: Date.now(), title, gym: p.currentGym ?? null, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
 
   if (!a) {
     const presets = s.presets || [];
@@ -280,6 +322,52 @@ export function Train({ s, setS, gainXp, openRun }) {
       {a.exercises.length === 0 && <Empty>Add your first exercise. Check off each set as you finish it, and only checked sets count.</Empty>}
 
       {a.exercises.map((ex, ei) => {
+        // drag lifecycle: pointerdown arms a 300ms timer (movement >8px cancels
+        // — that's a scroll or a tap). pickup() flips touch-action to none
+        // BEFORE the finger moves so the browser can't claim the gesture for
+        // scrolling, captures the pointer, and measures every row's slot.
+        const rowDown = (e) => {
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          if (e.target.closest("input, button, select, textarea, a, [role=menu]")) return;
+          if (a.exercises.length < 2 || dragRef.current) return;
+          dragRef.current = { ei, y0: e.clientY, pid: e.pointerId, timer: setTimeout(() => rowPickup(ei), 300), dy: 0 };
+        };
+        const rowPickup = (i) => {
+          const d = dragRef.current, el = rowRefs.current[i];
+          if (!d || !el || d.ei !== i) return;
+          d.active = true;
+          d.slots = a.exercises.map((_, k) => { const r = rowRefs.current[k]?.getBoundingClientRect(); return r ? { top: r.top, h: r.height } : { top: 0, h: 0 }; });
+          d.gap = d.slots.length > 1 ? Math.max(0, d.slots[1].top - d.slots[0].top - d.slots[0].h) : 12;
+          d.from = i; d.to = i;
+          try { el.style.touchAction = "none"; el.setPointerCapture(d.pid); } catch (e) { /* capture is best-effort */ }
+          buzz();
+          setExMenu(null); setAddMenu(null);
+          setDragUi({ from: i, to: i, dy: 0 });
+        };
+        const rowMove = (e) => {
+          const d = dragRef.current;
+          if (!d || d.pid !== e.pointerId) return;
+          const dy = e.clientY - d.y0;
+          if (!d.active) { if (Math.abs(dy) > 8) { clearTimeout(d.timer); dragRef.current = null; } return; }
+          d.dy = dy;
+          const mid = d.slots[d.from].top + d.slots[d.from].h / 2 + dy;
+          let to = 0;
+          d.slots.forEach((sl, i) => { if (i !== d.from && mid > sl.top + sl.h / 2) to++; });
+          d.to = to;
+          setDragUi({ from: d.from, to, dy });
+        };
+        const rowDone = (e) => {
+          const d = dragRef.current;
+          if (!d || (e && d.pid !== e.pointerId)) return;
+          const el = rowRefs.current[d.ei];
+          if (el) el.style.touchAction = "";
+          if (!d.active) { clearTimeout(d.timer); dragRef.current = null; return; }
+          const { from, to } = d;
+          dragRef.current = null;
+          setDragUi(null);
+          buzz();
+          if (to !== from) moveExercise(from, to);
+        };
         const def = findEx(s, ex.name);
         const timed = def.type === "timed";
         const cardio = timed && def.group === "Cardio";
@@ -325,8 +413,21 @@ export function Train({ s, setS, gainXp, openRun }) {
           else go();
         };
         const typeLabel = (st, si) => (st.warm ? "Warm-up set, tap to change type" : st.drop ? "Drop set, tap to mark working" : `Set ${si + 1}, tap to mark warm-up`);
+        const held = !!dragUi && dragUi.from === ei;
+        const shift = dragUi ? dragShift(ei) : 0;
         return (
-          <div key={ei} className="panel p-3 relative" style={ex.ss ? { borderColor: C.green, marginBottom: 0 } : a.exercises[ei - 1]?.ss ? { borderColor: C.green, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 } : null}>
+          <div key={ei} ref={(el) => { rowRefs.current[ei] = el; }} className="panel p-3 relative"
+            onPointerDown={rowDown} onPointerMove={rowMove} onPointerUp={rowDone} onPointerCancel={rowDone}
+            style={{
+              ...(ex.ss ? { borderColor: C.green, marginBottom: 0 } : a.exercises[ei - 1]?.ss ? { borderColor: C.green, borderTop: "none", borderTopLeftRadius: 0, borderTopRightRadius: 0 } : null),
+              transform: `translateY(${shift}px)${held ? " scale(1.03)" : ""}`,
+              transition: held ? "box-shadow .15s, opacity .2s" : "transform .2s ease-out, opacity .2s",
+              zIndex: held ? 30 : undefined,
+              boxShadow: held ? "0 12px 30px rgba(0,0,0,.55)" : undefined,
+              opacity: dragUi && !held ? 0.9 : undefined,
+              cursor: dragUi ? (held ? "grabbing" : "default") : undefined,
+              userSelect: dragUi ? "none" : undefined,
+            }}>
             {D.on() && <DiagProbe kind="excard" id={ei} />}
             {a.exercises[ei - 1]?.ss && <div className="body text-xs font-bold -mt-1 mb-1" style={{ color: C.green }}>⇅ superset with {a.exercises[ei - 1].name}</div>}
             <div className="flex justify-between items-center mb-1 gap-2">

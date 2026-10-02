@@ -1527,7 +1527,7 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
 });
 
 import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
-import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo } from "./lib/stats.js";
+import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout } from "./lib/stats.js";
 import { cardScore, selfScore } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
 import { AURA_TASKS, BORDERS, unlocked, stripGhostCosmetics } from "./tabs/profile/unlock.js";
@@ -1823,4 +1823,16 @@ test("crewmem self-heal: no write for a dead crew, a different claimed crew, or 
   await loadCrewRoster("ABCDEF", { playerId: "pid1", crew: { code: "ABCDEF" }, profile: {}, test: true }, []);
   assert.equal(sets.length, 0);
   delete globalThis.window;
+});
+
+test("addWorkout dedupes by id: a repeated finish writes one row", () => {
+  // The double-finish contract Train.jsx's finishingRef + a.id stamping relies
+  // on: the same workout arriving twice (double-tap, stale closure, retry)
+  // must produce exactly one row and unchanged XP-facing fields.
+  const w = { id: "w_fixed", date: "2026-10-02", title: "Push", exercises: [{ name: "Bench Press", sets: [{ w: 100, r: 5, done: true }] }], xp: 42, volume: 500 };
+  const once = addWorkout({ workouts: [], profile: {} }, w);
+  const twice = addWorkout(once, w);
+  assert.equal(once.workouts.length, 1);
+  assert.equal(twice.workouts.length, 1);
+  assert.equal(twice, once); // no-op: same object back
 });
