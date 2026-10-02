@@ -1143,9 +1143,11 @@ export default function App() {
   );
 }
 
-// Dev-only viewport debug readout (?debug=1). import.meta.env.DEV makes the
-// render path dead code in production builds; the component is tree-shaken.
-const DBG = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug");
+// Dev-only viewport debug readout (?debug=1 in any context, or always in a
+// standalone home-screen launch where the URL query can't reach the app).
+// import.meta.env.DEV makes the render path dead code in production builds;
+// the component is tree-shaken.
+const DBG = import.meta.env.DEV && typeof window !== "undefined" && (new URLSearchParams(window.location.search).has("debug") || navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
 function DebugPane() {
   const ref = useRef(null);
   const [lines, setLines] = useState([]);
