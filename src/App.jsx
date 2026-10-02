@@ -10,7 +10,7 @@ import { EXERCISES } from "./data/exercises.js";
 import { TIER_STYLE } from "./data/achievements.js";
 import { today, uid, weekStart } from "./lib/dates.js";
 import { AskRef } from "./lib/ask.js";
-import { scrollPageTop } from "./lib/dom.js";
+import { scrollPageTop, legacyStandalone } from "./lib/dom.js";
 import { findEx } from "./lib/exercises.js";
 import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements, ACH_VERSION } from "./lib/stats.js";
 import { SaveCtx } from "./ui/saveCtx.js";
@@ -198,6 +198,18 @@ export default function App() {
     try { const r = await window.storage.get("steps-inbox", false); const inbox = r?.value ? JSON.parse(r.value) : null; if (inbox) D.withSource("steps", () => setS((p) => mergeSteps(p, inbox) || p)); } catch (e) { /* none yet */ }
   };
   useEffect(() => { const v = () => { if (document.visibilityState === "visible") pullSteps(); }; document.addEventListener("visibilitychange", v); return () => document.removeEventListener("visibilitychange", v); }, []);
+  // Old home-screen installs (black-translucent status bar captured at
+  // install time) clip position:fixed painting at a layout viewport that is
+  // short by the status-bar height. In that mode only, the shell switches to
+  // a document-positioned box — document content paints to the screen edge —
+  // and the document scroll that would otherwise expose is suppressed.
+  useEffect(() => {
+    if (!LEGACY_SA) return;
+    document.documentElement.classList.add("legacy-sa");
+    const clamp = () => { if (window.scrollY) window.scrollTo(0, 0); };
+    window.addEventListener("scroll", clamp, { passive: true });
+    return () => { document.documentElement.classList.remove("legacy-sa"); window.removeEventListener("scroll", clamp); };
+  }, []);
   useEffect(() => {
     const on = (e) => {
       const kind = e.detail; setBurst({ kind, id: Date.now() });
@@ -931,6 +943,8 @@ export default function App() {
         h1,h2{letter-spacing:.01em}
         .dys,.dys *,.dys .body{font-family:'Lexend',system-ui,sans-serif!important;letter-spacing:.03em;word-spacing:.08em}
         .fancyname,.fancyname *,.dys .fancyname,.dys .fancyname *{font-family:var(--nf)!important;letter-spacing:normal}
+        html.legacy-sa,html.legacy-sa body{overflow:hidden}
+        html.legacy-sa #ascend-root,html.legacy-sa .bgfx{position:absolute;top:0;left:0;right:0;bottom:auto;height:100vh;height:100lvh}
         .bgfx{position:fixed;inset:0;pointer-events:none;background:
           radial-gradient(70% 38% at 50% -8%, ${C.halo}, transparent 70%),
           radial-gradient(60% 40% at 100% 100%, ${C.halo}, transparent 70%), ${C.bg}}
@@ -1148,6 +1162,9 @@ export default function App() {
 // import.meta.env.DEV makes the render path dead code in production builds;
 // the component is tree-shaken.
 const DBG = import.meta.env.DEV && typeof window !== "undefined" && (new URLSearchParams(window.location.search).has("debug") || navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
+// Old-install standalone mode is a launch-time property — it never changes
+// during a session, so compute once.
+const LEGACY_SA = typeof window !== "undefined" && legacyStandalone();
 function DebugPane() {
   const ref = useRef(null);
   const [lines, setLines] = useState([]);
