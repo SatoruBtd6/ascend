@@ -705,3 +705,27 @@ path — the only writers are additive merges on the owning account's own blob.
   `settleMonth` records the top 3 (same first-to-reach tie-break); Descended
   still goes only to place 1. Cards keep publishing `season`/`prevSeason`
   for mixed-version rollout.
+
+## The monthly prize is a loan while #1, a stamp at close (phase 7p — approved by Brodan)
+
+- **The stamp is the only ownership proof.** `unlocked()` grants a monthly
+  prize when `auraUnlocks[id]` exists, or — for the current month's prize
+  only — while `s.lbReigning` (the loan: equippable by choice, never
+  forced). `applyReigning` strips an unstamped wearer who drops #1,
+  reverting `look.aura` to `auraPrev` via `loanStripAura`; stamped holders
+  are never touched. This resurrects the pre-7o swap with the stamp check
+  it lacked — that missing check is what stripped Finn's Ascended.
+- **The wearing-grace bridge excludes monthly prizes.** `!lbReigning &&
+  wearing` still proves ownership for pre-loan award auras (Ascended's
+  migration window), but an unstamped wearer of any aura that has ever been
+  a monthly prize (`everMonthlyPrize`) is a stale loaner, not a holder.
+- **`MONTHLY_PRIZE` maps each month to its aura** (`YYYY-MM → id`,
+  `src/tabs/profile/season.js`). `settleMonth` awards `monthlyPrizeId(last)`
+  — the aura belonging to the settled month — and `PrizeBanner` names and
+  previews the same lookup. A month with no entry has no prize: no loan, no
+  settle award, no banner. Shipping November = new catalog aura + one row.
+- **`settleMonth` never settles months before `MONTH_PRIZE_START`
+  ("2026-10").** Months that closed before the mechanic existed had no
+  race; settling them retroactively crowned a September winner who never
+  entered one (the incident that prompted this). The floor gates the whole
+  function — pre-mechanic records are never even read.

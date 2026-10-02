@@ -1,7 +1,7 @@
 import { C } from "../../theme.js";
 import { AuraCanvas } from "../../auras/AuraCanvas.jsx";
 import { auraById } from "../../auras/catalog.js";
-import { monthKey, monthXp, nextMonthStart, prevSeasonKey, seasonKey } from "../profile/season.js";
+import { loanStripAura, monthlyPrizeId, monthKey, monthXp, nextMonthStart, prevSeasonKey, seasonKey } from "../profile/season.js";
 export async function settleSeason(s, setS, rows) {
   const last = prevSeasonKey(seasonKey());
   let rec = null;
@@ -24,27 +24,38 @@ export function applyReigning(s, setS, rows) {
   const myId = s.playerId;
   const bestOther = (rows || []).filter((r) => (r.id || (r.key || "").slice(3)) !== myId).reduce((m, r) => Math.max(m, xpOf(r)), 0);
   const on = !!s.lb && !s.test && mine > 0 && mine > bestOther;
-  // Ascended is a permanent award now — holding it no longer rides on #1, and
-  // losing #1 must never unequip it. The aura swap was the only runtime strip
-  // path; it is gone on purpose (phase 7o Part A). lbReigning still updates
-  // for the Reigning title and board highlights.
-  setS((p) => (!!p.lbReigning === on ? p : { ...p, lbReigning: on }));
+  // The monthly prize rides on #1 (phase 7p loan): an unstamped wearer who
+  // drops off the top reverts to auraPrev, and whoever takes #1 unlocks it
+  // instead. Stamped owners are never touched — the stamp always wins. This
+  // is the pre-7o aura-swap strip resurrected with the stamp check the old
+  // version lacked (that missing check is what stripped Finn's Ascended).
+  setS((p) => {
+    const look = { ...(p.profile.look || {}) };
+    let changed = !!p.lbReigning !== on;
+    const stripped = p.test ? null : loanStripAura(look, p.auraUnlocks, on, mk);
+    if (stripped) { look.aura = stripped; changed = true; }
+    if (!changed) return p;
+    return { ...p, lbReigning: on, profile: { ...p.profile, look } };
+  });
 }
 // Monthly prize banner — two columns, borderless surface. Variant A is the
 // spec build: preview on the left, three stacked text lines on the right, the
 // aura is the only colour. Variant B is the earlier labelled layout, kept for
-// Brodan's phone pass at ?prize=1. The preview mounts Descended at clock0=6s
-// so it opens inside the spin-up surge, plays through the arrest and eye
-// launch (landing around t=17s mid-watch — eyes over the avatar make a good
-// still), then freezes so the podium #1 aura is the only Descended running
+// Brodan's phone pass at ?prize=1. The prize aura comes from MONTHLY_PRIZE —
+// a month with no entry renders no banner. The preview mounts the prize at
+// clock0=6s so it opens inside the spin-up surge, plays through the arrest
+// and eye launch (landing around t=17s mid-watch — eyes over the avatar make
+// a good still), then freezes so the podium #1 aura is the only one running
 // on the board (phase 7p sequential handoff — the two never animate at once).
 export function PrizeBanner({ variant = "a" }) {
   const mk = monthKey();
+  const prize = auraById(monthlyPrizeId(mk));
   const monthName = new Date(mk + "-15T12:00").toLocaleDateString(undefined, { month: "long" });
   const days = Math.max(0, Math.ceil((new Date(nextMonthStart(mk) + "T00:00") - new Date()) / 86400000));
+  if (!prize) return null;
   const preview = (
     <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
-      <AuraCanvas aura="descended" w={120} h={120} clock0={6} freezeAfter={11000} />
+      <AuraCanvas aura={prize.id} w={120} h={120} clock0={6} freezeAfter={11000} />
     </div>
   );
   if (variant === "b") {
@@ -52,7 +63,7 @@ export function PrizeBanner({ variant = "a" }) {
       <div className="flex items-center justify-between gap-3 px-3 py-2" style={{ background: C.soft, borderRadius: 10 }}>
         <div className="min-w-0">
           <div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>{monthName} prize · monthly</div>
-          <div className="text-lg font-extrabold" style={{ color: C.red }}>Descended</div>
+          <div className="text-lg font-extrabold" style={{ color: C.red }}>{prize.name}</div>
           <div className="body text-sm" style={{ color: C.sub }}>#1 on the month board takes it — awarded once, kept forever.</div>
         </div>
         <div className="shrink-0 text-center">
@@ -66,7 +77,7 @@ export function PrizeBanner({ variant = "a" }) {
     <div className="flex items-center gap-3 px-3 py-2" style={{ background: C.soft, borderRadius: 10 }}>
       {preview}
       <div className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div className="font-extrabold" style={{ fontSize: 22, lineHeight: 1.15, color: C.text }}>{auraById("descended").name}</div>
+        <div className="font-extrabold" style={{ fontSize: 22, lineHeight: 1.15, color: C.text }}>{prize.name}</div>
         <div className="body" style={{ fontSize: 15, lineHeight: 1.3, color: C.dim }}>#1 wears it. Finish the month 1st to keep it forever.</div>
         <div className="body tabular-nums" style={{ fontSize: 13, lineHeight: 1.3, color: C.mute }}>{days === 1 ? `1 day left in ${monthName}` : `${days} days left in ${monthName}`}</div>
       </div>

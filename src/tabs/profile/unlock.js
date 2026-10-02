@@ -4,6 +4,7 @@ import { activeDays, groupScores } from "../../lib/stats.js";
 import { stripGhostCosmeticsState, countRaidClears } from "../../math.js";
 import { nemesisWins } from "./rivalryStats.js";
 import { backToBackMonthFirsts, backToBackSeasonFirsts, boardFirsts, equippedTitle } from "./titles.js";
+import { everMonthlyPrize, monthlyPrizeId } from "./season.js";
 export const BORDERS = [
   { id: "none", name: "Default", how: "" },
   { id: "steel", name: "Steel", how: "Any lift at D", tier: 1, css: "linear-gradient(135deg,#dfe6ee,#6f7c8c,#dfe6ee)" },
@@ -35,14 +36,17 @@ export function unlocked(item, s) {
   if (item.crate && s.crateUnlocks?.[item.id]) return true;
   if (item.soon) return false;
   if (item.reigning) return !!s.lbReigning;
-  // award: ownership is the stamped auraUnlocks entry — OR still wearing it
-  // from when it was legitimately held (bridges the pre-stamp window so a
-  // deployed build can't strip a holder before their stamp lands). The
-  // lbReigning exclusion is required: the live #1 wears Ascended on LOAN and
-  // must not convert the loan into ownership — there is no provenance bit
-  // separating a past holder from a loaned wearer, so reigning is the only
-  // discriminator we have. See docs/DECISIONS.md (phase 7o Part A).
-  if (item.award) return !!s.auraUnlocks?.[item.id] || (!s.lbReigning && s.profile?.look?.aura === item.id);
+  // award: ownership is the stamped auraUnlocks entry — OR, for THIS month's
+  // prize only, the live loan: the reigning #1 may equip it while they hold
+  // the spot (applyReigning strips an unstamped wearer who drops). — OR still
+  // wearing it from when it was legitimately held, which bridges the pre-stamp
+  // window for pre-loan award auras (Ascended's migration). The bridge
+  // deliberately excludes monthly-prize auras: those are only ever worn via
+  // stamp or live loan, so an unstamped wearer who isn't #1 is a stale
+  // loaner, not a holder. See docs/DECISIONS.md (phase 7o Part A / 7p).
+  if (item.award) return !!s.auraUnlocks?.[item.id]
+    || (s.lbReigning && item.id === monthlyPrizeId())
+    || (!s.lbReigning && s.profile?.look?.aura === item.id && !everMonthlyPrize(item.id));
   if (item.worldFirst) return Object.keys(s.worldFirsts || {}).length > 0;
   if (item.seraph) return backToBackSeasonFirsts(s) || backToBackMonthFirsts(s);
   // seasonFirst/season read both badge maps — the quarterly season is retired

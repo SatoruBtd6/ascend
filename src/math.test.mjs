@@ -1246,23 +1246,24 @@ test("pickMonthWinners: top 3 ranked, first-to-reach breaks ties at every place"
   assert.deepEqual(pickMonthWinners([row("a", 0, {})], mk), []);
 });
 
-test("settleMonth: records the top 3, stamps monthBadges, Descended only for #1", async () => {
-  const last = prevMonthKey(monthKey());
+test("settleMonth: records the top 3, stamps monthBadges, prize aura only for #1", async () => {
+  const mk = "2026-11"; // settles 2026-10 — past the floor, prize = descended
+  const last = prevMonthKey(mk);
   const rows = ["a", "b", "c", "d"].map((id, i) => ({ id, name: id, prevMonth: { key: last, xp: 400 - i * 100, xpd: {} } }));
   const store = {};
   const storage = { get: async (k) => (store[k] ? { value: store[k] } : null), set: async (k, v) => { store[k] = v; } };
   // #2's own client stamps a badge but no aura
   const s2 = { playerId: "b" };
   let next2 = null;
-  await settleMonth(s2, (f) => { next2 = f(s2); }, rows, storage);
+  await settleMonth(s2, (f) => { next2 = f(s2); }, rows, storage, mk);
   assert.equal(next2.monthBadges[last].place, 2);
   assert.equal(next2.auraUnlocks, undefined);
-  // #1's own client stamps the badge AND the Descended award
+  // #1's own client stamps the badge AND that month's prize award
   const s1 = { playerId: "a" };
   let next1 = null;
-  await settleMonth(s1, (f) => { next1 = f(s1); }, rows, storage);
+  await settleMonth(s1, (f) => { next1 = f(s1); }, rows, storage, mk);
   assert.equal(next1.monthBadges[last].place, 1);
-  assert.ok(next1.auraUnlocks.descended);
+  assert.ok(next1.auraUnlocks[monthlyPrizeId(last)]);
   // the shared record holds all three places and is written once
   assert.deepEqual(JSON.parse(store[`month:${last}`]).winners.map((x) => x.place), [1, 2, 3]);
   // a legacy one-winner record still stamps its champion's badge
@@ -1270,9 +1271,59 @@ test("settleMonth: records the top 3, stamps monthBadges, Descended only for #1"
   const storage2 = { get: async (k) => (store2[k] ? { value: store2[k] } : null), set: async () => {} };
   const sz = { playerId: "z" };
   let nextz = null;
-  await settleMonth(sz, (f) => { nextz = f(sz); }, [], storage2);
+  await settleMonth(sz, (f) => { nextz = f(sz); }, [], storage2, mk);
   assert.equal(nextz.monthBadges[last].place, 1);
-  assert.ok(nextz.auraUnlocks.descended);
+  assert.ok(nextz.auraUnlocks[monthlyPrizeId(last)]);
+});
+
+test("settleMonth floor: months that closed before the mechanic never settle", async () => {
+  // mk = the floor month → last is the pre-mechanic month that caused the
+  // false September crown: no record write, no badges, no aura stamp
+  const rows = [{ id: "a", name: "a", prevMonth: { key: prevMonthKey(MONTH_PRIZE_START), xp: 999, xpd: {} } }];
+  const store = {};
+  const storage = { get: async (k) => (store[k] ? { value: store[k] } : null), set: async (k, v) => { store[k] = v; } };
+  let called = false;
+  await settleMonth({ playerId: "a" }, () => { called = true; return null; }, rows, storage, MONTH_PRIZE_START);
+  assert.equal(called, false);
+  assert.deepEqual(store, {});
+});
+
+test("monthly prize: per-month lookup, live #1 loans it, grace never blesses a prize aura", () => {
+  assert.equal(monthlyPrizeId("2026-10"), "descended");
+  assert.equal(monthlyPrizeId("2027-01"), null); // unlisted month = no prize
+  assert.equal(everMonthlyPrize("descended"), true);
+  assert.equal(everMonthlyPrize("ascended"), false); // retired award is not a loan aura
+  const prize = auraById(monthlyPrizeId()); // whatever this month's map entry is
+  if (prize) {
+    // the live #1 may equip the prize without a stamp — the loan grant
+    assert.equal(unlocked(prize, { lbReigning: true, profile: { look: {} } }), true);
+    // an unstamped non-#1 wearing it is a stale loaner — no owner-by-grace
+    assert.equal(unlocked(prize, { profile: { look: { aura: prize.id } } }), false);
+    // the stamp always wins
+    assert.equal(unlocked(prize, { auraUnlocks: { [prize.id]: "x" }, profile: { look: {} } }), true);
+  }
+  // Ascended's pre-stamp wearing-grace bridge is preserved (not a prize aura)
+  const asc = auraById("ascended");
+  assert.equal(unlocked(asc, { profile: { look: { aura: "ascended" } } }), true);
+});
+
+test("loanStripAura: loan lapses on losing #1, the stamp always wins", () => {
+  // current-month loan: keeps it while #1, reverts to auraPrev on drop
+  assert.equal(loanStripAura({ aura: "descended", auraPrev: "redline" }, {}, true, "2026-10"), null);
+  assert.equal(loanStripAura({ aura: "descended", auraPrev: "redline" }, {}, false, "2026-10"), "redline");
+  // auraPrev is itself a prize or missing → fall back to none
+  assert.equal(loanStripAura({ aura: "descended", auraPrev: "descended" }, {}, false, "2026-10"), "none");
+  // stamped holders are never stripped, whatever the board says
+  assert.equal(loanStripAura({ aura: "descended" }, { descended: "2026-10-01" }, false, "2026-10"), null);
+  // last month's prize survives rollover while still #1 (pending settle may
+  // stamp them), then strips once they lose #1 in the new month
+  assert.equal(loanStripAura({ aura: "descended" }, {}, true, "2026-11"), null);
+  assert.equal(loanStripAura({ aura: "descended", auraPrev: "redline" }, {}, false, "2026-11"), "redline");
+  // a prize from months ago is always stale
+  assert.equal(loanStripAura({ aura: "descended", auraPrev: "redline" }, {}, true, "2027-03"), "redline");
+  // non-prize auras are never touched — Ascended's bridge stays intact
+  assert.equal(loanStripAura({ aura: "ascended" }, {}, false, "2026-10"), null);
+  assert.equal(loanStripAura({ aura: "none" }, {}, false, "2026-10"), null);
 });
 
 test("board badges: Ophanim, Laurel, champion and contender read month and season badges alike", () => {
@@ -1483,7 +1534,7 @@ import { AURA_TASKS, BORDERS, unlocked, stripGhostCosmetics } from "./tabs/profi
 import { TITLES } from "./tabs/profile/titles.js";
 import { auraById } from "./auras/catalog.js";
 import { monthKey, prevMonthKey, monthXp } from "./tabs/profile/season.js";
-import { pickMonthWinner, pickMonthWinners, settleMonth } from "./tabs/profile/season.js";
+import { pickMonthWinner, pickMonthWinners, settleMonth, monthlyPrizeId, everMonthlyPrize, loanStripAura, MONTH_PRIZE_START } from "./tabs/profile/season.js";
 import { reconcileRecount } from "./tabs/train/xpRecount.js";
 
 const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-9, `${label || ""} ${a} vs ${b}`);
