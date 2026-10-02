@@ -1,6 +1,14 @@
 // Hand-written per release; newest first. Surfaced in Settings → What's new.
 export const CHANGELOG = [
   {
+    v: "7p",
+    items: [
+      "New top-tier aura: Descended — a wheel of black fallen wings whose eyes pull free and watch you, awarded monthly.",
+      "Monthly prize: finish #1 on the month board to keep that month's aura forever.",
+      "Earned auras are now permanent — Ascended stays with everyone who already holds it.",
+    ],
+  },
+  {
     v: "7o",
     items: [
       "Fixed workouts saving at the wrong bodyweight: historical XP and achievements now use the weight you logged at the time.",
