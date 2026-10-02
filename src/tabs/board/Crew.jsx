@@ -9,7 +9,7 @@ import { profileCard } from "../profile/profileCard.js";
 import { CrewBanner } from "../profile/profileWidgets.jsx";
 import { casPres, casRaid, ghostBundle, patchGhost, readPres, readRaid, readRaidHist } from "../train/raidIO.js";
 import { liveBoard } from "../train/social.js";
-import { crewCode, loadCrewRoster, readCrew, writeCrewMembership } from "./crewIO.js";
+import { cardId, crewCode, loadCrewRoster, readCrew, writeCrewMembership } from "./crewIO.js";
 import { attemptCheckIn, fmtAgo, fmtHMS, getGps, locErrorText } from "./gymPresence.js";
 export function CrewQuests({ s, setS, rows, crew, code }) {
   const ws = weekStart();
@@ -335,7 +335,7 @@ export function CrewPanel({ s, setS, rows, openProfile, gainXp }) {
       setS((p) => ({ ...p, crew: null })); setCrew(null); setRoster([]);
     }, "Leave for good"), 80);
   }, "Continue");
-  const memberRows = liveBoard(roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [])).filter((r) => !(s.test && r.id === s.playerId));
+  const memberRows = liveBoard(roster.length ? roster : (crew ? rows.filter((r) => r.id === s.playerId || r.crew?.code === crew.code || (crew.members || []).includes(r.id)) : [])).filter((r) => !(s.test && r.id === s.playerId)).map((r) => (r.id ? r : { ...r, id: cardId(r) }));
   const headcount = Math.max(memberRows.length, new Set([...(crew?.members || []), s.playerId]).size, 1);
   const presence = prunePresence(pres?.at, Date.now());
   const people = memberRows.map((r) => ({ id: r.id, name: r.name }));

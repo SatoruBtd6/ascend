@@ -1,5 +1,9 @@
 import { today } from "../../lib/dates.js";
 export const crewCode = () => Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
+// lb cards published before the card's `id` field carry the player id only in
+// the key. Rows without it counted toward the crew headcount but were dropped
+// by the quest pool (r?.id guard) and dead-tapped openProfile(undefined).
+export const cardId = (r) => r?.id || (r?.key?.startsWith("lb:") ? r.key.slice(3) : undefined);
 export async function readCrew(code) {
   try { const r = await window.storage.get(`crew:${code}`, true); return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
 }
@@ -37,7 +41,7 @@ export async function loadCrewRoster(code, s, rows) {
       if (r?.value) {
         const card = JSON.parse(r.value);
         if (card.ghost) return;
-        byId.set(id, { key: `lb:${id}`, ...card });
+        byId.set(id, { key: `lb:${id}`, id, ...card });
       } else if (!(id === s.playerId && s.test)) byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" });
     } catch { if (!(id === s.playerId && s.test)) byId.set(id, { id, name: id === s.playerId ? s.profile.name : "Teammate" }); }
   }));
