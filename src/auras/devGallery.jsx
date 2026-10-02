@@ -173,7 +173,7 @@ function colorInputValue(hex) {
 }
 
 function geometry(mode, w, h, aura, ringR) {
-  const fit = aura === "ascended" ? 1 : (mode === "body" ? 0.84 : 1);
+  const fit = aura === "ascended" || aura === "descended" ? 1 : (mode === "body" ? 0.84 : 1);
   const rx = Math.max(10, (mode === "body" ? w * 0.28 : ringR) * fit);
   const ry = Math.max(10, (mode === "body" ? h * 0.36 : ringR) * fit);
   return { w, h, cx: w / 2, cy: mode === "body" ? h * 0.52 : h / 2, rx, ry };

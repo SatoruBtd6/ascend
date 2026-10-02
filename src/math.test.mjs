@@ -1186,6 +1186,45 @@ test("stripGhostCosmetics leaves name, fonts and settings untouched", () => {
   assert.equal(got.profile.title, "none");
 });
 
+test("monthKey/prevMonthKey/monthXp: the YYYY-MM cycle coexists with seasons", () => {
+  assert.equal(monthKey("2026-10-02"), "2026-10");
+  assert.equal(prevMonthKey("2026-10"), "2026-09");
+  assert.equal(prevMonthKey("2026-01"), "2025-12");
+  const s = { xpLog: { "2026-09-30": 40, "2026-10-01": 10, "2026-10-15": 25, "2026-11-01": 5 } };
+  assert.equal(monthXp(s, "2026-10"), 35);
+  assert.equal(monthXp(s, "2026-11"), 5);
+  assert.equal(monthXp(s, "2025-12"), 0);
+  assert.equal(monthXp({}, "2026-10"), 0);
+});
+
+test("award auras: stamp grants ownership, wearing survives without a stamp, non-holders stay locked", () => {
+  const asc = auraById("ascended"), desc = auraById("descended");
+  assert.equal(asc.award, true);
+  assert.equal(asc.reigning, undefined);
+  assert.equal(desc.award, true);
+  assert.equal(unlocked(asc, { auraUnlocks: { ascended: "2026-10-01" }, profile: { look: {} } }), true);
+  // pre-stamp grace: a player still wearing it from when it was held is never stripped
+  assert.equal(unlocked(asc, { profile: { look: { aura: "ascended" } } }), true);
+  // visible-but-unobtainable for everyone else
+  assert.equal(unlocked(asc, { profile: { look: { aura: "ember" } } }), false);
+  assert.equal(unlocked(asc, {}), false);
+  assert.equal(unlocked(desc, { auraUnlocks: { descended: "2026-11-01" }, profile: { look: {} } }), true);
+  assert.equal(unlocked(desc, {}), false);
+});
+
+test("stripGhostCosmetics never strips a worn award aura, stamped or not", () => {
+  // the 4d guarantee: first load after deploy, stamp not landed yet, aura survives
+  const unstamped = { test: true, workouts: [], exercises: [], profile: { name: "Finn", look: { aura: "ascended", auraPrev: "ember", border: "none" } } };
+  assert.equal(stripGhostCosmetics(unstamped).profile.look.aura, "ascended");
+  const stamped = { workouts: [], exercises: [], profile: { name: "Finn", look: { aura: "ascended", auraPrev: "ember", border: "none" } }, auraUnlocks: { ascended: "2026-10-01" } };
+  assert.equal(stripGhostCosmetics(stamped).profile.look.aura, "ascended");
+  // a stamped task aura survives too, and an unearned tier aura still strips
+  const earned = { workouts: [], exercises: [], profile: { name: "Bo", look: { aura: "standardbearer", auraPrev: "none", border: "none" } }, auraUnlocks: { standardbearer: "2026-09-01" } };
+  assert.equal(stripGhostCosmetics(earned).profile.look.aura, "standardbearer");
+  const ghost = { workouts: [], exercises: [], profile: { name: "Bo", look: { aura: "ember", auraPrev: "standardbearer", border: "none" } }, auraUnlocks: { standardbearer: "2026-09-01" } };
+  assert.equal(stripGhostCosmetics(ghost).profile.look.aura, "standardbearer");
+});
+
 test("classifyKvError only treats a confirmed missing key as not_found", () => {
   assert.equal(classifyKvError(new Error("Key not found")), "not_found");
   assert.equal(classifyKvError({ message: "key not found" }), "not_found");
@@ -1340,7 +1379,9 @@ import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
 import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo } from "./lib/stats.js";
 import { cardScore, selfScore } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
-import { AURA_TASKS } from "./tabs/profile/unlock.js";
+import { AURA_TASKS, unlocked, stripGhostCosmetics } from "./tabs/profile/unlock.js";
+import { auraById } from "./auras/catalog.js";
+import { monthKey, prevMonthKey, monthXp } from "./tabs/profile/season.js";
 import { reconcileRecount } from "./tabs/train/xpRecount.js";
 
 const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-9, `${label || ""} ${a} vs ${b}`);

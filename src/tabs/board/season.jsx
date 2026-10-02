@@ -20,23 +20,18 @@ export function applyReigning(s, setS, rows) {
   const myId = s.playerId;
   const bestOther = (rows || []).filter((r) => (r.id || (r.key || "").slice(3)) !== myId).reduce((m, r) => Math.max(m, xpOf(r)), 0);
   const on = !!s.lb && !s.test && mine > 0 && mine > bestOther;
-  setS((p) => {
-    const look = { ...(p.profile.look || {}) };
-    let changed = !!p.lbReigning !== on;
-    if (!on && look.aura === "ascended" && !p.test) {
-      look.aura = look.auraPrev && look.auraPrev !== "ascended" ? look.auraPrev : "none";
-      changed = true;
-    }
-    if (!changed) return p;
-    return { ...p, lbReigning: on, profile: { ...p.profile, look } };
-  });
+  // Ascended is a permanent award now — holding it no longer rides on #1, and
+  // losing #1 must never unequip it. The aura swap was the only runtime strip
+  // path; it is gone on purpose (phase 7o Part A). lbReigning still updates
+  // for the Reigning title and board highlights.
+  setS((p) => (!!p.lbReigning === on ? p : { ...p, lbReigning: on }));
 }
 export function SeasonBanner() {
   const key = seasonKey();
   const days = Math.max(0, Math.ceil((new Date(nextSeasonStart(key) + "T00:00") - new Date()) / 86400000));
   return (
     <div className="panel px-4 py-3 flex items-center justify-between">
-      <div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Season {key.split("-S")[1]} · {key.slice(0, 4)}</div><div className="text-sm font-semibold">#1 wears the Ascended aura. Finish 1st to keep the Ophanim border.</div></div>
+      <div><div className="body text-xs uppercase tracking-wider font-semibold" style={{ color: C.dim }}>Season {key.split("-S")[1]} · {key.slice(0, 4)}</div><div className="text-sm font-semibold">Finish the season #1 to keep the Ophanim border.</div></div>
       <div className="text-right"><div className="text-xl font-bold tabular-nums">{days}</div><div className="body text-xs" style={{ color: C.dim }}>days left</div></div>
     </div>
   );

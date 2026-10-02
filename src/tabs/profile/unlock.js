@@ -35,7 +35,11 @@ export function unlocked(item, s) {
   if (item.crate && s.crateUnlocks?.[item.id]) return true;
   if (item.soon) return false;
   if (item.reigning) return !!s.lbReigning;
-  if (item.award) return !!s.auraUnlocks?.[item.id];
+  // award: ownership is the stamped auraUnlocks entry — OR currently wearing
+  // it, which can only have happened while it was legitimately held (this is
+  // what makes the Ascended grandfathering gap-free: wearing survives until
+  // the stamp lands, and the stamp then makes it permanent).
+  if (item.award) return !!s.auraUnlocks?.[item.id] || s.profile?.look?.aura === item.id;
   if (item.worldFirst) return Object.keys(s.worldFirsts || {}).length > 0;
   if (item.seraph) return backToBackSeasonFirsts(s);
   if (item.seasonFirst) return Object.values(s.seasonBadges || {}).some((b) => b.place === 1);

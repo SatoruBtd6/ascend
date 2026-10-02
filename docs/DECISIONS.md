@@ -612,3 +612,28 @@ pixels. Recorded, not fixed.
 `scripts/aura-asset-key-chain.mjs` — the source jpg was never committed, so
 deleting it would destroy the asset irreversibly. 18.7 KB of `public/` weight
 is immaterial; removal is permanent, keeping it is not.
+
+## Award auras are permanent account stamps (phase 7o Part A)
+
+`auraUnlocks.<id>` is the ownership authority for `award` auras. Once stamped
+it is never cleared, re-rolled, or revoked by any recheck, recount, or cleanup
+path — the only writers are additive merges on the owning account's own blob.
+
+- **Ascended is retired, not deleted.** Its catalog row keeps it visible in
+  Studio → Auras (marked "Retired — held by its champion"), `reigning` is
+  removed, and `award: true` makes `auraUnlocks.ascended` the authority. The
+  season still crowns a board #1 (`lbReigning`, Ophanim border, Reigning
+  title) — those are untouched.
+- **The wearer-grace clause is load-bearing.** `unlocked()` treats a player
+  still *wearing* an award aura as owning it even before the stamp lands. That
+  is what guarantees no gap between deploying this code and stamping Finn's
+  account: nobody can come to be wearing it without having legitimately held
+  it, so wearing is proof of prior ownership. Do not remove the clause before
+  every current wearer is stamped.
+- **No runtime strip path may come back.** The `applyReigning` aura swap,
+  the Board `lookOf` fallback, and the ProfilePage viewer fallback were all
+  deleted on purpose. Published `look`s are authoritative.
+- **Monthly cycle is `YYYY-MM`** (`monthKey`/`prevMonthKey`/`monthXp` in
+  `src/tabs/profile/season.js`), independent of the quarterly `seasonKey`
+  machinery. The month-close settle that stamps `auraUnlocks.descended` is
+  Part 6 — proposed, not built, pending Brodan's approval.

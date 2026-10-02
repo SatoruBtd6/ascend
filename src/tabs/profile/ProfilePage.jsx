@@ -167,7 +167,7 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
         <>
           <div className="panel p-5" style={lookStyle(data.look)}>
             <div className="flex items-center gap-4">
-              <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={(!data.reigning && !(me && (s.lbReigning || s.test)) && data.look?.aura === "ascended") ? { ...(data.look || {}), aura: (data.look?.auraPrev && data.look.auraPrev !== "ascended") ? data.look.auraPrev : "none" } : data.look} />
+              <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={data.look} />
               <div className="flex-1 min-w-0">
                 <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
                 {data.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: data.look?.accent || C.cyan }}>{data.title}</div>}

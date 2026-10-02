@@ -82,13 +82,9 @@ export function Board({ s, setS, openProfile, gainXp }) {
   const sorted = [...displayRows].sort((a, b) => val(b) - val(a));
   const top = sorted.slice(0, 3), rest = sorted.slice(3);
   const isMe = (r) => r.key === `lb:${s.playerId}`;
-  const seasonRanked = [...displayRows].sort((a, b) => ((b.season?.key === sk ? b.season.xp : 0) || 0) - ((a.season?.key === sk ? a.season.xp : 0) || 0));
-  const reigningKey = seasonRanked[0] && ((seasonRanked[0].season?.key === sk ? seasonRanked[0].season.xp : 0) || 0) > 0 ? seasonRanked[0].key : null;
-  const lookOf = (r) => {
-    const L = { ...(r.look || {}) };
-    if (r.key !== reigningKey && L.aura === "ascended") L.aura = L.auraPrev && L.auraPrev !== "ascended" ? L.auraPrev : "none";
-    return L;
-  };
+  // a published look is authoritative — award auras (ascended/descended) are
+  // permanent stamps, never filtered here by board standing (phase 7o Part A)
+  const lookOf = (r) => ({ ...(r.look || {}) });
 
   const podiumOrder = [top[1], top[0], top[2]];
   const PLACES = [
