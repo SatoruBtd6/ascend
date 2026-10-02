@@ -70,6 +70,18 @@ export function Train({ s, setS, gainXp, openRun }) {
   const dragRef = useRef(null);
   const [dragUi, setDragUi] = useState(null);
   const buzz = () => { try { navigator.vibrate?.(12); } catch (e) { /* haptics optional */ } };
+  // Drag scroll plumbing: the exercise list scrolls on the window, but if a
+  // scrollable ancestor ever wraps it we scroll that instead. scrollBy clamps
+  // at both ends natively, so there's no rubber-band or runaway at the edges.
+  const scrollerFor = (el) => {
+    for (let n = el?.parentElement; n; n = n.parentElement) {
+      const o = getComputedStyle(n).overflowY;
+      if ((o === "auto" || o === "scroll") && n.scrollHeight > n.clientHeight) return n;
+    }
+    return null; // window/document scroller
+  };
+  const scTop = (sc) => (sc ? sc.scrollTop : window.scrollY);
+  const scBy = (sc, v) => { if (sc) sc.scrollTop = Math.max(0, Math.min(sc.scrollHeight - sc.clientHeight, sc.scrollTop + v)); else window.scrollBy(0, v); };
   const setHintKey = () => `ascend-set-type-hint:${typeof window !== "undefined" ? (window.ascendUserId || "anon") : "anon"}`;
   const [setHint, setSetHint] = useState(() => { try { return localStorage.getItem(setHintKey()) !== "1"; } catch { return true; } });
   const dismissSetHint = () => { setSetHint(false); try { localStorage.setItem(setHintKey(), "1"); } catch { /* */ } };
@@ -326,30 +338,36 @@ export function Train({ s, setS, gainXp, openRun }) {
         // drag lifecycle: pointerdown arms a 300ms timer (movement >8px cancels
         // — that's a scroll or a tap). pickup() flips touch-action to none
         // BEFORE the finger moves so the browser can't claim the gesture for
-        // scrolling, captures the pointer, and measures every row's slot.
+        // scrolling, captures the pointer, and measures every row's slot in
+        // CONTENT space (viewport top + scrollTop at pickup) so the held row
+        // stays pinned under the finger while the list scrolls beneath it —
+        // a rAF auto-scroll runs while the pointer sits within 80px of the
+        // top or bottom edge of the scroller, ramping 2→14px/frame, clamped
+        // above the fixed tab bar and stopped dead on drop/cancel.
         const rowDown = (e) => {
           if (e.pointerType === "mouse" && e.button !== 0) return;
           if (e.target.closest("input, button, select, textarea, a, [role=menu]")) return;
           if (a.exercises.length < 2 || dragRef.current) return;
-          dragRef.current = { ei, y0: e.clientY, pid: e.pointerId, timer: setTimeout(() => rowPickup(ei), 300), dy: 0 };
+          dragRef.current = { ei, y0: e.clientY, lastY: e.clientY, pid: e.pointerId, timer: setTimeout(() => rowPickup(ei), 300), dy: 0 };
         };
         const rowPickup = (i) => {
           const d = dragRef.current, el = rowRefs.current[i];
           if (!d || !el || d.ei !== i) return;
           d.active = true;
-          d.slots = a.exercises.map((_, k) => { const r = rowRefs.current[k]?.getBoundingClientRect(); return r ? { top: r.top, h: r.height } : { top: 0, h: 0 }; });
+          d.sc = scrollerFor(el);
+          d.top0 = scTop(d.sc);
+          d.cy0 = d.y0 + d.top0;
+          d.slots = a.exercises.map((_, k) => { const r = rowRefs.current[k]?.getBoundingClientRect(); return r ? { top: r.top + d.top0, h: r.height } : { top: 0, h: 0 }; });
           d.gap = d.slots.length > 1 ? Math.max(0, d.slots[1].top - d.slots[0].top - d.slots[0].h) : 12;
           d.from = i; d.to = i;
           try { el.style.touchAction = "none"; el.setPointerCapture(d.pid); } catch (e) { /* capture is best-effort */ }
           buzz();
           setExMenu(null); setAddMenu(null);
           setDragUi({ from: i, to: i, dy: 0 });
+          d.raf = requestAnimationFrame(dragTick);
         };
-        const rowMove = (e) => {
-          const d = dragRef.current;
-          if (!d || d.pid !== e.pointerId) return;
-          const dy = e.clientY - d.y0;
-          if (!d.active) { if (Math.abs(dy) > 8) { clearTimeout(d.timer); dragRef.current = null; } return; }
+        const applyDrag = (d) => {
+          const dy = d.lastY + scTop(d.sc) - d.cy0;
           d.dy = dy;
           const mid = d.slots[d.from].top + d.slots[d.from].h / 2 + dy;
           let to = 0;
@@ -357,9 +375,34 @@ export function Train({ s, setS, gainXp, openRun }) {
           d.to = to;
           setDragUi({ from: d.from, to, dy });
         };
+        // Continuous edge scroll: while the pointer sits in the 80px zone the
+        // scroller moves every frame, and applyDrag re-derives dy/`to` from the
+        // new scrollTop so the drop gap retargets live as rows slide into view.
+        const dragTick = () => {
+          const d = dragRef.current;
+          if (!d?.active) return; // drop/cancel cleared the gesture — stop
+          const ZONE = 80, MIN = 2, MAX = 14;
+          const rect = d.sc ? d.sc.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+          const navTop = document.querySelector("#ascend-root nav")?.getBoundingClientRect().top ?? rect.bottom;
+          const top = Math.max(0, rect.top), bottom = Math.min(rect.bottom, navTop);
+          const ramp = (dist) => MIN + (MAX - MIN) * Math.min(1, Math.max(0, 1 - dist / ZONE));
+          let v = 0;
+          if (d.lastY < top + ZONE) v = -ramp(d.lastY - top);
+          else if (d.lastY > bottom - ZONE) v = ramp(bottom - d.lastY);
+          if (v) { scBy(d.sc, v); applyDrag(d); }
+          d.raf = requestAnimationFrame(dragTick);
+        };
+        const rowMove = (e) => {
+          const d = dragRef.current;
+          if (!d || d.pid !== e.pointerId) return;
+          d.lastY = e.clientY;
+          if (!d.active) { if (Math.abs(e.clientY - d.y0) > 8) { clearTimeout(d.timer); dragRef.current = null; } return; }
+          applyDrag(d);
+        };
         const rowDone = (e) => {
           const d = dragRef.current;
           if (!d || (e && d.pid !== e.pointerId)) return;
+          if (d.raf) cancelAnimationFrame(d.raf);
           const el = rowRefs.current[d.ei];
           if (el) el.style.touchAction = "";
           if (!d.active) { clearTimeout(d.timer); dragRef.current = null; return; }
@@ -374,7 +417,7 @@ export function Train({ s, setS, gainXp, openRun }) {
           e.preventDefault(); e.stopPropagation();
           if (e.pointerType === "mouse" && e.button !== 0) return;
           if (a.exercises.length < 2 || dragRef.current) return;
-          dragRef.current = { ei, y0: e.clientY, pid: e.pointerId, timer: null, dy: 0 };
+          dragRef.current = { ei, y0: e.clientY, lastY: e.clientY, pid: e.pointerId, timer: null, dy: 0 };
           rowPickup(ei);
         };
         const def = findEx(s, ex.name);
