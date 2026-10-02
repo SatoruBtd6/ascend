@@ -1166,51 +1166,7 @@ export default function App() {
           ))}
         </div>
       </nav>
-      {DBG && <DebugPane />}
     </div>
     </SaveCtx.Provider>
-  );
-}
-
-// Dev-only viewport debug readout (?debug=1 in any context, or always in a
-// standalone home-screen launch where the URL query can't reach the app).
-// import.meta.env.DEV makes the render path dead code in production builds;
-// the component is tree-shaken.
-const DBG = import.meta.env.DEV && typeof window !== "undefined" && (new URLSearchParams(window.location.search).has("debug") || navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
-function DebugPane() {
-  const ref = useRef(null);
-  const [lines, setLines] = useState([]);
-  useEffect(() => {
-    const probe = (n) => { const el = ref.current?.querySelector(`[data-p="${n}"]`); return el ? Math.round(el.getBoundingClientRect().height * 10) / 10 : "?"; };
-    const tick = () => {
-      const root = document.getElementById("ascend-root");
-      const sc = document.getElementById("ascend-scroll");
-      const navR = document.querySelector("#ascend-root nav")?.getBoundingClientRect();
-      const vv = window.visualViewport;
-      setLines([
-        `innerH=${window.innerHeight} outerH=${window.outerHeight}`,
-        `screen=${screen.height} avail=${screen.availHeight}`,
-        `visVP h=${vv ? vv.height.toFixed(1) : "?"} offTop=${vv ? vv.offsetTop.toFixed(1) : "?"}`,
-        `docEl clientH=${document.documentElement.clientHeight}`,
-        `standalone mq=${matchMedia("(display-mode: standalone)").matches} nav=${!!navigator.standalone}`,
-        `legacySA()=${legacyStandalone()} cls=${document.documentElement.classList.contains("legacy-sa")}`,
-        `root rectH=${root ? root.getBoundingClientRect().height.toFixed(0) : "?"} csH=${root ? getComputedStyle(root).height : "?"}`,
-        `scroll rectH=${sc ? sc.getBoundingClientRect().height.toFixed(0) : "?"} scrollH=${sc ? sc.scrollHeight : "?"}`,
-        `nav top=${navR ? navR.top.toFixed(0) : "?"} bottom=${navR ? navR.bottom.toFixed(0) : "?"}`,
-        `vh=${probe("vh")} svh=${probe("svh")} lvh=${probe("lvh")} dvh=${probe("dvh")}`,
-        `envT=${probe("et")} envB=${probe("eb")}`,
-      ]);
-    };
-    tick();
-    const id = setInterval(tick, 400);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <div ref={ref} className="fixed left-0 top-0 z-[999] pointer-events-none" style={{ font: "10px/1.45 ui-monospace,monospace", color: "#7CFF9B", background: "rgba(0,0,0,.82)", padding: "4px 6px", maxWidth: "72%" }}>
-      {lines.map((l, i) => <div key={i}>{l}</div>)}
-      {[["vh", "100vh"], ["svh", "100svh"], ["lvh", "100lvh"], ["dvh", "100dvh"], ["et", "env(safe-area-inset-top)"], ["eb", "env(safe-area-inset-bottom)"]].map(([n, h]) => (
-        <div key={n} data-p={n} style={{ position: "fixed", left: -9999, top: 0, width: 1, height: h, pointerEvents: "none" }} />
-      ))}
-    </div>
   );
 }
