@@ -1,6 +1,33 @@
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronRight, X } from "lucide-react";
 import { C } from "../theme.js";
 /* ---------- Shared bits ---------- */
+// Apple-style collapsible row: title + count + chevron on the page background.
+// Content unmounts ~260ms after close (lets the collapse animate, then frees
+// canvases/listeners). keepMounted mounts eagerly — for sections whose row
+// count needs the child's async load.
+export function Disclosure({ title, right, open, onToggle, keepMounted, children }) {
+  const [mounted, setMounted] = useState(!!open || !!keepMounted);
+  useEffect(() => {
+    if (open || keepMounted) { setMounted(true); return; }
+    const t = setTimeout(() => setMounted(false), 260);
+    return () => clearTimeout(t);
+  }, [open, keepMounted]);
+  return (
+    <div>
+      <button onClick={onToggle} aria-expanded={open} className="w-full flex items-center gap-3 text-left" style={{ minHeight: 52 }}>
+        <span className="flex-1 min-w-0 truncate" style={{ fontSize: 17, color: C.text }}>{title}</span>
+        {right != null && right !== "" && <span className="body tabular-nums truncate shrink-0" style={{ fontSize: 15, color: C.mute, maxWidth: "45%" }}>{right}</span>}
+        <ChevronRight size={18} className="shrink-0" style={{ color: C.mute, transform: open ? "rotate(90deg)" : "none", transition: "transform .25s ease-out" }} />
+      </button>
+      <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, opacity: open ? 1 : 0, transition: "opacity .22s ease-out" }}>
+          {mounted ? children : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 export const Bar = ({ pct, color = C.blue }) => (
   <div className="h-2 overflow-hidden" style={{ background: C.track, borderRadius: 2 }}>
     <div className="h-full barfill" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color, boxShadow: `0 0 10px ${color}`, transition: "width .5s", borderRadius: 2 }} />

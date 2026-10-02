@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Loader2, Lock, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { AuraCanvas } from "../../auras/AuraCanvas.jsx";
 import { today } from "../../lib/dates.js";
 import { ANIME_PITY_AT, ANIME_RARITY_ORDER } from "../../math.js";
@@ -7,7 +7,7 @@ import { C } from "../../theme.js";
 import { SFX } from "../train/sfx.js";
 import { XpSync } from "../../lib/xpSync.js";
 import { AnimatedBorder } from "./Avatar.jsx";
-import { ACTIVE_CRATE, CRATE_RARITY, CRATE_RARITY_DESC, applyCratePrize, commitCratePrize, crateOwned, cratePityOf, packCratePrize, rollCratePrize, secureRandom } from "./crate.js";
+import { ACTIVE_CRATE, CRATE_RARITY, applyCratePrize, commitCratePrize, cratePityOf, packCratePrize, rollCratePrize, secureRandom } from "./crate.js";
 import { Groove, Jingle } from "./music.js";
 import { crateAuraBest, crateBank } from "./points.js";
 import { BORDERS } from "./unlock.js";
@@ -19,7 +19,6 @@ export function CrateVault({ s, setS }) {
   const log = sandbox ? (s.testCrate?.log || []) : (s.crateLog || []);
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(null);
-  const [typeTab, setTypeTab] = useState("aura");
   const [secretToast, setSecretToast] = useState(false);
   const [forceRarity, setForceRarity] = useState("");
   const [forcePrizeId, setForcePrizeId] = useState("");
@@ -67,8 +66,6 @@ export function CrateVault({ s, setS }) {
   };
   const roll = () => openOnce(1);
   const meta = show && CRATE_RARITY[show.rarity];
-  const visible = crate.prizes.filter((p) => p.type === typeTab && (p.rarity !== "secret" || s.test || crateOwned(s, p) || show?.id === p.id)).sort((a, b) => CRATE_RARITY_DESC.indexOf(a.rarity) - CRATE_RARITY_DESC.indexOf(b.rarity));
-  const secretLocked = typeTab === "aura" && !s.test && !s.crateUnlocks?.blacksun && show?.id !== "blacksun";
   const canOpen = sandbox || bank >= crate.cost;
   return (
     <>
@@ -76,7 +73,7 @@ export function CrateVault({ s, setS }) {
       <div className="px-4 pt-4 pb-3 space-y-1" style={{ background: "radial-gradient(80% 90% at 50% 0%, rgba(106,0,255,.28), transparent 70%)" }}>
         <div className="body text-xs uppercase tracking-wider font-bold" style={{ color: C.gold }}>{crate.tag}{sandbox ? " · sandbox" : ""}</div>
         <div className="text-xl font-bold">{crate.name}</div>
-        <div className="body text-xs" style={{ color: C.dim }}>{sandbox ? "Ghost sandbox. Spins are free and do not save unlocks, points, or pity on your real account." : crate.blurb}</div>
+        {sandbox && <div className="body text-xs" style={{ color: C.dim }}>Ghost sandbox. Spins are free and do not save unlocks, points, or pity on your real account.</div>}
       </div>
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-baseline">
@@ -113,25 +110,6 @@ export function CrateVault({ s, setS }) {
           <div className="body text-xs flex justify-between" style={{ color: C.mute }}><span>Legendary+ pity{sandbox ? " (sandbox)" : ""}</span><span>Secret stays 1/1000</span></div>
           <div className="text-sm font-bold tabular-nums">{Math.min(ANIME_PITY_AT - 1, pity)} / {ANIME_PITY_AT - 1} misses</div>
         </div>
-        <div className="grid grid-cols-3 gap-1">{[["aura", "Auras"], ["title", "Titles"], ["border", "Borders"]].map(([id, label]) => <button key={id} onClick={() => setTypeTab(id)} className="py-2 text-xs font-bold" style={{ borderRadius: 9, background: typeTab === id ? C.cyan : C.soft, color: typeTab === id ? "#001018" : C.text }}>{label}</button>)}</div>
-        <div className="space-y-1.5">
-          {secretLocked && <div className="flex items-center gap-2 py-2 px-2" style={{ borderRadius: 10, background: "#050505", border: "1px solid #333" }}><Lock size={14} /><span className="w-20 text-xs font-bold uppercase">Secret</span><span className="flex-1 text-sm font-semibold">???</span><span className="body text-xs">undiscovered</span></div>}
-          {visible.map((p) => {
-            const r = CRATE_RARITY[p.rarity];
-            const have = crateOwned(s, p);
-            const gilded = p.rarity === "gilded";
-            const mythic = p.rarity === "mythic";
-            return (
-              <div key={p.id} className="relative flex items-center gap-2 py-1.5 px-1.5 overflow-hidden" style={{ borderRadius: 10, background: gilded ? "linear-gradient(90deg, rgba(255,212,71,.14), transparent 70%)" : mythic ? "linear-gradient(90deg,rgba(168,85,247,.18),rgba(236,72,153,.12),transparent)" : "transparent", border: gilded ? "1px solid rgba(255,212,71,.35)" : mythic ? "1px solid rgba(236,72,153,.4)" : "1px solid transparent" }}>
-                {gilded && <span aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}><span style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "32%", background: "linear-gradient(90deg, transparent, rgba(255,246,201,.3), transparent)", animation: "gildsweep 4.8s ease-in-out infinite" }} /></span>}
-                <span className="w-20 text-xs font-bold tracking-wider uppercase" style={{ color: r.color }}>{r.name}</span>
-                <span className="flex-1 min-w-0"><span className="block text-sm font-semibold truncate" style={{ color: have ? C.text : C.dim }}>{p.name}</span><span className="block body text-xs truncate" style={{ color: C.mute }}>{p.flavor}</span></span>
-                {have ? <Check size={14} style={{ color: C.green }} /> : <Lock size={12} style={{ color: C.mute }} />}
-                <span className="body text-xs tabular-nums w-12 text-right" style={{ color: C.mute }}>{r.chance}</span>
-              </div>
-            );
-          })}
-        </div>
         {log.length > 0 && (
           <div className="body text-xs" style={{ color: C.mute }}>Last: {log.slice(0, 6).map((x) => x.name).join(" · ")}</div>
         )}
@@ -152,7 +130,7 @@ export function CrateVault({ s, setS }) {
                 <div className="text-3xl font-black tracking-wider uppercase" style={{ color: C.gold }}>{show.name}</div>
               )}
               <div className="text-xl font-bold">{show.name}</div>
-              <div className="body text-sm" style={{ color: C.dim }}>{show.sandbox ? (show.dupe ? "Already owned on the real account. Sandbox didn't change it." : "Sandbox pull — not saved to the real account.") : (show.dupe ? `Already owned · ${show.refund} pts back` : "Unlocked. Equip it in Customize.")}</div>
+              <div className="body text-sm" style={{ color: C.dim }}>{show.sandbox ? (show.dupe ? "Already owned on the real account. Sandbox didn't change it." : "Sandbox pull — not saved to the real account.") : (show.dupe ? `Already owned · ${show.refund} pts back` : "Unlocked. Equip it below.")}</div>
               {show.sandbox && (
                 <button type="button" className="ghost w-full py-3 font-bold" onClick={() => {
                   setS((p) => {

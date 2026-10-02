@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, ChevronRight, Loader2, Swords } from "lucide-react";
+import { Camera, ChevronDown, ChevronRight, Loader2, Swords } from "lucide-react";
 import { ask } from "../../lib/ask.js";
 import { uid } from "../../lib/dates.js";
 import { C } from "../../theme.js";
@@ -38,11 +38,12 @@ export async function rateMog(dataUrl) {
   const parts = { pucker: clamp(r.pucker), brows: clamp(r.brows), stare: clamp(r.stare), jaw: clamp(r.jaw), commitment: clamp(r.commitment) };
   return { ...parts, total: Object.values(parts).reduce((a, b) => a + b, 0), quip: String(r.quip || "The judges have spoken.").slice(0, 80) };
 }
-export function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embedded }) {
+export function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUid, embedded, onCount }) {
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [open, setOpen] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const camRef = useRef(null);
   const pendingRef = useRef(null); // challenge being accepted, or null for a new challenge
   const load = async () => {
@@ -85,43 +86,63 @@ export function MogSection({ s, setS, gainXp, me, targetId, targetName, targetUi
   };
   const remove = async (m) => { try { await window.storage.delete(m.key, true); setList((l) => l.filter((x) => x.key !== m.key)); } catch { /* ignore */ } };
   const rows = me ? list : list.filter((m) => (m.from === targetId || m.to === targetId));
+  useEffect(() => { onCount?.(rows.length); }, [rows.length]);
+  const viewer = me ? s.playerId : targetId;
+  const pending = rows.filter((m) => m.status === "pending");
+  const done = rows.filter((m) => m.status === "done");
+  const shown = showAll ? done : done.slice(0, 5);
+  const d8 = (t) => new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   return (
-    <div className="space-y-2">
-      {!embedded && <h2 className="text-lg font-bold flex items-center gap-2"><Swords size={18} style={{ color: "#FF2D6F" }} />PvP · mog-offs</h2>}
+    <div>
+      {!embedded && <h2 className="text-lg font-bold flex items-center gap-2 mb-2"><Swords size={18} style={{ color: "#FF2D6F" }} />Mog-offs</h2>}
       <input ref={camRef} type="file" accept="image/*" capture="user" onChange={onShot} style={{ display: "none" }} />
       {!me && (
-        <button onClick={() => snap(null)} disabled={busy} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}{busy ? "Judging your mog…" : `🐟 Mog-off ${targetName || "them"} (+${MOG_XP} XP)`}</button>
+        <button onClick={() => snap(null)} disabled={busy} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2 mb-2" style={{ color: C.cyan }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}{busy ? "Judging your mog…" : `🐟 Mog-off ${targetName || "them"} (+${MOG_XP} XP)`}</button>
       )}
-      {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
-      {me && rows.length === 0 && <Empty>No mog-offs yet. Open a cousin's profile from the Board tab and challenge them. When someone challenges you, it shows here and on your Status tab.</Empty>}
-      {!s.lb && me && <div className="body text-xs" style={{ color: C.orange }}>Join the leaderboard (Board tab) to send and receive mog-offs.</div>}
-      {rows.map((m) => {
-        const iAmTarget = m.to === s.playerId, iAmFrom = m.from === s.playerId;
-        const isOpen = open === m.key;
+      {note && <div className="body text-sm mb-2" style={{ color: C.orange }}>{note}</div>}
+      {me && rows.length === 0 && <Empty>No mog-offs yet — open a cousin's profile and challenge them.</Empty>}
+      {!s.lb && me && <div className="body text-xs mb-2" style={{ color: C.orange }}>Join the leaderboard (Board tab) to send and receive mog-offs.</div>}
+      {pending.map((m) => {
+        const iAmTarget = m.to === s.playerId;
+        const opp = m.from === viewer ? m.toName : m.fromName;
         return (
-          <div key={m.key} className="panel p-3 space-y-2">
-            <div className="flex justify-between items-center gap-2">
-              <div className="font-bold text-sm truncate">{m.fromName} vs {m.toName}</div>
-              <div className="body text-xs" style={{ color: C.dim }}>{new Date(m.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
-            </div>
-            {m.status === "pending" && iAmTarget && (
-              <button onClick={() => snap(m)} disabled={busy} className="btn w-full py-3 flex items-center justify-center gap-2">{busy ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}{busy ? "Judging…" : `Accept: mog back at ${m.fromName}`}</button>
-            )}
-            {m.status === "pending" && !iAmTarget && <div className="body text-sm" style={{ color: C.dim }}>Waiting for {m.toName} to accept. Your score: {m.a.total}.</div>}
-            {m.status === "pending" && iAmTarget && <div className="body text-xs" style={{ color: C.dim }}>{m.fromName} scored {m.a.total}. Beat it to win {MOG_XP} XP.</div>}
-            {m.status === "done" && (
-              <>
-                <div className="flex justify-end"><ReceiptButton label="Share result" make={() => buildReceipt({ s, kind: "Mog-off", headline: m.winner === "tie" ? "Dead heat" : `${m.winner === m.from ? m.fromName : m.toName} mogged`, sub: `${m.fromName} ${m.a.total} vs ${m.toName} ${m.b?.total ?? "–"}`, rows: [["Lips", `${m.a.pucker} vs ${m.b?.pucker ?? "–"}`], ["Brows", `${m.a.brows} vs ${m.b?.brows ?? "–"}`], ["Stare", `${m.a.stare} vs ${m.b?.stare ?? "–"}`], ["Commitment", `${m.a.commitment} vs ${m.b?.commitment ?? "–"}`]] })} /></div>
-                <div className="text-center font-extrabold" style={{ color: C.gold }}>{m.winner === "tie" ? "It's a tie. Both mogged equally hard." : `${m.winner === m.from ? m.fromName : m.toName} wins the mog-off`}</div>
-                <button onClick={() => setOpen(isOpen ? null : m.key)} className="body text-xs underline w-full" style={{ color: C.cyan }}>{isOpen ? "Hide faces" : "Show the faces and scores"}</button>
-                {isOpen && <div className="flex gap-3"><MogFace e={m.a} label={m.fromName} win={m.winner === m.from} /><MogFace e={m.b} label={m.toName} win={m.winner === m.to} /></div>}
-                {m.winner === s.playerId && !(s.mogClaimed || {})[m.id] && <button onClick={() => claim(m)} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{MOG_XP} XP</button>}
-              </>
-            )}
-            {(iAmFrom || iAmTarget) && me && <button onClick={() => ask("Delete this mog-off?", () => remove(m), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button>}
+          <div key={m.key} className="flex items-center gap-2 py-2.5" style={{ borderBottom: `1px solid rgba(255,255,255,.08)` }}>
+            <span className="flex-1 min-w-0 truncate font-semibold text-sm">{opp}</span>
+            <span className="body text-xs shrink-0" style={{ color: C.dim }}>{d8(m.t)}</span>
+            {iAmTarget
+              ? <button onClick={() => snap(m)} disabled={busy} className="btn px-3 py-1.5 text-xs flex items-center gap-1 shrink-0">{busy ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}Accept · beat {m.a.total}</button>
+              : <span className="body text-xs shrink-0" style={{ color: C.dim }}>Waiting · you {m.a.total}</span>}
           </div>
         );
       })}
+      {shown.map((m) => {
+        const iAmTarget = m.to === s.playerId, iAmFrom = m.from === s.playerId;
+        const isOpen = open === m.key;
+        const opp = m.from === viewer ? m.toName : m.fromName;
+        const won = m.winner === viewer, tie = m.winner === "tie";
+        return (
+          <div key={m.key} style={{ borderBottom: `1px solid rgba(255,255,255,.08)` }}>
+            <button onClick={() => setOpen(isOpen ? null : m.key)} className="w-full flex items-center gap-2 py-2.5 text-left" aria-expanded={isOpen}>
+              <span className="flex-1 min-w-0 truncate font-semibold text-sm">{opp}</span>
+              <span className="body text-xs shrink-0" style={{ color: C.dim }}>{d8(m.t)}</span>
+              <span className="body text-xs font-bold shrink-0 w-9 text-right" style={{ color: tie ? C.dim : won ? C.green : C.red }}>{tie ? "Tied" : won ? "Won" : "Lost"}</span>
+              <ChevronDown size={14} className="shrink-0" style={{ color: C.mute, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+            </button>
+            {isOpen && (
+              <div className="pb-3 space-y-2">
+                <div className="flex gap-3"><MogFace e={m.a} label={m.fromName} win={m.winner === m.from} /><MogFace e={m.b} label={m.toName} win={m.winner === m.to} /></div>
+                {m.winner === s.playerId && !(s.mogClaimed || {})[m.id] && <button onClick={() => claim(m)} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: C.gold, color: "#0A1630" }}>Claim +{MOG_XP} XP</button>}
+                <div className="flex items-center justify-between">
+                  {(iAmFrom || iAmTarget) && me ? <button onClick={() => ask("Delete this mog-off?", () => remove(m), "Delete")} className="body text-xs underline" style={{ color: C.mute }}>Delete</button> : <span />}
+                  <ReceiptButton label="Share" make={() => buildReceipt({ s, kind: "Mog-off", headline: m.winner === "tie" ? "Dead heat" : `${m.winner === m.from ? m.fromName : m.toName} mogged`, sub: `${m.fromName} ${m.a.total} vs ${m.toName} ${m.b?.total ?? "–"}`, rows: [["Lips", `${m.a.pucker} vs ${m.b?.pucker ?? "–"}`], ["Brows", `${m.a.brows} vs ${m.b?.brows ?? "–"}`], ["Stare", `${m.a.stare} vs ${m.b?.stare ?? "–"}`], ["Commitment", `${m.a.commitment} vs ${m.b?.commitment ?? "–"}`]] })} />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {done.length > 5 && !showAll && <button onClick={() => setShowAll(true)} className="body text-sm font-bold w-full py-2.5" style={{ color: C.cyan }}>Show all ({done.length})</button>}
+      {showAll && done.length > 5 && <button onClick={() => setShowAll(false)} className="body text-xs w-full py-2" style={{ color: C.mute }}>Show less</button>}
     </div>
   );
 }

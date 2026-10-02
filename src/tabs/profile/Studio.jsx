@@ -6,6 +6,8 @@ import { overallInfo } from "../../lib/stats.js";
 import { C } from "../../theme.js";
 import { AnimatedBorder, Avatar, FancyName } from "./Avatar.jsx";
 import { AURA_GROUPS, NAME_ANIMS, NAME_COLORS, NAME_FONTS, PROFILE_BGS, lookStyle, titleGroup } from "./lookConsts.js";
+import { ACTIVE_CRATE, CRATE_RARITY } from "./crate.js";
+const crateChance = (id) => CRATE_RARITY[ACTIVE_CRATE.prizes.find((p) => p.id === id)?.rarity]?.chance;
 import { Physique } from "./Physique.jsx";
 import { RankChip } from "./RankChip.jsx";
 import { TITLES, equippedTitle, titleEarned } from "./titles.js";
@@ -30,6 +32,7 @@ export function AuraTile({ a, s, sel, onPick }) {
   const ok = unlocked(a, s);
   const prog = a.task ? AURA_TASKS[a.task](s) : null;
   const gilded = !!a.gilded;
+  const chance = a.crate ? CRATE_RARITY[a.rarity]?.chance : null;
   return (
     <button onClick={() => ok && onPick(a.id)} aria-pressed={sel} aria-disabled={!ok} aria-label={`${a.name}${ok ? "" : `, locked: ${a.how}`}`} className="relative flex flex-col items-center text-center px-1.5 pt-2 pb-2 overflow-visible" style={{ borderRadius: 14, background: sel ? `${C.cyan}14` : gilded ? "linear-gradient(180deg, rgba(255,212,71,.16), rgba(201,150,46,.06))" : C.glass, border: `1px solid ${sel ? C.cyan : gilded ? "rgba(255,212,71,.55)" : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}, 0 6px 20px ${C.glow}` : gilded ? "0 0 18px rgba(255,212,71,.22)" : "none", cursor: ok ? "pointer" : "default", transition: "border-color .2s, box-shadow .2s" }}>
       {gilded && <span aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 14, pointerEvents: "none" }}><span style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "38%", background: "linear-gradient(90deg, transparent, rgba(255,246,201,.28), transparent)", animation: "gildsweep 4.8s ease-in-out infinite" }} /></span>}
@@ -39,8 +42,9 @@ export function AuraTile({ a, s, sel, onPick }) {
       </span>
       {gilded && <span className="absolute top-1.5 left-1/2 -translate-x-1/2 text-xs font-extrabold tracking-widest uppercase" style={{ color: "#E8C56A", fontSize: 9, letterSpacing: ".14em", zIndex: 1 }}>Gilded</span>}
       <span className="text-xs font-bold leading-tight mt-0.5" style={{ color: ok ? C.text : C.dim }}>{a.name}</span>
-      {ok && a.ptsMult ? <span className="body leading-tight" style={{ fontSize: 10.5, color: C.gold }}>+{Math.round(a.ptsMult * 100)}% pts</span> : null}
-      {!ok && !prog && <span className="body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{a.how}</span>}
+      {ok && a.ptsMult ? <span className="body leading-tight" style={{ fontSize: 10.5 }}><span style={{ color: C.gold }}>+{Math.round(a.ptsMult * 100)}% pts</span>{chance ? <span style={{ color: C.mute }}> · {chance}</span> : null}</span> : null}
+      {ok && !a.ptsMult && chance ? <span className="body leading-tight" style={{ fontSize: 10.5, color: C.mute }}>{chance}</span> : null}
+      {!ok && !prog && <span className="body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{a.crate ? `${CRATE_RARITY[a.rarity]?.name} · ${chance}` : a.how}</span>}
       {!ok && prog && (
         <span className="w-full mt-1 px-1">
           <span className="block body leading-tight" style={{ fontSize: 10.5, color: C.mute }}>{a.how}</span>
@@ -75,19 +79,17 @@ export function LookStudio({ s, setS }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap"><RankChip rank={oi.rank.id} div={oi.div} /><span className="body text-xs" style={{ color: C.dim }}>{selAura === "none" ? "No aura" : `${auraName} aura`}</span></div>
-          <div className="body text-xs" style={{ color: C.mute }}>This is how you show up on the board and in the feed.</div>
         </div>
       </div>
       <div className="p-4 space-y-3">
         <StudioTabs tab={tab} setTab={setTab} tabs={[["auras", "Auras", `${aurasOk}/${AURAS.length - 1}`], ["titles", "Titles", `${titlesOk}/${TITLES.length}`], ["themes", "Themes", null]]} />
 
-        {tab === "auras" && AURA_GROUPS.map(([g, label, note]) => {
+        {tab === "auras" && AURA_GROUPS.map(([g, label]) => {
           const list = AURAS.filter((a) => (a.group === g || (g === "rank" && a.id === "none")) && (a.id !== "blacksun" || unlocked(a, s)));
           const have = list.filter((a) => a.id !== "none" && unlocked(a, s)).length;
           return (
             <div key={g} className="space-y-2">
               <StudioHead note={`${have} of ${list.filter((a) => a.id !== "none").length}`}>{label}</StudioHead>
-              {note && <div className="body text-xs -mt-1.5" style={{ color: C.dim }}>{note}</div>}
               <div className="grid grid-cols-3 gap-2">{list.map((a) => <AuraTile key={a.id} a={a} s={s} sel={selAura === a.id} onPick={(id) => setLook({ aura: id, ...(id !== (look.aura || "none") && look.aura && look.aura !== "none" && look.aura !== "ascended" ? { auraPrev: look.aura } : {}) })} />)}</div>
             </div>
           );
@@ -105,7 +107,7 @@ export function LookStudio({ s, setS }) {
                     <button key={t.id} onClick={() => ok && setS((p) => ({ ...p, profile: { ...p.profile, title: t.id } }))} aria-pressed={sel} aria-disabled={!ok} className="text-left px-3 py-2.5 flex items-start gap-2" style={{ borderRadius: 12, background: sel ? `${C.cyan}14` : C.glass, border: `1px solid ${sel ? C.cyan : C.glassLine}`, boxShadow: sel ? `0 0 0 1px ${C.cyan}` : "none", cursor: ok ? "pointer" : "default" }}>
                       <span className="flex-1 min-w-0">
                         <span className="block text-xs font-bold tracking-wider uppercase truncate" style={{ color: ok ? (sel ? look.accent || C.cyan : C.text) : C.mute }}>{t.name}</span>
-                        <span className="block body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{t.how}</span>
+                        <span className="block body leading-tight mt-0.5" style={{ fontSize: 10.5, color: C.mute }}>{t.how}{t.crate && crateChance(t.id) ? ` · ${crateChance(t.id)}` : ""}</span>
                       </span>
                       {sel ? <Check size={14} className="shrink-0 mt-0.5" style={{ color: C.cyan }} /> : !ok ? <Lock size={12} className="shrink-0 mt-0.5" style={{ color: C.mute }} /> : null}
                     </button>
@@ -118,7 +120,7 @@ export function LookStudio({ s, setS }) {
         {tab === "titles" && (
           <div className="space-y-2">
             <StudioHead>Exclusive achievements</StudioHead>
-            <div className="body text-xs -mt-1.5" style={{ color: C.dim }}>Not earnable yet. They're here so the grind has a ceiling to chase.</div>
+            <div className="body text-xs -mt-1.5" style={{ color: C.dim }}>Not earnable yet.</div>
             <div className="grid grid-cols-2 gap-2">
               {[["Perfect Month", "Hit every daily quest for a full month"], ["First Blood", "Land the first hit on a new global boss"], ["Untouchable", "Hold #1 for 30 days straight"]].map(([name, how]) => (
                 <div key={name} className="text-left px-3 py-2.5 flex items-start gap-2" style={{ borderRadius: 12, background: C.glass, border: `1px solid ${C.glassLine}` }}>
@@ -157,7 +159,7 @@ export function LookStudio({ s, setS }) {
                       <span className="flex items-center justify-center" style={{ width: 32, height: 32, borderRadius: 999, background: C.sheet }}>{!ok && <Lock size={12} style={{ color: C.mute }} />}</span>
                     </span>
                     <span className="text-xs font-semibold leading-tight text-center" style={{ color: ok ? C.text : C.mute }}>{b.name}</span>
-                    {!ok && <span className="body leading-tight text-center" style={{ fontSize: 10, color: C.mute }}>{b.how}</span>}
+                    {b.crate && crateChance(b.id) ? <span className="body leading-tight text-center" style={{ fontSize: 10, color: C.mute }}>{ok ? crateChance(b.id) : `${b.how} · ${crateChance(b.id)}`}</span> : !ok ? <span className="body leading-tight text-center" style={{ fontSize: 10, color: C.mute }}>{b.how}</span> : null}
                   </button>
                 ); })}
               </div>

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, ChevronLeft, Hand, Image as ImageIcon, Loader2, MessageCircle, Music, Trash2, Upload, X, Zap } from "lucide-react";
+import { Camera, ChevronLeft, Hand, Image as ImageIcon, Loader2, Music, Trash2, Upload, X, Zap } from "lucide-react";
 import { TIER_STYLE } from "../../data/achievements.js";
 import { RANKS } from "../../data/ranks.js";
 import { ask } from "../../lib/ask.js";
 import { allAchievements, fmtCredit } from "../../lib/stats.js";
 import { C } from "../../theme.js";
-import { Bar, Empty } from "../../ui/primitives.jsx";
+import { Bar, Disclosure, Empty } from "../../ui/primitives.jsx";
+import { AURAS } from "../../auras/catalog.js";
 import { shrinkPhoto } from "../fuel/shrinkPhoto.js";
 import { StepsPanel } from "../run/StepsPanel.jsx";
 import { RankBadge } from "../train/RankBadge.jsx";
@@ -16,6 +17,7 @@ import { Measurements } from "./Measurements.jsx";
 import { MogSection } from "./Mog.jsx";
 import { Jingle, THEMES_MUSIC } from "./music.js";
 import { Physique } from "./Physique.jsx";
+import { unlocked } from "./unlock.js";
 import { profileCard } from "./profileCard.js";
 import { CrewBanner, RivalBadge, SeasonBadges, VersusPanel } from "./profileWidgets.jsx";
 import { ProgressPhotos } from "./ProgressPhotos.jsx";
@@ -31,6 +33,9 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [pick, setPick] = useState(null);
+  const [sec, setSec] = useState({});
+  const [mogCount, setMogCount] = useState(null);
+  const secToggle = (k) => setSec((p) => ({ ...p, [k]: !p[k] }));
   const fileRef = useRef(null);
   const id = me ? s.playerId : targetId;
   const data = me ? profileCard(s) : card;
@@ -146,9 +151,10 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
   const earned = all.filter((a) => earnedIds.has(a.id)), locked = all.filter((a) => !earnedIds.has(a.id));
   const rank = data ? RANKS.find((r) => r.id === data.rank) || RANKS[0] : RANKS[0];
   const st = data?.stats;
+  const aurasOk = me ? AURAS.filter((a) => a.id !== "none" && unlocked(a, s)).length : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-7">
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
         <h1 className="text-2xl font-bold glowtext flex-1 min-w-0">{me ? "Your profile" : "Profile"}</h1>
@@ -165,7 +171,7 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
 
       {data && (
         <>
-          <div className="panel p-5" style={lookStyle(data.look)}>
+          <div className="panel p-4" style={lookStyle(data.look)}>
             <div className="flex items-center gap-4">
               <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={data.look} />
               <div className="flex-1 min-w-0">
@@ -178,8 +184,8 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
                 <div className="body text-xs mt-0.5" style={{ color: C.dim }}>{(data.points || 0).toLocaleString()} pts · {data.streak} day streak{st?.since ? ` · since ${new Date(st.since + "T12:00").toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}</div>
               </div>
             </div>
-            {me && data.avatar && <button onClick={() => ask("Remove your profile photo? This deletes it from your profile and the board.", removeAvatar, "Remove")} className="body text-xs underline mt-3" style={{ color: C.mute }}>Remove photo</button>}
-            <div className="flex items-center gap-3 flex-wrap mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+            {me && data.avatar && <button onClick={() => ask("Remove your profile photo? This deletes it from your profile and the board.", removeAvatar, "Remove")} className="body text-xs underline mt-2" style={{ color: C.mute }}>Remove photo</button>}
+            <div className="flex items-center gap-3 flex-wrap mt-3 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
               <div className="flex items-center gap-1 font-bold" style={{ color: C.gold }}><Hand size={18} />{fives} high-five{fives === 1 ? "" : "s"}</div>
               {!me && <button onClick={highFive} disabled={busy} className="btn px-4 py-2 text-sm flex items-center gap-1"><Hand size={16} />High five</button>}
               {me && openXp && <button onClick={openXp} className="ghost px-3 py-1.5 text-sm font-bold flex items-center gap-1.5" style={{ color: C.gold }}><Zap size={15} />XP history</button>}
@@ -187,29 +193,7 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
             </div>
           </div>
 
-          {me && <CrateVault s={s} setS={setS} />}
-          {me && <LookStudio s={s} setS={setS} />}
-          {me && (
-            <div className="panel p-4 space-y-3">
-              <div className="font-bold flex items-center gap-2"><Music size={16} />Theme song</div>
-              {s.profile.song && <div className="body text-sm" style={{ color: C.sub }}>Current: {s.profile.song.type === "link" ? `${songLinkLabel(s.profile.song.url)} link` : s.profile.song.type === "theme" ? `${s.profile.song.name} (built-in)` : `${s.profile.song.name || "clip"} (20 sec clip)`} <button onClick={removeSong} className="underline ml-2" style={{ color: C.red }}>Remove</button></div>}
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => songRef.current?.click()} disabled={songBusy} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}>{songBusy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{songBusy ? "Making clip…" : "Upload mp3"}</button>
-                <input ref={songRef} type="file" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/*" onChange={onSong} style={{ display: "none" }} />
-                <div className="flex gap-1">
-                  <input className="inp text-sm" placeholder="YouTube / Spotify / Apple Music link" value={songLink} onChange={(e) => setSongLink(e.target.value)} />
-                  <button onClick={saveLink} disabled={!/^https?:\/\//i.test(songLink.trim())} className="btn px-3 text-sm">Set</button>
-                </div>
-              </div>
-              <div className="body text-xs" style={{ color: C.dim }}>Or pick a built-in theme (tap to preview, tap again to stop):</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {Object.entries(THEMES_MUSIC).map(([id, t]) => { const sel = s.profile.song?.type === "theme" && s.profile.song.id === id; return (
-                  <button key={id} onClick={() => { if (Jingle.id === id) { Jingle.stop(); } else { Jingle.start(id); } setS((p) => ({ ...p, profile: { ...p.profile, song: { type: "theme", id, name: t.name } } })); }} className="px-3 py-2 text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 999, background: sel ? C.blue : C.soft, color: sel ? "#fff" : C.text, border: `1px solid ${C.border}` }}><Music size={12} />{t.name}</button>
-                ); })}
-              </div>
-              <div className="body text-xs" style={{ color: C.mute }}>Uploads keep the first 20 seconds as a small clip. YouTube, Spotify, and Apple Music links play right inside your profile.</div>
-            </div>
-          )}
+          {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
 
           {st && (
             <div className="grid grid-cols-3 gap-2">
@@ -219,80 +203,122 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
             </div>
           )}
 
-          <h2 className="text-lg font-bold">Achievements <span className="body text-sm font-normal" style={{ color: C.dim }}>{earned.length} / {all.length}</span></h2>
-          {pick && (
-            <div className="panel p-3 body text-sm" style={{ borderColor: TIER_STYLE[pick.tier].color }}>
-              <div className="font-bold" style={{ color: TIER_STYLE[pick.tier].color }}>{pick.title} · {TIER_STYLE[pick.tier].name}</div>
-              <div>{pick.desc}</div>
-              <div className="text-xs mt-1" style={{ color: C.gold }}>+{pick.xp} XP{earnedIds.has(pick.id) ? " · earned" : ""}</div>
-              {!earnedIds.has(pick.id) && st && typeof pick.series.get(st) === "number" && (
-                <div className="mt-2"><Bar pct={(pick.series.get(st) / pick.value) * 100} color={TIER_STYLE[pick.tier].color} /><div className="text-xs mt-1" style={{ color: C.dim }}>{Math.floor(pick.series.get(st)).toLocaleString()} / {pick.value.toLocaleString()} {pick.series.unit}</div></div>
-              )}
-            </div>
-          )}
-          <div className="panel p-3">
-            {earned.length === 0 && <div className="body text-sm mb-2" style={{ color: C.dim }}>Nothing earned yet. Tap a locked badge to see what it takes.</div>}
-            <div className="flex flex-wrap gap-1 justify-center">
-              {[...earned.sort((a, b) => b.tier - a.tier), ...locked].map((a) => <AchBadge key={a.id} a={a} earned={earnedIds.has(a.id)} onClick={() => setPick(a)} />)}
-            </div>
-          </div>
-
-          {me && (
-            <>
-              <h2 className="text-lg font-bold">Body</h2>
-              <ProgressPhotos s={s} />
-              <Measurements s={s} setS={setS} />
-            </>
-          )}
-          {me && <StepsPanel s={s} setS={setS} gainXp={gainXp} />}
-          {!me && data.weightLog && Object.keys(data.weightLog).length > 1 && (
-            <>
-              <h2 className="text-lg font-bold">Weight over time</h2>
-              <div className="panel p-4"><WeightChart log={data.weightLog} target={data.goal} /></div>
-            </>
-          )}
-
-          {data.lifts?.length > 0 && (
-            <>
-              <h2 className="text-lg font-bold">Top lifts</h2>
-              <div className="space-y-2">
-                {data.lifts.map((l) => { const r = RANKS.find((x) => x.id === l.rank) || RANKS[0]; return (
-                  <div key={l.name} className="panel p-3 flex items-center gap-3"><RankBadge rank={r} size={30} /><span className="flex-1 font-semibold ml-1">{l.name}</span><span className="font-bold" style={{ color: r.color }}>{l.label}</span><span className="body text-xs" style={{ color: C.dim }}>{l.best}{l.bw ? " reps" : " lb"}</span></div>
-                ); })}
-              </div>
-            </>
-          )}
-
-          {!me && <div className="flex justify-center"><Physique tier={data.tier ?? (RANKS.findIndex((r) => r.id === data.rank) || 0)} height={220} aura={data.look?.aura} sex={data.sex} caption={`${data.name}'s physique`} /></div>}
-          {!me ? <VersusPanel s={s} data={data} me={me} id={id} setS={setS} gainXp={gainXp} /> : <MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} />}
-
-          <h2 className="text-lg font-bold flex items-center gap-2"><MessageCircle size={18} />Comments</h2>
-          {note && <div className="body text-sm" style={{ color: C.orange }}>{note}</div>}
-          {!me && (
-            <div className="panel p-2 space-y-2">
-              {cImg && <div className="flex items-center gap-2"><img src={cImg} alt="" style={{ height: 64, borderRadius: 6 }} /><button onClick={() => setCImg(null)} aria-label="Remove photo" className="ghost p-1"><X size={14} /></button></div>}
-              <div className="flex gap-2">
-                <button aria-label="Add a photo" onClick={() => cImgRef.current?.click()} className="ghost px-3 flex items-center" style={{ color: cImg ? C.green : C.cyan }}><ImageIcon size={18} /></button>
-                <input ref={cImgRef} type="file" accept="image/*" onChange={onCommentPhoto} style={{ display: "none" }} />
-                <input className="inp" placeholder="Say something (140 max)" maxLength={140} value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && postComment()} />
-                <button onClick={postComment} disabled={busy || (!comment.trim() && !cImg)} className="btn px-4 py-2 text-sm">Post</button>
-              </div>
-            </div>
-          )}
-          {social.comments.length === 0 && <Empty>{me ? "No comments yet. When your cousins visit your profile from the Board tab, they can leave one." : "Be the first to leave a comment."}</Empty>}
-          <div className="space-y-2">
-            {social.comments.map((c) => (
-              <div key={c.key} className="panel p-3">
-                <div className="flex justify-between items-start gap-2">
-                  <div className="font-bold text-sm">{c.name}<span className="body text-xs font-normal ml-2" style={{ color: C.mute }}>{new Date(c.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
-                  {(me || c.from === s.playerId) && <button aria-label="Delete comment" onClick={() => ask(c.img ? "Delete this comment and its photo? They're removed from the board for everyone." : "Delete this comment?", () => deleteComment(c), "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
-                </div>
-                {c.text && <div className="body text-sm mt-1" style={{ color: C.sub }}>{c.text}</div>}
-                {c.img && <button onClick={() => setBigImg(bigImg === c.key ? null : c.key)} className="mt-2 block"><img src={c.img} alt="Photo in comment" style={{ maxHeight: bigImg === c.key ? 400 : 120, maxWidth: "100%", borderRadius: 6, border: `1px solid ${C.border}` }} /></button>}
+          <div>
+            {[
+              {
+                k: "ach", t: "Achievements", r: `${earned.length} / ${all.length}`, c: (
+                  <div className="pt-1 pb-4 space-y-3">
+                    {pick && (
+                      <div className="panel p-3 body text-sm" style={{ borderColor: TIER_STYLE[pick.tier].color }}>
+                        <div className="font-bold" style={{ color: TIER_STYLE[pick.tier].color }}>{pick.title} · {TIER_STYLE[pick.tier].name}</div>
+                        <div>{pick.desc}</div>
+                        <div className="text-xs mt-1" style={{ color: C.gold }}>+{pick.xp} XP{earnedIds.has(pick.id) ? " · earned" : ""}</div>
+                        {!earnedIds.has(pick.id) && st && typeof pick.series.get(st) === "number" && (
+                          <div className="mt-2"><Bar pct={(pick.series.get(st) / pick.value) * 100} color={TIER_STYLE[pick.tier].color} /><div className="text-xs mt-1" style={{ color: C.dim }}>{Math.floor(pick.series.get(st)).toLocaleString()} / {pick.value.toLocaleString()} {pick.series.unit}</div></div>
+                        )}
+                      </div>
+                    )}
+                    <div className="panel p-3">
+                      {earned.length === 0 && <div className="body text-sm mb-2" style={{ color: C.dim }}>Tap a locked badge to see what it takes.</div>}
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {[...earned.sort((a, b) => b.tier - a.tier), ...locked].map((a) => <AchBadge key={a.id} a={a} earned={earnedIds.has(a.id)} onClick={() => setPick(a)} />)}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              me && {
+                k: "cos", t: "Auras & cosmetics", r: `${aurasOk} / ${AURAS.length - 1}`, c: (
+                  <div className="pt-1 pb-4 space-y-4"><CrateVault s={s} setS={setS} /><LookStudio s={s} setS={setS} /></div>
+                ),
+              },
+              me && {
+                k: "body", t: "Body", c: (
+                  <div className="pt-1 pb-4 space-y-3"><ProgressPhotos s={s} /><Measurements s={s} setS={setS} /><StepsPanel s={s} setS={setS} gainXp={gainXp} /></div>
+                ),
+              },
+              !me && data.weightLog && Object.keys(data.weightLog).length > 1 && {
+                k: "wt", t: "Weight over time", c: (
+                  <div className="pt-1 pb-4"><div className="panel p-4"><WeightChart log={data.weightLog} target={data.goal} /></div></div>
+                ),
+              },
+              data.lifts?.length > 0 && {
+                k: "lifts", t: "Top lifts", r: data.lifts.length, c: (
+                  <div className="pt-1 pb-4 space-y-2">
+                    {data.lifts.map((l) => { const r = RANKS.find((x) => x.id === l.rank) || RANKS[0]; return (
+                      <div key={l.name} className="panel p-3 flex items-center gap-3"><RankBadge rank={r} size={30} /><span className="flex-1 font-semibold ml-1">{l.name}</span><span className="font-bold" style={{ color: r.color }}>{l.label}</span><span className="body text-xs" style={{ color: C.dim }}>{l.best}{l.bw ? " reps" : " lb"}</span></div>
+                    ); })}
+                  </div>
+                ),
+              },
+              me ? {
+                k: "mog", t: "Mog-offs", r: mogCount, keep: true, c: (
+                  <div className="pt-1 pb-4"><MogSection s={s} setS={setS} gainXp={gainXp} me={me} targetId={id} targetName={data.name} embedded onCount={setMogCount} /></div>
+                ),
+              } : {
+                k: "vs", t: "Versus", c: (
+                  <div className="pt-1 pb-4 space-y-3">
+                    <div className="flex justify-center"><Physique tier={data.tier ?? (RANKS.findIndex((r) => r.id === data.rank) || 0)} height={220} aura={data.look?.aura} sex={data.sex} caption={`${data.name}'s physique`} /></div>
+                    <VersusPanel s={s} data={data} me={me} id={id} setS={setS} gainXp={gainXp} />
+                  </div>
+                ),
+              },
+              {
+                k: "com", t: "Comments", r: social.comments.length, c: (
+                  <div className="pt-1 pb-4 space-y-2">
+                    {!me && (
+                      <div className="panel p-2 space-y-2">
+                        {cImg && <div className="flex items-center gap-2"><img src={cImg} alt="" style={{ height: 64, borderRadius: 6 }} /><button onClick={() => setCImg(null)} aria-label="Remove photo" className="ghost p-1"><X size={14} /></button></div>}
+                        <div className="flex gap-2">
+                          <button aria-label="Add a photo" onClick={() => cImgRef.current?.click()} className="ghost px-3 flex items-center" style={{ color: cImg ? C.green : C.cyan }}><ImageIcon size={18} /></button>
+                          <input ref={cImgRef} type="file" accept="image/*" onChange={onCommentPhoto} style={{ display: "none" }} />
+                          <input className="inp" placeholder="Say something (140 max)" maxLength={140} value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && postComment()} />
+                          <button onClick={postComment} disabled={busy || (!comment.trim() && !cImg)} className="btn px-4 py-2 text-sm">Post</button>
+                        </div>
+                      </div>
+                    )}
+                    {social.comments.length === 0 && <Empty>{me ? "No comments yet." : "Be the first to leave a comment."}</Empty>}
+                    {social.comments.map((c) => (
+                      <div key={c.key} className="panel p-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="font-bold text-sm">{c.name}<span className="body text-xs font-normal ml-2" style={{ color: C.mute }}>{new Date(c.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
+                          {(me || c.from === s.playerId) && <button aria-label="Delete comment" onClick={() => ask(c.img ? "Delete this comment and its photo? They're removed from the board for everyone." : "Delete this comment?", () => deleteComment(c), "Delete")} style={{ color: C.mute }}><Trash2 size={14} /></button>}
+                        </div>
+                        {c.text && <div className="body text-sm mt-1" style={{ color: C.sub }}>{c.text}</div>}
+                        {c.img && <button onClick={() => setBigImg(bigImg === c.key ? null : c.key)} className="mt-2 block"><img src={c.img} alt="Photo in comment" style={{ maxHeight: bigImg === c.key ? 400 : 120, maxWidth: "100%", borderRadius: 6, border: `1px solid ${C.border}` }} /></button>}
+                      </div>
+                    ))}
+                    {social.fives.length > 0 && <div className="body text-xs" style={{ color: C.mute }}>High-fives from {social.fives.map((f) => `${f.name} (${f.n})`).join(", ")}</div>}
+                  </div>
+                ),
+              },
+              me && {
+                k: "song", t: "Theme song", r: s.profile.song ? (s.profile.song.type === "link" ? songLinkLabel(s.profile.song.url) : s.profile.song.name) : null, c: (
+                  <div className="pt-1 pb-4 space-y-3">
+                    {s.profile.song && <div className="body text-sm" style={{ color: C.sub }}>Current: {s.profile.song.type === "link" ? `${songLinkLabel(s.profile.song.url)} link` : s.profile.song.type === "theme" ? `${s.profile.song.name} (built-in)` : `${s.profile.song.name || "clip"} (20 sec clip)`} <button onClick={removeSong} className="underline ml-2" style={{ color: C.red }}>Remove</button></div>}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => songRef.current?.click()} disabled={songBusy} className="ghost py-3 text-sm font-bold flex items-center justify-center gap-2" style={{ color: C.cyan }}>{songBusy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{songBusy ? "Making clip…" : "Upload mp3"}</button>
+                      <input ref={songRef} type="file" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/*" onChange={onSong} style={{ display: "none" }} />
+                      <div className="flex gap-1">
+                        <input className="inp text-sm" placeholder="YouTube / Spotify / Apple Music link" value={songLink} onChange={(e) => setSongLink(e.target.value)} />
+                        <button onClick={saveLink} disabled={!/^https?:\/\//i.test(songLink.trim())} className="btn px-3 text-sm">Set</button>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {Object.entries(THEMES_MUSIC).map(([id, t]) => { const sel = s.profile.song?.type === "theme" && s.profile.song.id === id; return (
+                        <button key={id} onClick={() => { if (Jingle.id === id) { Jingle.stop(); } else { Jingle.start(id); } setS((p) => ({ ...p, profile: { ...p.profile, song: { type: "theme", id, name: t.name } } })); }} className="px-3 py-2 text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1" style={{ borderRadius: 999, background: sel ? C.blue : C.soft, color: sel ? "#fff" : C.text, border: `1px solid ${C.border}` }}><Music size={12} />{t.name}</button>
+                      ); })}
+                    </div>
+                    <div className="body text-xs" style={{ color: C.mute }}>20-second clips, or paste a YouTube, Spotify, or Apple Music link. Tap a theme to preview, tap again to stop.</div>
+                  </div>
+                ),
+              },
+            ].filter(Boolean).map((r, i) => (
+              <div key={r.k} style={i ? { borderTop: "1px solid rgba(255,255,255,.08)" } : undefined}>
+                <Disclosure title={r.t} right={r.r} open={!!sec[r.k]} onToggle={() => secToggle(r.k)} keepMounted={r.keep}>{r.c}</Disclosure>
               </div>
             ))}
           </div>
-          {social.fives.length > 0 && <div className="body text-xs" style={{ color: C.mute }}>High-fives from {social.fives.map((f) => `${f.name} (${f.n})`).join(", ")}</div>}
         </>
       )}
     </div>

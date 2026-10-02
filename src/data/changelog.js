@@ -1,6 +1,14 @@
 // Hand-written per release; newest first. Surfaced in Settings → What's new.
 export const CHANGELOG = [
   {
+    v: "7q",
+    items: [
+      "Your profile is tidied into sections — stats sit right under your name, and everything else opens with one tap.",
+      "Aura drop rates now show on each tile — the separate list of every aura is gone.",
+      "Mog-offs are compact rows now — tap one for the faces, scores and share button.",
+    ],
+  },
+  {
     v: "7p",
     items: [
       "New top-tier aura: Descended — a wheel of black fallen wings whose eyes pull free and watch you, awarded monthly.",
