@@ -368,6 +368,14 @@ export function Train({ s, setS, gainXp, openRun }) {
           buzz();
           if (to !== from) moveExercise(from, to);
         };
+        // the grip picks up immediately — no hold delay on the handle itself
+        const gripDown = (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          if (a.exercises.length < 2 || dragRef.current) return;
+          dragRef.current = { ei, y0: e.clientY, pid: e.pointerId, timer: null, dy: 0 };
+          rowPickup(ei);
+        };
         const def = findEx(s, ex.name);
         const timed = def.type === "timed";
         const cardio = timed && def.group === "Cardio";
@@ -431,6 +439,15 @@ export function Train({ s, setS, gainXp, openRun }) {
             {D.on() && <DiagProbe kind="excard" id={ei} />}
             {a.exercises[ei - 1]?.ss && <div className="body text-xs font-bold -mt-1 mb-1" style={{ color: C.green }}>⇅ superset with {a.exercises[ei - 1].name}</div>}
             <div className="flex justify-between items-center mb-1 gap-2">
+              <button type="button" aria-label={`Drag to reorder ${ex.name}`} onPointerDown={gripDown}
+                className="flex items-center justify-center shrink-0"
+                style={{ minWidth: 40, minHeight: 40, marginLeft: -12, marginRight: -8, touchAction: "none", cursor: "grab", color: held ? C.sub : C.mute }}>
+                <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ width: 18, height: 2, borderRadius: 1, background: "currentColor" }} />
+                  <span style={{ width: 18, height: 2, borderRadius: 1, background: "currentColor" }} />
+                  <span style={{ width: 18, height: 2, borderRadius: 1, background: "currentColor" }} />
+                </span>
+              </button>
               <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold glowtext" style={{ color: C.cyan }}>{ex.name}</span>
                 <span className="body text-xs" style={{ color: C.mute }}>{def.group}</span>
@@ -442,13 +459,18 @@ export function Train({ s, setS, gainXp, openRun }) {
               <button type="button" data-keep-menu aria-label={`More actions for ${ex.name}`} aria-haspopup="menu" aria-expanded={exMenu === ei} onClick={(e) => { e.stopPropagation(); setAddMenu(null); setExMenu(exMenu === ei ? null : ei); }} className="flex items-center justify-center shrink-0" style={{ minWidth: 40, minHeight: 40, color: C.mute }}><MoreHorizontal size={18} /></button>
             </div>
             {exMenu === ei && (
-              <div role="menu" data-keep-menu className="absolute right-3 z-20 panel p-1" style={{ top: 44, minWidth: 200, boxShadow: "0 8px 24px rgba(0,0,0,.45)" }} onClick={(e) => e.stopPropagation()}>
-                {def.type === "weighted" && !def.perHand && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40 }} onClick={() => { setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135 }); setExMenu(null); }}><CircleDot size={16} />Plate calculator</button>}
-                {ei < a.exercises.length - 1 && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40, color: ex.ss ? C.green : C.text }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i === ei ? { ...e, ss: !e.ss } : e)) })); setExMenu(null); }}><Link2 size={16} />{ex.ss ? "Unlink superset" : "Superset with next"}</button>}
-                {def.type === "weighted" && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40 }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) })); setExMenu(null); }}>{mode === "hand" ? "Use total lb" : "Use per hand"}</button>}
-                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2" style={{ minHeight: 40 }} onClick={() => { setFormSheet({ name: ex.name, mode: "film" }); setExMenu(null); }}><Video size={16} />Film form check</button>
-                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.red }} onClick={() => { setExMenu(null); removeEx(); }}>Remove exercise</button>
-              </div>
+              <>
+                <div className="fixed inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setExMenu(null)} />
+                {/* opaque sheet surface — .panel's glass bg + position:relative
+                    made this menu translucent and knocked it out of flow */}
+                <div role="menu" data-keep-menu className="panel z-20 p-1" style={{ position: "absolute", right: 12, top: 44, minWidth: 200, maxWidth: "calc(100% - 24px)", background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
+                {def.type === "weighted" && !def.perHand && <button role="menuitem" className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }} onClick={() => { setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135 }); setExMenu(null); }}><CircleDot size={16} />Plate calculator</button>}
+                {ei < a.exercises.length - 1 && <button role="menuitem" className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14, color: ex.ss ? C.green : C.text }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i === ei ? { ...e, ss: !e.ss } : e)) })); setExMenu(null); }}><Link2 size={16} />{ex.ss ? "Unlink superset" : "Superset with next"}</button>}
+                {def.type === "weighted" && <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) })); setExMenu(null); }}>{mode === "hand" ? "Use total lb" : "Use per hand"}</button>}
+                  <button role="menuitem" className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }} onClick={() => { setFormSheet({ name: ex.name, mode: "film" }); setExMenu(null); }}><Video size={16} />Film form check</button>
+                  <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14, color: C.red, borderTop: `1px solid ${C.glassLine}` }} onClick={() => { setExMenu(null); removeEx(); }}>Remove exercise</button>
+                </div>
+              </>
             )}
             {prev.length > 0 && !a.editId && (
               <div className="mb-2">
@@ -520,9 +542,9 @@ export function Train({ s, setS, gainXp, openRun }) {
               <button type="button" data-keep-menu aria-label="Add warm-up or drop set" aria-haspopup="menu" aria-expanded={addMenu === ei} onClick={(e) => { e.stopPropagation(); setExMenu(null); setAddMenu(addMenu === ei ? null : ei); }} className="ghost px-2 flex items-center justify-center" style={{ minWidth: 40, minHeight: 40, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "none" }}><ChevronDown size={16} /></button>
             </div>
             {addMenu === ei && (
-              <div role="menu" data-keep-menu className="panel p-1 mt-1" onClick={(e) => e.stopPropagation()}>
-                <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.cyan }} onClick={() => { addWarm(); setAddMenu(null); }}>Add warm-up set</button>
-                {def.type !== "timed" && <button role="menuitem" className="w-full text-left px-3 py-2.5 text-sm" style={{ minHeight: 40, color: C.orange }} onClick={() => { addDrop(); setAddMenu(null); }}>Add drop set</button>}
+              <div role="menu" data-keep-menu className="panel p-1 mt-1 relative z-20" style={{ background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
+                <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14, color: C.cyan }} onClick={() => { addWarm(); setAddMenu(null); }}>Add warm-up set</button>
+                {def.type !== "timed" && <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14, color: C.orange }} onClick={() => { addDrop(); setAddMenu(null); }}>Add drop set</button>}
               </div>
             )}
           </div>
