@@ -919,7 +919,7 @@ export default function App() {
     <div className={`fixed inset-0 overflow-hidden ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <UpdateBanner onReload={reloadForUpdate} />
       {updateReady && !chunkBanner && (
-        <div role="alert" className="fixed left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
+        <div role="alert" className="absolute left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
           <div className="max-w-md w-full flex items-center gap-3 px-4 py-3" style={{ borderRadius: 14, background: C.sheet, border: `1px solid ${C.cyan}`, boxShadow: `0 8px 30px rgba(0,0,0,.45), 0 0 18px ${C.glow}` }}>
             <span className="flex-1 text-sm font-semibold">A new version of Ascend is ready</span>
             <button onClick={() => { wakeNextWorker(); reloadForUpdate(); }} className="btn px-3 py-1.5 text-sm">Update now</button>
@@ -1057,6 +1057,15 @@ export default function App() {
         @keyframes nm-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}
         .nm-float{animation:nm-float 2.4s ease-in-out infinite}
         @keyframes pop{0%{transform:translate(-50%,-14px) scale(.96);opacity:0}100%{transform:translate(-50%,0) scale(1);opacity:1}}
+        /* iOS home-screen web clips size the fixed containing block to the SMALL
+           (toolbar-present) viewport, so inset:0 stops short of the screen and
+           body black shows below the nav. In standalone, pin the shell — and
+           .fillv overlays — to the large viewport instead. 100vh is the same
+           full height there and covers iOS <15.4 which has no lvh. */
+        @media all and (display-mode:standalone){
+          #ascend-root,.bgfx{bottom:auto;height:100vh;height:100lvh}
+          .fillv{bottom:auto!important;height:100vh;height:100lvh}
+        }
         @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}`}</style>
       <div className="bgfx" />
 
@@ -1090,7 +1099,7 @@ export default function App() {
       </div>
 
       {toast && (
-        <div className="fixed left-1/2 z-50 px-5 py-2.5 text-sm font-bold" style={{ top: "calc(env(safe-area-inset-top) + 12px)", transform: "translateX(-50%)", animation: "pop .3s ease-out", borderRadius: 999, whiteSpace: "nowrap",
+        <div className="absolute left-1/2 z-50 px-5 py-2.5 text-sm font-bold" style={{ top: "calc(env(safe-area-inset-top) + 12px)", transform: "translateX(-50%)", animation: "pop .3s ease-out", borderRadius: 999, whiteSpace: "nowrap",
           background: toast.big ? C.gold : C.sheet, color: toast.big ? "#0A1630" : C.cyan, border: `1px solid ${toast.big ? C.gold : C.blue}`,
           boxShadow: toast.big ? "0 0 30px rgba(255,212,71,.6)" : `0 0 22px ${C.glow}` }}>{toast.text}</div>
       )}
@@ -1101,12 +1110,12 @@ export default function App() {
       {confetti && <TabErrorBoundary><LazyBoundary active={false}><Confetti onDone={() => setConfetti(false)} /></LazyBoundary></TabErrorBoundary>}
       {liveRun && <TabErrorBoundary><LazyBoundary><RunTracker key={liveRun.id} s={s} setS={setS} gainXp={gainXp} initial={liveRun} onLive={noteLive} onClose={() => { liveNow.current = null; setLiveRun(null); setTab("run"); }} /></LazyBoundary></TabErrorBoundary>}
       {saveNote && (
-        <div className="fixed left-1/2 z-50 px-4 py-1.5 text-xs font-bold" style={{ bottom: "calc(env(safe-area-inset-bottom) + 118px)", transform: "translateX(-50%)", borderRadius: 999, whiteSpace: "nowrap", pointerEvents: "none",
+        <div className="absolute left-1/2 z-50 px-4 py-1.5 text-xs font-bold" style={{ bottom: "calc(env(safe-area-inset-bottom) + 118px)", transform: "translateX(-50%)", borderRadius: 999, whiteSpace: "nowrap", pointerEvents: "none",
           background: C.sheet, color: saveNote.startsWith("Couldn't") ? C.orange : C.green, border: `1px solid ${saveNote.startsWith("Couldn't") ? C.orange : C.green}` }}>{saveNote}</div>
       )}
-      {offline && !saveNote && <div className="fixed right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
+      {offline && !saveNote && <div className="absolute right-2 z-50" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}><div className=" px-3 py-1 text-xs font-bold" style={{ borderRadius: 999, background: C.sheet, color: C.orange, border: `1px solid ${C.orange}` }}>Offline · will sync</div></div>}
       {dialog && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.65)" }} onClick={() => setDialog(null)}>
+        <div className="absolute inset-0 z-[60] flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.65)" }} onClick={() => setDialog(null)}>
           <div role="dialog" aria-modal="true" className="panel w-full max-w-sm p-5" style={{ background: C.sheet }} onClick={(e) => e.stopPropagation()}>
             <div className="body text-base" style={{ color: C.text }}>{dialog.message}</div>
             <div className="grid grid-cols-2 gap-2 mt-5">
@@ -1117,12 +1126,12 @@ export default function App() {
         </div>
       )}
       {s.settings?.zesty && tab !== "assistant" && (
-        <button aria-label={party ? "Stop the disco" : "Start the disco"} onClick={() => setParty(!party)} className="fixed z-40 flex items-center justify-center" style={{ right: 20, bottom: "calc(env(safe-area-inset-bottom) + 148px)", width: 44, height: 44, borderRadius: 999, background: party ? RAINBOW : C.soft, backgroundSize: "200% auto", animation: party ? "rainbow 2s linear infinite" : "none", border: `1px solid ${C.border}`, boxShadow: "0 0 18px rgba(255,60,172,.5)" }}>
+        <button aria-label={party ? "Stop the disco" : "Start the disco"} onClick={() => setParty(!party)} className="absolute z-40 flex items-center justify-center" style={{ right: 20, bottom: "calc(env(safe-area-inset-bottom) + 148px)", width: 44, height: 44, borderRadius: 999, background: party ? RAINBOW : C.soft, backgroundSize: "200% auto", animation: party ? "rainbow 2s linear infinite" : "none", border: `1px solid ${C.border}`, boxShadow: "0 0 18px rgba(255,60,172,.5)" }}>
           <DiscoIcon size={24} spinning={party} />
         </button>
       )}
       {tab !== "assistant" && (
-        <button aria-label="Open voice assistant" onClick={() => setTab("assistant")} className="btn fixed z-40 flex items-center justify-center" style={{ right: 16, bottom: "calc(env(safe-area-inset-bottom) + 86px)", width: 52, height: 52, borderRadius: 999 }}>
+        <button aria-label="Open voice assistant" onClick={() => setTab("assistant")} className="btn absolute z-40 flex items-center justify-center" style={{ right: 16, bottom: "calc(env(safe-area-inset-bottom) + 86px)", width: 52, height: 52, borderRadius: 999 }}>
           <Bot size={24} />
         </button>
       )}

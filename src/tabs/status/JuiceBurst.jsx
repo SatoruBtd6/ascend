@@ -3,7 +3,7 @@ export function JuiceBurst({ kind }) {
   const n = big ? 42 : 22;
   const cols = big ? ["#FFD447", "#FFFFFF", "#FF9340", "#F5D27A"] : ["#38C6FF", "#FFFFFF", "#3DF08A"];
   return (
-    <div aria-hidden="true" className="fixed inset-0 z-[65] pointer-events-none overflow-hidden">
+    <div aria-hidden="true" className="fixed fillv inset-0 z-[65] pointer-events-none overflow-hidden">
       <div className="absolute inset-0" style={{ background: big ? "radial-gradient(circle at 50% 45%, rgba(255,212,71,.35), transparent 60%)" : "radial-gradient(circle at 50% 45%, rgba(56,198,255,.22), transparent 55%)", animation: "juiceflash .7s ease-out forwards" }} />
       {Array.from({ length: n }, (_, i) => {
         const a = (i / n) * Math.PI * 2 + (i % 3) * 0.2, d = (big ? 180 : 120) + ((i * 37) % 120);

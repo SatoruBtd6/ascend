@@ -17,7 +17,7 @@ export function DiscoParty() {
     if ((x - 54) ** 2 + (y - 54) ** 2 < 50 * 50) tiles.push([x, y, (r * 7 + c * 3) % 5]);
   }
   return (
-    <div className="fixed inset-0 z-30 pointer-events-none overflow-hidden" aria-hidden="true">
+    <div className="fixed fillv inset-0 z-30 pointer-events-none overflow-hidden" aria-hidden="true">
       <style>{`
         @keyframes discodrop{0%{transform:translate(-50%,-260px)}70%{transform:translate(-50%,12px)}100%{transform:translate(-50%,0)}}
         @keyframes discospin{to{transform:rotate(360deg)}}

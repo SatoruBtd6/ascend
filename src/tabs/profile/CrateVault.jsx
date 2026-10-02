@@ -116,7 +116,7 @@ export function CrateVault({ s, setS }) {
       </div>
     </div>
       {(busy || show) && (
-        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center p-6" style={{ background: "rgba(2,4,12,.86)" }} onClick={() => !busy && setShow(null)}>
+        <div className="fixed fillv inset-0 z-[70] flex flex-col items-center justify-center p-6" style={{ background: "rgba(2,4,12,.86)" }} onClick={() => !busy && setShow(null)}>
           {busy && <div className="w-28 h-28" style={{ borderRadius: 18, background: `conic-gradient(${crate.theme.gold}, ${crate.theme.void}, ${crate.theme.rose}, ${crate.theme.gold})`, animation: "cratespin 0.9s linear infinite", boxShadow: `0 0 40px ${crate.theme.gold}` }} />}
           {show && meta && (
             <div style={{ animation: "cratereveal .55s cubic-bezier(.2,.8,.2,1)", width: "100%", maxWidth: "24rem" }} onClick={(e) => e.stopPropagation()}>

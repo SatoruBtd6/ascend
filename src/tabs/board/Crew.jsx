@@ -258,7 +258,7 @@ export function CrewCheckIn({ s, setS, crew, setCrew, presence, people, ghost, c
         )}
         {menu && owner && (
           <>
-            <div className="fixed inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setMenu(false)} />
+            <div className="fixed fillv inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setMenu(false)} />
             <div role="menu" className="panel z-20 p-1" style={{ position: "absolute", right: 0, top: "100%", minWidth: 210, background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
               <button role="menuitem" disabled={busy} className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13 }} onClick={() => { setMenu(false); pinGym(); }}>{gymPin ? "Move gym to where I am" : "Set gym to where I am"}</button>
               {gymPin && <button role="menuitem" disabled={busy} className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13, color: C.red, borderTop: `1px solid ${C.glassLine}` }} onClick={() => { setMenu(false); unpinGym(); }}>Unpin gym</button>}
@@ -345,7 +345,7 @@ function CrewHeader({ s, mine, crew, memberRows, openProfile, onLeave }) {
       </div>
       {menu && (
         <>
-          <div className="fixed inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setMenu(false)} />
+          <div className="fixed fillv inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setMenu(false)} />
           <div role="menu" className="panel z-20 p-1" style={{ position: "absolute", right: 0, top: 44, minWidth: 180, background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
             <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13 }} onClick={() => { setMenu(false); copy(); }}>Copy code</button>
             <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 13, paddingBottom: 13 }} onClick={() => { setMenu(false); share(); }}>Share</button>

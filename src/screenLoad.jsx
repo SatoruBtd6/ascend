@@ -187,7 +187,7 @@ export function UpdateBanner({ onReload }) {
   const shown = useBanner();
   if (!shown) return null;
   return (
-    <div role="status" className="fixed left-3 right-3 z-[70] flex items-center gap-2 px-3 py-2" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)", background: C.sheet, color: C.text, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: `0 8px 24px rgba(0,0,0,.35)` }}>
+    <div role="status" className="absolute left-3 right-3 z-[70] flex items-center gap-2 px-3 py-2" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)", background: C.sheet, color: C.text, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: `0 8px 24px rgba(0,0,0,.35)` }}>
       <button type="button" onClick={onReload} className="flex-1 text-left text-sm font-bold" style={{ color: C.cyan }}>Ascend updated — tap to reload.</button>
       <button type="button" aria-label="Dismiss update notice" onClick={dismissBanner} className="ghost px-2 py-1 text-sm" style={{ color: C.dim }}>Dismiss</button>
     </div>

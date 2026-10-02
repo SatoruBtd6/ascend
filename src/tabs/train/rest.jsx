@@ -62,7 +62,7 @@ export function RestBubble({ end, onDone, onClose, onChangeEnd }) {
   };
   if (big) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 px-6" style={{ background: "#02040B" }}>
+      <div className="fixed fillv inset-0 z-50 flex flex-col items-center justify-center gap-5 px-6" style={{ background: "#02040B" }}>
         <div className="body text-xs uppercase tracking-widest font-bold" style={{ color: C.mute }}>Rest</div>
         <div className="font-extrabold tabular-nums" style={{ fontSize: "min(28vw, 140px)", lineHeight: 1, color: left <= 5 ? C.orange : C.cyan, textShadow: `0 0 40px ${left <= 5 ? C.orange : C.cyan}` }}>{fmtClock(left)}</div>
         <div className="flex gap-2 w-full max-w-sm">

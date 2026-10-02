@@ -505,7 +505,7 @@ export function Train({ s, setS, gainXp, openRun }) {
             </div>
             {exMenu === ei && (
               <>
-                <div className="fixed inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setExMenu(null)} />
+                <div className="fixed fillv inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setExMenu(null)} />
                 {/* opaque sheet surface — .panel's glass bg + position:relative
                     made this menu translucent and knocked it out of flow */}
                 <div role="menu" data-keep-menu className="panel z-20 p-1" style={{ position: "absolute", right: 12, top: 44, minWidth: 200, maxWidth: "calc(100% - 24px)", background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
