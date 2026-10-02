@@ -10,6 +10,7 @@ import { EXERCISES } from "./data/exercises.js";
 import { TIER_STYLE } from "./data/achievements.js";
 import { today, uid, weekStart } from "./lib/dates.js";
 import { AskRef } from "./lib/ask.js";
+import { scrollPageTop } from "./lib/dom.js";
 import { findEx } from "./lib/exercises.js";
 import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements, ACH_VERSION } from "./lib/stats.js";
 import { SaveCtx } from "./ui/saveCtx.js";
@@ -180,10 +181,10 @@ export default function App() {
   const songPushed = useRef(false);
   const [musclePick, setMusclePick] = useState("Chest");
   const [muscleFrom, setMuscleFrom] = useState("status");
-  const openMuscle = (g, from = "status") => { setMusclePick(g); setMuscleFrom(from); setTab("muscle"); window.scrollTo?.(0, 0); };
+  const openMuscle = (g, from = "status") => { setMusclePick(g); setMuscleFrom(from); setTab("muscle"); scrollPageTop(); };
   const [exercisePick, setExercisePick] = useState(null);
   const [exerciseFrom, setExerciseFrom] = useState("status");
-  const openExercise = (name, from = "status") => { setExercisePick(name); setExerciseFrom(from); setTab("exercise"); window.scrollTo?.(0, 0); };
+  const openExercise = (name, from = "status") => { setExercisePick(name); setExerciseFrom(from); setTab("exercise"); scrollPageTop(); };
   const [ceremony, setCeremony] = useState(null);
   const [burst, setBurst] = useState(null);
   const xpSeen = useRef(new Set());
@@ -224,7 +225,7 @@ export default function App() {
   const persistRetryTimer = useRef(null);
   const dirtyRef = useRef(false);
   useEffect(() => { songPushed.current = false; }, [s.profile.song, s.lb]);
-  const openProfile = (id) => { setProfileId(id || null); setTab("profile"); window.scrollTo?.(0, 0); };
+  const openProfile = (id) => { setProfileId(id || null); setTab("profile"); scrollPageTop(); };
   AskRef.current = (message, onYes, yesLabel = "Confirm") => setDialog({ message, onYes, yesLabel });
   const [party, setPartyState] = useState(false);
   const setParty = (on) => { if (on) Groove.start(); else Groove.stop(); setPartyState(on); };
@@ -915,7 +916,7 @@ export default function App() {
 
   return (
     <SaveCtx.Provider value={{ status: saveStatus }}>
-    <div className={`min-h-screen relative ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className={`fixed inset-0 overflow-hidden ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <UpdateBanner onReload={reloadForUpdate} />
       {updateReady && !chunkBanner && (
         <div role="alert" className="fixed left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
@@ -1059,6 +1060,7 @@ export default function App() {
         @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}`}</style>
       <div className="bgfx" />
 
+      <div id="ascend-scroll" style={{ position: "absolute", inset: 0, overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch" }}>
       <div className="relative max-w-md mx-auto px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 220px)" }}>
         <div className="flex items-center justify-center mb-3" style={{ height: 36 }}><img src="/logo-sm.webp" alt="Ascend" width="38" height="36" style={{ height: 32, width: "auto", opacity: 0.95 }} /></div>
         {onboard !== null && <TabErrorBoundary><LazyBoundary><Onboarding s={s} setS={setS} step={onboard} onNext={() => { if (onboard >= 3) { setOnboard(null); setS((p) => ({ ...p, onboarded: true })); setConfetti(true); setTab("status"); } else setOnboard(onboard + 1); }} /></LazyBoundary></TabErrorBoundary>}
@@ -1084,6 +1086,7 @@ export default function App() {
         {onboard === null && tab === "calendar" && <TabErrorBoundary><Calendar s={s} setS={setS} /></TabErrorBoundary>}
         {onboard === null && tab === "ranks" && <TabErrorBoundary><Ranks s={s} openMuscle={(g) => openMuscle(g, "ranks")} /></TabErrorBoundary>}
         {onboard === null && tab === "board" && <TabErrorBoundary><LazyBoundary><Board s={s} setS={setS} openProfile={openProfile} gainXp={gainXp} /></LazyBoundary></TabErrorBoundary>}
+      </div>
       </div>
 
       {toast && (
@@ -1124,7 +1127,7 @@ export default function App() {
         </button>
       )}
 
-      <nav className="sticky bottom-0 z-40" style={{ background: C.glass, borderTop: `1px solid ${C.glassLine}`, backdropFilter: "blur(22px) saturate(150%)", WebkitBackdropFilter: "blur(22px) saturate(150%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <nav className="absolute bottom-0 inset-x-0 z-40" style={{ background: C.glass, borderTop: `1px solid ${C.glassLine}`, backdropFilter: "blur(22px) saturate(150%)", WebkitBackdropFilter: "blur(22px) saturate(150%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="max-w-md mx-auto grid grid-cols-7">
           {tabs.map(([id, Icon, label]) => (
             <button key={id} onClick={() => setTab(id)} className="pt-2.5 pb-3 flex flex-col items-center gap-1 relative" style={{ fontSize: 10, color: tab === id ? C.cyan : C.mute, filter: tab === id ? `drop-shadow(0 0 6px ${C.glow})` : "none" }}>

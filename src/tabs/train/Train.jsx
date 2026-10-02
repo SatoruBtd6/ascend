@@ -7,6 +7,7 @@ import { findEx } from "../../lib/exercises.js";
 import { computeBests, workoutXp, workoutRecap, addWorkout, prNote, overallInfo, movedLb, assistedReps } from "../../lib/stats.js";
 import { today, fmtDay, uid } from "../../lib/dates.js";
 import { ask } from "../../lib/ask.js";
+import { scrollPageTop } from "../../lib/dom.js";
 import { Title, Empty, Sheet } from "../../ui/primitives.jsx";
 import { UndoToast } from "../../ui/UndoToast.jsx";
 import { SaveMark } from "../../ui/SaveMark.jsx";
@@ -188,11 +189,11 @@ export function Train({ s, setS, gainXp, openRun }) {
     const prev = lastWorkingSets(s, name, a?.editId);
     setActive((w) => ({ ...w, exercises: [...w.exercises, { name, sets: prev ? cloneSets(prev.sets) : [{ w: "", r: "", done: false }] }] }));
     setPicker(false);
-    window.scrollTo?.(0, 0);
+    scrollPageTop();
   };
   const startPreset = (pr) => {
     setS((p) => ({ ...p, active: { id: uid(), start: Date.now(), preset: pr.name, title: pr.name, gym: p.currentGym ?? null, exercises: (pr.exercises || []).map((e) => ({ name: e.name, ...(e.wMode ? { wMode: e.wMode } : {}), sets: e.plan?.length ? e.plan.map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: false })) : Array.from({ length: e.sets || 3 }, () => ({ w: "", r: "", done: false })) })) } }));
-    setShowPresets(false); window.scrollTo?.(0, 0);
+    setShowPresets(false); scrollPageTop();
   };
   const savePreset = () => {
     const name = presetName.trim() || `Preset ${(s.presets || []).length + 1}`;
@@ -202,11 +203,11 @@ export function Train({ s, setS, gainXp, openRun }) {
   };
   const editWorkout = (w) => {
     setS((p) => ({ ...p, active: { start: Date.now(), editId: w.id, date: w.date, title: w.title || "", gym: w.gym ?? null, exercises: (w.exercises || []).map((e) => ({ name: e.name, sets: (e.sets || []).map((st) => ({ w: st.w ?? "", r: st.r ?? "", done: true, drop: !!st.drop, ...(st.warm ? { warm: true } : {}) })) })) } }));
-    window.scrollTo?.(0, 0);
+    scrollPageTop();
   };
 
   if (a && picker) return <ExercisePicker s={s} setS={setS} onPick={addExercise} onBack={() => setPicker(false)} />;
-  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { id: uid(), start: Date.now(), title, gym: p.currentGym ?? null, exercises: [] } })); window.scrollTo?.(0, 0); }} />;
+  if (!a && titling) return <TitlePicker s={s} onBack={() => setTitling(false)} onPick={(title) => { setTitling(false); setS((p) => ({ ...p, active: { id: uid(), start: Date.now(), title, gym: p.currentGym ?? null, exercises: [] } })); scrollPageTop(); }} />;
 
   if (!a) {
     const presets = s.presets || [];

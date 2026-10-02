@@ -6,6 +6,7 @@ import { targets } from "../../math.js";
 import { GOALS } from "../../data/foods.js";
 import { FUEL_XP } from "../../data/quests.js";
 import { mealTotals } from "../../lib/stats.js";
+import { scrollPageTop } from "../../lib/dom.js";
 import { today, shift, fmtDay, uid } from "../../lib/dates.js";
 import { Title, Empty, Bar } from "../../ui/primitives.jsx";
 import { SaveMark } from "../../ui/SaveMark.jsx";
@@ -33,7 +34,7 @@ export function Fuel({ s, setS, gainXp }) {
   const isToday = d === today();
   const addMeal = (food) => setS((x) => ({ ...x, meals: { ...x.meals, [d]: [...(x.meals[d] || []), { ...food, id: uid(), qty: 1 }] } }));
   const pct = Math.min(100, (tot.cal / t.cal) * 100);
-  if (adding) return <AddFood s={s} setS={setS} dayLabel={isToday ? "today" : fmtDay(d)} onClose={() => setAdding(false)} onAdd={(f) => { addMeal(f); setAdding(false); window.scrollTo?.(0, 0); }} />;
+  if (adding) return <AddFood s={s} setS={setS} dayLabel={isToday ? "today" : fmtDay(d)} onClose={() => setAdding(false)} onAdd={(f) => { addMeal(f); setAdding(false); scrollPageTop(); }} />;
 
   return (
     <div className="space-y-4">
