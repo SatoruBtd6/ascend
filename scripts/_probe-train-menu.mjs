@@ -101,10 +101,19 @@ async function openMenu(i) {
     const last = items[items.length - 1]?.getBoundingClientRect();
     const hit = last ? document.elementFromPoint(last.left + last.width / 2, last.top + last.height / 2) : null;
     const anchor = [...document.querySelectorAll('button[aria-expanded="true"]')][0]?.getBoundingClientRect();
+    const cs = getComputedStyle(items[0]);
+    const rootCs = getComputedStyle(document.getElementById("ascend-root"));
     return {
       open: true,
       items: items.map((x) => x.textContent.trim()),
-      menuRect: { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left) },
+      menuRect: { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) },
+      rightEdgeOk: r.right <= window.innerWidth - 12 && r.left >= 12,
+      itemColor: cs.color,
+      itemFont: cs.fontFamily.slice(0, 40),
+      rootFont: rootCs.fontFamily.slice(0, 40),
+      fontMatch: cs.fontFamily === rootCs.fontFamily,
+      colorMatch: cs.color === rootCs.color,
+      insideRoot: !!m.closest("#ascend-root"),
       anchorBottom: anchor ? Math.round(anchor.bottom) : null,
       anchorTop: anchor ? Math.round(anchor.top) : null,
       flipped: anchor ? r.bottom < anchor.top : null,
@@ -121,5 +130,29 @@ for (let i = 0; i < count; i++) {
   await page.evaluate(() => document.body.click()); // close via backdrop? backdrop is div.fixed — click it
   await page.waitForTimeout(250);
 }
+
+// add-set chevron menu — third AnchoredMenu consumer
+await page.evaluate(() => {
+  const b = document.querySelector('button[aria-label="Add warm-up or drop set"]');
+  b?.scrollIntoView({ block: "center" });
+});
+await page.waitForTimeout(350);
+const apt = await page.evaluate(() => {
+  const b = document.querySelector('button[aria-label="Add warm-up or drop set"]');
+  const r = b.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+});
+await page.mouse.click(apt.x, apt.y);
+await page.waitForTimeout(500);
+const addMenuRes = await page.evaluate(() => {
+  const m = document.querySelector('[role="menu"]');
+  if (!m) return { open: false };
+  const r = m.getBoundingClientRect();
+  const it = [...m.querySelectorAll('[role="menuitem"]')];
+  const cs = getComputedStyle(it[0]);
+  return { open: true, items: it.map((x) => x.textContent.trim()), left: Math.round(r.left), right: Math.round(r.right), rightEdgeOk: r.right <= window.innerWidth - 12 && r.left >= 12, itemColor: cs.color, insideRoot: !!m.closest("#ascend-root") };
+});
+console.log("addMenu", JSON.stringify(addMenuRes));
+await page.screenshot({ path: join(OUT, "menu-addset.png") });
 console.log("screens ->", OUT);
 await browser.close();
