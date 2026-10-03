@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
-import { Bot, BookOpen, Check, ChevronDown } from "lucide-react";
+import { Bot, BookOpen, Check, ChevronDown, ChevronRight } from "lucide-react";
 import { C } from "../../theme.js";
 import { today, shift, fmtDay } from "../../lib/dates.js";
 import { ask } from "../../lib/ask.js";
 import { STEP_GOAL_XP } from "../train/xpConstants.js";
 import { stepSyncStatus, agoText, STEP_SHORTCUT_URL, sha256hex, STEP_SYNC_URL } from "./stepSync.js";
-export function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
+
+// The steps detail body — rendered inside the Today card's expandable steps
+// row on Status (was a standalone card; merged in 7q). The step-goal XP award
+// moved to Dashboard via awardStepGoal() in stepGoal.js so it fires whether
+// this is mounted or not.
+export function StepsBody({ s, setS, openRun, openAssistant }) {
   const d = today();
   const goal = s.settings?.stepGoal || 10000;
   const todaySteps = s.steps?.[d] || 0;
@@ -23,9 +28,6 @@ export function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
   const [err, setErr] = useState("");
   const week = Array.from({ length: 7 }, (_, i) => { const k = shift(d, i - 6); return { k, n: s.steps?.[k] || 0 }; });
   const maxN = Math.max(goal, ...week.map((w) => w.n));
-  useEffect(() => {
-    if (todaySteps >= goal && !s.stepXp?.[d]) { setS((p) => ({ ...p, stepXp: { ...(p.stepXp || {}), [d]: true } })); gainXp(STEP_GOAL_XP, "Step goal", `steps_${d}`); }
-  }, [todaySteps, goal]);
   const saveManual = () => {
     const n = Math.round(+manual); if (!(n >= 0) || manual === "") return;
     setS((p) => { const base = { ...p, steps: { ...(p.steps || {}), [d]: n } }; const day = base.days?.[d]; return day ? { ...base, days: { ...base.days, [d]: { ...day, list: day.list.map((q) => (q.qid === "steps" && !q.claimed ? { ...q, progress: Math.max(q.progress, n) } : q)) } } } : base; });
@@ -45,11 +47,8 @@ export function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
   // Always the www address: redirects from other addresses can turn the POST into a GET and lose the data
   const url = typeof window !== "undefined" && !/ascendfit\.site$|vercel\.app$/.test(window.location.hostname) ? `${window.location.origin}/api/steps` : STEP_SYNC_URL;
   return (
-    <div className="panel p-4 space-y-3">
-      <div className="flex items-end justify-between">
-        <div><div className="body text-xs font-semibold uppercase tracking-wider" style={{ color: C.dim }}>Steps today</div><div className="text-3xl font-bold tabular-nums">{todaySteps.toLocaleString()}</div></div>
-        <div className="body text-xs text-right" style={{ color: todaySteps >= goal ? C.green : C.dim }}>{todaySteps >= goal ? `Goal hit · +${STEP_GOAL_XP} XP` : `${(goal - todaySteps).toLocaleString()} to ${goal.toLocaleString()}`}</div>
-      </div>
+    <div className="space-y-3 pt-1">
+      <div className="body text-xs" style={{ color: todaySteps >= goal ? C.green : C.dim }}>{todaySteps >= goal ? `Goal hit · +${STEP_GOAL_XP} XP` : `${(goal - todaySteps).toLocaleString()} to ${goal.toLocaleString()}`}</div>
       <div className="flex items-end gap-1.5" style={{ height: 70 }} role="img" aria-label="Steps over the last 7 days">
         {week.map((w) => <div key={w.k} className="flex-1 flex flex-col items-center gap-1"><div style={{ width: "100%", height: `${Math.max(3, (w.n / maxN) * 56)}px`, borderRadius: 6, background: w.n >= goal ? C.green : w.k === d ? C.cyan : C.glassLine }} /><span className="body" style={{ fontSize: 10, color: C.dim }}>{new Date(w.k + "T12:00").toLocaleDateString(undefined, { weekday: "narrow" })}</span></div>)}
       </div>
@@ -117,6 +116,13 @@ export function StepsPanel({ s, setS, gainXp, openRun, openAssistant }) {
           {err && <div className="text-xs" style={{ color: C.red }}>{err}</div>}
         </div>
       )}
+      {openRun && <button onClick={openRun} className="w-full flex items-center justify-between body text-sm py-1" style={{ color: C.cyan }}>Run tracking <ChevronRight size={14} /></button>}
     </div>
   );
+}
+
+// Card wrapper — used by the profile page's progress section. Status renders
+// StepsBody directly inside the Today card's expandable steps row.
+export function StepsPanel({ s, setS, openRun, openAssistant }) {
+  return <div className="panel p-4"><StepsBody s={s} setS={setS} openRun={openRun} openAssistant={openAssistant} /></div>;
 }

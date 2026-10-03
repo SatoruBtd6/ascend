@@ -138,6 +138,7 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
     e.target.value = "";
   };
   const [bigImg, setBigImg] = useState(null);
+  const [renaming, setRenaming] = useState(false);
   const onPhoto = async (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     try { const src = await shrinkImage(f); setS((p) => ({ ...p, profile: { ...p.profile, avatar: src } })); }
@@ -175,7 +176,15 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
             <div className="flex items-center gap-4">
               <Avatar src={data.avatar} name={data.name} size={76} ring={data.look?.accent || rank.color} look={data.look} />
               <div className="flex-1 min-w-0">
-                <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
+                {me && renaming ? (
+                  <input autoFocus className="inp text-xl font-bold" defaultValue={data.name || ""} placeholder="Your name" style={{ maxWidth: 240 }}
+                    onBlur={(e) => { setS((p) => ({ ...p, profile: { ...p.profile, name: e.target.value.trim() } })); setRenaming(false); }}
+                    onKeyDown={(e) => e.key === "Enter" && e.target.blur()} />
+                ) : me ? (
+                  <button onClick={() => setRenaming(true)} aria-label="Rename" className="text-2xl font-bold truncate text-left">{data.name ? <FancyName name={data.name} look={data.look} className="glowtext" /> : "Set your name"}</button>
+                ) : (
+                  <div className="text-2xl font-bold truncate"><FancyName name={data.name} look={data.look} className="glowtext" /></div>
+                )}
                 {data.title && <div className="text-xs font-bold tracking-wider uppercase" style={{ color: data.look?.accent || C.cyan }}>{data.title}</div>}
                 {(me ? nemesisWins(s) : data.nemWins) > 0 && <div className="mt-1"><RivalBadge wins={me ? nemesisWins(s) : data.nemWins} /></div>}
                 {Object.keys(data.badges || {}).length > 0 && <div className="mt-1"><SeasonBadges badges={data.badges} /></div>}
@@ -234,7 +243,7 @@ export function ProfilePage({ s, setS, targetId, onBack, gainXp, openXp }) {
               },
               me && {
                 k: "body", t: "Body", c: (
-                  <div className="pt-1 pb-4 space-y-3"><ProgressPhotos s={s} /><Measurements s={s} setS={setS} /><StepsPanel s={s} setS={setS} gainXp={gainXp} /></div>
+                  <div className="pt-1 pb-4 space-y-3"><ProgressPhotos s={s} /><Measurements s={s} setS={setS} /><StepsPanel s={s} setS={setS} /></div>
                 ),
               },
               !me && data.weightLog && Object.keys(data.weightLog).length > 1 && {
