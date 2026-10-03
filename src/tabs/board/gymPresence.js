@@ -25,7 +25,7 @@ export function getGps(opts = {}) {
   });
 }
 export function locErrorText(err) {
-  if (err?.code === 1) return `Location is blocked. ${IOS_LOC}`;
+  if (err?.code === 1) return typeof window !== "undefined" && window.isSecureContext === false ? "GPS needs a secure connection — works on the live app." : `Location is blocked. ${IOS_LOC}`;
   if (err?.code === 2) return "Couldn't find you. Step outside or near a window and try again.";
   if (err?.code === 3) return "Location timed out. Try again in a spot with a clearer sky.";
   if (err?.message === "no-geo") return "This browser can't share location.";

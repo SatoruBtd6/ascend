@@ -35,7 +35,7 @@ export async function buildReceipt({ s, kind, headline, sub, rows, tierImg, foot
   x.fillStyle = "rgba(255,255,255,.5)"; x.textAlign = "right"; x.font = "500 28px Inter, system-ui, sans-serif"; x.fillText(footer || "ascendfit.site", W - 70, H - 48);
   return new Promise((res) => c.toBlob((b) => res(b), "image/png"));
 }
-export function ReceiptButton({ make, label = "Share card", small, menuItem = false }) {
+export function ReceiptButton({ make, label = "Share card", small, menuItem = false, onAction }) {
   const [img, setImg] = useState(null);
   const [busy, setBusy] = useState(false);
   const blobRef = useRef(null);
@@ -49,7 +49,7 @@ export function ReceiptButton({ make, label = "Share card", small, menuItem = fa
   return (
     <>
       {menuItem ? (
-        <button role="menuitem" onClick={open} disabled={busy} className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }}>
+        <button role="menuitem" onClick={() => { onAction?.(); open(); }} disabled={busy} className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }}>
           {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}{label}
         </button>
       ) : (

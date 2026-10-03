@@ -16,7 +16,7 @@ export function RoutePlanner({ s, setS, onRun }) {
     try {
       pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }));
     } catch (e) {
-      setState({ status: "error", routes: [], pick: 0, notes: [], quip: "", err: e?.code === 1 ? "Location is blocked. Allow it for Safari in Settings → Privacy → Location Services." : "Couldn't get your location. Try again outside." });
+      setState({ status: "error", routes: [], pick: 0, notes: [], quip: "", err: e?.code === 1 ? (window.isSecureContext === false ? "GPS needs a secure connection — works on the live app." : "Location is blocked. Allow it for Safari in Settings → Privacy → Location Services.") : "Couldn't get your location. Try again outside." });
       return;
     }
     setState((x) => ({ ...x, status: "routing" }));

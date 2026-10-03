@@ -37,7 +37,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
 
   const startWatch = () => {
     if (simOn) { setGps({ status: "ok", msg: "sim" }); return; }
-    if (!navigator.geolocation) { setGps({ status: "error", msg: "This browser can't use GPS." }); return; }
+    if (!navigator.geolocation) { setGps({ status: "error", msg: window.isSecureContext === false ? "GPS needs a secure connection — works on the live app." : "This browser can't use GPS." }); return; }
     if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
@@ -45,7 +45,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
         setGps({ status: fix.acc > 35 ? "weak" : "ok", msg: `±${Math.round(fix.acc)} m` });
         setRun((r) => addFix(r, fix));
       },
-      (err) => setGps({ status: "error", msg: err.code === 1 ? "Location is blocked. Allow it in Settings → Privacy → Location Services → Safari Websites." : "Searching for GPS…" }),
+      (err) => setGps({ status: "error", msg: err.code !== 1 ? "Searching for GPS…" : window.isSecureContext === false ? "GPS needs a secure connection — works on the live app." : "Location is blocked. Allow it in Settings → Privacy → Location Services → Safari Websites." }),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
     );
   };
