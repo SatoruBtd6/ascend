@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, Image as ImageIcon } from "lucide-react";
 import { C } from "../../theme.js";
 import { levelFromXp } from "../../math.js";
@@ -57,7 +58,7 @@ export function ReceiptButton({ make, label = "Share card", small, menuItem = fa
         {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}{small ? null : label}
       </button>
       )}
-      {img && (
+      {img && createPortal(
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center p-5 gap-3" style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }} onClick={close}>
           <img src={img} alt="Share card" style={{ maxHeight: "70vh", maxWidth: "100%", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,.6)" }} onClick={(e) => e.stopPropagation()} />
           <div className="flex gap-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
@@ -65,7 +66,8 @@ export function ReceiptButton({ make, label = "Share card", small, menuItem = fa
             <button onClick={share} className="btn flex-1 py-3">Share or save</button>
           </div>
           <div className="body text-xs" style={{ color: "rgba(255,255,255,.6)" }}>On iPhone, choose "Save Image" to post it anywhere.</div>
-        </div>
+        </div>,
+        document.getElementById("ascend-root") || document.body
       )}
     </>
   );

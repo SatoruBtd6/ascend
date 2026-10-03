@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Timer as TimerIcon, X } from "lucide-react";
 import { C } from "../../theme.js";
 import { Beeper, fmtClock } from "./beeper.js";
@@ -61,7 +62,7 @@ export function RestBubble({ end, onDone, onClose, onChangeEnd }) {
     if (!w) setBig(true);
   };
   if (big) {
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 px-6" style={{ background: "#02040B" }}>
         <div className="body text-xs uppercase tracking-widest font-bold" style={{ color: C.mute }}>Rest</div>
         <div className="font-extrabold tabular-nums" style={{ fontSize: "min(28vw, 140px)", lineHeight: 1, color: left <= 5 ? C.orange : C.cyan, textShadow: `0 0 40px ${left <= 5 ? C.orange : C.cyan}` }}>{fmtClock(left)}</div>
@@ -71,7 +72,8 @@ export function RestBubble({ end, onDone, onClose, onChangeEnd }) {
         </div>
         <button type="button" onClick={openWatch} className="body text-sm font-bold" style={{ color: C.cyan }}>Open watch window</button>
         <button type="button" onClick={() => setBig(false)} className="body text-xs" style={{ color: C.mute }}>Shrink</button>
-      </div>
+      </div>,
+      document.getElementById("ascend-root") || document.body
     );
   }
   return (

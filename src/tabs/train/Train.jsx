@@ -573,7 +573,7 @@ export function Train({ s, setS, gainXp, openRun }) {
             </div>
             {exMenu?.ei === ei && (
               <AnchoredMenu anchor={exMenu.el} onClose={() => setExMenu(null)}>
-                {def.type === "weighted" && !def.perHand && <button role="menuitem" className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }} onClick={() => { setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135 }); setExMenu(null); }}><CircleDot size={16} />Plate calculator</button>}
+                {def.type === "weighted" && !def.perHand && <button role="menuitem" className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }} onClick={() => { setPlates({ w: +ex.sets.find((st) => +st.w)?.w || +prev[0]?.w || 135, name: ex.name }); setExMenu(null); }}><CircleDot size={16} />Plate calculator</button>}
                 {ei < a.exercises.length - 1 && <button role="menuitem" className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14, color: ex.ss ? C.green : C.text }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => (i === ei ? { ...e, ss: !e.ss } : e)) })); setExMenu(null); }}><Link2 size={16} />{ex.ss ? "Unlink superset" : "Superset with next"}</button>}
                 {def.type === "weighted" && <button role="menuitem" className="w-full text-left px-5 text-sm" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }} onClick={() => { setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, wMode: mode === "hand" ? "total" : "hand" }) })); setExMenu(null); }}>{mode === "hand" ? "Use total lb" : "Use per hand"}</button>}
                   <button role="menuitem" className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }} onClick={() => { setFormSheet({ name: ex.name, mode: "film" }); setExMenu(null); }}><Video size={16} />Film form check</button>
@@ -672,7 +672,7 @@ export function Train({ s, setS, gainXp, openRun }) {
         onDismiss={() => setSetUndo(null)}
       />
       <RestDock />
-      {plates && <PlateSheet weight={plates.w} onClose={() => setPlates(null)} />}
+      {plates && <PlateSheet weight={plates.w} exName={plates.name} s={s} setS={setS} onClose={() => setPlates(null)} />}
       {formSheet && (
         <Sheet title={`Form check · ${formSheet.name}`} onClose={() => setFormSheet(null)}>
           <FormCheck exercise={formSheet.name} heading={false} result={formResults[formSheet.name]} onResult={(r) => setFormResults((p) => ({ ...p, [formSheet.name]: r }))} />
