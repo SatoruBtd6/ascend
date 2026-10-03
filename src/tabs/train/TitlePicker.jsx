@@ -6,14 +6,16 @@ export const WORKOUT_TITLES = ["Push", "Pull", "Legs", "Upper", "Lower", "Full b
 export function TitlePicker({ s, onPick, onBack }) {
   const [custom, setCustom] = useState("");
   const mine = [...new Set((s?.workouts || []).map((w) => w.title).filter(Boolean))].filter((t) => !WORKOUT_TITLES.includes(t));
-  const titles = [...WORKOUT_TITLES, ...mine];
+  const titles = [...WORKOUT_TITLES, ...mine]
+    .map((t, i) => ({ t, i, last: lastWorkout(s, t, true)?.date || "" }))
+    .sort((x, y) => (x.last && y.last ? y.last.localeCompare(x.last) : x.last ? -1 : y.last ? 1 : x.i - y.i))
+    .map((x) => x.t);
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
         <h1 className="text-2xl font-bold glowtext">What are you training?</h1>
       </div>
-      <div className="body text-sm" style={{ color: C.dim }}>The title helps Sterling plan your next moves and keeps your history sorted. Pick one and you can load that same session again on the next screen.</div>
       <div className="grid grid-cols-3 gap-2">
         {titles.map((t) => {
           const prev = lastWorkout(s, t, true);

@@ -35,7 +35,7 @@ export async function buildReceipt({ s, kind, headline, sub, rows, tierImg, foot
   x.fillStyle = "rgba(255,255,255,.5)"; x.textAlign = "right"; x.font = "500 28px Inter, system-ui, sans-serif"; x.fillText(footer || "ascendfit.site", W - 70, H - 48);
   return new Promise((res) => c.toBlob((b) => res(b), "image/png"));
 }
-export function ReceiptButton({ make, label = "Share card", small }) {
+export function ReceiptButton({ make, label = "Share card", small, menuItem = false }) {
   const [img, setImg] = useState(null);
   const [busy, setBusy] = useState(false);
   const blobRef = useRef(null);
@@ -48,9 +48,15 @@ export function ReceiptButton({ make, label = "Share card", small }) {
   };
   return (
     <>
+      {menuItem ? (
+        <button role="menuitem" onClick={open} disabled={busy} className="w-full text-left px-5 text-sm flex items-center gap-2" style={{ minHeight: 40, paddingTop: 14, paddingBottom: 14 }}>
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}{label}
+        </button>
+      ) : (
       <button onClick={open} disabled={busy} aria-label={label} className={small ? "" : "ghost px-3 py-2 text-sm font-semibold flex items-center gap-2"} style={{ color: C.cyan }}>
         {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}{small ? null : label}
       </button>
+      )}
       {img && (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center p-5 gap-3" style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }} onClick={close}>
           <img src={img} alt="Share card" style={{ maxHeight: "70vh", maxWidth: "100%", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,.6)" }} onClick={(e) => e.stopPropagation()} />

@@ -35,6 +35,7 @@ import { noteRaidHitFor } from "./raidIO.js";
 import { deleteSetAt, restoreSetAt } from "./setUndo.js";
 import { applyPrXpRecount } from "./xpRecount.js";
 import { cardioMeta, CARDIO_VERSION } from "../../data/cardio.js";
+import { fmtDur } from "../../run.js";
 import { XpSync } from "../../lib/xpSync.js";
 export function Train({ s, setS, gainXp, openRun }) {
   D.noteRender("Train");
@@ -55,6 +56,8 @@ export function Train({ s, setS, gainXp, openRun }) {
   const [exMenu, setExMenu] = useState(null);
   const [addMenu, setAddMenu] = useState(null);
   const [pastOpen, setPastOpen] = useState({});
+  const [histShown, setHistShown] = useState(10);
+  const [histMenu, setHistMenu] = useState(null);
   const [formResults, setFormResults] = useState({});
   const [formSheet, setFormSheet] = useState(null);
   const [wuOpen, setWuOpen] = useState(false);
@@ -87,14 +90,14 @@ export function Train({ s, setS, gainXp, openRun }) {
   const [setHint, setSetHint] = useState(() => { try { return localStorage.getItem(setHintKey()) !== "1"; } catch { return true; } });
   const dismissSetHint = () => { setSetHint(false); try { localStorage.setItem(setHintKey(), "1"); } catch { /* */ } };
   useEffect(() => {
-    if (exMenu == null && addMenu == null) return;
+    if (exMenu == null && addMenu == null && histMenu == null) return;
     const close = (e) => {
       if (e.target.closest?.("[data-keep-menu]")) return;
-      setExMenu(null); setAddMenu(null);
+      setExMenu(null); setAddMenu(null); setHistMenu(null);
     };
     const t = setTimeout(() => document.addEventListener("click", close), 0);
     return () => { clearTimeout(t); document.removeEventListener("click", close); };
-  }, [exMenu, addMenu]);
+  }, [exMenu, addMenu, histMenu]);
   const a = s.active;
   const bests = useMemo(
     () => computeBests(a?.editId ? { ...s, workouts: (s.workouts || []).filter((w) => w.id !== a.editId) } : s),
@@ -242,47 +245,71 @@ export function Train({ s, setS, gainXp, openRun }) {
         <h2 className="text-lg font-bold pt-2">History</h2>
         {(() => { const titles = [...new Set(s.workouts.map((w) => w.title).filter(Boolean))]; return titles.length ? (
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {["All", ...titles].map((t) => <button key={t} onClick={() => setFilter(t)} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: filter === t ? C.blue : C.soft, color: filter === t ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{t}</button>)}
+            {["All", ...titles].map((t) => <button key={t} onClick={() => { setFilter(t); setHistShown(10); }} className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: 999, background: filter === t ? C.blue : C.soft, color: filter === t ? "#fff" : C.text, border: `1px solid ${C.border}` }}>{t}</button>)}
           </div>
         ) : null; })()}
         {s.workouts.length === 0 && <Empty>No workouts yet. XP comes from how much you lift and how many reps you do, scaled to your body and rank.</Empty>}
-        {[...s.workouts].reverse().filter((w) => filter === "All" || w.title === filter).slice(0, 25).map((w) => {
+        {(() => {
+          const ws = [...s.workouts].reverse().filter((w) => filter === "All" || w.title === filter);
+          return (<>
+            {ws.slice(0, histShown).map((w) => {
           const isOpen = !!open[w.id];
+          const nSets = w.exercises.reduce((a, e) => a + e.sets.length, 0);
+          const gym = gymLabel(s, workoutGym(w));
+          const menuCls = "w-full text-left px-5 text-sm flex items-center gap-2";
+          const menuSt = { minHeight: 40, paddingTop: 14, paddingBottom: 14 };
           return (
-            <div key={w.id} className="panel p-4">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">{w.title ? <span style={{ color: C.cyan }}>{w.title} · </span> : null}{fmtDay(w.date)}{gymLabel(s, workoutGym(w)) ? <span className="body text-xs ml-2" style={{ color: C.mute }}>{gymLabel(s, workoutGym(w))}</span> : null}{w.source && w.source !== "import" && <span className="body text-xs ml-2" style={{ color: C.cyan }}>{w.source === "deck" ? "card deck" : "from quest"}</span>}{w.source === "import" && <span className="body text-xs ml-2" style={{ color: C.mute }}>imported</span>}</span>
-                <div className="flex items-center gap-3">
-                  {w.xp ? <button onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="text-sm font-bold flex items-center gap-1" style={{ color: C.gold }}>+{w.xp} XP<ChevronDown size={14} style={{ transform: isOpen ? "rotate(180deg)" : "none" }} /></button> : null}
-                  {!w.source && s.lb && <button aria-label={w.shared ? "Shared to feed" : "Share to feed"} disabled={w.shared} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); }} style={{ color: w.shared ? C.green : C.cyan }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}</button>}
-                  {!w.source && s.lb && <SharePreset s={s} workout={w} />}
-                  {!w.source && <ReceiptButton small label="Share card" make={() => buildReceipt({ s, kind: "Workout", headline: w.title ? `${w.title} day` : "Workout", sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Exercises", w.exercises.length], ["Sets", w.exercises.reduce((a, e) => a + e.sets.length, 0)]] })} />}
-                  <button aria-label="Edit workout" onClick={() => editWorkout(w)} style={{ color: C.cyan }}><Pencil size={16} /></button>
-                  <button aria-label="Delete workout" onClick={() => ask(w.xp ? `Delete this workout? Its ${w.xp.toLocaleString()} XP comes off your total.` : "Delete this workout?", () => { setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })); gainXp(-(w.xp || 0), `Deleted workout${w.title ? `: ${w.title}` : ""}`, `wo_${w.id}_del`); }, "Delete")} style={{ color: C.mute }}><Trash2 size={16} /></button>
+            <div key={w.id} className="panel relative">
+              <div className="flex items-center gap-2 px-4 py-3">
+                <button type="button" aria-expanded={isOpen} onClick={() => setOpen((o) => ({ ...o, [w.id]: !isOpen }))} className="flex-1 min-w-0 text-left">
+                  <div className="font-bold truncate" style={{ fontSize: 17, color: C.cyan }}>{w.title || "Workout"}</div>
+                  <div className="body text-sm mt-0.5 truncate" style={{ color: C.dim }}>{fmtDay(w.date)}{gym ? ` · ${gym}` : ""}{w.source && w.source !== "import" ? <span style={{ color: C.cyan }}> · {w.source === "deck" ? "card deck" : "from quest"}</span> : null}{w.source === "import" ? " · imported" : ""}</div>
+                  <div className="body mt-0.5" style={{ fontSize: 13, color: C.mute }}>{w.run ? `${w.run.miles} mi · ${fmtDur(w.run.secs)}` : `${w.exercises.length} exercise${w.exercises.length === 1 ? "" : "s"} · ${nSets} set${nSets === 1 ? "" : "s"}`}</div>
+                </button>
+                <div className="flex items-center gap-3 shrink-0">
+                  {w.xp ? <span className="text-sm font-bold" style={{ color: C.gold }}>+{w.xp} XP</span> : null}
+                  <button aria-label="Edit workout" onClick={() => editWorkout(w)} className="py-1" style={{ color: C.cyan }}><Pencil size={16} /></button>
+                  <button type="button" data-keep-menu aria-label="More actions" aria-haspopup="menu" aria-expanded={histMenu === w.id} onClick={(e) => { e.stopPropagation(); setHistMenu(histMenu === w.id ? null : w.id); }} className="py-1" style={{ color: C.mute }}><MoreHorizontal size={18} /></button>
                 </div>
               </div>
-              <div className="body text-sm mt-1 space-y-0.5" style={{ color: C.sub }}>
-                {w.exercises.map((ex, i) => {
-                  const def = findEx(s, ex.name);
-                  return <div key={i}>{ex.name}: {ex.sets.map((st) => setLabel(def, st)).join(", ")}{isLegacyAssisted(w, def) ? <span className="body text-xs ml-1" style={{ color: C.mute }}>legacy</span> : null}</div>;
-                })}
-              </div>
-              {isOpen && (
-                <div className="mt-3 pt-3 body text-xs space-y-1" style={{ borderTop: `1px solid ${C.line}`, color: C.dim }}>
-                  <div className="font-bold" style={{ color: C.text }}>XP breakdown</div>
-                  {w.lines ? w.lines.map((l, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between font-semibold" style={{ color: C.sub }}><span>{l.name}</span><span style={{ color: C.gold }}>+{l.xp}</span></div>
-                      {l.sets.map((st, j) => <div key={j} className="flex justify-between pl-3"><span>{st.label} · {st.note}{prNote(st.pr)}</span><span>+{st.xp}</span></div>)}
-                    </div>
-                  )) : <div>Logged before detailed breakdowns existed.</div>}
-                  {w.prBonus ? <div className="flex justify-between font-semibold" style={{ color: C.green }}><span>PR bonus</span><span>+{w.prBonus}</span></div> : null}
-                  {w.volume ? <div className="pt-1">Volume {Math.round(w.volume).toLocaleString()} lb{w.minutes ? ` · ${w.minutes} min` : ""}</div> : null}
-                </div>
+              {histMenu === w.id && (
+                <>
+                  <div className="fixed inset-0 z-10" style={{ background: "rgba(0,0,0,.28)" }} onClick={() => setHistMenu(null)} />
+                  <div role="menu" data-keep-menu className="panel z-20 p-1" style={{ position: "absolute", right: 12, top: 40, minWidth: 200, maxWidth: "calc(100% - 24px)", background: C.sheet, backdropFilter: "none", WebkitBackdropFilter: "none", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }} onClick={(e) => e.stopPropagation()}>
+                    {!w.source && s.lb && <button role="menuitem" className={menuCls} disabled={w.shared} style={{ ...menuSt, color: w.shared ? C.green : C.text }} onClick={() => { if (w.shared) return; postFeed(s, "workout", `finished a ${w.title ? `${w.title} ` : ""}workout · +${w.xp || 0} XP`, { detail: w.exercises.map((ex) => ex.name).join(", "), workout: workoutPayload(s, w) }, `workout_${w.id}`); setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, shared: true } : x)) })); setHistMenu(null); }}>{w.shared ? <Check size={16} /> : <Share2 size={16} />}{w.shared ? "Shared" : "Share"}</button>}
+                    {!w.source && s.lb && <SharePreset s={s} workout={w} menuItem />}
+                    {!w.source && <ReceiptButton menuItem label="Add photo" make={() => buildReceipt({ s, kind: "Workout", headline: w.title ? `${w.title} day` : "Workout", sub: fmtDay(w.date), tierImg: Math.floor(overallInfo(s).score), rows: [["XP earned", `+${w.xp || 0}`], ["Volume", `${Math.round(w.volume || 0).toLocaleString()} lb`], ["Exercises", w.exercises.length], ["Sets", w.exercises.reduce((a, e) => a + e.sets.length, 0)]] })} />}
+                    <button role="menuitem" className={menuCls} style={{ ...menuSt, color: C.red, borderTop: `1px solid ${C.glassLine}` }} onClick={() => { setHistMenu(null); ask(w.xp ? `Delete this workout? Its ${w.xp.toLocaleString()} XP comes off your total.` : "Delete this workout?", () => { setS((p) => ({ ...p, workouts: p.workouts.filter((x) => x.id !== w.id) })); gainXp(-(w.xp || 0), `Deleted workout${w.title ? `: ${w.title}` : ""}`, `wo_${w.id}_del`); }, "Delete"); }}><Trash2 size={16} />Delete</button>
+                  </div>
+                </>
               )}
+              <div style={{ display: "grid", gridTemplateRows: isOpen ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+                <div style={{ overflow: "hidden", opacity: isOpen ? 1 : 0, transition: "opacity .25s ease-out" }}>
+                  <div className="px-4 pb-2 body text-sm space-y-0.5" style={{ color: C.sub }}>
+                    {w.exercises.map((ex, i) => {
+                      const def = findEx(s, ex.name);
+                      return <div key={i}>{ex.name}: {ex.sets.map((st) => setLabel(def, st)).join(", ")}{isLegacyAssisted(w, def) ? <span className="body text-xs ml-1" style={{ color: C.mute }}>legacy</span> : null}</div>;
+                    })}
+                  </div>
+                  <div className="mx-4 mb-3 pt-2 body text-xs space-y-1" style={{ borderTop: `1px solid ${C.line}`, color: C.dim }}>
+                    <div className="font-bold" style={{ color: C.text }}>XP breakdown</div>
+                    {w.lines ? w.lines.map((l, i) => (
+                      <div key={i}>
+                        <div className="flex justify-between font-semibold" style={{ color: C.sub }}><span>{l.name}</span><span style={{ color: C.gold }}>+{l.xp}</span></div>
+                        {l.sets.map((st, j) => <div key={j} className="flex justify-between pl-3"><span>{st.label} · {st.note}{prNote(st.pr)}</span><span>+{st.xp}</span></div>)}
+                      </div>
+                    )) : <div>Logged before detailed breakdowns existed.</div>}
+                    {w.prBonus ? <div className="flex justify-between font-semibold" style={{ color: C.green }}><span>PR bonus</span><span>+{w.prBonus}</span></div> : null}
+                    {w.volume ? <div className="pt-1">Volume {Math.round(w.volume).toLocaleString()} lb{w.minutes ? ` · ${w.minutes} min` : ""}</div> : null}
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })}
+            {ws.length > histShown && <button type="button" onClick={() => setHistShown((n) => n + 10)} className="w-full py-3 text-sm font-semibold" style={{ color: C.cyan }}>Show more</button>}
+          </>);
+        })()}
       </div>
     );
   }
@@ -301,12 +328,15 @@ export function Train({ s, setS, gainXp, openRun }) {
               <WarmUp s={s} a={a} setActive={setActive} compact open={wuOpen} onOpenChange={setWuOpen} />
             </div>
           )}
-          <input className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} placeholder="Workout title" value={a.title || ""} onChange={(e) => setActive((w) => ({ ...w, title: e.target.value }))} aria-label="Workout title" />
+          <input className="bg-transparent w-full font-bold border-b border-transparent focus:border-white/20 focus:outline-none transition-colors" style={{ fontSize: 20, marginTop: 2, padding: "2px 0" }} placeholder="Workout title" value={a.title || ""} onChange={(e) => setActive((w) => ({ ...w, title: e.target.value }))} aria-label="Workout title" />
           {(s.gyms || []).length > 0 && (
-            <select className="inp text-sm mt-1" style={{ maxWidth: 190, padding: "4px 8px" }} aria-label="Workout gym" value={a.gym || s.currentGym || ""} onChange={(e) => setActive((w) => ({ ...w, gym: e.target.value || null }))}>
-              <option value="">No gym</option>
-              {(s.gyms || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+            <div className="flex items-center gap-1">
+              <select className="bg-transparent appearance-none focus:outline-none" style={{ fontSize: 15, color: C.dim }} aria-label="Workout gym" value={a.gym || s.currentGym || ""} onChange={(e) => setActive((w) => ({ ...w, gym: e.target.value || null }))}>
+                <option value="">No gym</option>
+                {(s.gyms || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+              <ChevronDown size={12} style={{ color: C.dim, pointerEvents: "none" }} />
+            </div>
           )}
           <div className="text-sm font-bold" style={{ color: C.gold }}>≈ {live.xp} XP{live.prs ? ` · ${live.prs} PR${live.prs > 1 ? "s" : ""}` : ""}</div>
         </div>
@@ -518,18 +548,15 @@ export function Train({ s, setS, gainXp, openRun }) {
               </>
             )}
             {prev.length > 0 && !a.editId && (
-              <div className="mb-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: cloneSets(prev) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.cyan, minHeight: 40 }}>
-                    <Repeat size={12} />Same as last
+              <div className="flex gap-2 mb-2">
+                <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: cloneSets(prev) }) }))} className="flex items-center justify-center gap-1.5 font-semibold shrink-0" style={{ height: 32, padding: "0 12px", borderRadius: 999, border: `1px solid ${C.glassLine}`, background: C.glass, color: C.cyan, fontSize: 14 }}>
+                  <Repeat size={12} />Same as last
+                </button>
+                {sg && (
+                  <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: applyTargetSets(prev, sg) }) }))} className="flex items-center gap-1.5 font-semibold min-w-0" style={{ height: 32, padding: "0 12px", borderRadius: 999, border: `1px solid ${C.green}55`, background: C.glass, color: C.green, fontSize: 14 }}>
+                    <TrendingUp size={12} className="shrink-0" /><span className="truncate">{sg.w}×{sg.r} · {sg.why}</span>
                   </button>
-                  {sg ? (
-                    <button type="button" onClick={() => setActive((w) => ({ ...w, exercises: w.exercises.map((e, i) => i !== ei ? e : { ...e, sets: applyTargetSets(prev, sg) }) }))} className="ghost py-2 text-xs font-bold flex items-center justify-center gap-1.5" style={{ color: C.green, minHeight: 40 }}>
-                      <TrendingUp size={12} />{sg.w}×{sg.r}
-                    </button>
-                  ) : <div />}
-                </div>
-                {sg ? <div className="body text-xs mt-1 px-0.5" style={{ color: C.mute }}>{sg.why}</div> : null}
+                )}
               </div>
             )}
             {past.length > 0 && (

@@ -34,7 +34,7 @@ export function WarmUp({ s, a, setActive, compact = false, open: openProp, onOpe
   };
   const done = a.warmupDone || [];
   const chip = (
-    <button type="button" onClick={build} className={compact ? "ghost px-2.5 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0" : "ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2"} style={{ color: C.cyan, minHeight: 40 }}>
+    <button type="button" onClick={build} className={compact ? "text-xs font-semibold flex items-center gap-1.5 shrink-0" : "ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2"} style={compact ? { color: C.cyan, height: 32, padding: "0 12px", borderRadius: 999, border: `1px solid ${C.glassLine}`, background: C.glass } : { color: C.cyan, minHeight: 40 }}>
       <Activity size={compact ? 14 : 16} />{compact ? "3-min warm-up" : "3-minute warm-up"}
     </button>
   );
