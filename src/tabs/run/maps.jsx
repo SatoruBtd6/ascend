@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { C } from "../../theme.js";
 import { havM } from "../../run.js";
+const CARTO_KEY = "cb1_487p_1_e44f571331f95034e3437766";
 export function encodePoly(pts) {
   let out = "", pLat = 0, pLng = 0;
   const enc = (v) => { v = v < 0 ? ~(v << 1) : v << 1; let s = ""; while (v >= 0x20) { s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } return s + String.fromCharCode(v + 63); };
@@ -43,7 +44,9 @@ export function RouteMap({ lines = [], follow = null, height = 240, fit = true, 
     loadLeaflet().then((L) => {
       if (dead || !el.current || mapRef.current) return;
       const map = L.map(el.current, { zoomControl: false, attributionControl: true, dragging: interactive, scrollWheelZoom: false, tap: interactive });
-      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${light ? "light_all" : "dark_all"}/{z}/{x}/{y}{r}.png`, { maxZoom: 19, subdomains: "abcd", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>' }).addTo(map);
+      // Public basemaps key — safe in client code; restrict domains/apps in
+      // the CARTO basemaps dashboard (carto.com/basemaps).
+      L.tileLayer(`https://basemaps.cartocdn.com/rastertiles/${light ? "light_all" : "dark_all"}/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`, { maxZoom: 20, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attribution/">CARTO</a>' }).addTo(map);
       map.setView(follow || lines[0]?.pts?.[0] || [30.2672, -97.7431], 15);
       layerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
