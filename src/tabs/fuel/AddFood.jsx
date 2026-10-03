@@ -170,7 +170,7 @@ export function AddFood({ s, setS, onClose, onAdd, dayLabel }) {
       {!needle && src === "All" && recent.length > 0 && (
         <>
           <div className="body text-xs font-semibold pt-1" style={{ color: C.dim }}>Recent</div>
-          <div className="space-y-2">{recent.map((f) => <FoodPickRow key={`r-${f.name}`} f={f} onAdd={onAdd} />)}</div>
+          <div>{recent.map((f, i) => <FoodPickRow key={`r-${f.name}`} f={f} onAdd={onAdd} first={i === 0} />)}</div>
           <div className="body text-xs font-semibold pt-2" style={{ color: C.dim }}>Everything</div>
         </>
       )}

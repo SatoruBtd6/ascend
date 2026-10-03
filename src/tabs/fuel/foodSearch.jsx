@@ -12,15 +12,15 @@ export const FoodResultList = React.memo(function FoodResultList({ items, savedN
   const shown = items.slice(0, cap);
   return (
     <>
-      <div className="space-y-2">
-        {shown.map((f) => (
-          <div key={`${f.r || "b"}-${f.name}`} className="ghost flex items-center">
-            <button onClick={() => onAdd(f)} className="flex-1 text-left p-3 min-w-0">
-              <div className="font-semibold">{f.meal ? "🥤 " : ""}{f.name}</div>
-              <div className="body text-xs" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
+      <div>
+        {shown.map((f, i) => (
+          <div key={`${f.r || "b"}-${f.name}`} className="flex items-center" style={{ minHeight: 56, borderTop: i ? "1px solid rgba(255,255,255,.08)" : "none" }}>
+            <button onClick={() => onAdd(f)} className="flex-1 text-left min-w-0 py-1.5">
+              <div className="font-semibold truncate" style={{ fontSize: 15 }}>{f.meal ? "🥤 " : ""}{f.name}</div>
+              <div className="body text-xs truncate" style={{ color: C.dim }}>{f.cal} cal · P {f.p} · C {f.c} · F {f.f}{f.meal ? ` · meal · ${(f.ingredients || []).length} ingredients` : ""}{f.approx ? " · approx." : ""}{f.community && f.by ? ` · by ${f.by}` : ""}</div>
             </button>
-            {f.meal && savedNames?.has(f.name) && onEditSaved && <button aria-label={`Edit ${f.name}`} onClick={() => onEditSaved(f)} className="px-2" style={{ color: C.mute }}><Pencil size={15} /></button>}
-            {savedNames?.has(f.name) && onRemoveSaved && <button aria-label={`Remove ${f.name} from saved`} onClick={() => onRemoveSaved(f.name)} className="px-3" style={{ color: C.mute }}><Trash2 size={16} /></button>}
+            {f.meal && savedNames?.has(f.name) && onEditSaved && <button aria-label={`Edit ${f.name}`} onClick={() => onEditSaved(f)} className="flex items-center justify-center shrink-0" style={{ color: C.mute, minWidth: 44, minHeight: 44 }}><Pencil size={15} /></button>}
+            {savedNames?.has(f.name) && onRemoveSaved && <button aria-label={`Remove ${f.name} from saved`} onClick={() => onRemoveSaved(f.name)} className="flex items-center justify-center shrink-0" style={{ color: C.mute, minWidth: 44, minHeight: 44 }}><Trash2 size={16} /></button>}
           </div>
         ))}
       </div>
