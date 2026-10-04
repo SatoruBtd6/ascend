@@ -96,6 +96,7 @@ export const EXERCISES = [
   { name: "Running", group: "Cardio", type: "timed", xp: 6 },
   { name: "Walking", group: "Cardio", type: "timed", xp: 3 },
   { name: "Incline Walk", group: "Cardio", type: "timed", xp: 4 },
+  { name: "Hiking", group: "Cardio", type: "timed", xp: 4 },
   { name: "Cycling", group: "Cardio", type: "timed", xp: 5 },
   { name: "Stairmaster", group: "Cardio", type: "timed", xp: 6 },
   { name: "Elliptical", group: "Cardio", type: "timed", xp: 5 },

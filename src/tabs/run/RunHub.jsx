@@ -43,8 +43,8 @@ export function RunHub({ s, setS, gainXp, onBack, startRun }) {
       {runs.length === 0 && <Empty>No runs yet. Tap Start run and your distance, pace, splits, and route map save here.</Empty>}
       <div className="space-y-2">{runs.map((w) => (
         <button key={w.id} onClick={() => setDetail(w)} className="panel p-3 w-full text-left flex items-center gap-3">
-          <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 40, height: 40, borderRadius: 12, background: `${C.green}22` }}>{runKind(w.run) === "runwalk" ? "🏃🚶" : w.run.mode === "walk" ? "🚶" : "🏃"}</div>
-          <div className="flex-1 min-w-0"><div className="font-semibold">{w.run.miles} mi{runKind(w.run) === "runwalk" ? " Run/Walk" : ""} <span className="body text-xs font-normal" style={{ color: C.dim }}>· {fmtDay(w.date)}</span></div><div className="body text-xs" style={{ color: C.dim }}>{fmtDur(w.run.secs)} · {fmtPace(w.run.pace)} /mi{w.run.guideName ? ` · ${w.run.guideName}` : ""}</div></div>
+          <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 40, height: 40, borderRadius: 12, background: `${C.green}22` }}>{runKind(w.run) === "runwalk" ? "🏃🚶" : runKind(w.run) === "hike" ? "🥾" : w.run.mode === "walk" ? "🚶" : "🏃"}</div>
+          <div className="flex-1 min-w-0"><div className="font-semibold">{w.run.miles} mi{runKind(w.run) === "runwalk" ? " Run/Walk" : runKind(w.run) === "hike" ? " Hike" : ""} <span className="body text-xs font-normal" style={{ color: C.dim }}>· {fmtDay(w.date)}</span></div><div className="body text-xs" style={{ color: C.dim }}>{fmtDur(w.run.secs)} · {fmtPace(w.run.pace)} /mi{w.run.elev?.gainFt > 0 ? ` · ▲${w.run.elev.gainFt} ft` : ""}{w.run.guideName ? ` · ${w.run.guideName}` : ""}</div></div>
           <ChevronRight size={16} style={{ color: C.mute }} />
         </button>
       ))}</div>

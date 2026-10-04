@@ -729,3 +729,41 @@ path — the only writers are additive merges on the owning account's own blob.
   race; settling them retroactively crowned a September winner who never
   entered one (the incident that prompted this). The floor gates the whole
   function — pre-mechanic records are never even read.
+
+## GPS outdoor bonuses: small pace + climb under ONE shared 60% cap (7s — approved by Brodan)
+
+- **Elevation is terrain-lookup only.** Open-Meteo's elevation API is the
+  single source — no GPS altitude is ever recorded (iOS Safari's is too
+  noisy to score; the barometer is native-only). The recorded path is
+  thinned to ~80 m (~50–95 points), one batch call per session, gain/loss
+  computed with ~4 m hysteresis so integer-metre DEM steps can't
+  accumulate noise. `run.elev = {v, gainFt, lossFt, peakFt, profile}`.
+- **Hike is a mode tag, not a speed.** Walking | Running | Hiking; hike
+  keeps run's 7.5 m/s fix ceiling (downhill jogging stays credited), never
+  reclassifies to walk however slow, and logs its own `Hiking` cardio row
+  (4/min + 10/mi). Hikes qualify for Stormborn under "any GPS-tracked
+  outdoor session".
+- **Pace bonus is deliberately small: tops at 20% of the time base** —
+  `modeBase × min(score,6)/30`, per-mode mi/min vs a personal ladder
+  (run/walk machine seeds reused; blends to the user's median over their
+  first 5 stamped sessions). Runs and walks only — hiking pace reflects
+  trail steepness, so hikes earn through climb instead.
+- **Climb bonus uses the full ladder shape** — `modeBase × min(score,6) × 0.1`
+  against per-mode ft/mi ladders (walk [40,90,160,260,400], run
+  [50,120,220,350,550], hike [100,250,450,700,1000]). Anything above
+  2000 ft/mi clamps as a DEM artifact.
+- **ONE combined cap: pace + climb ≤ 60% of the time base.** Pace keeps its
+  ≤20% share first; climb takes the remainder. A fast hilly run can never
+  exceed 60% total.
+- **Glitch clamps ignore, never reward:** segments faster than 4:00/mi
+  (run, 15 mph) or 10:00/mi (walk, 6 mph) earn no pace bonus and never
+  feed the personal ladders.
+- **Stamped, stored, never recomputed.** `run.score = {v:3, pace, climb}`
+  is written at save with absolute XP amounts (the personal ladder drifts
+  — stored amounts are the only stable value). `w.xp` carries the total;
+  recount replays it. Unstamped rows are grandfathered forever.
+- **Pending climb posts once.** Lookup failure at save → `elevP:"pend"` +
+  `score.climb:null`; the reconcile fills elevation and posts the bonus
+  through the `climb_<id>` xpDone key. Stored-absolute + keyed = never
+  twice, including two devices racing. Legacy runs backfill elevation for
+  display only.

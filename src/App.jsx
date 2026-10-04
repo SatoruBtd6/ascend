@@ -8,7 +8,7 @@ import { C, RAINBOW, applyTheme } from "./theme.js";
 import { RANKS, RANK_INFO } from "./data/ranks.js";
 import { EXERCISES } from "./data/exercises.js";
 import { TIER_STYLE } from "./data/achievements.js";
-import { today, uid, weekStart } from "./lib/dates.js";
+import { today, uid, weekStart, fmtDay } from "./lib/dates.js";
 import { AskRef } from "./lib/ask.js";
 import { scrollPageTop, legacyStandalone } from "./lib/dom.js";
 import { findEx } from "./lib/exercises.js";
@@ -59,6 +59,9 @@ import { profileCard } from "./tabs/profile/profileCard.js";
 import { equippedTitle } from "./tabs/profile/titles.js";
 import { AURA_TASKS } from "./tabs/profile/unlock.js";
 import { wxNeedsScan, reconcileRunWeather } from "./tabs/run/weather.js";
+import { elevNeedsScan, reconcileRunElevation } from "./tabs/run/elevation.js";
+import { runTitle } from "./run.js";
+import { mergeElevResult } from "./lib/gpsScore.js";
 import { Groove } from "./tabs/profile/music.js";
 import { DiscoIcon, DiscoParty } from "./tabs/settings/Disco.jsx";
 if (typeof window !== "undefined") window.__ASCEND_VERSION = APP_VERSION;
@@ -847,6 +850,30 @@ export default function App() {
     reconcileRunWeather(w, (k) => window.storage.get(k, false)).then((res) => {
       if (!res) return;
       D.withSource("wx-scan", () => setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, run: { ...x.run, ...(res.wx ? { wx: res.wx } : {}), wxScan: res.scan } } : x)) })));
+    });
+  }, [loaded, s.workouts]);
+
+  // Run elevation reconcile: terrain lookups for saved outdoor sessions —
+  // stamped runs still waiting on their climb bonus (elevP:"pend") and legacy
+  // rows being backfilled for display only (no score stamp → never re-scored).
+  // When a pending climb lands it's stored absolute on run.score and posted
+  // once via the climb_<id> xpDone key — recount replays w.xp, so the bonus
+  // can never be awarded twice, even with two devices racing the reconcile.
+  const elevScanRef = useRef(new Set());
+  useEffect(() => {
+    if (!loaded) return;
+    const w = (s.workouts || []).find((x) => elevNeedsScan(x) && !elevScanRef.current.has(x.id));
+    if (!w) return;
+    elevScanRef.current.add(w.id);
+    reconcileRunElevation(w, (k) => window.storage.get(k, false)).then((res) => {
+      if (!res) return;
+      let climb = 0;
+      D.withSource("elev", () => setS((p) => {
+        const m = mergeElevResult(p, w.id, res);
+        climb = m.climb;
+        return { ...p, workouts: m.workouts };
+      }));
+      if (climb > 0) gainXp(climb, `climb bonus · ${fmtDay(w.date)} ${runTitle(w.run).toLowerCase()}`, `climb_${w.id}`);
     });
   }, [loaded, s.workouts]);
 

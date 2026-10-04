@@ -1957,3 +1957,115 @@ test("wxNeedsScan only flags stamped-out sessions with a start time", () => {
   assert.equal(wxNeedsScan({ startedAt: 123 }), false);                      // not outdoor cardio
   assert.equal(wxNeedsScan(null), false);
 });
+
+// GPS outdoor bonus scoring — pace (small, run/walk only) + climb, sharing a
+// single 60%-of-time-base cap. Stored absolute on run.score; unstamped rows
+// are never re-scored.
+import { gpsBonus, mergeElevResult, gpsPaceSteps, gpsClimbSteps } from "./lib/gpsScore.js";
+import { GPS_SCORE_V } from "./data/cardio.js";
+import { elevNeedsScan } from "./tabs/run/elevation.js";
+
+const mkState = (workouts = []) => ({ profile: { weight: 170, sex: "m" }, workouts, custom: [], community: { ex: [] } });
+const mkRun = ({ segs, miles, elev = null, score = null, elevP = "done" }) => ({
+  id: "r1", mode: "run", miles, secs: segs.reduce((a, x) => a + x.s, 0), segments: segs.map(([mode, s, mi]) => ({ mode, secs: s, miles: mi })),
+  runMiles: segs.filter((x) => x[0] === "run").reduce((a, x) => a + x[2], 0),
+  walkMiles: segs.filter((x) => x[0] === "walk").reduce((a, x) => a + x[2], 0),
+  hikeMiles: segs.filter((x) => x[0] === "hike").reduce((a, x) => a + x[2], 0),
+  elev, elevP, score,
+});
+
+test("gps pace bonus tops at 20% of the time base", () => {
+  const run = mkRun({ segs: [["run", 1080, 4]], miles: 4 }); // 13.3 mph — past score 6
+  const b = gpsBonus(mkState(), run);
+  assert.equal(b.base, 108);                          // 18 min × 6
+  assert.equal(b.pace, Math.round(108 * 0.2));        // hard-capped at 20%
+  assert.equal(b.climb, null);                        // no elevation → pending-null
+});
+
+test("a mid-pace flat run pays a small pace bonus", () => {
+  const run = mkRun({ segs: [["run", 2400, 4]], miles: 4 }); // 6 mph — score 2.5
+  const b = gpsBonus(mkState(), run);
+  assert.equal(b.pace, Math.round(240 * 2.5 / 30));   // 20 XP — ~8% of base
+  assert.equal(b.climb, null);
+});
+
+test("climb bonus uses the per-mode ladder and shares the 60% cap", () => {
+  // 2 mi hike, +400 ft → 200 ft/mi → below hike mid-rung → modest bonus
+  const hike = mkRun({ segs: [["hike", 3600, 2]], miles: 2, elev: { gainFt: 400 } });
+  const h = gpsBonus(mkState(), hike);
+  assert.equal(h.base, 240);                          // 60 min × 4
+  assert.equal(h.pace, 0);                            // hikes never earn pace
+  assert.ok(h.climb > 0 && h.climb <= Math.round(240 * 0.6));
+  // absurd DEM artifact clamps at 2000 ft/mi → maxes the ladder, capped 60%
+  const wild = mkRun({ segs: [["run", 1200, 1]], miles: 1, elev: { gainFt: 9000 } });
+  const wb = gpsBonus(mkState(), wild);
+  assert.equal(wb.pace + wb.climb, Math.round(120 * 0.6));
+});
+
+test("fast + hilly can never exceed the shared 60% cap", () => {
+  const run = mkRun({ segs: [["run", 1440, 4]], miles: 4, elev: { gainFt: 2000 } });
+  const b = gpsBonus(mkState(), run);
+  assert.equal(b.pace, 26);                           // score ~5.5 → below the 20% cap
+  assert.equal(b.pace + b.climb, Math.round(144 * 0.6));
+});
+
+test("GPS pace glitch: faster than 4:00/mi earns nothing and never samples", () => {
+  const glitched = mkRun({ segs: [["run", 720, 4]], miles: 4 }); // 20 mph — teleport
+  const b = gpsBonus(mkState(), glitched);
+  assert.equal(b.pace, 0);
+  glitched.score = { v: GPS_SCORE_V, pace: 0, climb: 0 };
+  const s = mkState([{ id: "g1", date: "2026-10-03", run: glitched }]);
+  assert.deepEqual(gpsPaceSteps(s, "run"), [0.075, 0.092, 0.108, 0.125, 0.142]);
+});
+
+test("pace and climb ladders recentre on stamped history over 5 sessions", () => {
+  // five 12 mph runs → personal median above every seed rung → ladder scales up
+  const runs = Array.from({ length: 5 }, (_, i) => ({
+    id: `p${i}`, date: "2026-10-0" + (i + 1),
+    run: mkRun({ segs: [["run", 1200, 4]], miles: 4, elev: { gainFt: 600 }, score: { v: GPS_SCORE_V } }),
+  }));
+  const s = mkState(runs);
+  assert.ok(gpsPaceSteps(s, "run")[2] > 0.108);
+  // 4 mi runs at +600 ft = 150 ft/mi — below the 220 seed mid-rung → shrinks
+  assert.ok(gpsClimbSteps(s, "run")[2] < 220);
+});
+
+test("pending climb posts once — second reconcile adds zero (two-device safe)", () => {
+  const pend = mkRun({ segs: [["hike", 3600, 2]], miles: 2, elevP: "pend", score: { v: GPS_SCORE_V, pace: 0, climb: null } });
+  const s = mkState([{ id: "w1", date: "2026-10-04", xp: 262, run: pend }]);
+  const res = { elev: { v: 1, gainFt: 800, lossFt: 780, peakFt: 900, profile: [100, 300, 250] }, elevP: "done" };
+  const once = mergeElevResult(s, "w1", res);
+  assert.ok(once.climb > 0);
+  assert.equal(once.workouts[0].xp, 262 + once.climb);
+  assert.equal(once.workouts[0].run.score.climb, once.climb);
+  const twice = mergeElevResult({ ...s, workouts: once.workouts }, "w1", res);
+  assert.equal(twice.climb, 0);
+  assert.equal(twice.workouts[0].xp, once.workouts[0].xp);
+  // a second device on a stale copy computes the SAME absolute amount —
+  // whichever blob wins the merge, the bonus exists exactly once
+  const stale = mergeElevResult(s, "w1", res);
+  assert.equal(stale.workouts[0].xp, once.workouts[0].xp);
+  assert.equal(stale.climb, once.climb);
+});
+
+test("elevation backfills display-only on unstamped rows — never re-scored", () => {
+  const legacy = mkRun({ segs: [["run", 2400, 4]], miles: 4, elevP: undefined, score: null });
+  delete legacy.elevP;
+  const s = mkState([{ id: "old1", date: "2026-09-20", xp: 280, run: legacy }]);
+  const res = { elev: { v: 1, gainFt: 300, lossFt: 300, peakFt: 400, profile: [1, 2, 3] }, elevP: "done" };
+  const m = mergeElevResult(s, "old1", res);
+  assert.equal(m.climb, 0);
+  assert.equal(m.workouts[0].xp, 280);                 // XP untouched
+  assert.equal(m.workouts[0].run.elev.gainFt, 300);    // display fields land
+});
+
+test("elevNeedsScan covers pending rows and legacy backfill, freezes done/none", () => {
+  const mk = (run) => ({ run });
+  assert.equal(elevNeedsScan(mk({ hasMap: true })), true);                    // legacy, backfill
+  assert.equal(elevNeedsScan(mk({ hasMap: true, elevP: "pend" })), true);     // pending climb
+  assert.equal(elevNeedsScan(mk({ hasMap: true, elevP: "done" })), false);
+  assert.equal(elevNeedsScan(mk({ hasMap: true, elevP: "none" })), false);
+  assert.equal(elevNeedsScan(mk({ hasMap: false })), false);                  // no track → nothing
+  assert.equal(elevNeedsScan(mk({ hasMap: true, elev: { v: 1 } })), false);   // already filled
+  assert.equal(elevNeedsScan(null), false);
+});

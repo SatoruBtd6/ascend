@@ -10,7 +10,7 @@ export function fillQuests(p, d, exercises) {
   const day = p.days?.[d] || newDay();
   const list = (day.list || []).map((q) => {
     if (q.qid === "run" && !q.claimed) {
-      const mi = exercises.filter((e) => /^(Running|Walking|Incline Walk)$/.test(e.name)).reduce((a, e) => a + workSets(e.sets).reduce((b, st) => b + (+st.w || 0), 0), 0);
+      const mi = exercises.filter((e) => /^(Running|Walking|Incline Walk|Hiking)$/.test(e.name)).reduce((a, e) => a + workSets(e.sets).reduce((b, st) => b + (+st.w || 0), 0), 0);
       return mi ? { ...q, progress: Math.round((q.progress + mi) * 100) / 100, fromWorkout: Math.round(((q.fromWorkout || 0) + mi) * 100) / 100 } : q;
     }
     const exName = QUEST_EX[q.qid];

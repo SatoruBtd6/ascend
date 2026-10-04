@@ -1,7 +1,11 @@
 /** GPS run engine + run/walk segments. Pure; safe to unit-test. */
 
 export const MI_M = 1609.344;
-export const RUN_LIMITS = { run: { max: 7.5 }, walk: { max: 3.2 } };
+// max is m/s: run/hike 7.5 ≈ 16.8 mph, walk 3.2 ≈ 7.2 mph — both far above
+// plausible pace; they reject GPS teleports, not fast users. Hike shares
+// run's ceiling so jogging downhill on a trail never loses distance.
+export const RUN_LIMITS = { run: { max: 7.5 }, walk: { max: 3.2 }, hike: { max: 7.5 } };
+const normMode = (m) => (m === "walk" ? "walk" : m === "hike" ? "hike" : "run");
 export const SWITCH_GRACE_MS = 30000;
 export const MIN_SEGMENT_MS = 5000;
 export const MIN_SAVE_MIN = 0.1;
@@ -25,7 +29,7 @@ export function havM(a, b) {
 }
 
 export function newRun(mode = "run", guide = null, now = Date.now(), id = Math.random().toString(36).slice(2, 10)) {
-  const m = mode === "walk" ? "walk" : "run";
+  const m = normMode(mode);
   return {
     id, mode: m, guide, startedAt: now, pausedTotal: 0, pausedAt: null,
     dist: 0, pts: [], last: null, kf: null, anchor: null, rejects: 0,
@@ -37,7 +41,7 @@ export function newRun(mode = "run", guide = null, now = Date.now(), id = Math.r
 export function ensureSegments(r) {
   if (!r) return r;
   if (Array.isArray(r.segments) && r.segments.length) return r;
-  const m = r.mode === "walk" ? "walk" : "run";
+  const m = normMode(r.mode);
   return {
     ...r,
     mode: m,
@@ -179,7 +183,7 @@ export function toggleRunPause(r, now = Date.now()) {
 }
 
 export function switchRunMode(r, mode, now = Date.now()) {
-  const m = mode === "walk" ? "walk" : "run";
+  const m = normMode(mode);
   r = ensureSegments(r);
   if (m === r.mode) return r;
   const segs = r.segments.map((s) => ({ ...s }));
@@ -217,47 +221,53 @@ export function mphOf(meters, secs) {
 
 export function runKind(info) {
   if (!info) return "run";
+  if ((+info.hikeMiles || 0) > 0) return "hike";
   const hasRun = (+info.runMiles || 0) > 0;
   const hasWalk = (+info.walkMiles || 0) > 0;
   if (hasRun && hasWalk) return "runwalk";
   if (hasRun) return "run";
   if (hasWalk) return "walk";
-  return info.mode === "walk" ? "walk" : "run";
+  return normMode(info.mode);
 }
 
 export function runTitle(info) {
   const k = runKind(info);
-  return k === "runwalk" ? "Run/Walk" : k === "walk" ? "Walk" : "Run";
+  return k === "runwalk" ? "Run/Walk" : k === "walk" ? "Walk" : k === "hike" ? "Hike" : "Run";
 }
 
 export function runXpLabel(info) {
   if (!info) return "run";
   const k = runKind(info);
   if (k === "runwalk") return `${info.miles} mi Run/Walk`;
-  return `${info.miles} mi ${k === "walk" ? "walk" : "run"}`;
+  return `${info.miles} mi ${k === "walk" ? "walk" : k === "hike" ? "hike" : "run"}`;
 }
+
+// " · ▲640 ft" whenever terrain elevation is on the run — feed + hub rows.
+export const elevSuffix = (info) => (info?.elev?.gainFt > 0 ? ` · ▲${info.elev.gainFt} ft` : "");
 
 export function runFeedLine(info) {
   const k = runKind(info);
-  if (k === "runwalk") return `ran ${info.runMiles} mi, walked ${info.walkMiles} mi`;
-  if (k === "walk") return `walked ${info.miles} mi · ${fmtPace(info.pace)} /mi`;
-  return `ran ${info.miles} mi · ${fmtPace(info.pace)} /mi`;
+  if (k === "hike") return `hiked ${info.miles} mi${elevSuffix(info)}`;
+  if (k === "runwalk") return `ran ${info.runMiles} mi, walked ${info.walkMiles} mi${elevSuffix(info)}`;
+  if (k === "walk") return `walked ${info.miles} mi · ${fmtPace(info.pace)} /mi${elevSuffix(info)}`;
+  return `ran ${info.miles} mi · ${fmtPace(info.pace)} /mi${elevSuffix(info)}`;
 }
 
 export function runBreakdown(info) {
   if (!info) return "";
   if (!info.segments?.length && info.runMiles == null && info.walkMiles == null) return "";
   const parts = [];
-  const grouped = { run: { miles: 0, secs: 0 }, walk: { miles: 0, secs: 0 } };
+  const grouped = { run: { miles: 0, secs: 0 }, walk: { miles: 0, secs: 0 }, hike: { miles: 0, secs: 0 } };
   if (info.segments?.length) {
     info.segments.forEach((s) => {
-      const m = s.mode === "walk" ? "walk" : "run";
+      const m = normMode(s.mode);
       grouped[m].miles += +s.miles || 0;
       grouped[m].secs += +s.secs || 0;
     });
   } else {
     grouped.run.miles = +info.runMiles || 0;
     grouped.walk.miles = +info.walkMiles || 0;
+    grouped.hike.miles = +info.hikeMiles || 0;
   }
   if ((+info.runMiles || grouped.run.miles) > 0) {
     const miles = +info.runMiles || grouped.run.miles;
@@ -269,16 +279,22 @@ export function runBreakdown(info) {
     const pace = grouped.walk.miles > 0.01 ? grouped.walk.secs / grouped.walk.miles : Infinity;
     parts.push(`Walk ${miles} mi · ${fmtPace(pace)} /mi`);
   }
+  if ((+info.hikeMiles || grouped.hike.miles) > 0) {
+    const miles = +info.hikeMiles || grouped.hike.miles;
+    const pace = grouped.hike.miles > 0.01 ? grouped.hike.secs / grouped.hike.miles : Infinity;
+    parts.push(`Hike ${miles} mi · ${fmtPace(pace)} /mi`);
+  }
   return parts.join(" — ");
 }
 
 export function cardioTimedXp(exercises) {
   let xp = 0;
+  const rate = { Walking: 3, Hiking: 4 };
   (exercises || []).forEach((ex) => {
-    const rate = ex.name === "Walking" ? 3 : 6;
+    const rt = rate[ex.name] || 6;
     (ex.sets || []).forEach((st) => {
       const r = +st.r || 0, w = +st.w || 0;
-      xp += Math.round(r * rate + w * 10);
+      xp += Math.round(r * rt + w * 10);
     });
   });
   return xp;
@@ -297,8 +313,9 @@ export function buildSavedRun(r, now = Date.now()) {
     const end = isOpen ? now : (r.segments[i + 1]?.start || now);
     const moving = segmentMovingSecs(seg, end, { pausedAt: isOpen ? r.pausedAt : null, isOpen });
     const dist = seg.dist || 0;
-    let mode = seg.mode === "walk" ? "walk" : "run";
+    let mode = normMode(seg.mode);
     let slow = false;
+    // only run reclassifies down to walk — hike is a mode tag, not a speed
     if (mode === "run" && dist > 0 && mphOf(dist, moving) < SLOW_RUN_MPH) {
       mode = "walk";
       slow = true;
@@ -308,19 +325,22 @@ export function buildSavedRun(r, now = Date.now()) {
     const pace = miles > 0.01 ? moving / miles : Infinity;
     return { mode, secs: moving, miles, dist, pace, slow };
   });
-  const byMode = { run: { dist: 0, secs: 0 }, walk: { dist: 0, secs: 0 } };
+  const byMode = { run: { dist: 0, secs: 0 }, walk: { dist: 0, secs: 0 }, hike: { dist: 0, secs: 0 } };
   segs.forEach((x) => {
     byMode[x.mode].dist += x.dist;
     byMode[x.mode].secs += x.secs;
   });
   const runMiles = roundMi(byMode.run.dist);
   const walkMiles = roundMi(byMode.walk.dist);
+  const hikeMiles = roundMi(byMode.hike.dist);
   const runMin = roundMin(byMode.run.secs);
   const walkMin = roundMin(byMode.walk.secs);
+  const hikeMin = roundMin(byMode.hike.secs);
   const exercises = [];
   if (runMin >= MIN_SAVE_MIN) exercises.push({ name: "Running", sets: [{ w: runMiles, r: runMin, done: true }] });
   if (walkMin >= MIN_SAVE_MIN) exercises.push({ name: "Walking", sets: [{ w: walkMiles, r: walkMin, done: true }] });
-  const mode = exercises.some((e) => e.name === "Running") ? "run" : "walk";
+  if (hikeMin >= MIN_SAVE_MIN) exercises.push({ name: "Hiking", sets: [{ w: hikeMiles, r: hikeMin, done: true }] });
+  const mode = exercises.some((e) => e.name === "Running") ? "run" : exercises.some((e) => e.name === "Hiking") ? "hike" : "walk";
   const runInfo = {
     id: r.id,
     mode,
@@ -338,6 +358,7 @@ export function buildSavedRun(r, now = Date.now()) {
     })),
     runMiles,
     walkMiles,
+    hikeMiles,
   };
   const slowMi = Math.round(roundMi(slowMeters) * 10) / 10;
   const slowNote = slowMi >= 0.05

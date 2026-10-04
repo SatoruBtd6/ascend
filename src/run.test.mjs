@@ -5,6 +5,7 @@ import {
   ensureSegments, buildSavedRun, cardioTimedXp, northFixes, speedMaxForFix, runTitle, runXpLabel,
   runFeedLine, runKind, runBreakdown, SLOW_RUN_MPH,
 } from "./run.js";
+import { gainLoss } from "./tabs/run/elevation.js";
 
 const T0 = 1_700_000_000_000;
 
@@ -159,4 +160,55 @@ test("an old single-mode run saves and displays as before", () => {
   assert.equal(runXpLabel(mixed), "2.7 mi Run/Walk");
   assert.match(runBreakdown(mixed), /Run 2\.1 mi/);
   assert.match(runBreakdown(mixed), /Walk 0\.6 mi/);
+});
+
+test("hike mode: own segment, own exercise row, Hike title, 4/min + 10/mi", () => {
+  let r = newRun("hike", null, T0, "hk1");
+  const h = chain(30, T0, 0.8, 600);
+  r = applyFixes(r, h.fixes);
+  const saved = buildSavedRun(r, T0 + 600_000);
+  const ex = saved.exercises.find((e) => e.name === "Hiking");
+  assert.ok(ex, "a Hiking exercise row exists");
+  assert.ok(+ex.sets[0].r >= 9 && +ex.sets[0].w > 0.25);
+  assert.equal(saved.runInfo.hikeMiles > 0, true);
+  assert.equal(saved.title, "Hike");
+  assert.equal(runKind(saved.runInfo), "hike");
+  assert.equal(saved.xp, Math.round(10 * 4 + ex.sets[0].w * 10));
+});
+
+test("hike segments never reclassify as walk however slow they move", () => {
+  let r = newRun("hike", null, T0, "hk2");
+  const h = chain(30, T0, 0.5, 400);           // ~1.1 mph — below SLOW_RUN_MPH
+  r = applyFixes(r, h.fixes);
+  const saved = buildSavedRun(r, T0 + 400_000);
+  assert.equal(saved.exercises.every((e) => e.name === "Hiking"), true);
+  assert.equal(saved.slowNote, null);
+});
+
+test("hike fixes credit distance at trail-jog speed (run ceiling)", () => {
+  let r = newRun("hike", null, T0, "hk3");
+  const h = chain(30, T0, 4.5, 200);           // ~10 mph downhill jog
+  r = applyFixes(r, h.fixes);
+  const saved = buildSavedRun(r, T0 + 200_000);
+  assert.equal(saved.miles > 0.4, true);
+});
+
+test("gainLoss ignores sub-hysteresis steps and counts real climbs", () => {
+  assert.deepEqual(gainLoss([100, 101, 102, 101, 102, 100]), { gainFt: 0, lossFt: 0, peakFt: 335 });
+  const g = gainLoss([0, 10, 12, 5]);          // +10m commits, +2m noise, −5m commits
+  assert.equal(g.gainFt, 33);
+  assert.equal(g.lossFt, 16);
+  assert.equal(g.peakFt, 39);
+  assert.equal(gainLoss(null), null);
+});
+
+test("runKind/runFeedLine/runBreakdown hike + elevation suffix", () => {
+  const info = { mode: "hike", miles: 4.2, hikeMiles: 4.2, pace: 1800, elev: { gainFt: 640 } };
+  assert.equal(runKind(info), "hike");
+  assert.equal(runTitle(info), "Hike");
+  assert.equal(runXpLabel(info), "4.2 mi hike");
+  assert.equal(runFeedLine(info), "hiked 4.2 mi · ▲640 ft");
+  const seg = { mode: "hike", miles: 4.2, hikeMiles: 4.2, segments: [{ mode: "hike", secs: 7200, miles: 4.2 }] };
+  assert.match(runBreakdown(seg), /Hike 4\.2 mi/);
+  assert.equal(runFeedLine({ mode: "run", miles: 3, pace: 540, elev: { gainFt: 210 } }), "ran 3 mi · 9:00 /mi · ▲210 ft");
 });

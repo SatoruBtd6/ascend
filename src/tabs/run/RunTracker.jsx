@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Play, Pause, X, Volume2, VolumeX } from "lucide-react";
 import { C } from "../../theme.js";
-import { MI_M, fmtDur, fmtPace, runElapsed, addFix, currentPace, switchRunMode, toggleRunPause, ensureSegments, buildSavedRun, openSegment, segmentMovingSecs, runBreakdown } from "../../run.js";
+import { MI_M, fmtDur, fmtPace, runElapsed, addFix, currentPace, switchRunMode, toggleRunPause, ensureSegments, buildSavedRun, openSegment, segmentMovingSecs, runBreakdown, runFeedLine } from "../../run.js";
 import { today } from "../../lib/dates.js";
 import { addWorkout, workoutXp } from "../../lib/stats.js";
 import { ask } from "../../lib/ask.js";
 import { saveLive, clearLive } from "./live.js";
 import { RouteMap, encodePoly, thinPts, decodePoly } from "./maps.jsx";
 import { fetchRunWeather } from "./weather.js";
+import { elevSamplePts, fetchElevation } from "./elevation.js";
+import { ElevSpark } from "./ElevSpark.jsx";
+import { gpsBonus } from "../../lib/gpsScore.js";
 import { juice } from "../train/juice.js";
 import { SFX } from "../train/sfx.js";
 import { sterlingSay } from "../train/sterling.js";
@@ -23,6 +26,8 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
   const [cues, setCues] = useState(s.settings?.runCues !== false);
   const watchRef = useRef(null), wakeRef = useRef(null), lastSave = useRef(0), cuedMiles = useRef(initial.splits?.length || 0), hiddenAt = useRef(null), savingRef = useRef(false);
   const [gapNote, setGapNote] = useState("");
+  const elevRef = useRef(null);           // in-flight lookup started at summary
+  const [elev, setElev] = useState(undefined); // undefined=in-flight, null=failed, obj=ok
   const [SimDock, setSimDock] = useState(null);
   const simOn = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("simrun") === "1";
   const guide = useMemo(() => (initial.guide ? decodePoly(initial.guide.poly) : null), [initial.guide]);
@@ -67,7 +72,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
   // Crash-safe: keep the run on the phone every few seconds
   useEffect(() => { if (phase === "live" && Date.now() - lastSave.current > 4000) { lastSave.current = Date.now(); saveLive({ ...run, resumed: true }); } }, [run, phase]);
   // Tab title + mile cues
-  useEffect(() => { if (phase === "live") document.title = `${run.mode === "walk" ? "🚶" : "🏃"} ${(run.dist / MI_M).toFixed(2)} mi · ${fmtDur(runElapsed(run, now))}`; return () => { document.title = "Ascend"; }; }, [now, phase, run.mode]);
+  useEffect(() => { if (phase === "live") document.title = `${run.mode === "walk" ? "🚶" : run.mode === "hike" ? "🥾" : "🏃"} ${(run.dist / MI_M).toFixed(2)} mi · ${fmtDur(runElapsed(run, now))}`; return () => { document.title = "Ascend"; }; }, [now, phase, run.mode]);
   useEffect(() => {
     if (run.splits.length > cuedMiles.current) {
       cuedMiles.current = run.splits.length;
@@ -93,9 +98,16 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
       if (r.mode === mode) return r;
       const next = switchRunMode(r, mode);
       SFX.tone(mode === "run" ? 880 : 520, 0.12);
-      if (cues) sterlingSay(s, mode === "walk" ? "Walking" : "Running");
+      if (cues) sterlingSay(s, mode === "walk" ? "Walking" : mode === "hike" ? "Hiking" : "Running");
       return next;
     });
+  };
+  // kick the terrain lookup as the summary opens so saving isn't blocked on it
+  const startElev = () => {
+    const pts = runRef.current.pts.filter((x) => x[3] !== 2).map((x) => [x[0], x[1]]);
+    elevRef.current = pts.length > 1 ? fetchElevation(elevSamplePts(pts)) : Promise.resolve(null);
+    setElev(undefined);
+    elevRef.current.then(setElev);
   };
   const stop = () => {
     setRun((r) => {
@@ -103,6 +115,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
       saveLive({ ...n, resumed: true, stopped: true });
       return n;
     });
+    startElev();
     setPhase("summary");
   };
   const discard = () => ask("Discard this run? It won't be saved.", () => { clearLive(); onClose(); }, "Discard");
@@ -112,15 +125,21 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
     const r = runRef.current;
     const built = buildSavedRun(r);
     if (built.miles < 0.05) { ask("That run is under 0.05 miles. Discard it?", () => { clearLive(); onClose(); }, "Discard"); return; }
-    const { xp } = workoutXp(s, built.exercises, null);
-    const runInfo = { ...built.runInfo, hasMap: path.length > 1 };
+    const { xp: baseXp } = workoutXp(s, built.exercises, null);
+    // terrain: kicked when the summary opened; a failure saves normally with
+    // elevP:"pend" and the climb bonus posts on the next reconcile instead
+    const elev = path.length > 1 ? await elevRef.current : null;
+    const runInfo = { ...built.runInfo, hasMap: path.length > 1, elev, elevP: elev ? "done" : path.length > 1 ? "pend" : "none" };
+    const score = gpsBonus(s, runInfo);
+    runInfo.score = { v: score.v, pace: score.pace, climb: score.climb };
+    const xp = baseXp + score.pace + (score.climb || 0);
     const workout = { id: r.id, date: today(), title: built.title, exercises: built.exercises, xp, volume: 0, minutes: Math.round(built.secs / 60), run: runInfo, startedAt: r.pts[0]?.[2] || Date.now() - built.secs * 1000 };
     if (path.length > 1) { try { await window.storage.set(`run:${r.id}`, encodePoly(thinPts(path)), false); } catch (e) { /* map just won't show */ } }
     setS((p) => addWorkout(p, workout));
     if (path[0]) fetchRunWeather(path[0][0], path[0][1], { since: workout.startedAt }).then((wx) => { if (wx && !wx.outOfRange) setS((p) => ({ ...p, workouts: p.workouts.map((w) => (w.id === workout.id ? { ...w, run: { ...w.run, wx, wxScan: wx.v } } : w)) })); });
     gainXp(xp, built.xpLabel, `wo_${r.id}`);
     juice(built.miles >= 3 ? "pr" : "finish");
-    postFeed(s, "run", built.feed, {}, `run_${r.id}`);
+    postFeed(s, "run", runFeedLine(runInfo), {}, `run_${r.id}`);
     clearLive(); onClose(workout);
   };
 
@@ -131,11 +150,11 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
     return (
       <div style={shell} className="px-5 flex flex-col justify-center">
         <div className="panel p-5 space-y-3 max-w-md mx-auto w-full">
-          <div className="text-xl font-bold">Unfinished {run.mode === "walk" ? "walk" : "run"}</div>
+          <div className="text-xl font-bold">Unfinished {run.mode === "walk" ? "walk" : run.mode === "hike" ? "hike" : "run"}</div>
           <div className="body text-sm" style={{ color: C.dim }}>{(run.dist / MI_M).toFixed(2)} mi so far. The app closed during it. Pick up where you left off, or finish and save it now.</div>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => { setRun((r) => ({ ...r, pausedAt: r.pausedAt || Date.now(), last: null })); setPhase("live"); }} className="btn py-3">Resume</button>
-            <button onClick={() => { setRun((r) => ({ ...r, pausedTotal: r.pausedTotal + Math.max(0, Date.now() - (r.last?.t || r.startedAt)) })); setPhase("summary"); }} className="ghost py-3 font-semibold">Finish & save</button>
+            <button onClick={() => { setRun((r) => ({ ...r, pausedTotal: r.pausedTotal + Math.max(0, Date.now() - (r.last?.t || r.startedAt)) })); startElev(); setPhase("summary"); }} className="ghost py-3 font-semibold">Finish & save</button>
           </div>
           <button onClick={discard} className="body text-sm w-full" style={{ color: C.dim }}>Discard</button>
         </div>
@@ -146,6 +165,8 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
   if (phase === "summary") {
     const secs = runElapsed(run);
     const sum = preview;
+    const scoreNow = elev === undefined ? null : gpsBonus(s, { ...sum.runInfo, elev });
+    const bonusBits = [scoreNow?.pace ? `+${scoreNow.pace} pace` : null, scoreNow?.climb ? `+${scoreNow.climb} climb` : null].filter(Boolean);
     return (
       <div style={shell} className="px-5">
         <div className="max-w-md mx-auto space-y-4 pt-2">
@@ -154,6 +175,10 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
           <div className="grid grid-cols-3 gap-2">
             {[["Distance", `${miles.toFixed(2)} mi`], ["Time", fmtDur(secs)], ["Avg pace", `${fmtPace(miles > 0 ? secs / miles : Infinity)}`]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-lg font-bold tabular-nums">{v}</div></div>)}
           </div>
+          {elev && <div className="body" style={{ fontSize: 15, color: C.dim }}>▲ {elev.gainFt} ft · ▼ {elev.lossFt} ft · peak {elev.peakFt} ft</div>}
+          {elev?.profile?.length > 1 && <ElevSpark profile={elev.profile} />}
+          {bonusBits.length > 0 && <div className="body" style={{ fontSize: 14, color: C.dim }}>{bonusBits.join(" · ")}</div>}
+          {elev === null && path.length > 1 && <div className="body text-sm" style={{ color: C.dim }}>Climb bonus pending — adds when you're back online.</div>}
           {runBreakdown(sum.runInfo) ? <div className="panel p-3 body text-sm font-semibold">{runBreakdown(sum.runInfo)}</div> : null}
           {sum.slowNote && <div className="body text-sm" style={{ color: C.orange }}>{sum.slowNote}</div>}
           {run.splits.length > 0 && <div className="panel p-4"><div className="font-semibold text-sm mb-2">Splits</div>{run.splits.map((sp, i) => <div key={i} className="flex justify-between body text-sm py-0.5"><span style={{ color: C.dim }}>Mile {i + 1}</span><span className="tabular-nums font-semibold">{fmtDur(sp)}</span></div>)}</div>}
@@ -176,9 +201,9 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
           <button onClick={() => setCues(!cues)} className="body text-xs flex items-center gap-1" style={{ color: cues ? C.cyan : C.mute }}>{cues ? <Volume2 size={14} /> : <VolumeX size={14} />}Mile cues</button>
         </div>
         {gps.status === "error" && <div className="body text-xs" style={{ color: C.red }}>{gps.msg}</div>}
-        <div className="grid grid-cols-2 gap-1 p-1" role="tablist" aria-label="Walking or running" style={{ borderRadius: 16, background: C.glass, border: `1px solid ${C.glassLine}` }}>
-          {[["walk", "Walking"], ["run", "Running"]].map(([id, label]) => (
-            <button key={id} type="button" role="tab" aria-selected={run.mode === id} onClick={() => switchMode(id)} className="text-base font-bold" style={{ minHeight: 48, borderRadius: 12, touchAction: "manipulation", background: run.mode === id ? (id === "run" ? C.green : C.cyan) : "transparent", color: run.mode === id ? "#021a0c" : C.text }}>{label}</button>
+        <div className="grid grid-cols-3 gap-1 p-1" role="tablist" aria-label="Walking, running or hiking" style={{ borderRadius: 16, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+          {[["walk", "Walking"], ["run", "Running"], ["hike", "Hiking"]].map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={run.mode === id} onClick={() => switchMode(id)} className="text-base font-bold" style={{ minHeight: 48, borderRadius: 12, touchAction: "manipulation", background: run.mode === id ? C.green : "transparent", color: run.mode === id ? "#021a0c" : C.text }}>{label}</button>
           ))}
         </div>
         {SimDock && <SimDock onFix={(fix) => { setGps({ status: "ok", msg: "sim" }); setRun((r) => addFix(r, fix)); }} origin={me} />}
@@ -191,7 +216,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
           {[["Time", fmtDur(el)], ["Pace now", fmtPace(curPace)], ["Avg pace", fmtPace(avgPace)]].map(([l, v]) => <div key={l} className="panel py-3 text-center"><div className="body text-xs" style={{ color: C.dim }}>{l}</div><div className="text-xl font-bold tabular-nums">{v}</div></div>)}
         </div>
         <div className="panel py-3 px-4 flex items-center justify-between gap-3">
-          <div className="body text-xs font-semibold" style={{ color: C.dim }}>{run.mode === "walk" ? "This walk" : "This run"}</div>
+          <div className="body text-xs font-semibold" style={{ color: C.dim }}>{run.mode === "walk" ? "This walk" : run.mode === "hike" ? "This hike" : "This run"}</div>
           <div className="text-sm font-bold tabular-nums">{fmtDur(segEl)} · {fmtPace(segPace)} /mi</div>
         </div>
         {run.pausedAt && <div className="text-center font-bold" style={{ color: C.orange }}>Paused</div>}
