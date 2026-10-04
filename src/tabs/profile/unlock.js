@@ -25,6 +25,9 @@ export const longestRun = (days) => { let best = 0, run = 0, prev = null; [...da
 // Feat auras: each has a check and a progress readout. Once met, the unlock is saved to s.auraUnlocks for good.
 export const AURA_TASKS = {
   streak30: (s) => { const v = longestRun(activeDays(s)); return { done: v >= 30, v: Math.min(v, 30), goal: 30, label: `Best streak ${Math.min(v, 30)} / 30 days` }; },
+  // Any GPS-tracked outdoor cardio session qualifies — run, walk, hike and
+  // future tracker modes all persist w.run. wet covers rain, drizzle, snow,
+  // showers and thunderstorms; t is the coldest temperature in the window.
   weatherRun: (s) => { const hit = (s.workouts || []).some((w) => w.run?.wx && (w.run.wx.wet || w.run.wx.t <= 40)); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Braved the weather" : "Runs record the weather where you start" }; },
   dawn: (s) => { const hit = (s.workouts || []).some((w) => { if (!w.startedAt) return false; const h = new Date(w.startedAt).getHours(); return h >= 4 && h < 6; }); return { done: hit, v: hit ? 1 : 0, goal: 1, label: hit ? "Up before the sun" : "Counts from when you tap Start" }; },
   steps7: (s) => { const v = longestRun(Object.keys(s.steps || {}).filter((d) => (+s.steps[d] || 0) >= 10000)); return { done: v >= 7, v: Math.min(v, 7), goal: 7, label: `Best run ${Math.min(v, 7)} / 7 days at 10k` }; },

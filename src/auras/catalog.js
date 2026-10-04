@@ -7,7 +7,7 @@ export const AURAS = [
   { id: "halo", name: "Halo", how: "Any lift at S", tier: 5, group: "rank", colors: ["#FFD447", "#FFFFFF"] },
   { id: "godray", name: "Godray", how: "Any lift at SS", tier: 6, group: "rank", colors: ["#FFFFFF", "#7DF9FF"] },
   { id: "smolder", name: "Smoldering Ember", how: "Train 30 days in a row", task: "streak30", group: "feat", colors: ["#FF6A2B", "#7A1E0E"] },
-  { id: "stormborn", name: "Stormborn", how: "Log a run in rain, snow, or 40°F and below", task: "weatherRun", group: "feat", colors: ["#8FB8FF", "#E6F0FF"] },
+  { id: "stormborn", name: "Stormborn", how: "Run, walk or hike in rain, snow, or 40°F and below", task: "weatherRun", group: "feat", colors: ["#8FB8FF", "#E6F0FF"] },
   { id: "dawn", name: "Dawnbreaker", how: "Start a workout between 4 and 6 AM", task: "dawn", group: "feat", colors: ["#FF8A5B", "#FFD36B"] },
   { id: "wanderer", name: "Wanderer", how: "10,000 steps a day, 7 days in a row", task: "steps7", group: "feat", colors: ["#7BC96F", "#E0B872"] },
   { id: "standardbearer", name: "Standard-Bearer", how: "Clear 10 crew raids", task: "raids10", group: "feat", colors: ["#C2001F", "#E8C56A"] },

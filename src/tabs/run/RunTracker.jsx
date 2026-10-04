@@ -117,7 +117,7 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
     const workout = { id: r.id, date: today(), title: built.title, exercises: built.exercises, xp, volume: 0, minutes: Math.round(built.secs / 60), run: runInfo, startedAt: r.pts[0]?.[2] || Date.now() - built.secs * 1000 };
     if (path.length > 1) { try { await window.storage.set(`run:${r.id}`, encodePoly(thinPts(path)), false); } catch (e) { /* map just won't show */ } }
     setS((p) => addWorkout(p, workout));
-    if (path[0]) fetchRunWeather(path[0][0], path[0][1]).then((wx) => { if (wx) setS((p) => ({ ...p, workouts: p.workouts.map((w) => (w.id === workout.id ? { ...w, run: { ...w.run, wx } } : w)) })); });
+    if (path[0]) fetchRunWeather(path[0][0], path[0][1], { since: workout.startedAt }).then((wx) => { if (wx && !wx.outOfRange) setS((p) => ({ ...p, workouts: p.workouts.map((w) => (w.id === workout.id ? { ...w, run: { ...w.run, wx, wxScan: wx.v } } : w)) })); });
     gainXp(xp, built.xpLabel, `wo_${r.id}`);
     juice(built.miles >= 3 ? "pr" : "finish");
     postFeed(s, "run", built.feed, {}, `run_${r.id}`);

@@ -58,6 +58,7 @@ import { resolveDuels } from "./tabs/board/duels.js";
 import { profileCard } from "./tabs/profile/profileCard.js";
 import { equippedTitle } from "./tabs/profile/titles.js";
 import { AURA_TASKS } from "./tabs/profile/unlock.js";
+import { wxNeedsScan, reconcileRunWeather } from "./tabs/run/weather.js";
 import { Groove } from "./tabs/profile/music.js";
 import { DiscoIcon, DiscoParty } from "./tabs/settings/Disco.jsx";
 if (typeof window !== "undefined") window.__ASCEND_VERSION = APP_VERSION;
@@ -833,6 +834,21 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 3200);
     return () => clearTimeout(t);
   }, [loaded, s.workouts, s.days, s.steps, s.auraUnlocks, s.xpDone]);
+
+  // Run weather reconcile: re-scan saved outdoor sessions (run/walk/hike —
+  // anything with w.run) under the window-scan schema, one per pass. Stamped
+  // wxScan:2 rows are never revisited; network failures retry next load.
+  const wxScanRef = useRef(new Set());
+  useEffect(() => {
+    if (!loaded) return;
+    const w = (s.workouts || []).find((x) => wxNeedsScan(x) && !wxScanRef.current.has(x.id));
+    if (!w) return;
+    wxScanRef.current.add(w.id);
+    reconcileRunWeather(w, (k) => window.storage.get(k, false)).then((res) => {
+      if (!res) return;
+      D.withSource("wx-scan", () => setS((p) => ({ ...p, workouts: p.workouts.map((x) => (x.id === w.id ? { ...x, run: { ...x.run, ...(res.wx ? { wx: res.wx } : {}), wxScan: res.scan } } : x)) })));
+    });
+  }, [loaded, s.workouts]);
 
   // Raid clears are archived per crew; reconcile ones this account missed while
   // away so they count toward XP and the Standard-Bearer feat aura.

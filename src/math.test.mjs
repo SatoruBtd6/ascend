@@ -1891,3 +1891,69 @@ test("floors and meters never inflate the miles tally; legacy rows keep theirs",
   };
   assert.equal(lifetimeStats(s).miles, 103); // 100 legacy "miles" + 3 real
 });
+
+import { scanWxWindow, wxNeedsScan, wetCode } from "./tabs/run/weather.js";
+
+const wxTimes = (n, t0, step) => Array.from({ length: n }, (_, i) => new Date(t0 + i * step).toISOString().slice(0, 16));
+
+test("wetCode covers drizzle, rain, snow, showers and thunderstorms — not fog or cloud", () => {
+  for (const c of [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]) assert.ok(wetCode(c), `code ${c} should be wet`);
+  for (const c of [0, 1, 2, 3, 45, 48]) assert.ok(!wetCode(c), `code ${c} should not be wet`);
+});
+
+test("scanWxWindow flags a shower that ended before save (the Stormborn bug)", () => {
+  const since = Date.parse("2026-10-04T17:54Z"), until = Date.parse("2026-10-04T19:00Z");
+  const j = {
+    minutely_15: {
+      time: wxTimes(6, Date.parse("2026-10-04T17:45Z"), 900e3),
+      precipitation: [0.4, 0.2, 0, 0, 0, 0],
+      weather_code: [61, 61, 3, 3, 3, 3],
+      temperature_2m: [74, 73, 73, 73, 74, 74],
+    },
+    hourly: {
+      time: wxTimes(2, Date.parse("2026-10-04T17:00Z"), 3600e3),
+      precipitation: [0, 0],
+      weather_code: [3, 3],
+      temperature_2m: [74.4, 72.6],
+    },
+  };
+  const wx = scanWxWindow(j, since, until);
+  assert.equal(wx.wet, true);   // radar caught what the hourly model missed
+  assert.equal(wx.code, 61);
+  assert.equal(wx.t, 73);
+});
+
+test("scanWxWindow stays dry when nothing precipitates in the window", () => {
+  const since = Date.parse("2026-10-04T12:00Z"), until = Date.parse("2026-10-04T13:00Z");
+  const j = {
+    hourly: { time: wxTimes(2, Date.parse("2026-10-04T12:00Z"), 3600e3), precipitation: [0, 0], weather_code: [3, 1], temperature_2m: [81, 83] },
+  };
+  const wx = scanWxWindow(j, since, until);
+  assert.equal(wx.wet, false);
+  assert.equal(wx.t, 81);
+});
+
+test("scanWxWindow ignores rain outside the session window", () => {
+  const since = Date.parse("2026-10-04T12:00Z"), until = Date.parse("2026-10-04T13:00Z");
+  const j = {
+    minutely_15: { time: wxTimes(2, Date.parse("2026-10-04T15:00Z"), 900e3), precipitation: [1.2, 0.8], weather_code: [63, 61] },
+    hourly: { time: wxTimes(1, Date.parse("2026-10-04T12:00Z"), 3600e3), precipitation: [0], weather_code: [3], temperature_2m: [80] },
+  };
+  const wx = scanWxWindow(j, since, until);
+  assert.equal(wx.wet, false);
+  assert.equal(wx.t, 80);
+});
+
+test("scanWxWindow falls back to current= when no series overlap", () => {
+  const wx = scanWxWindow({ current: { precipitation: 0.2, weather_code: 61, temperature_2m: 38.4 } }, Date.now() - 86400e3 * 200, Date.now());
+  assert.deepEqual(wx, { t: 38, code: 61, wet: true });
+});
+
+test("wxNeedsScan only flags stamped-out sessions with a start time", () => {
+  const mk = (run, startedAt) => ({ run, startedAt });
+  assert.equal(wxNeedsScan(mk({ miles: 1 }, 123)), true);                    // pre-scan run
+  assert.equal(wxNeedsScan(mk({ miles: 1, wxScan: 2 }, 123)), false);        // already scanned
+  assert.equal(wxNeedsScan(mk({ miles: 1 }, null)), false);                  // no window
+  assert.equal(wxNeedsScan({ startedAt: 123 }), false);                      // not outdoor cardio
+  assert.equal(wxNeedsScan(null), false);
+});
