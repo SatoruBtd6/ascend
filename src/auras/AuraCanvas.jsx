@@ -73,18 +73,20 @@ export const AURA_FX = {
     { k: "fall", n: 7, shape: "ash", c: ["#8A6A5C", "#5A4A44"], sp: [9, 18], sz: [1.2, 2], drift: 8, a: 0.65, xWrap: 1, xFade: 8, circle: { n: 3, shape: "dot" } },
     { k: "rise", n: 4, shape: "wisp", c: ["#FF8A5A", "#C2361A"], sp: [10, 18], life: [1.6, 2.6], sz: [2.4, 3.6], sway: 12, a: 0.28, low: 1, circle: { n: 2, sway: 3, sz: [1.6, 2.4], life: [1.2, 1.8] } },
   ] },
-  // Stormborn: a wind-and-rain runner — teal-green, everything drives
-  // sideways: rain streaks fall with heavy drift, comet streaks whip around
-  // the ring, and a fast drop orbit reads as speed lines. Signature: comets.
-  stormborn: { spd: 1.7, glow: 0.95, art: "stormborn", overArt: "stormborn", moment: {
-    every: [26, 36], dur: 3,
-    flash: { at: 0.3, flashPeak: 0.5, flashLife: 0.1, flashC: ["#E6FFFB", "#5EEAD4"], anchor: "center" },
-  }, layers: [
-    { k: "orbit", n: 5, shape: "comet", c: ["#5EEAD4", "#34D3BE", "#E6F0FF"], w: [1.6, 2.4], r: [1.02, 1.14], sz: [1.3, 2] },
-    { k: "orbit", n: 10, shape: "dot", c: ["#5EEAD4", "#8FB8FF", "#E6F0FF"], w: [2.2, 3.4], r: [1.14, 1.26], sz: [1.2, 2], tw: 1 },
-    { k: "fall", n: 24, shape: "drop", c: ["#5EEAD4", "#8FB8FF", "#E6F0FF"], sp: [80, 130], sz: [1, 1.7], drift: -26, a: 0.75, xWrap: 1, xFade: 8, tailPad: 17 },
-    { k: "orbit", n: 5, shape: "wisp", c: ["#34D3BE", "#8FB8FF"], w: [0.9, 1.4], r: [0.9, 1.05], sz: [2.4, 3.6], a: 0.5 },
-  ] },
+  // Stormborn: a violent-but-readable realistic storm — a photographic cloud
+  // bank arches over the ring, a cold downpour mixes with snow, slow
+  // lightning glows churn inside the clouds, and rare branching strikes drop
+  // down one side of the photo — never across the face. All weather is drawn
+  // by the painter; `bolts` here is only the strike scheduler (painter: 1
+  // skips the generic bolt visual — the painter strokes a side corridor).
+  // Loop strikes are plain bolt strokes like storm's — no flashP, so they
+  // never touch the ledger; the moment's single flash is the one gated
+  // event, which keeps flashes === moments exactly. Signature: wet realism.
+  stormborn: { spd: 1.2, glow: 0.85, art: "stormborn", overArt: "stormborn",
+  bolts: { every: [5, 9], c: ["#EAF4FF"], painter: 1, minPx: 110, fit: 1 },
+  moment: { every: [26, 36], dur: 3.4,
+    flash: { at: 0.3, flashPeak: 0.42, flashLife: 0.13, flashC: ["#CFE4FF", "#8FB8FF"], anchor: "head", y: -0.12 },
+  }, layers: [] },
   // Dawnbreaker: a sunrise behind the ring — warm gold rays fan upward
   // out from under the photo, soft-pink comet motes ride the edge and
   // white-gold sparkles twinkle. Hopeful, bright, gentle.
@@ -821,6 +823,13 @@ const ASC_RING_HOLE = 0.672, ASC_RING_TIP = 0.98;
 const DESC_WINGS_SRC = "/aura/descended-wings.webp";
 const DESC_EMBLEM_SRC = "/aura/descended-emblem.webp";
 const DESC_EYE_SRC = "/aura/descended-eye.webp";
+// Stormborn: three keyed photographic cloud sprites (magenta-unmixed off the
+// Gemini sources by scripts/aura-asset-key-stormborn.mjs). back/back2 are the
+// churn pair — same arch bank, different silhouettes — and front is the wisp
+// strip that floats on the over-canvas along the upper arc.
+const SB_BACK_SRC = "/aura/stormborn-cloud-back.webp";
+const SB_BACK2_SRC = "/aura/stormborn-cloud-back2.webp";
+const SB_FRONT_SRC = "/aura/stormborn-cloud-front.webp";
 // Geometry fractions measured off the keyed sprites — reach values are the
 // median opaque extent as a fraction of sprite half-width (from the keying
 // stats). Sockets (the eight almond inlays at the wing shoulders) sit at
@@ -2692,82 +2701,224 @@ export const AURA_ART = {
   // drops straight down the centre on the over-canvas so the strike reads
   // clearly at ring size. The wash is spec-gated (noteStrikeFlash, none
   // under reduced motion); the bolt is a dimmer static stroke when reduced.
+  // Stormborn — the wet-realism aura. The shared spec supplies the glow disc,
+  // the strike scheduler + flash ledger (`bolts.painter`), the head-anchored
+  // strike wash (`flare`) and the moment's single flash; everything visible
+  // is drawn here.
+  //   main pass: two keyed cloud-bank sprites crossfade + drift into a
+  //     churning arch over the ring; three glow cells wander inside the bank
+  //     on slow sinusoidal swells (periods 1.7-2.3s — never a flash event);
+  //     far rain + snow fall behind the photo.
+  //   over pass: the front wisp strip rides the upper arc; near rain + snow
+  //     fall in front of the photo; side-corridor bolts stroke while the
+  //     scheduler's cc.sbBolt lives (~0.28s) and a two-branch strike lands
+  //     down one side during the moment surge.
+  //   reduce / <110px: static bank, a few frozen streaks + flakes — no
+  //     lightning, no glows, no motion.
   stormborn: (opts) => {
-    const mo = opts.moment;
-    if (!mo) return null;
-    const { cx, cy, rx, ry, w, h, unit, time, reduce } = opts;
-    const t = mo.t, pad = 3 * unit + 2;
-    if (opts.pass === "main") {
-      const g = opts.g;
-      const inK = Math.min(1, t / 0.22), ease = inK * inK * (3 - 2 * inK);
-      const outK = t > 0.74 ? Math.max(0, 1 - (t - 0.74) / 0.2) : 1;
-      if (ease <= 0 || outK <= 0) return null;
-      // cloud targets hover just off the ring's upper corners; they fly in
-      // from outside the canvas, then drift out on exit
-      const tops = [[-1, "#42506A", "#2E4A54"], [1, "#2E4A54", "#42506A"]];
-      g.save();
-      for (let c = 0; c < 2; c++) {
-        const [side, c0, c1] = tops[c];
-        const drift = reduce ? 0 : Math.sin(time * 0.9 + c * 2.4) * unit * 2;
-        const tx = cx + side * rx * 0.72, ty = cy - ry * 0.52 + side * unit * 2;
-        const px = tx + side * (1 - ease) * (w * 0.62) + side * (1 - outK) * (w * 0.5) + drift;
-        const py = ty + (1 - ease) * -ry * 0.2;
-        const cr = Math.min(rx, ry) * 0.5 * (0.7 + 0.3 * ease);
-        // clouds must never paint across the border: they fade in as their
-        // footprint clears the canvas edge, then fade out on the way back
-        const cl = Math.min(px, w - px, py, h - py) - cr * 1.5;
-        const cA = Math.max(0, Math.min(1, cl / (cr * 0.6)));
-        if (cA <= 0.01) continue;
-        g.globalCompositeOperation = "source-over";
-        g.globalAlpha = 0.85 * ease * outK * cA;
-        for (let bIdx = 0; bIdx < 4; bIdx++) {
-          const bx = px + Math.cos(bIdx * 1.9 + c) * cr * 0.55, by = py + Math.sin(bIdx * 2.3) * cr * 0.3;
-          const br = cr * (0.55 + (bIdx % 2) * 0.3);
-          g.fillStyle = bIdx % 2 ? c0 : c1;
-          g.beginPath(); g.ellipse(bx, by, br, br * 0.62, 0, 0, Math.PI * 2); g.fill();
-        }
-        // teal rim under each cloud — stormborn's teal, not thunder's gold
-        g.globalCompositeOperation = "lighter";
-        g.globalAlpha = 0.3 * ease * outK * cA;
-        g.fillStyle = "#5EEAD4";
-        g.beginPath(); g.ellipse(px, py + cr * 0.34, cr * 0.8, cr * 0.2, 0, 0, Math.PI * 2); g.fill();
+    const { pass, cx, cy, rx, ry, w, h, unit, clock, reduce, cc } = opts;
+    const g = pass === "over" ? (opts.over || opts.g) : opts.g;
+    if (!g || !cc) return null;
+    const R = Math.min(rx, ry);
+    const small = Math.min(w, h) < 110;
+    const calm = reduce || small;
+    const mom = opts.moment;
+    const momK = mom && !calm ? Math.sin(Math.PI * Math.min(1, mom.t)) : 0;
+    const t = calm ? 6.1 : clock;                 // frozen pose time for calm
+    const hash = (i, s) => { const v = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return v - Math.floor(v); };
+    // rain leans ~15 deg; the moment surge steepens the wind
+    const lean = Math.tan((15 + momK * 9) * Math.PI / 180);
+    const edgeFade = (x, y, a) => a * Math.max(0, Math.min(1, Math.min(x, w - x, y, h - y) / 8));
+    // border feather: the cloud sprites oversize the canvas (the arch's arms
+    // would otherwise be hard-clipped at left/right), so erase the outer ~9px
+    // to transparent — the aura dissolves at the border instead of clipping
+    const edgeFeather = () => {
+      const E = 9, o = g.globalCompositeOperation, a0 = g.globalAlpha;
+      g.globalCompositeOperation = "destination-out"; g.globalAlpha = 1;
+      let gr = g.createLinearGradient(0, 0, 0, E); gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = gr; g.fillRect(0, 0, w, E);
+      gr = g.createLinearGradient(0, h, 0, h - E); gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = gr; g.fillRect(0, h - E, w, E);
+      gr = g.createLinearGradient(0, 0, E, 0); gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = gr; g.fillRect(0, 0, E, h);
+      gr = g.createLinearGradient(w, 0, w - E, 0); gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = gr; g.fillRect(w - E, 0, E, h);
+      g.globalCompositeOperation = o; g.globalAlpha = a0;
+    };
+
+    const back = auraImage(SB_BACK_SRC), back2 = auraImage(SB_BACK2_SRC), front = auraImage(SB_FRONT_SRC);
+    // sprite rect: stretched wide so the arch's arms flank the ring; squashed
+    // vertically so the baked matte fades end above the canvas midline
+    const DW = w * 1.30, DH = h * 0.86, DY = 0;
+    const stroke = (pts, lw, col, a) => {
+      if (a <= 0.01) return;
+      g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = lw;
+      g.beginPath(); for (let i = 0; i < pts.length; i++) { const p = pts[i]; i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke();
+    };
+    // corridor bolt path: hugs one side of the ring, always >=1.02R from
+    // centre (can never touch the photo) and clamped inside canvas margins
+    const boltPath = (side, seed, spread) => {
+      const pad = 9 + 3 * unit, pts = [], segs = 9;   // inside the border feather + halo half-width
+      for (let i = 0; i <= segs; i++) {
+        const k = i / segs;
+        const x = cx + side * R * (0.86 + 0.36 * k) + Math.sin(i * 3.7 + seed) * R * 0.055 * spread * Math.sin(Math.PI * k);
+        const y = cy - R * 0.66 + R * 1.5 * k + Math.cos(i * 2.9 + seed * 1.7) * R * 0.05 * spread * Math.sin(Math.PI * k);
+        let px = x, py = y;
+        const d = Math.hypot(px - cx, py - cy);
+        if (d < R * 1.02 && d > 0.01) { const s = R * 1.02 / d; px = cx + (px - cx) * s; py = cy + (py - cy) * s; }
+        pts.push([Math.max(pad, Math.min(w - pad, px)), Math.max(pad, Math.min(h - pad, py))]);
       }
-      g.restore();
-      return null;
-    }
-    if (opts.pass !== "over") return null;
-    const g = opts.over || opts.g;
-    if (!g) return null;
-    // bolt lives t 0.28-0.62: slams down, holds with a flicker, dies out
-    const bIn = Math.min(1, Math.max(0, (t - 0.28) / 0.03));
-    const bOut = t > 0.5 ? Math.max(0, 1 - (t - 0.5) / 0.12) : 1;
-    const bA = bIn * bOut;
-    if (bA <= 0.01) return null;
-    const flick = reduce ? 0.75 : 0.72 + 0.28 * Math.sin(time * 60) * Math.sin(time * 23);
-    // deterministic zigzag: fixed per-segment jitter, clamped inside margins
-    const haloW = Math.min(11 * unit, pad * 2 - 1);
-    const xPad = pad + haloW / 2 + 1;             // widest stroke's half-width
-    const yTop = pad + haloW / 2, yBot = h - pad - haloW / 2;
-    const pts = [];
-    const segs = 9;
-    for (let i = 0; i <= segs; i++) {
-      const k = i / segs;
-      const j = (i === 0 || i === segs) ? 0 : Math.sin(i * 127.1) * unit * 3.2 * Math.sin(Math.PI * k);
-      pts.push([Math.max(xPad, Math.min(w - xPad, cx + j)), yTop + (yBot - yTop) * k]);
-    }
+      return pts;
+    };
+    const strokeBolt = (side, seed, env, wide) => {
+      const pts = boltPath(side, seed, wide);
+      const flick = 0.82 + 0.18 * Math.sin(t * 90 + seed * 3);
+      const a = env * flick;
+      if (a <= 0.01) return;
+      g.globalCompositeOperation = "lighter";
+      g.lineJoin = "round"; g.lineCap = "round";
+      stroke(pts, 5.2 * unit, "rgba(190,215,255,0.30)", a * 0.8);
+      // branch forks ~55% down, jagging outward past the ring
+      const br = [pts[6]];
+      for (let i = 1; i <= 4; i++) {
+        const k = i / 4, sx = pts[6][0] + side * R * 0.16 * k + Math.sin(i * 5.3 + seed) * R * 0.04;
+        const sy = pts[6][1] + R * 0.3 * k + Math.cos(i * 4.1 + seed) * R * 0.03;
+        const pad = 9 + 3 * unit;
+        const d = Math.hypot(sx - cx, sy - cy);
+        let bx = sx, by = sy;
+        if (d < R * 1.02) { const s = R * 1.02 / d; bx = cx + (bx - cx) * s; by = cy + (by - cy) * s; }
+        br.push([Math.max(pad, Math.min(w - pad, bx)), Math.max(pad, Math.min(h - pad, by))]);
+      }
+      stroke(br, 1.1 * unit, "rgba(207,228,255,0.55)", a * 0.7);
+      stroke(pts, 1.9 * unit, "#CFE4FF", a * 0.95);
+      stroke(pts, 0.8, "#FFFFFF", a);
+      // afterglow at the strike origin — the cloud arm lights up with the
+      // same envelope, all inside the one flash event
+      const o = pts[0], gr = g.createRadialGradient(o[0], o[1], 0, o[0], o[1], R * 0.6);
+      gr.addColorStop(0, `rgba(191,216,255,${(0.34 * a).toFixed(3)})`);
+      gr.addColorStop(1, "rgba(191,216,255,0)");
+      g.globalAlpha = 1; g.fillStyle = gr;
+      g.beginPath(); g.arc(o[0], o[1], R * 0.6, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+    };
+    const rain = (n, seed, len, spd, alpha, lw, col) => {
+      g.strokeStyle = col; g.lineWidth = lw; g.lineCap = "round";
+      for (let i = 0; i < n; i++) {
+        const vy = spd * (0.8 + 0.4 * hash(i, seed)) * (1 + 0.35 * momK);
+        const y = ((hash(i, seed + 1) * h * 1.3 + t * vy) % (h * 1.3)) - h * 0.15;
+        const x0 = hash(i, seed + 2) * w * 1.5 - w * 0.25;
+        const x = x0 + y * lean;
+        const a = edgeFade(x, y, alpha * (0.6 + 0.4 * hash(i, seed + 3)));
+        if (a <= 0.01) continue;
+        g.globalAlpha = a;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x + len * Math.sin(Math.atan(lean)), y + len); g.stroke();
+      }
+    };
+    const snow = (n, seed, rMax, alpha) => {
+      g.fillStyle = "#EAF2FF";
+      for (let i = 0; i < n; i++) {
+        const vy = h * (0.10 + 0.06 * hash(i, seed)) * (1 + 0.2 * momK);
+        const y = ((hash(i, seed + 1) * h * 1.1 + t * vy) % (h * 1.1)) - h * 0.05;
+        const x = hash(i, seed + 2) * w + (calm ? 0 : Math.sin(t * 0.9 + i * 2.1) * w * 0.016) + y * lean * 0.3;
+        const a = edgeFade(x, y, alpha * (0.55 + 0.45 * hash(i, seed + 3)));
+        if (a <= 0.01) continue;
+        g.globalAlpha = a;
+        g.beginPath(); g.arc(x, y, 0.9 + rMax * hash(i, seed + 4), 0, Math.PI * 2); g.fill();
+      }
+    };
+
     g.save();
-    g.globalCompositeOperation = "lighter";
-    g.lineJoin = "round"; g.lineCap = "round";
-    g.globalAlpha = bA * flick * 0.45;
-    g.strokeStyle = "#5EEAD4"; g.lineWidth = haloW;
-    g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
-    g.globalAlpha = bA * flick * 0.9;
-    g.strokeStyle = "#B9FFF4"; g.lineWidth = 3.4 * unit;
-    g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
-    g.globalAlpha = bA * flick;
-    g.strokeStyle = "#FFFFFF"; g.lineWidth = 1.1;
-    g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+    g.globalCompositeOperation = "source-over";
+    if (pass === "main") {
+      // --- cloud bank: churn = crossfade between the two silhouettes, with
+      // opposing drift, a slow lean and a gentle scale breath
+      if (back.ready && !back.failed) {
+        const churn = calm ? 0 : 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 13));
+        const leanA = calm ? 0 : Math.sin(t * 0.11) * 0.018;
+        const drift = calm ? 0 : Math.sin(t * (Math.PI * 2 / 19)) * w * 0.012;
+        const sc = calm ? 1 : 1 + 0.02 * Math.sin(t * (Math.PI * 2 / 9));
+        const drawBank = (rec, a, dx, rot) => {
+          if (!rec.ready || rec.failed || a <= 0.01) return;
+          g.save();
+          g.translate(cx + dx, DY + DH * 0.5); g.rotate(rot); g.scale(sc, sc);
+          g.globalAlpha = a;
+          g.drawImage(rec.img, -DW / 2, -DH / 2, DW, DH);
+          g.restore();
+        };
+        drawBank(back, 0.55 + 0.38 * (1 - churn), drift, leanA);
+        drawBank(back2, 0.55 + 0.38 * churn, -drift, -leanA);
+      } else if (back.failed) {
+        // asset missing — a dim procedural canopy so the aura still reads
+        g.globalAlpha = 0.5; g.fillStyle = "#232B3A";
+        g.beginPath(); g.ellipse(cx, h * 0.1, w * 0.5, h * 0.2, 0, 0, Math.PI * 2); g.fill();
+      }
+      // --- internal glow cells: slow brightness swells wandering inside the
+      // bank. Continuous sine (period >=1.7s) — a brightness drift, not a
+      // flash, so they never touch noteStrikeFlash.
+      if (!calm) {
+        g.globalCompositeOperation = "lighter";
+        const cells = [[-0.4, 0.16, 1.7, 0.0], [0.04, 0.10, 2.3, 2.1], [0.44, 0.19, 1.9, 4.2]];
+        for (const [fx0, fy0, T, ph] of cells) {
+          const gx = cx + fx0 * w + Math.sin(t * 0.31 + ph) * w * 0.03;
+          const gy = fy0 * h + Math.cos(t * 0.23 + ph * 1.3) * h * 0.02;
+          const a = 0.08 + 0.17 * (0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / T) + ph));
+          const gr = g.createRadialGradient(gx, gy, 0, gx, gy, w * 0.12);
+          gr.addColorStop(0, `rgba(191,216,255,${a.toFixed(3)})`);
+          gr.addColorStop(1, "rgba(191,216,255,0)");
+          g.globalAlpha = 1; g.fillStyle = gr;
+          g.beginPath(); g.arc(gx, gy, w * 0.12, 0, Math.PI * 2); g.fill();
+        }
+        g.globalCompositeOperation = "source-over";
+      }
+      // --- the bank darkens while the moment's surge builds. source-atop so
+      // only painted storm pixels darken — empty sky and the border stay clear
+      if (momK > 0.01) {
+        g.globalCompositeOperation = "source-atop";
+        const dk = g.createLinearGradient(0, 0, 0, h * 0.5);
+        dk.addColorStop(0, `rgba(4,7,13,${(0.34 * momK).toFixed(3)})`);
+        dk.addColorStop(1, "rgba(4,7,13,0)");
+        g.globalAlpha = 1; g.fillStyle = dk; g.fillRect(0, 0, w, h * 0.5);
+        g.globalCompositeOperation = "source-over";
+      }
+      // --- far weather, behind the photo
+      g.globalCompositeOperation = "lighter";
+      rain(small ? 12 : (calm ? 20 : 34), 11, h * 0.045, h * 1.05, calm ? 0.16 : 0.26, 0.9, "#A9C4E8");
+      snow(small ? 4 : (calm ? 6 : 8), 23, 1.5, 0.5);
+    } else {
+      // --- front wisp strip on the upper arc, drifting slowly against the bank
+      if (front.ready && !front.failed) {
+        g.globalAlpha = calm ? 0.45 : 0.8;
+        const fx0 = calm ? 0 : Math.sin(t * (Math.PI * 2 / 23)) * w * 0.010;
+        const fy0 = calm ? 0 : Math.cos(t * (Math.PI * 2 / 29)) * h * 0.006;
+        g.drawImage(front.img, cx - DW / 2 + fx0, DY + fy0, DW, DH);
+      }
+      // --- near weather, in front of the photo
+      g.globalCompositeOperation = "lighter";
+      if (!calm) rain(18, 47, h * 0.075, h * 1.5, 0.48, 1.2 * unit * 0.8, "#C9DCF5");
+      snow(calm ? 5 : 7, 59, 1.8, 0.62);
+      // --- scheduled side strike: the shared bolt loop spawned cc.sbBolt;
+      // side is derived from its (undrawn) generic path for a random L/R
+      const sb = cc.sbBolt;
+      if (sb && !calm) {
+        if (sb.sbSide == null) sb.sbSide = (sb.pts && sb.pts[0] && sb.pts[0][0] < cx) ? -1 : 1;
+        if (!sb.sbSeed) sb.sbSeed = (sb.pts && sb.pts[0]) ? sb.pts[0][0] * 0.37 : 1.7;
+        const k = sb.t / 0.28;
+        if (k < 1) strokeBolt(sb.sbSide, sb.sbSeed, 1 - k, 1);
+      }
+      // --- moment surge: a heavier two-branch strike lands down one side.
+      // The spec's moment.flash at t=0.3 is the (single) flash event; this is
+      // only the bolt visual synced to the same envelope.
+      if (mom && !calm) {
+        if (!cc._sbMomOn) cc._sbSide = -(cc._sbSide || 1);
+        cc._sbMomOn = true;
+        const mt = mom.t;
+        const env = Math.min(1, Math.max(0, (mt - 0.26) / 0.04)) * Math.max(0, Math.min(1, (0.62 - mt) / 0.12));
+        if (env > 0.01) strokeBolt(cc._sbSide || 1, 4.7, env, 1.7);
+      } else cc._sbMomOn = false;
+    }
+    edgeFeather();
     g.restore();
+    g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
     return null;
   },
   // Wanderer footstep moment — draws on the over-canvas so the prints land
@@ -3675,6 +3826,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
   if (fx.art === "ophanim") { ophWingRec(); auraImage(ASC_RING_SRC); }
   if (fx.art === "wheel") auraImage(WHEEL_EYE_SRC);
   if (fx.art === "descended") { auraImage(DESC_WINGS_SRC); auraImage(DESC_EMBLEM_SRC); auraImage(DESC_EYE_SRC); }
+  if (fx.art === "stormborn" || fx.overArt === "stormborn") { auraImage(SB_BACK_SRC); auraImage(SB_BACK2_SRC); auraImage(SB_FRONT_SRC); }
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
   const fit = aura === "ascended" || aura === "descended" ? 1 : (mode === "body" ? 0.84 : 1);
@@ -4847,29 +4999,40 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
         // calmEvery: reduced motion strikes far less often, same bolt look
         const calm = !!(api.reduce && fx.bolts.calmEvery);
         boltT = rnd(...(calm ? fx.bolts.calmEvery : fx.bolts.every));
-        api.boltsFired += 1;
-        if (fx.bolts.overlap) liveBolts.push(nb); else bolt = nb;
-        // bolts strike on their own cadence; only an occasional bolt gets the
-        // bright wash — flashEvery sets the attempt spacing (~1 per 2s on its
-        // own), flashP picks a random share of bolts. Either way the wash is
-        // still through noteStrikeFlash (<=3/s page-wide, none under reduce).
-        const wantsFlash = fx.bolts.flashEvery != null ? clock >= flTryAt : fx.bolts.flashP != null && Math.random() < fx.bolts.flashP;
-        if (wantsFlash) {
-          if (fx.bolts.flashEvery != null) flTryAt = clock + fx.bolts.flashEvery * (0.7 + Math.random() * 0.6);
-          const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: true, burstStart: true });
-          flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
-          if (gate.fired) {
-            flashSpec = fx.flare || fx.bolts;
-            flashLeft = flashSpec.flashLife || 0.09;
-            api.flashes += 1; api.flashTimes.push(clock); api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] = (api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] || 0) + 1;
-            if (api.flashTimes.length > 40) api.flashTimes.shift();
-            strike = 1;
+        // painter opt-in (stormborn): the painter strokes its own side-
+        // corridor bolt, so a spawn is only a timing + flash event handed to
+        // it via cc.sbBolt. Suppress the whole event under reduced motion and
+        // below bolts.minPx — small boards must not stack strikes toward the
+        // page-wide flash budget. Non-painter auras never take this branch.
+        if (!(fx.bolts.painter && (api.reduce || (fx.bolts.minPx != null && Math.min(w, h) < fx.bolts.minPx)))) {
+          api.boltsFired += 1;
+          if (fx.bolts.overlap) liveBolts.push(nb); else bolt = nb;
+          if (fx.bolts.painter) cc.sbBolt = nb;
+          // bolts strike on their own cadence; only an occasional bolt gets the
+          // bright wash — flashEvery sets the attempt spacing (~1 per 2s on its
+          // own), flashP picks a random share of bolts. Either way the wash is
+          // still through noteStrikeFlash (<=3/s page-wide, none under reduce).
+          const wantsFlash = fx.bolts.flashEvery != null ? clock >= flTryAt : fx.bolts.flashP != null && Math.random() < fx.bolts.flashP;
+          if (wantsFlash) {
+            if (fx.bolts.flashEvery != null) flTryAt = clock + fx.bolts.flashEvery * (0.7 + Math.random() * 0.6);
+            const gate = noteStrikeFlash(flashState, { now: clock, reduce: !!api.reduce, enabled: true, burstStart: true });
+            flashState = { last: gate.last, burstFlashed: gate.burstFlashed };
+            if (gate.fired) {
+              flashSpec = fx.flare || fx.bolts;
+              flashLeft = flashSpec.flashLife || 0.09;
+              api.flashes += 1; api.flashTimes.push(clock); api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] = (api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] || 0) + 1;
+              if (api.flashTimes.length > 40) api.flashTimes.shift();
+              strike = 1;
+            }
           }
         }
       }
       const strokeBolt = (b) => {
         b.t += dt; const life = 0.28, k = b.t / life;
         if (k >= 1) return false;
+        // painter opt-in: keep advancing the timing object so the painter's
+        // own bolt envelope tracks it; the generic stroke is skipped.
+        if (fx.bolts.painter) return true;
         g.globalCompositeOperation = "lighter"; g.globalAlpha = (1 - k) * (0.6 + 0.4 * Math.sin(b.t * 90));
         if (fx.bolts.flash && k < 0.3) {
           const flash = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry) * 1.25);
