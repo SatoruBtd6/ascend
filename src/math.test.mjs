@@ -1989,6 +1989,14 @@ test("a mid-pace flat run pays a small pace bonus", () => {
   assert.equal(b.climb, null);
 });
 
+test("pre-segment rows score from mode + miles + secs", () => {
+  const run = { id: "old", mode: "run", miles: 3.05, secs: 2209 }; // no segments, no runMiles — oldest shape
+  const b = gpsBonus(mkState(), run);
+  assert.ok(b.pace > 0);                                // 12:08/mi → above the floor rung
+  const byMiles = mkRun({ segs: [["run", 2209, 3.05]], miles: 3.05 });
+  assert.equal(b.pace, gpsBonus(mkState(), byMiles).pace); // same session, same bonus
+});
+
 test("climb bonus uses the per-mode ladder and shares the 60% cap", () => {
   // 2 mi hike, +400 ft → 200 ft/mi → below hike mid-rung → modest bonus
   const hike = mkRun({ segs: [["hike", 3600, 2]], miles: 2, elev: { gainFt: 400 } });

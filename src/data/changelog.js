@@ -1,6 +1,22 @@
 // Hand-written per release; newest first. Surfaced in Settings → What's new.
 export const CHANGELOG = [
   {
+    v: "7t",
+    items: [
+      "New Hiking mode on the tracker — Walking, Running and Hiking are now three equal choices. Hikes score their own way and still count toward Stormborn.",
+      "Runs, walks and hikes now show how much you climbed — on the save summary, the map screen, and in your feed.",
+      "Outdoor sessions can now earn a pace bonus for moving well and a climb bonus for hills, on top of the usual distance XP.",
+      "Workouts you already logged keep exactly the XP they earned.",
+    ],
+  },
+  {
+    v: "7s",
+    items: [
+      "Stormborn has a new look — a realistic storm bank wraps your ring, with rain, snow and lightning down the sides.",
+      "Stormborn now counts rain or snow that fell at any point during your run — before it only checked the moment you finished.",
+    ],
+  },
+  {
     v: "7r",
     items: [
       "The Crew tab is tidied like your profile — check-in is the first thing you see, gym controls sit behind a menu, and bosses, quests and rivalry collapse into one-tap rows.",

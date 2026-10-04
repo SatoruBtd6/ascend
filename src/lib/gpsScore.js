@@ -20,8 +20,17 @@ export function modeAgg(run) {
     agg[m].s += +x.secs || 0;
   });
   if (!run?.segments?.length) {
-    agg.run.mi = +run?.runMiles || 0;
-    agg.walk.mi = +run?.walkMiles || 0;
+    const rm = +run?.runMiles || 0, wm = +run?.walkMiles || 0, hm = +run?.hikeMiles || 0;
+    if (rm + wm + hm > 0) {
+      // mode-mile rows carry no per-mode time — apportion session secs by
+      // distance share so older saved shapes still score meaningfully.
+      const tot = rm + wm + hm, s = +run?.secs || 0;
+      agg.run = { mi: rm, s: (rm / tot) * s };
+      agg.walk = { mi: wm, s: (wm / tot) * s };
+      agg.hike = { mi: hm, s: (hm / tot) * s };
+    } else if (+run?.miles > 0 && +run?.secs > 0) {
+      agg[normMode(run?.mode)] = { mi: +run.miles, s: +run.secs };
+    }
   }
   return agg;
 }
