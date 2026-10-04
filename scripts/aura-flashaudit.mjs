@@ -6,7 +6,10 @@
 // time, then:
 //   solo   — one instance at ring 141, moments forced back-to-back for
 //            --secs sim-seconds: reports moments run, flashes fired, and
-//            flashes-per-moment (must be exactly 1 for a moment.flash aura)
+//            flashes-per-moment (a moment.flash aura must land exactly one
+//            MOMENT-sourced flash per moment; other gated sources — bolts,
+//            flare — are counted separately and budget-checked, they don't
+//            count against the moment)
 //   pair   — every --only aura mounted at once, all moments forced: the
 //            combined flashTimes timeline is checked for the page-wide
 //            <=3 flashes/second cap
@@ -122,19 +125,29 @@ let fails = 0;
 for (const aura of list) {
   const s = await solo(aura, false);
   const r = await solo(aura, true);
-  // moments that ended before the last forced one may still be mid-flight at
-  // the loop's end — flashes <= moments is the real assertion; exactly one
-  // flash per moment when the moment spec carries moment.flash
+  // Per-source accounting (stormborn made flashes === moments wrong): a
+  // moment.flash spec must still land exactly one MOMENT-sourced flash per
+  // moment — but other gated sources (painter-driven bolts, flare) are
+  // recognised flash events in their own right. They are counted, budget-
+  // checked below, and must not inflate the moment ratio.
   const flashPerMoment = s.moments ? (s.flashes / s.moments).toFixed(2) : "n/a";
   const hasFlash = s.paths.some((p) => p === "moment.flash");
+  const momFlashes = s.flashSrcs["moment.flash"] || 0;
   let bad = false, notes = [];
-  if (hasFlash && s.flashes !== s.moments) { bad = true; notes.push(`expected exactly 1 flash per moment, got ${s.flashes}/${s.moments}`); }
+  if (hasFlash && momFlashes !== s.moments) { bad = true; notes.push(`expected exactly 1 moment-sourced flash per moment, got ${momFlashes}/${s.moments}`); }
+  // the real budget, checked directly: no 1s window may exceed 3 flashes
+  let soloMax = 0;
+  for (const t0 of s.flashTimes) {
+    const c = s.flashTimes.filter((t) => t >= t0 && t < t0 + 1).length;
+    if (c > soloMax) soloMax = c;
+  }
+  if (soloMax > 3) { bad = true; notes.push(`${soloMax} flashes inside one 1s window (cap 3)`); }
   if (r.flashes !== 0) { bad = true; notes.push(`reduced motion fired ${r.flashes} flashes`); }
   // the moment must still PLAY under reduce — the flash is gated, not the
   // moment; a reduce run that never enters the moment is a regression
   if (hasFlash && r.moments === 0) { bad = true; notes.push("moment never played under reduced motion"); }
   if (bad) fails++;
-  const line = `${bad ? "FAIL" : "PASS"} ${aura.padEnd(14)} paths=[${s.paths.join(", ") || "none"}] moments=${s.moments} flashes=${s.flashes} (${flashPerMoment}/moment) reduce-moments=${r.moments} reduce-flashes=${r.flashes}`;
+  const line = `${bad ? "FAIL" : "PASS"} ${aura.padEnd(14)} paths=[${s.paths.join(", ") || "none"}] moments=${s.moments} flashes=${s.flashes} (${flashPerMoment}/moment) max=${soloMax}/s reduce-moments=${r.moments} reduce-flashes=${r.flashes}`;
   // per-source ledger: which gated path each flash came through — keeps the
   // strict flashes===moments gate while naming the extra sources
   const src = Object.entries(s.flashSrcs || {}).map(([k, v]) => `${k}:${v}`).join(" ") || "none";

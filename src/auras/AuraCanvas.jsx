@@ -77,13 +77,15 @@ export const AURA_FX = {
   // bank arches over the ring, a cold downpour mixes with snow, slow
   // lightning glows churn inside the clouds, and rare branching strikes drop
   // down one side of the photo — never across the face. All weather is drawn
-  // by the painter; `bolts` here is only the strike scheduler (painter: 1
-  // skips the generic bolt visual — the painter strokes a side corridor).
-  // Loop strikes are plain bolt strokes like storm's — no flashP, so they
-  // never touch the ledger; the moment's single flash is the one gated
-  // event, which keeps flashes === moments exactly. Signature: wet realism.
+  // by the painter; `bolts` is the strike scheduler (painter: 1 skips the
+  // generic bolt visual — the painter strokes a side corridor + its origin
+  // afterglow) and every strike is ONE ledgered flash through
+  // noteStrikeFlash (flashP: 1), with the wash fields on `bolts` putting the
+  // paintWash at the cloud head. moment.flash is the second gated source.
+  // Signature: wet realism.
   stormborn: { spd: 1.2, glow: 0.85, art: "stormborn", overArt: "stormborn",
-  bolts: { every: [5, 9], c: ["#EAF4FF"], painter: 1, minPx: 110, fit: 1 },
+  bolts: { every: [5, 9], flashP: 1, c: ["#EAF4FF"], painter: 1, minPx: 110, fit: 1,
+    flashC: ["#CFE4FF", "#8FB8FF"], flashPeak: 0.34, flashLife: 0.14, anchor: "head", y: -0.14 },
   moment: { every: [26, 36], dur: 3.4,
     flash: { at: 0.3, flashPeak: 0.42, flashLife: 0.13, flashC: ["#CFE4FF", "#8FB8FF"], anchor: "head", y: -0.12 },
   }, layers: [] },
@@ -2702,9 +2704,9 @@ export const AURA_ART = {
   // clearly at ring size. The wash is spec-gated (noteStrikeFlash, none
   // under reduced motion); the bolt is a dimmer static stroke when reduced.
   // Stormborn — the wet-realism aura. The shared spec supplies the glow disc,
-  // the strike scheduler + flash ledger (`bolts.painter`), the head-anchored
-  // strike wash (`flare`) and the moment's single flash; everything visible
-  // is drawn here.
+  // the strike scheduler (`bolts.painter`) whose every spawn is one ledgered
+  // noteStrikeFlash with a head-anchored wash (the wash fields live on
+  // `bolts`), and the moment's own flash; everything visible is drawn here.
   //   main pass: two keyed cloud-bank sprites crossfade + drift into a
   //     churning arch over the ring; three glow cells wander inside the bank
   //     on slow sinusoidal swells (periods 1.7-2.3s — never a flash event);
@@ -2770,7 +2772,7 @@ export const AURA_ART = {
       }
       return pts;
     };
-    const strokeBolt = (side, seed, env, wide) => {
+    const strokeBolt = (side, seed, env, wide, glow) => {
       const pts = boltPath(side, seed, wide);
       const flick = 0.82 + 0.18 * Math.sin(t * 90 + seed * 3);
       const a = env * flick;
@@ -2793,12 +2795,17 @@ export const AURA_ART = {
       stroke(pts, 1.9 * unit, "#CFE4FF", a * 0.95);
       stroke(pts, 0.8, "#FFFFFF", a);
       // afterglow at the strike origin — the cloud arm lights up with the
-      // same envelope, all inside the one flash event
-      const o = pts[0], gr = g.createRadialGradient(o[0], o[1], 0, o[0], o[1], R * 0.6);
-      gr.addColorStop(0, `rgba(191,216,255,${(0.34 * a).toFixed(3)})`);
-      gr.addColorStop(1, "rgba(191,216,255,0)");
-      g.globalAlpha = 1; g.fillStyle = gr;
-      g.beginPath(); g.arc(o[0], o[1], R * 0.6, 0, Math.PI * 2); g.fill();
+      // same envelope, all inside the one flash event. Only drawn when this
+      // strike's noteStrikeFlash actually fired: a gate-denied bolt keeps
+      // its thin stroke (non-flash, same as storm's bolts) but no area
+      // brightening may appear outside the ledger.
+      if (glow) {
+        const o = pts[0], gr = g.createRadialGradient(o[0], o[1], 0, o[0], o[1], R * 0.6);
+        gr.addColorStop(0, `rgba(191,216,255,${(0.34 * a).toFixed(3)})`);
+        gr.addColorStop(1, "rgba(191,216,255,0)");
+        g.globalAlpha = 1; g.fillStyle = gr;
+        g.beginPath(); g.arc(o[0], o[1], R * 0.6, 0, Math.PI * 2); g.fill();
+      }
       g.globalCompositeOperation = "source-over";
     };
     const rain = (n, seed, len, spd, alpha, lw, col) => {
@@ -2897,23 +2904,26 @@ export const AURA_ART = {
       if (!calm) rain(18, 47, h * 0.075, h * 1.5, 0.48, 1.2 * unit * 0.8, "#C9DCF5");
       snow(calm ? 5 : 7, 59, 1.8, 0.62);
       // --- scheduled side strike: the shared bolt loop spawned cc.sbBolt;
-      // side is derived from its (undrawn) generic path for a random L/R
+      // side is derived from its (undrawn) generic path for a random L/R.
+      // sb.flashed is set by the shared loop only when this strike's
+      // noteStrikeFlash gate fired — no fire, no afterglow.
       const sb = cc.sbBolt;
       if (sb && !calm) {
         if (sb.sbSide == null) sb.sbSide = (sb.pts && sb.pts[0] && sb.pts[0][0] < cx) ? -1 : 1;
         if (!sb.sbSeed) sb.sbSeed = (sb.pts && sb.pts[0]) ? sb.pts[0][0] * 0.37 : 1.7;
         const k = sb.t / 0.28;
-        if (k < 1) strokeBolt(sb.sbSide, sb.sbSeed, 1 - k, 1);
+        if (k < 1) strokeBolt(sb.sbSide, sb.sbSeed, 1 - k, 1, sb.flashed);
       }
       // --- moment surge: a heavier two-branch strike lands down one side.
       // The spec's moment.flash at t=0.3 is the (single) flash event; this is
-      // only the bolt visual synced to the same envelope.
+      // only the bolt visual synced to the same envelope. The afterglow rides
+      // opts.flash so it can only brighten while a ledgered wash is live.
       if (mom && !calm) {
         if (!cc._sbMomOn) cc._sbSide = -(cc._sbSide || 1);
         cc._sbMomOn = true;
         const mt = mom.t;
         const env = Math.min(1, Math.max(0, (mt - 0.26) / 0.04)) * Math.max(0, Math.min(1, (0.62 - mt) / 0.12));
-        if (env > 0.01) strokeBolt(cc._sbSide || 1, 4.7, env, 1.7);
+        if (env > 0.01) strokeBolt(cc._sbSide || 1, 4.7, env, 1.7, !!opts.flash);
       } else cc._sbMomOn = false;
     }
     edgeFeather();
@@ -5020,6 +5030,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
             if (gate.fired) {
               flashSpec = fx.flare || fx.bolts;
               flashLeft = flashSpec.flashLife || 0.09;
+              nb.flashed = 1;   // painter auras gate their afterglow on this
               api.flashes += 1; api.flashTimes.push(clock); api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] = (api.flashSrcs[fx.flare ? "bolts→flare" : "bolts"] || 0) + 1;
               if (api.flashTimes.length > 40) api.flashTimes.shift();
               strike = 1;
