@@ -101,7 +101,7 @@ create policy "kv delete" on public.kv for delete to authenticated
 -- Both self-only; no shared reads.
 
 -- ============================================================
--- Tester audit RPCs (phase 7n, item R) — run once in the SQL editor to enable.
+-- Tester audit RPCs (phase 7n, item R) — live; confirmed present 2026-10-05.
 -- security definer: bypasses RLS. The allowlist in kv_audit_allowed is the
 -- ONLY gate — every other function returns {ok:false, reason:'denied'} and
 -- nothing else for non-allowlisted callers (they cannot distinguish a real
@@ -156,10 +156,12 @@ returns json language sql stable security definer set search_path = public as $$
     else json_build_object('ok', false, 'reason', 'denied') end;
 $$;
 
--- Owner-lock the two communal food: rows left NULL by the backfill
--- (Brodan owns the shared catalog rather than leaving it editable by all).
--- Same trigger footgun as the backfill — disable the owner trigger inside
--- the transaction or auth.uid()=NULL rewrites owner back to NULL:
+-- Owner-lock of the two communal food: rows left NULL by the backfill —
+-- EXECUTED, confirmed live 2026-10-05 (no owner IS NULL food: rows remain).
+-- Brodan owns the shared catalog rather than leaving it editable by all.
+-- Kept for the record — it used the trigger-disabled-transaction pattern
+-- (auth.uid() is NULL in the SQL editor, so the owner trigger rewrites
+-- owner back to NULL unless it is disabled for the transaction):
 --   alter table public.kv disable trigger <kv owner trigger name>;
 --   update public.kv set owner = '3502ef55-bea7-4bd6-8c54-feed26219ec2'::uuid
 --   where scope = 'shared' and owner is null and key like 'food:%';

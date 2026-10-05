@@ -10,12 +10,13 @@ The live `kv` table has a BEFORE INSERT/UPDATE trigger that stamps
 - **Any unowned legacy row is claimed by whoever updates it first.** A
   byte-identical PATCH from any signed-in user takes ownership — this is how a
   diagnostic probe accidentally claimed a user's comment. After the
-  2026-10 backfill, two `food:` catalog rows remain `owner = null` because they
-  have no `from` field. **Recommendation (Brodan's call): owner-lock them** to a
-  curator uid rather than leave them communal — they feed the shared food
-  catalog everyone logs from, and `owner IS NULL` keeps them editable and
-  deletable by any authenticated account. Communal editing buys nothing here;
-  new foods are already stamped to their creator on insert.
+  2026-10 backfill, two `food:` catalog rows remained `owner = null` because they
+  had no `from` field — they feed the shared food catalog everyone logs from,
+  and `owner IS NULL` kept them editable and deletable by any authenticated
+  account. **Done (Brodan's call; confirmed live 2026-10-05):** they are
+  owner-locked to Brodan's uid — no `food:` rows with `owner IS NULL` remain.
+  New foods are already stamped to their creator on insert, so nothing new
+  goes communal.
 - **Part 3 (N–R), 2026-10.** Recipes are editable in place (saved copy and
   shared `food:` slug updated; logged meals keep their baked-in values —
   history must not move). Workout credit stays computed, not recorded; the

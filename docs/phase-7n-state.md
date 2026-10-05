@@ -34,8 +34,8 @@ What happened, in order:
    through `value->>'from'` → `lb:<playerId>` → that card's `owner`, and
    backfilled (snapshot table `kv_owner_backfill_7n`, rollback = re-null the
    snapshotted keys then drop it). The 2 remaining NULLs are communal
-   `food:` catalog rows — decided owner-locked to Brodan; the statement is
-   in `supabase.sql` awaiting a run.
+   `food:` catalog rows — owner-locked to Brodan; confirmed live 2026-10-05
+   (no `owner IS NULL` `food:` rows remain).
 4. **The `kv_owner` trigger footgun — the biggest operational trap.** It runs
    `new.owner := coalesce(old.owner, auth.uid())`. In the Supabase SQL editor
    `auth.uid()` is **NULL**, so any maintenance UPDATE on `kv.owner` is
@@ -143,16 +143,17 @@ paste mistake.
 
 ## Open items for the next phase
 
-1. `kv_audit_allowed` / `kv_audit_roster` / `kv_audit_state` SQL in
-   `supabase.sql` needs a run to enable the audit tool (allowlist = Brodan's
-   main + test uids).
-2. The two communal `food:` rows — owner-lock statement pending in
-   `supabase.sql` (needs the trigger-disabled-transaction pattern).
+1. ~~`kv_audit_allowed` / `kv_audit_roster` / `kv_audit_state`~~ — done:
+   all three confirmed live 2026-10-05 (`pg_proc` listing); the audit tool
+   is enabled.
+2. ~~The two communal `food:` rows owner-lock~~ — done: confirmed live
+   2026-10-05; no `owner IS NULL` `food:` rows remain.
 3. Aura rollout (44 auras) resumes per `docs/phase-7m-state.md` — the v7m
    baseline, rung budgets, and stress gates all still apply. **This phase
    touched no renderer code; any aura diff is a finding, not expected.**
-4. `kv update` still grants write on `owner IS NULL` shared rows — nearly
-   harmless now (2 communal rows), revisit if the catalog grows.
+4. `kv update` still grants write on `owner IS NULL` shared rows — no
+   NULL-owner shared rows today (the two `food:` rows are locked); revisit
+   if any appear.
 5. The lint baseline warnings (unused imports) are untouched — cosmetic.
 
 ## Working notes carried forward
