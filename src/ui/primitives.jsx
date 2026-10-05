@@ -29,10 +29,18 @@ export function Disclosure({ title, right, open, onToggle, keepMounted, children
     </div>
   );
 }
-export const Bar = ({ pct, color = C.blue }) => (
-  <div className="h-2 overflow-hidden" style={{ background: C.track, borderRadius: 2 }}>
-    <div className="h-full barfill" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color, boxShadow: `0 0 10px ${color}`, transition: "width .5s", borderRadius: 2 }} />
-  </div>
+export const Bar = ({ pct, color = C.blue, h = 8 }) => {
+  const r = h <= 4 ? h / 2 : 2;
+  return (
+    <div className="overflow-hidden" style={{ height: h, background: C.track, borderRadius: r }}>
+      <div className="h-full barfill" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color, boxShadow: `0 0 10px ${color}`, transition: "width .5s", borderRadius: r }} />
+    </div>
+  );
+};
+// Compact claim action for decluttered rows — same gold treatment as the old
+// full-width button, 32px tall, right-aligned on the progress line.
+export const ClaimBtn = ({ onClick, children = "Claim" }) => (
+  <button type="button" onClick={(e) => { e.stopPropagation(); onClick?.(); }} className="shrink-0 font-bold" style={{ height: 32, padding: "0 16px", borderRadius: 999, background: C.gold, color: "#0A1630", fontSize: 14, boxShadow: "0 0 16px rgba(255,212,71,.5)" }}>{children}</button>
 );
 export const Title = ({ children, right }) => (
   <div className="flex justify-between items-center">

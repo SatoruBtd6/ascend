@@ -1,15 +1,26 @@
 import { useEffect, useState } from "react";
-import { Check, RefreshCw, Sparkles, Swords } from "lucide-react";
+import { Info, RefreshCw, Sparkles, Swords } from "lucide-react";
 import { DAILY_REROLLS, QUEST_EX, questStep } from "../../data/quests.js";
 import { today } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
 import { makeQuest, newDay } from "../../lib/stats.js";
 import { C } from "../../theme.js";
-import { Bar, Title } from "../../ui/primitives.jsx";
+import { Bar, ClaimBtn, Title } from "../../ui/primitives.jsx";
+import { AnchoredMenu } from "../../ui/AnchoredMenu.jsx";
 import { Challenges } from "./Challenges.jsx";
+
+const HAIR = "1px solid rgba(255,255,255,.08)";
+// 32px visual pill on a 44px tap target — the Train mid-workout chip shape.
+const CHIP = { height: 32, padding: "0 12px", borderRadius: 999, border: `1px solid ${C.glassLine}`, background: C.glass, fontSize: 14, fontWeight: 600 };
+const Tap = ({ children, onClick, disabled, label, menu, tight }) => (
+  <button type="button" aria-label={label} aria-haspopup={menu ? "menu" : undefined} disabled={disabled} onClick={(e) => { e.stopPropagation(); onClick?.(e); }} className="inline-flex items-center justify-center shrink-0" style={{ minWidth: 44, height: 44, padding: 0, margin: tight ? "-11px 0" : 0, background: "none", border: "none", opacity: disabled ? 0.45 : 1 }}>{children}</button>
+);
 export function Quests({ s, setS, gainXp }) {
   const d = today();
   const day = s.days?.[d];
+  const [openId, setOpenId] = useState(null);
+  const [headInfo, setHeadInfo] = useState(null);
+  const [qInfo, setQInfo] = useState(null);
   useEffect(() => { if (!day) setS((p) => ({ ...p, days: { ...p.days, [d]: newDay() } })); }, [day, d]);
   if (!day) return null;
 
@@ -47,51 +58,97 @@ export function Quests({ s, setS, gainXp }) {
   const canBonus = tierDone(topTier) && day.bonuses < topTier;
   const canMore = tierDone(topTier) && day.bonuses >= topTier;
   const rerollsLeft = DAILY_REROLLS - day.rerolls;
-
+  const closeMenus = () => { setHeadInfo(null); setQInfo(null); };
+  const infoQuest = qInfo ? day.list.find((q) => q.id === qInfo.q) : null;
 
   return (
     <div className="space-y-4">
-      <Title right={<span className="text-sm body flex items-center gap-1" style={{ color: C.dim }}><RefreshCw size={14} />{rerollsLeft} left</span>}>Daily quests</Title>
-      <div className="body text-sm" style={{ color: C.dim }}>Don't like a quest? Reroll it (3 per day). Clear a full set to unlock a harder one. Exercise quests link to your workouts both ways.</div>
+      <Title right={<span className="text-sm body flex items-center gap-1" style={{ color: C.dim }}><RefreshCw size={14} />{rerollsLeft} left</span>}>
+        Daily quests
+        <button type="button" aria-label="About daily quests" aria-haspopup="menu" aria-expanded={!!headInfo} onClick={(e) => { e.stopPropagation(); setQInfo(null); setHeadInfo(headInfo ? null : e.currentTarget); }} className="inline-flex items-center justify-center align-middle" style={{ width: 44, height: 44, margin: "-13px -8px -13px 0", color: C.mute }}><Info size={16} /></button>
+      </Title>
+      {headInfo && (
+        <AnchoredMenu anchor={headInfo} onClose={() => setHeadInfo(null)} minWidth={240}>
+          <div className="px-4 py-3 body text-xs space-y-2" style={{ color: C.mute }}>
+            <div>Don't like a quest? Reroll it (3 per day). Clear a full set to unlock a harder one. Exercise quests link to your workouts both ways.</div>
+            <div>Weekly and monthly progress is tracked automatically from your workouts, quests, fuel goals, and weigh-ins. New ones roll in every week and month.</div>
+          </div>
+        </AnchoredMenu>
+      )}
 
       {tiers.map((t) => (
-        <div key={t} className="space-y-3">
+        <div key={t}>
           {t > 1 && <h2 className="text-lg font-bold pt-2" style={{ color: t >= 3 ? C.gold : C.cyan }}>Bonus set {t - 1} · {1 + 0.5 * (t - 1)}× difficulty</h2>}
-          {day.list.filter((q) => q.tier === t).map((q) => {
+          {day.list.filter((q) => q.tier === t).map((q, qi) => {
             const done = q.progress >= q.target;
-            const step = questStep(q);
             const quick = q.unit === "mi" ? [0.5, 1, 2] : q.unit === "min" ? [1, 5, 10] : q.unit === "cups" ? [1, 2] : q.unit === "steps" ? [500, 1000, 2500] : [5, 10, 25];
             const exName = QUEST_EX[q.qid];
             const label = /^[a-z]/.test(q.title) ? `${q.target.toLocaleString()} ${q.title}` : `${q.title} ${q.target.toLocaleString()} ${q.unit}`;
-            return (
-              <div key={q.id} className="panel p-4" style={q.claimed ? { borderColor: "rgba(79,209,139,.55)" } : null}>
-                <div className="flex justify-between items-start gap-2">
-                  <div>
-                    <div className="font-bold">{label}</div>
-                    <div className="body text-sm" style={{ color: C.dim }}>{q.progress.toLocaleString()} / {q.target.toLocaleString()} {q.unit}</div>
-                  </div>
+            const sep = qi ? { borderTop: HAIR } : null;
+            if (q.claimed) return (
+              <div key={q.id} style={{ padding: "14px 0", ...sep }}>
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 truncate" style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{label}</span>
                   <span className="text-sm font-bold whitespace-nowrap" style={{ color: C.gold }}>+{q.xp} XP</span>
                 </div>
-                <div className="my-3"><Bar pct={(q.progress / q.target) * 100} color={q.claimed ? C.green : C.blue} /></div>
-                {exName && !q.claimed && <div className="body text-xs -mt-1 mb-3" style={{ color: C.mute }}>Linked to {exName}: logging it in Train fills this quest, and claiming logs these {q.unit === "min" ? "minutes" : `reps in sets of ${step}`} to your history.{q.fromWorkout ? ` ${q.fromWorkout} already came from workouts.` : ""}</div>}
-                {q.claimed ? (
-                  <div className="text-sm font-semibold flex items-center gap-1" style={{ color: C.green }}><Check size={16} />Cleared</div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-1.5 items-center flex-wrap">
-                      <button aria-label="Reroll quest" disabled={rerollsLeft <= 0 || q.progress > 0} onClick={() => reroll(q.id)} className="ghost px-2.5 py-1.5" style={{ color: rerollsLeft > 0 && q.progress === 0 ? C.cyan : C.mute }}><RefreshCw size={14} /></button>
-                      {quick.map((n) => <button key={n} onClick={() => setProg(q.id, Math.round((q.progress + n) * 100) / 100)} className="ghost px-2.5 py-1.5 text-sm font-bold">+{n.toLocaleString()}</button>)}
+                <div className="body" style={{ fontSize: 14, color: C.mute, marginTop: 2 }}>Claimed · +{q.xp} XP</div>
+              </div>
+            );
+            const open = openId === q.id;
+            const toggle = () => { closeMenus(); setOpenId(open ? null : q.id); };
+            return (
+              <div key={q.id} role="button" tabIndex={0} aria-expanded={open}
+                onClick={(e) => { if (e.target.closest("button,input,a")) return; toggle(); }}
+                onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(); } }}
+                style={{ padding: "14px 0", ...sep }}>
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 truncate" style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{label}</span>
+                  <span className="text-sm font-bold whitespace-nowrap" style={{ color: C.gold }}>+{q.xp} XP</span>
+                  {exName && (
+                    <Tap tight label={`How ${label} links to workouts`} menu onClick={(e) => { setHeadInfo(null); setQInfo(qInfo?.q === q.id ? null : { q: q.id, anchor: e.currentTarget }); }}>
+                      <Info size={16} style={{ color: C.mute }} />
+                    </Tap>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2" style={{ marginTop: 2, minHeight: done ? 32 : 0 }}>
+                  <div className="body" style={{ fontSize: 14, color: C.dim }}>{q.progress.toLocaleString()} / {q.target.toLocaleString()} {q.unit}</div>
+                  {done && <ClaimBtn onClick={() => claim(q)} />}
+                </div>
+                <div style={{ marginTop: 6 }}><Bar pct={(q.progress / q.target) * 100} color={C.blue} h={4} /></div>
+                <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+                  <div style={{ overflow: "hidden", minHeight: 0, opacity: open ? 1 : 0, transition: "opacity .22s ease-out" }}>
+                    <div className="flex gap-1.5 items-center flex-wrap" style={{ paddingTop: 10 }}>
+                      <Tap label="Reroll quest" disabled={rerollsLeft <= 0 || q.progress > 0} onClick={() => reroll(q.id)}>
+                        <RefreshCw size={14} style={{ color: rerollsLeft > 0 && q.progress === 0 ? C.cyan : C.mute }} />
+                      </Tap>
+                      {quick.map((n) => (
+                        <Tap key={n} label={`Add ${n} ${q.unit}`} onClick={() => setProg(q.id, Math.round((q.progress + n) * 100) / 100)}>
+                          <span className="font-semibold inline-flex items-center" style={{ ...CHIP, color: C.cyan }}>+{n.toLocaleString()}</span>
+                        </Tap>
+                      ))}
+                      {q.progress > 0 && (
+                        <Tap label={`Subtract ${quick[0]} ${q.unit}`} onClick={() => setProg(q.id, Math.max(0, Math.round((q.progress - quick[0]) * 100) / 100))}>
+                          <span className="inline-flex items-center" style={{ ...CHIP, color: C.mute }}>−{quick[0]}</span>
+                        </Tap>
+                      )}
                       <QuestAdd unit={q.unit} onAdd={(n) => setProg(q.id, Math.round((q.progress + n) * 100) / 100)} />
-                      {q.progress > 0 && <button aria-label="Undo" onClick={() => setProg(q.id, Math.max(0, Math.round((q.progress - quick[0]) * 100) / 100))} className="ghost px-2.5 py-1.5 text-sm" style={{ color: C.mute }}>−{quick[0]}</button>}
                     </div>
-                    <button disabled={!done} onClick={() => claim(q)} className="w-full py-2 font-bold" style={{ borderRadius: 4, background: done ? C.gold : C.soft, color: done ? "#0A1630" : C.mute, boxShadow: done ? "0 0 16px rgba(255,212,71,.5)" : "none" }}>{done ? "Claim" : `${Math.round((q.target - q.progress) * 100) / 100} ${q.unit} to go`}</button>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
         </div>
       ))}
+
+      {infoQuest && (() => {
+        const exName = QUEST_EX[infoQuest.qid], step = questStep(infoQuest);
+        return (
+          <AnchoredMenu anchor={qInfo.anchor} onClose={() => setQInfo(null)} minWidth={240}>
+            <div className="px-4 py-3 body text-xs" style={{ color: C.mute }}>Linked to {exName}: logging it in Train fills this quest, and claiming logs these {infoQuest.unit === "min" ? "minutes" : `reps in sets of ${step}`} to your history.{infoQuest.fromWorkout ? ` ${infoQuest.fromWorkout} already came from workouts.` : ""}</div>
+          </AnchoredMenu>
+        );
+      })()}
 
       {canBonus && (
         <button onClick={() => { updDay((x) => ({ ...x, bonuses: x.bonuses + 1 })); gainXp(100 * topTier, "Set cleared", `bonus_${d}_${day.bonuses}`); }} className="w-full py-3 font-bold flex items-center justify-center gap-2" style={{ background: C.gold, color: "#0A1630", borderRadius: 4, boxShadow: "0 0 22px rgba(255,212,71,.55)" }}>
@@ -119,8 +176,12 @@ export function QuestAdd({ unit, onAdd }) {
   const go = () => { const n = +v; if (n > 0) { onAdd(n); setV(""); } };
   return (
     <div className="flex items-center gap-1">
-      <input type="text" inputMode="decimal" className="inp text-sm" style={{ width: 62, padding: "5px 6px" }} placeholder={unit} value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} aria-label={`Add ${unit}`} />
-      <button onClick={go} disabled={!(+v > 0)} className="btn px-2.5 py-1.5 text-sm">Add</button>
+      <input type="text" inputMode="decimal" className="inp text-sm" style={{ width: 62, padding: "5px 6px", height: 32 }} placeholder={unit} value={v}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && go()}
+        onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ block: "center", behavior: "smooth" }), 350)}
+        aria-label={`Add ${unit}`} />
+      <button type="button" onClick={go} disabled={!(+v > 0)} className="btn text-sm font-bold" style={{ height: 32, padding: "0 14px" }}>Add</button>
     </div>
   );
 }
