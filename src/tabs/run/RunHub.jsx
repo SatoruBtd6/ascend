@@ -13,7 +13,7 @@ export function RunHub({ s, setS, gainXp, onBack, startRun }) {
   const runs = [...s.workouts].reverse().filter((w) => w.run).slice(0, 20);
   const saved = s.savedRoutes || [];
   const monthMi = s.workouts.filter((w) => w.date.startsWith(monthKey())).reduce((a, w) => a + (w.run?.miles || 0), 0);
-  const best = runs.reduce((b, w) => (w.run.mode !== "walk" && w.run.miles >= 1 && (!b || w.run.pace < b.run.pace) ? w : b), null);
+  const best = runs.reduce((b, w) => (runKind(w.run) === "run" && w.run.miles >= 1 && (!b || w.run.pace < b.run.pace) ? w : b), null);
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
