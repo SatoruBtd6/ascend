@@ -656,8 +656,9 @@ path — the only writers are additive merges on the owning account's own blob.
   deleted on purpose. Published `look`s are authoritative.
 - **Monthly cycle is `YYYY-MM`** (`monthKey`/`prevMonthKey`/`monthXp` in
   `src/tabs/profile/season.js`), independent of the quarterly `seasonKey`
-  machinery. The month-close settle that stamps `auraUnlocks.descended` is
-  Part 6 — proposed, not built, pending Brodan's approval.
+  machinery. The month-close settle that stamps `auraUnlocks.descended`
+  was built in `618dbee` (awards: month-close settle, prize banner,
+  reigning-aware wearer grace).
 - **Descended wings sprite overflows its frame.** The committed
   `public/aura/descended-wings.webp` art reaches ~1.28x its half-width
   (measured on the keyed asset; `DESC_WING_REACH=0.87` predates it). The
