@@ -5,10 +5,11 @@ import { join, resolve } from "node:path";
 
 function swPrecache() {
   let outDir = "dist";
+  let root = "";
   return {
     name: "ascend-sw-precache",
     apply: "build",
-    configResolved(c) { outDir = resolve(c.root, c.build.outDir); },
+    configResolved(c) { outDir = resolve(c.root, c.build.outDir); root = c.root; },
     closeBundle() {
       const assetsDir = join(outDir, "assets");
       // closeBundle runs even when the write already failed — a missing
@@ -28,7 +29,12 @@ function swPrecache() {
       if (!existsSync(swPath)) throw new Error("sw precache: dist/sw.js missing — public/sw.js was not copied");
       const sw = readFileSync(swPath, "utf8");
       if (!/const PRECACHE = \[/.test(sw)) throw new Error("sw.js missing PRECACHE");
-      const next = sw.replace(/const PRECACHE = \[[\s\S]*?\];/, `const PRECACHE = ${JSON.stringify(hashed)};`);
+      const appVersion = readFileSync(join(root, "src/appStay.js"), "utf8").match(/APP_VERSION = "([^"]+)"/)?.[1];
+      if (!appVersion) throw new Error("sw precache: APP_VERSION not found in src/appStay.js");
+      const next = sw
+        .replace(/const PRECACHE = \[[\s\S]*?\];/, `const PRECACHE = ${JSON.stringify(hashed)};`)
+        .replace(/const VERSION = "[^"]*";/, `const VERSION = "ascend-v${appVersion}";`);
+      if (!next.includes(`const VERSION = "ascend-v${appVersion}";`)) throw new Error("sw precache: VERSION line was not rewritten");
       writeFileSync(swPath, next);
     },
   };
