@@ -42,6 +42,28 @@ export const Bar = ({ pct, color = C.blue, h = 8 }) => {
 export const ClaimBtn = ({ onClick, children = "Claim" }) => (
   <button type="button" onClick={(e) => { e.stopPropagation(); onClick?.(); }} className="shrink-0 font-bold" style={{ height: 32, padding: "0 16px", borderRadius: 999, background: C.gold, color: "#0A1630", fontSize: 14, boxShadow: "0 0 16px rgba(255,212,71,.5)" }}>{children}</button>
 );
+// 32px visual pill on a 44px tap target — the Train mid-workout chip shape.
+export const CHIP = { height: 32, padding: "0 12px", borderRadius: 999, border: `1px solid ${C.glassLine}`, background: C.glass, fontSize: 14, fontWeight: 600 };
+// Bare icon/label button with a 44px tap target; always stopPropagation so it
+// can live inside an expandable row. tight pulls its margins in so the row
+// height stays compact.
+export const Tap = ({ children, onClick, disabled, label, menu, tight }) => (
+  <button type="button" aria-label={label} aria-haspopup={menu ? "menu" : undefined} disabled={disabled} onClick={(e) => { e.stopPropagation(); onClick?.(e); }} className="inline-flex items-center justify-center shrink-0" style={{ minWidth: 44, height: 44, padding: 0, margin: tight ? "-11px 0" : 0, background: "none", border: "none", opacity: disabled ? 0.45 : 1 }}>{children}</button>
+);
+// 44px "More"/"Chart"/"Sharing" expand row: grey 14px label, rotating chevron.
+export const MoreRow = ({ label, right, open, onToggle }) => (
+  <button type="button" onClick={onToggle} aria-expanded={open} className="w-full flex items-center gap-2 text-left" style={{ height: 44 }}>
+    <span className="body" style={{ fontSize: 14, color: C.mute }}>{label}</span>
+    {right != null && <span className="body flex-1 min-w-0 truncate text-right" style={{ fontSize: 14, color: C.mute }}>{right}</span>}
+    <ChevronRight size={16} className="shrink-0 ml-auto" style={{ color: C.mute, transform: open ? "rotate(90deg)" : "none", transition: "transform .25s ease-out", marginLeft: "auto" }} />
+  </button>
+);
+// Disclosure's expand box without a header — for content revealed by MoreRow.
+export const ExpandBox = ({ open, children }) => (
+  <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+    <div style={{ overflow: "hidden", minHeight: 0, opacity: open ? 1 : 0, transition: "opacity .22s ease-out" }}>{children}</div>
+  </div>
+);
 export const Title = ({ children, right }) => (
   <div className="flex justify-between items-center">
     <h1 className="text-2xl font-bold tracking-wide glowtext" style={{ color: C.text }}>{children}</h1>{right}
@@ -53,12 +75,29 @@ export const Empty = ({ children }) => <div className="panel p-5 body text-sm" s
 // composites inside the scroll layer, so the nav (a sibling outside it) paints
 // over the sheet's lower half on iOS. At root level z-50 beats nav z-40 and the
 // backdrop covers the whole viewport — the nav included — while open.
-export function Sheet({ title, onClose, children }) {
+// subtitle/footer are opt-in: subtitle gives a two-line header (20px title
+// clamped to 2 lines + grey line beneath), footer pins a bar at the bottom
+// with safe-area padding while children scroll above it.
+export function Sheet({ title, subtitle, footer, onClose, children }) {
+  const head = subtitle ? (
+    <div className="flex justify-between items-start gap-2 mb-3">
+      <div className="min-w-0">
+        <h3 className="font-bold" style={{ fontSize: 20, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{title}</h3>
+        <div className="body mt-0.5" style={{ fontSize: 14, color: C.mute }}>{subtitle}</div>
+      </div>
+      <button type="button" aria-label="Close" onClick={onClose} className="inline-flex items-center justify-center shrink-0" style={{ minWidth: 44, height: 44, margin: "-10px -12px 0 0" }}><X /></button>
+    </div>
+  ) : <div className="flex justify-between items-center mb-3"><h3 className="text-lg font-bold">{title}</h3><button aria-label="Close" onClick={onClose}><X /></button></div>;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,.7)" }} onClick={onClose}>
-      <div className="w-full max-w-md mx-auto p-4 max-h-[80vh] overflow-y-auto" style={{ background: C.sheet, borderTop: `1px solid ${C.blue}`, boxShadow: `0 -10px 40px ${C.line}` }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-3"><h3 className="text-lg font-bold">{title}</h3><button aria-label="Close" onClick={onClose}><X /></button></div>
-        <div className="space-y-2">{children}</div>
+      <div className="w-full max-w-md mx-auto p-4 max-h-[80vh] overflow-y-auto" style={{ background: C.sheet, borderTop: `1px solid ${C.blue}`, boxShadow: `0 -10px 40px ${C.line}`, ...(footer ? { display: "flex", flexDirection: "column" } : null) }} onClick={(e) => e.stopPropagation()}>
+        {head}
+        {footer ? (
+          <>
+            <div className="space-y-2 overflow-y-auto flex-1 min-h-0" style={{ margin: "0 -16px", padding: "0 16px" }}>{children}</div>
+            <div style={{ paddingTop: 10, paddingBottom: "env(safe-area-inset-bottom)" }}>{footer}</div>
+          </>
+        ) : <div className="space-y-2">{children}</div>}
       </div>
     </div>,
     document.getElementById("ascend-root") || document.body

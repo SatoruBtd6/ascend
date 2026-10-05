@@ -5,16 +5,11 @@ import { today } from "../../lib/dates.js";
 import { findEx } from "../../lib/exercises.js";
 import { makeQuest, newDay } from "../../lib/stats.js";
 import { C } from "../../theme.js";
-import { Bar, ClaimBtn, Title } from "../../ui/primitives.jsx";
+import { Bar, CHIP, ClaimBtn, Tap, Title } from "../../ui/primitives.jsx";
 import { AnchoredMenu } from "../../ui/AnchoredMenu.jsx";
 import { Challenges } from "./Challenges.jsx";
 
 const HAIR = "1px solid rgba(255,255,255,.08)";
-// 32px visual pill on a 44px tap target — the Train mid-workout chip shape.
-const CHIP = { height: 32, padding: "0 12px", borderRadius: 999, border: `1px solid ${C.glassLine}`, background: C.glass, fontSize: 14, fontWeight: 600 };
-const Tap = ({ children, onClick, disabled, label, menu, tight }) => (
-  <button type="button" aria-label={label} aria-haspopup={menu ? "menu" : undefined} disabled={disabled} onClick={(e) => { e.stopPropagation(); onClick?.(e); }} className="inline-flex items-center justify-center shrink-0" style={{ minWidth: 44, height: 44, padding: 0, margin: tight ? "-11px 0" : 0, background: "none", border: "none", opacity: disabled ? 0.45 : 1 }}>{children}</button>
-);
 export function Quests({ s, setS, gainXp }) {
   const d = today();
   const day = s.days?.[d];

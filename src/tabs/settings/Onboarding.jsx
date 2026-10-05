@@ -14,7 +14,7 @@ export function Onboarding({ s, setS, step, onNext }) {
   const setHeight = (f, i2) => set("height", Math.max(48, Math.min(90, f * 12 + i2)));
   const wrap = (children) => (
     <div className="space-y-5">
-      <div className="flex items-center justify-center gap-1.5 pt-2">{[0, 1, 2, 3].map((i) => <span key={i} style={{ width: i === step ? 22 : 8, height: 8, borderRadius: 999, background: i <= step ? C.cyan : C.glassLine, transition: "width .2s" }} />)}</div>
+      <div className="flex items-center justify-center gap-1.5 pt-2">{[0, 1, 2, 3, 4].map((i) => <span key={i} style={{ width: i === step ? 22 : 8, height: 8, borderRadius: 999, background: i <= step ? C.cyan : C.glassLine, transition: "width .2s" }} />)}</div>
       {children}
     </div>
   );
@@ -56,6 +56,14 @@ export function Onboarding({ s, setS, step, onNext }) {
           <label className="col-span-2">Goal<select className="inp mt-1" value={p.goal} onChange={(e) => set("goal", e.target.value)}>{GOALS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>
         </div>
         <button onClick={() => { setS((x) => { const next = logTutorialWeight(x.weightLog, today(), x.profile.weight); return next === x.weightLog ? x : { ...x, weightLog: next }; }); onNext(); }} className="btn w-full py-3">Save stats</button>
+      </div>,
+    );
+  }
+  if (step === 3) {
+    return wrap(
+      <div className="panel p-5 space-y-4">
+        <div><div className="text-xl font-bold">Your log</div><div className="body text-sm mt-1" style={{ color: C.dim }}>The Log tab is your history. Flip the calendar between Month and Week and tap any day to see it. The dots tell you what happened: blue is a workout, yellow is quests, green is calories on target, orange is off target. Open a workout with Details ›, and tap More on a day or month for the rest of the numbers.</div></div>
+        <button onClick={onNext} className="btn w-full py-3">Continue</button>
       </div>,
     );
   }

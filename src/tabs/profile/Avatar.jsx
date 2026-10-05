@@ -77,16 +77,19 @@ export function AchBadge({ a, earned, size = 60, onClick }) {
   );
 }
 
-export function WeightChart({ log, target }) {
+export function weightTrend(log) {
   const pts = Object.entries(log || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-60).map(([d, w]) => ({ d, w: +w })).filter((p) => p.w > 0);
+  const first = pts[0] || null, last = pts[pts.length - 1] || null;
+  return { pts, first, last, n: pts.length, diff: pts.length > 1 ? Math.round((last.w - first.w) * 10) / 10 : null };
+}
+export function WeightChart({ log, target, footer = true }) {
+  const { pts, first, last, diff } = weightTrend(log);
   if (pts.length < 2) return <div className="body text-sm" style={{ color: C.dim }}>Log your weight on at least two days to see a trend line.</div>;
   const W = 320, H = 130, padL = 34, padR = 10, padT = 12, padB = 22;
   const ws = pts.map((p) => p.w), lo = Math.floor(Math.min(...ws) - 2), hi = Math.ceil(Math.max(...ws) + 2);
   const x = (i) => padL + (i / (pts.length - 1)) * (W - padL - padR);
   const y = (w) => padT + (1 - (w - lo) / (hi - lo)) * (H - padT - padB);
   const path = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.w).toFixed(1)}`).join(" ");
-  const first = pts[0], last = pts[pts.length - 1];
-  const diff = Math.round((last.w - first.w) * 10) / 10;
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Weight from ${first.w} to ${last.w} lb`}>
@@ -97,10 +100,12 @@ export function WeightChart({ log, target }) {
         <text x={padL} y={H - 6} fontSize="10" fill={C.dim}>{new Date(first.d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</text>
         <text x={W - padR} y={H - 6} fontSize="10" fill={C.dim} textAnchor="end">{new Date(last.d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</text>
       </svg>
-      <div className="body text-xs flex justify-between" style={{ color: C.dim }}>
-        <span>{pts.length} entries</span>
-        <span style={{ color: diff === 0 ? C.dim : (target === "cut" ? diff < 0 : diff > 0) ? C.green : C.orange }}>{diff > 0 ? "+" : ""}{diff} lb since {new Date(first.d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-      </div>
+      {footer && (
+        <div className="body text-xs flex justify-between" style={{ color: C.dim }}>
+          <span>{pts.length} entries</span>
+          <span style={{ color: diff === 0 ? C.dim : (target === "cut" ? diff < 0 : diff > 0) ? C.green : C.orange }}>{diff > 0 ? "+" : ""}{diff} lb since {new Date(first.d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+        </div>
+      )}
     </div>
   );
 }
