@@ -201,11 +201,17 @@ export function RunTracker({ s, setS, gainXp, initial, onClose, onLive }) {
           <button onClick={() => setCues(!cues)} className="body text-xs flex items-center gap-1" style={{ color: cues ? C.cyan : C.mute }}>{cues ? <Volume2 size={14} /> : <VolumeX size={14} />}Mile cues</button>
         </div>
         {gps.status === "error" && <div className="body text-xs" style={{ color: C.red }}>{gps.msg}</div>}
-        <div className="grid grid-cols-3 gap-1 p-1" role="tablist" aria-label="Walking, running or hiking" style={{ borderRadius: 16, background: C.glass, border: `1px solid ${C.glassLine}` }}>
-          {[["walk", "Walking"], ["run", "Running"], ["hike", "Hiking"]].map(([id, label]) => (
-            <button key={id} type="button" role="tab" aria-selected={run.mode === id} onClick={() => switchMode(id)} className="text-base font-bold" style={{ minHeight: 48, borderRadius: 12, touchAction: "manipulation", background: run.mode === id ? C.green : "transparent", color: run.mode === id ? "#021a0c" : C.text }}>{label}</button>
-          ))}
-        </div>
+        {run.mode === "hike" ? (
+          <div className="grid gap-1 p-1" aria-label="Hiking" style={{ borderRadius: 16, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+            <div className="text-base font-bold flex items-center justify-center" style={{ minHeight: 48, borderRadius: 12, background: C.green, color: "#021a0c" }}>Hiking</div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-1 p-1" role="tablist" aria-label="Walking or running" style={{ borderRadius: 16, background: C.glass, border: `1px solid ${C.glassLine}` }}>
+            {[["walk", "Walking"], ["run", "Running"]].map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={run.mode === id} onClick={() => switchMode(id)} className="text-base font-bold" style={{ minHeight: 48, borderRadius: 12, touchAction: "manipulation", background: run.mode === id ? C.green : "transparent", color: run.mode === id ? "#021a0c" : C.text }}>{label}</button>
+            ))}
+          </div>
+        )}
         {SimDock && <SimDock onFix={(fix) => { setGps({ status: "ok", msg: "sim" }); setRun((r) => addFix(r, fix)); }} origin={me} />}
         <RouteMap lines={liveLines} follow={me} height={Math.min(300, typeof window !== "undefined" ? window.innerHeight * 0.34 : 260)} />
         <div className="text-center pt-1">
