@@ -10,3 +10,4 @@ tmp-diag/
 !/docs/baselines/**
 .vercel
 evidence/
+public/aura/*.jpg
