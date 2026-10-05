@@ -5,11 +5,13 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const num = (re, s) => { const m = s.match(re); return m ? +m[1] : NaN; };
+const num = (re, s) => { const m = (s || "").match(re); return m ? +m[1] : NaN; };
 
 const section = (label, cmd) => {
   console.log(`=== ${label} — ${cmd}`);
-  const r = spawnSync("cmd.exe", ["/d", "/s", "/c", cmd], { encoding: "utf8" });
+  const r = process.platform === "win32"
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", cmd], { encoding: "utf8" })
+    : spawnSync("sh", ["-c", cmd], { encoding: "utf8" });
   if (r.stdout) process.stdout.write(r.stdout);
   if (r.stderr) process.stderr.write(r.stderr);
   console.log("");
