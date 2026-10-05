@@ -93,6 +93,15 @@ export function shouldWritePending(prev, s) {
   return activeIsUrgent(prev?.active, s?.active);
 }
 
+// Save-note pill after a save ack: only an urgent save shows "Saved" and
+// (re)arms the hide timer. A non-urgent save must leave a live pill and its
+// pending hide alone — clearing the timer on every ack froze "Saved" on
+// screen permanently whenever a non-urgent save landed inside the window.
+export function saveNoteAck(note, urgent) {
+  if (urgent) return { text: "Saved", hideMs: 1800 };
+  return { text: note && note.startsWith("Couldn't") ? null : note, hideMs: null };
+}
+
 export const WORKOUT_SAVE_DELAY_MS = 3000;
 
 function mergeMap(local, server, snap) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, pendingKey, missedRaidClears, RAID_XP, updateReloadBlocked } from "./math.js";
+import { mergeState, persistAck, persistMerge, shouldDeferPersist, shouldWritePending, normalizeState, shouldSkipSave, stateKeysChanged, saveIsUrgent, saveDelayMs, migrateAnimeCrateState, rankUpCeremony, levelFromXp, dryRunPrRecount, LB_XP_VERSION, settingsKey, SETTINGS_KEY_LEGACY, claimUnscopedSettings, mergeScopedSettings, shouldPublishLbCard, tryPublish, readAccountBlob, canPersistAccount, persistWouldWipe, guardedAccountWrite, hydrateWritePlan, looksLikeDefaultBlob, pendingKey, missedRaidClears, RAID_XP, updateReloadBlocked, saveNoteAck } from "./math.js";
 import { Shield, Bot, Copy, Dumbbell, Swords, Utensils, User, CalendarDays, Crown } from "lucide-react";
 import { BootScreen, OFFLINE_COPY_MSG } from "./Boot.jsx";
 import * as D from "./diag.js";
@@ -243,6 +243,7 @@ export default function App() {
   const [lastSaveAt, setLastSaveAt] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle");
   const [saveNote, setSaveNote] = useState(null);
+  const saveNoteRef = useRef(null); saveNoteRef.current = saveNote;
   const [saveDiag, setSaveDiag] = useState({ kb: 0, ms: null });
   const noPersistRef = useRef(false);
   const accountReadRef = useRef({ kind: null, server: null });
@@ -590,13 +591,12 @@ export default function App() {
       const ms = Math.round(performance.now() - t0);
       setSaveDiag({ kb: stateSizeKb(toWrite), ms });
       if (import.meta.env.DEV) window.__phase1LastPersist = { ms, mergeMs };
-      if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
-      if (urgent || persistUrgent.current) {
-        setSaveNote("Saved");
-        saveNoteTimer.current = setTimeout(() => setSaveNote(null), 1800);
-      } else {
-        setSaveNote((n) => (n && n.startsWith("Couldn't") ? null : n));
+      const nx = saveNoteAck(saveNoteRef.current, urgent || persistUrgent.current);
+      if (nx.hideMs != null) {
+        if (saveNoteTimer.current) clearTimeout(saveNoteTimer.current);
+        saveNoteTimer.current = setTimeout(() => setSaveNote(null), nx.hideMs);
       }
+      setSaveNote(nx.text);
     } catch (e) {
       failed = true;
       dirtyRef.current = true;
