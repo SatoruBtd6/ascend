@@ -220,7 +220,7 @@ export function Train({ s, setS, gainXp, openRun }) {
         <Title right={<SaveMark />}>Train</Title>
         <div className="grid gap-2" style={{ gridTemplateColumns: "1.6fr 1fr 1fr" }}>
           <button type="button" onClick={() => setTitling(true)} className="btn py-4 text-lg">Start workout</button>
-          <button type="button" onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Run</button>
+          <button type="button" onClick={openRun} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: C.green }}><Footprints size={18} />Cardio</button>
           <button type="button" onClick={() => setShowPresets(!showPresets)} className="ghost py-4 font-bold flex items-center justify-center gap-2" style={{ color: showPresets ? C.cyan : C.text, borderColor: showPresets ? C.cyan : C.border }}><Layers size={18} />Presets</button>
         </div>
         {showPresets && (

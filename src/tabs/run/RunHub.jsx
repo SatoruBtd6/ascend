@@ -18,7 +18,7 @@ export function RunHub({ s, setS, gainXp, onBack, startRun }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <button aria-label="Back" onClick={onBack} className="p-1" style={{ color: C.cyan }}><ChevronLeft size={26} /></button>
-        <h1 className="text-2xl font-bold flex-1">Run & steps</h1>
+        <h1 className="text-2xl font-bold flex-1">Cardio</h1>
       </div>
       <div className="panel p-4 space-y-3">
         <div className="grid grid-cols-3 gap-2">{[["run", "Run"], ["walk", "Walk"], ["hike", "Hike"]].map(([id, l]) => <button key={id} onClick={() => setMode(id)} className="py-2 text-sm font-semibold" style={{ borderRadius: 10, background: mode === id ? C.blue : C.glass, color: mode === id ? "#fff" : C.text, border: `1px solid ${C.glassLine}` }}>{l}</button>)}</div>

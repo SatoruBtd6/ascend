@@ -116,7 +116,7 @@ export function StepsBody({ s, setS, openRun, openAssistant }) {
           {err && <div className="text-xs" style={{ color: C.red }}>{err}</div>}
         </div>
       )}
-      {openRun && <button onClick={openRun} className="w-full flex items-center justify-between body text-sm py-1" style={{ color: C.cyan }}>Run tracking <ChevronRight size={14} /></button>}
+      {openRun && <button onClick={openRun} className="w-full flex items-center justify-between body text-sm py-1" style={{ color: C.cyan }}>Cardio <ChevronRight size={14} /></button>}
     </div>
   );
 }
