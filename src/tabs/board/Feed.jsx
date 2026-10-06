@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Bookmark, Check, ChevronRight, Dumbbell, Loader2, Plus, Trash2, Utensils } from "lucide-react";
 import { RANKS } from "../../data/ranks.js";
 import { ask } from "../../lib/ask.js";
-import { fmtDay, today, uid } from "../../lib/dates.js";
+import { dayGroup, fmtDay, today, uid } from "../../lib/dates.js";
 import { allExercises } from "../../lib/exercises.js";
 import { C } from "../../theme.js";
-import { Empty, Sheet } from "../../ui/primitives.jsx";
+import { Empty, MoreRow, Sheet, Tap } from "../../ui/primitives.jsx";
 import { FancyName } from "../profile/Avatar.jsx";
 import { RankChip } from "../profile/RankChip.jsx";
 import { presetFromExercises } from "../status/LogWorkoutSheet.jsx";
@@ -88,9 +88,19 @@ export function FeedMealSheet({ s, setS, post, onClose }) {
 }
 // Posts from before exact tiers said "D-Rank · Beginner". Crossing into a letter always lands on division III.
 export const fixRankText = (t) => String(t || "").replace(/\b(SS|[EDCBAS])-Rank(?: · [A-Za-z' -]+?)?(?=( overall)?$)/, "$1 III");
-export function Feed({ s, setS, openProfile, rows = [] }) {
+export function Feed({ s, setS, openProfile, rows = [], restoreScroll = null }) {
   const [items, setItems] = useState(null);
   const [openPost, setOpenPost] = useState(null);
+  const [lim, setLim] = useState(25);
+  // Back from a profile opened here restores the Feed scroll once, after the
+  // items have re-rendered (they reload async on mount).
+  const didRestore = useRef(false);
+  useEffect(() => {
+    if (didRestore.current || restoreScroll == null || !items) return;
+    didRestore.current = true;
+    const sc = document.getElementById("ascend-scroll");
+    if (sc) sc.scrollTop = restoreScroll;
+  }, [items, restoreScroll]);
   const load = async () => {
     const all = (await readShared("feed:")).sort((a, b) => (b.t || 0) - (a.t || 0));
     const seen = new Map(), keep = [], dupes = [];
@@ -120,42 +130,59 @@ export function Feed({ s, setS, openProfile, rows = [] }) {
   const opensWorkout = (it) => it.type === "workout" && !isRun(it) && !!(it.workout || it.detail);
   const opens = (it) => opensWorkout(it) || (it.type === "meal" && !!it.meal);
   const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+  // Local-calendar day groups (Today / Yesterday / Earlier) over the visible
+  // slice only — items are already sorted newest-first, so groups are
+  // contiguous. Groups with no visible rows don't render.
+  const groups = [];
+  if (items?.length) {
+    items.slice(0, lim).forEach((it) => {
+      const g = dayGroup(it.t);
+      if (!groups.length || groups[groups.length - 1].g !== g) groups.push({ g, rows: [] });
+      groups[groups.length - 1].rows.push(it);
+    });
+  }
   return (
     <div>
       {items === null && <div className="flex items-center gap-2 body text-sm" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading feed…</div>}
       {items?.length === 0 && <Empty>Nothing yet. PRs, rank-ups, achievements, shared workouts and meals from the whole crew show up here.</Empty>}
       {items?.length > 0 && (
         <div className="panel overflow-hidden">
-          {items.map((it, i) => {
-            const rk = rankOf(it), clickable = opens(it), wo = it.workout;
-            const kind = isRun(it) ? "run" : it.type;
-            const prestige = it.type === "rank" && it.tier >= 5 ? RANKS[Math.min(6, it.tier)] : null;
-            return (
-              <div key={it.key} {...(clickable ? { role: "button", tabIndex: 0, onClick: () => setOpenPost(it), onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenPost(it); } }, "aria-label": `Open ${it.name}'s ${it.type === "meal" ? "meal" : "workout"}` } : {})} className={`feedrow flex gap-3 items-start px-3 py-3${clickable ? " feedtap" : ""}`} style={{ ...(i ? { borderTop: `1px solid ${C.border}` } : null), ...(prestige ? { background: `linear-gradient(90deg, ${prestige.glow}, transparent 70%)`, borderLeft: `3px solid ${prestige.color}`, boxShadow: `inset 0 0 22px ${prestige.glow}` } : null) }}>
-                <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 36, height: 36, borderRadius: 999, background: `${tint[kind] || C.cyan}22`, border: `1px solid ${tint[kind] || C.cyan}55` }}>{icon[kind] || "•"}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <button onClick={stop(() => openProfile(it.from))} className="font-bold text-sm truncate min-w-0"><FancyName name={it.name} look={it.look} /></button>
-                    {rk && <RankChip rank={rk.rank} div={rk.div} />}
-                    <span className="body text-xs shrink-0 ml-auto" style={{ color: C.mute }}>{ago(it.t)}</span>
-                  </div>
-                  <div className="body text-sm" style={{ color: C.text }}>{it.type === "rank" ? fixRankText(it.text) : it.text}</div>
-                  {it.type === "meal" && it.meal ? (
-                    <div className="body text-xs mt-0.5 tabular-nums" style={{ color: C.dim }}>{it.meal.cal} cal · P {it.meal.p} · C {it.meal.c} · F {it.meal.f}</div>
-                  ) : wo ? (
-                    <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{wo.exercises.map((e) => `${e.name} ×${e.sets.length}`).join(" · ")}</div>
-                  ) : it.detail ? <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{it.detail}</div> : null}
-                  {clickable && (
-                    <div className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: tint[kind] || C.cyan }}>
-                      {it.type === "meal" ? <><Utensils size={12} />See macros &amp; log it</> : wo ? <><Dumbbell size={12} />{wo.exercises.length} exercises · {wo.exercises.reduce((a, e) => a + e.sets.length, 0)} sets</> : <><Dumbbell size={12} />See exercises</>}
-                      <ChevronRight size={13} />
+          {groups.map((grp) => (
+            <React.Fragment key={grp.g}>
+              <div className="body uppercase" style={{ fontSize: 13, letterSpacing: "0.06em", color: C.mute, padding: "8px 12px 4px" }}>{grp.g}</div>
+              {grp.rows.map((it, i) => {
+                const rk = rankOf(it), clickable = opens(it), wo = it.workout;
+                const kind = isRun(it) ? "run" : it.type;
+                const prestige = it.type === "rank" && it.tier >= 5 ? RANKS[Math.min(6, it.tier)] : null;
+                return (
+                  <div key={it.key} role="button" tabIndex={0} onClick={() => openProfile(it.from)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProfile(it.from); } }} aria-label={`Open ${it.name}'s profile`} className="feedrow feedtap flex gap-3 items-start px-3 py-3" style={{ ...(i ? { borderTop: `1px solid ${C.border}` } : null), ...(prestige ? { background: `linear-gradient(90deg, ${prestige.glow}, transparent 70%)`, borderLeft: `3px solid ${prestige.color}`, boxShadow: `inset 0 0 22px ${prestige.glow}` } : null) }}>
+                    <div className="shrink-0 flex items-center justify-center text-lg" style={{ width: 36, height: 36, borderRadius: 999, background: `${tint[kind] || C.cyan}22`, border: `1px solid ${tint[kind] || C.cyan}55` }}>{icon[kind] || "•"}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-sm truncate min-w-0"><FancyName name={it.name} look={it.look} /></span>
+                        {rk && <RankChip rank={rk.rank} div={rk.div} />}
+                        <span className="body text-xs shrink-0 ml-auto" style={{ color: C.mute }}>{ago(it.t)}</span>
+                        {it.from === s.playerId && <Tap tight label="Delete post" onClick={() => ask(it.cmeal ? "Delete this post? The meal also comes off the community list." : "Delete this post?", async () => { try { await window.storage.delete(it.key, true); if (it.cmeal) window.storage.delete(it.cmeal, true).catch(() => {}); setItems((x) => x.filter((y) => y.key !== it.key)); } catch (e) { /* ignore */ } }, "Delete")}><Trash2 size={14} style={{ color: C.mute }} /></Tap>}
+                      </div>
+                      <div className="body text-sm" style={{ color: C.text }}>{it.type === "rank" ? fixRankText(it.text) : it.text}</div>
+                      {it.type === "meal" && it.meal ? (
+                        <div className="body text-xs mt-0.5 tabular-nums" style={{ color: C.dim }}>{it.meal.cal} cal · P {it.meal.p} · C {it.meal.c} · F {it.meal.f}</div>
+                      ) : wo ? (
+                        <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{wo.exercises.map((e) => `${e.name} ×${e.sets.length}`).join(" · ")}</div>
+                      ) : it.detail ? <div className="body text-xs mt-0.5 truncate" style={{ color: C.dim }}>{it.detail}</div> : null}
+                      {clickable && (
+                        <button type="button" onClick={stop(() => setOpenPost(it))} className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: tint[kind] || C.cyan, minHeight: 44, margin: "-14px 0 -14px -8px", padding: "0 8px" }}>
+                          {it.type === "meal" ? <><Utensils size={12} />See macros &amp; log it</> : wo ? <><Dumbbell size={12} />{wo.exercises.length} exercises · {wo.exercises.reduce((a, e) => a + e.sets.length, 0)} sets</> : <><Dumbbell size={12} />See exercises</>}
+                          <ChevronRight size={13} />
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-                {it.from === s.playerId && <button aria-label="Delete post" onClick={stop(() => ask(it.cmeal ? "Delete this post? The meal also comes off the community list." : "Delete this post?", async () => { try { await window.storage.delete(it.key, true); if (it.cmeal) window.storage.delete(it.cmeal, true).catch(() => {}); setItems((x) => x.filter((y) => y.key !== it.key)); } catch (e) { /* ignore */ } }, "Delete"))} className="p-1 shrink-0" style={{ color: C.mute }}><Trash2 size={14} /></button>}
-              </div>
-            );
-          })}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+          {items.length > lim && <div className="px-3" style={{ borderTop: `1px solid ${C.border}` }}><MoreRow label={`Show more · ${items.length - lim} left`} onToggle={() => setLim(lim + 25)} /></div>}
         </div>
       )}
       {openPost && openPost.type === "meal" && <FeedMealSheet s={s} setS={setS} post={openPost} onClose={() => setOpenPost(null)} />}

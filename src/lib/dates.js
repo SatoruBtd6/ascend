@@ -28,3 +28,10 @@ export function monthLabel(y, m, now = new Date()) {
   const name = new Date(y, m, 1).toLocaleDateString(undefined, { month: "long" });
   return y === now.getFullYear() ? name : `${name} ${y}`;
 }
+// Feed day headers: local calendar day, not a 24-hour window — a post at
+// 11:59pm yesterday is "Yesterday" even when "now" is 12:05am today.
+export function dayGroup(t, now = Date.now()) {
+  const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = start(new Date(now)) - start(new Date(t));
+  return diff <= 0 ? "Today" : diff <= 86400000 ? "Yesterday" : "Earlier";
+}

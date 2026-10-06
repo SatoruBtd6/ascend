@@ -1,6 +1,14 @@
 // Hand-written per release; newest first. Surfaced in Settings → What's new.
 export const CHANGELOG = [
   {
+    v: "7v",
+    items: [
+      "Simpler everywhere — every tab shows less at a time and tucks extras into menus.",
+      "The Board gets a metric menu and a compact list; tap Show all to see everyone.",
+      "Tap anyone in the Feed to open their profile, and leaving the board asks first.",
+    ],
+  },
+  {
     v: "7t",
     items: [
       "New Hiking mode on the tracker — Walking, Running and Hiking are now three equal choices. Hikes score their own way and still count toward Stormborn.",

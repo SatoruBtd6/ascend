@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { weekDays, weekTitle, ymOf, monthLabel } from "./dates.js";
+import { weekDays, weekTitle, ymOf, monthLabel, dayGroup } from "./dates.js";
 
 test("weekDays returns the Sun–Sat week containing the day", () => {
   // 2026-10-07 is a Wednesday; its week is Sun Oct 4 – Sat Oct 10.
@@ -30,4 +30,18 @@ test("monthLabel: This month for now, bare name same year, name + year otherwise
   assert.equal(monthLabel(2026, 9, now), "This month");
   assert.equal(monthLabel(2026, 8, now), "September");
   assert.equal(monthLabel(2025, 11, now), "December 2025");
+});
+
+test("dayGroup groups by local calendar day, not a 24-hour window", () => {
+  const now = new Date(2026, 9, 7, 0, 30).getTime(); // Oct 7, 00:30 local
+  assert.equal(dayGroup(new Date(2026, 9, 7, 0, 5).getTime(), now), "Today");
+  assert.equal(dayGroup(new Date(2026, 9, 6, 23, 59).getTime(), now), "Yesterday"); // 31min ago, still Yesterday
+  assert.equal(dayGroup(new Date(2026, 9, 5, 12, 0).getTime(), now), "Earlier");
+});
+
+test("dayGroup: future timestamps count as Today, older days are Earlier", () => {
+  const now = new Date(2026, 9, 7, 12, 0).getTime();
+  assert.equal(dayGroup(now + 60000, now), "Today");
+  assert.equal(dayGroup(new Date(2026, 9, 6, 0, 1).getTime(), now), "Yesterday");
+  assert.equal(dayGroup(new Date(2026, 8, 30, 12, 0).getTime(), now), "Earlier");
 });

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { C } from "../../theme.js";
 import { AuraCanvas } from "../../auras/AuraCanvas.jsx";
 import { auraById } from "../../auras/catalog.js";
@@ -53,9 +55,14 @@ export function PrizeBanner({ variant = "a" }) {
   const monthName = new Date(mk + "-15T12:00").toLocaleDateString(undefined, { month: "long" });
   const days = Math.max(0, Math.ceil((new Date(nextMonthStart(mk) + "T00:00") - new Date()) / 86400000));
   if (!prize) return null;
-  const preview = (
-    <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
-      <AuraCanvas aura={prize.id} w={120} h={120} clock0={6} freezeAfter={11000} />
+  // The canvas stays at its approved 120px render size (the painter's small
+  // gate switches art below ~110px); it is only DISPLAYED at 56px via a
+  // transform, so the animation, glow and 11s freeze are untouched.
+  const preview = (size = 120) => (
+    <div className="relative shrink-0 overflow-hidden" style={{ width: size, height: size }}>
+      <div style={{ width: 120, height: 120, transform: `scale(${size / 120})`, transformOrigin: "top left" }}>
+        <AuraCanvas aura={prize.id} w={120} h={120} clock0={6} freezeAfter={11000} />
+      </div>
     </div>
   );
   if (variant === "b") {
@@ -67,19 +74,39 @@ export function PrizeBanner({ variant = "a" }) {
           <div className="body text-sm" style={{ color: C.sub }}>#1 on the month board takes it — awarded once, kept forever.</div>
         </div>
         <div className="shrink-0 text-center">
-          {preview}
+          {preview(120)}
           <div className="body text-xs font-bold tabular-nums" style={{ color: C.dim }}>{days} days left</div>
         </div>
       </div>
     );
   }
+  return <PrizeRow preview={preview(56)} name={prize.name} days={days} monthName={monthName} />;
+}
+// Compact prize row (phase 7q): 56px aura thumb + name + days left, tap to
+// expand the explanation. Collapsed children unmount after the animation,
+// same as Disclosure.
+function PrizeRow({ preview, name, days, monthName }) {
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    if (open) { setMounted(true); return; }
+    const t = setTimeout(() => setMounted(false), 260);
+    return () => clearTimeout(t);
+  }, [open]);
   return (
-    <div className="flex items-center gap-3 px-3 py-2" style={{ background: C.soft, borderRadius: 10 }}>
-      {preview}
-      <div className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div className="font-extrabold" style={{ fontSize: 22, lineHeight: 1.15, color: C.text }}>{prize.name}</div>
-        <div className="body" style={{ fontSize: 15, lineHeight: 1.3, color: C.dim }}>#1 wears it. Finish the month 1st to keep it forever.</div>
-        <div className="body tabular-nums" style={{ fontSize: 13, lineHeight: 1.3, color: C.mute }}>{days === 1 ? `1 day left in ${monthName}` : `${days} days left in ${monthName}`}</div>
+    <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={`${name} — this month's prize`} className="w-full flex items-center gap-3 text-left" style={{ padding: "8px 0", minHeight: 72 }}>
+        {preview}
+        <div className="min-w-0 flex-1">
+          <div className="font-bold truncate" style={{ fontSize: 17, color: C.text }}>{name}</div>
+          <div className="body tabular-nums truncate" style={{ fontSize: 14, color: C.mute }}>{days === 1 ? `1 day left in ${monthName}` : `${days} days left in ${monthName}`}</div>
+        </div>
+        <ChevronRight size={18} className="shrink-0" style={{ color: C.mute, transform: open ? "rotate(90deg)" : "none", transition: "transform .25s ease-out" }} />
+      </button>
+      <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease-out" }}>
+        <div style={{ overflow: "hidden", minHeight: 0, opacity: open ? 1 : 0, transition: "opacity .22s ease-out" }}>
+          {mounted ? <div className="body pb-3" style={{ fontSize: 14, color: C.dim }}>#1 wears it. Finish the month 1st to keep it forever.</div> : null}
+        </div>
       </div>
     </div>
   );

@@ -1561,6 +1561,16 @@ export function overlayOwnBoardRow(rows, live, playerId, flags = {}) {
   return [mine, ...others];
 }
 
+// Board rows below the podium: ranks 4–10 show collapsed; the rest live
+// behind "Show all". The signed-in player's row is pinned after the shown
+// rows when their rank is outside the top 10, so they always see themselves.
+export function boardWindow(sorted, isMe) {
+  const rest = (sorted || []).slice(3);
+  const shown = rest.slice(0, 7);
+  const hidden = rest.slice(7);
+  return { shown, hidden, pinned: hidden.find(isMe) || null };
+}
+
 export function cardNeedsXpUpdate(card, minV = LB_XP_VERSION) {
   if (!card) return false;
   const v = card.xpV;
