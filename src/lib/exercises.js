@@ -1,6 +1,6 @@
 import { exKey, pickPreferredExercise, exerciseHistoryCounts } from "../math.js";
 import { EXERCISES } from "../data/exercises.js";
-import { FACTOR_FLOOR } from "../data/ranks.js";
+import { FACTOR_FLOOR, GROUPS } from "../data/ranks.js";
 export let exMemo = { token: null, list: null, byName: null, byKey: null };
 export const allExercises = (s) => {
   const custom = s.custom || [];
@@ -37,4 +37,24 @@ export const allExercises = (s) => {
 export const findEx = (s, name) => {
   allExercises(s);
   return exMemo.byName.get(name) || exMemo.byKey.get(exKey(name)) || { name, group: "Core", type: "weighted", factor: 1.2, xp: 8 };
+};
+// Ranks-tab lookup grouping: catalog group order (GROUPS minus Cardio) first,
+// stray groups appended in encounter order. A query prunes to case-insensitive
+// name matches and drops empty groups. Returns [{group, items}].
+export const exerciseGroups = (list, q = "") => {
+  const needle = q.trim().toLowerCase();
+  const items = needle ? list.filter((e) => e.name.toLowerCase().includes(needle)) : list;
+  const byGroup = new Map();
+  items.forEach((e) => {
+    const g = e.group || "Other";
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(e);
+  });
+  const order = GROUPS.filter((g) => g !== "Cardio");
+  return [...byGroup.entries()]
+    .map(([group, exs]) => ({ group, items: exs }))
+    .sort((a, b) => {
+      const ai = order.indexOf(a.group), bi = order.indexOf(b.group);
+      return (ai === -1 ? order.length : ai) - (bi === -1 ? order.length : bi);
+    });
 };

@@ -24,3 +24,5 @@ export const FACTOR_FLOOR = { Chest: 0.35, Back: 0.4, Legs: 0.5, Shoulders: 0.25
 export const GROUP_WEIGHT = { Legs: 3, Back: 3, Chest: 3, Shoulders: 2, Arms: 1, Core: 1 };
 
 export const GROUPS = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio"];
+// The Ranks-tab ladder, top down: SS stays hidden until an overall score of 6 earns it.
+export const ladderRanks = (score) => [...RANKS].reverse().filter((r) => r.id !== "SS" || score >= 6);
