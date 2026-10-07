@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, ChevronLeft, Copy, Download, Layers, Moon, Palette, Save, Share2, Sun, Timer as TimerIcon, Type, Upload, Volume2, VolumeX } from "lucide-react";
+import { Check, ChevronLeft, Copy, Download, Layers, Moon, Palette, Save, Share2, Sun, Timer as TimerIcon, Upload, Volume2, VolumeX } from "lucide-react";
 import { APP_VERSION, BACKUP_KEY, DEFAULT, runningBundle } from "../../appStay.js";
 import * as D from "../../diag.js";
 import { ask } from "../../lib/ask.js";
@@ -104,14 +104,6 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
             <div className="body text-xs" style={{ color: C.dim }}>Rainbow everything, plus disco music and a disco ball. Tap the disco ball button to start or stop the party.</div>
           </div>
           <SettingsToggle label="Zesty mode" on={!!st.zesty} onClick={() => { const on = !st.zesty; setSet("zesty", on); setParty(on); }} />
-        </div>
-        <div className="flex items-center gap-3">
-          <Type size={22} style={{ color: C.cyan }} />
-          <div className="flex-1">
-            <div className="font-bold">Easy-read font</div>
-            <div className="body text-xs" style={{ color: C.dim }}>Switches everything to Lexend, a rounder font with wider spacing that's easier to read for dyslexia.</div>
-          </div>
-          <SettingsToggle label="Easy-read font" on={!!st.dysFont} onClick={() => setSet("dysFont", !st.dysFont)} />
         </div>
         <div className="flex items-center gap-3">
           <Palette size={22} style={{ color: C.cyan }} />

@@ -10,22 +10,43 @@ import { fmtShort } from "../train/helpers.js";
 import { readShared } from "../train/social.js";
 import { DUEL_XP } from "../train/xpConstants.js";
 import { WORKOUT_CREDIT } from "../../math.js";
-import { DUEL_CONDS, NEMESIS_REWARDS, duelState, isMutualNemesis, rivalRecord } from "./duels.js";
-export function DuelButton({ s, targetId, targetName, targetUid, nemesis = false, onSent }) {
+import { DUEL_CONDS, DUEL_PENDING_MS, NEMESIS_REWARDS, duelState, isMutualNemesis, pendingOutgoingDuels, rivalRecord } from "./duels.js";
+export function DuelButton({ s, targetId, targetName, targetUid, nemesis = false, onSent, duels = null, onCancelled }) {
   const [forfeit, setForfeit] = useState("");
   const [cond, setCond] = useState("xp");
   const [sent, setSent] = useState(false);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
+  const [selfPend, setSelfPend] = useState(null);
+  useEffect(() => {
+    if (duels) return; // caller keeps the list current
+    let on = true;
+    readShared("duel:").then((d) => { if (on) setSelfPend(pendingOutgoingDuels(d, s.playerId)); }).catch(() => { if (on) setSelfPend([]); });
+    return () => { on = false; };
+  }, [duels, s.playerId, sent]);
+  const pend = duels ? pendingOutgoingDuels(duels, s.playerId) : (selfPend || []);
+  const cancel = async (d) => {
+    try { await window.storage.delete(d.key, true); } catch (e) { /* already gone */ }
+    setSelfPend((p) => (p || []).filter((x) => x.id !== d.id));
+    onCancelled?.(d);
+  };
   const send = async () => {
     if (!s.lb || !s.profile.name) { setErr("Join the leaderboard first."); return; }
-    const id = uid();
     try {
+      const fresh = pendingOutgoingDuels(await readShared("duel:"), s.playerId);
+      if (fresh.length) { setErr(`You already have a challenge out to ${fresh[0].toName}. Cancel it before sending another.`); return; }
+      const id = uid();
       await window.storage.set(`duel:${id}`, JSON.stringify({ id, from: s.playerId, fromUid: window.ascendUserId || null, fromName: s.profile.name, to: targetId, toUid: targetUid || null, toName: targetName, cond, rule: WORKOUT_CREDIT.duelRule, forfeit: forfeit.trim().slice(0, 60), status: "pending", t: Date.now() }), true);
       setSent(true); onSent?.();
     } catch (e) { setErr("Couldn't send the duel. Check your connection."); }
   };
   if (sent) return <div className="body text-sm" style={{ color: C.green }}>Duel sent. It starts the day {targetName} accepts. Track it on Board → Crew.</div>;
+  if (pend.length) return (
+    <div className="panel p-3 space-y-2" style={nemesis ? { borderColor: "rgba(255,45,111,.5)" } : null}>
+      <div className="body text-sm" style={{ color: C.dim }}>Challenge pending — waiting for <b style={{ color: C.text }}>{pend[0].toName}</b> to accept. One challenge can be out at a time.</div>
+      <button onClick={() => cancel(pend[0])} className="ghost w-full py-2 text-sm font-bold">Cancel challenge</button>
+    </div>
+  );
   if (!open) return <button onClick={() => setOpen(true)} className="ghost w-full py-2.5 text-sm font-bold flex items-center justify-center gap-2" style={{ color: nemesis ? "#FF6B8F" : C.cyan, borderColor: nemesis ? "rgba(255,45,111,.5)" : undefined }}><Swords size={16} />{nemesis ? "Challenge your Nemesis" : "Challenge to a 7-day duel"}</button>;
   return (
     <div className="panel p-3 space-y-2.5" style={nemesis ? { borderColor: "rgba(255,45,111,.5)" } : null}>
@@ -58,8 +79,9 @@ export function RivalryButton({ s, setS, them }) {
   return <button onClick={() => replace(() => set({ id: them.id, name: them.name, since: today() }))} className="ghost w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={style}>😈 Propose a Nemesis rivalry</button>;
 }
 
-export function RivalryCard({ s, setS, rows, openProfile }) {
+export function RivalryCard({ s, setS, rows, openProfile, duels, setDuels }) {
   const [challenge, setChallenge] = useState(false);
+  const pendOut = pendingOutgoingDuels(duels, s.playerId);
   const cardOf = (id) => rows.find((r) => r.id === id);
   const nemCard = s.nemesis?.id ? cardOf(s.nemesis.id) : null;
   const mutual = isMutualNemesis(s, nemCard);
@@ -89,7 +111,8 @@ export function RivalryCard({ s, setS, rows, openProfile }) {
                 <div className="font-bold truncate"><FancyName name={nemCard.name} look={nemCard.look} /></div>
               </div>
               <div className="font-extrabold tabular-nums shrink-0" aria-label={`Record ${rec.w} wins, ${rec.l} losses${rec.t ? `, ${rec.t} ties` : ""}`}><span style={{ color: C.green }}>{rec.w}</span><span style={{ color: C.mute }}>–</span><span style={{ color: "#FF6B8F" }}>{rec.l}</span>{rec.t ? <><span style={{ color: C.mute }}>–</span><span style={{ color: C.dim }}>{rec.t}</span></> : null}</div>
-              {!challenge && <button onClick={() => setChallenge(true)} className="btn px-3 py-1.5 text-xs shrink-0 flex items-center gap-1"><Swords size={12} />Challenge</button>}
+              {!challenge && !pendOut.length && <button onClick={() => setChallenge(true)} className="btn px-3 py-1.5 text-xs shrink-0 flex items-center gap-1"><Swords size={12} />Challenge</button>}
+              {!challenge && pendOut.length > 0 && <button onClick={() => setChallenge(true)} className="ghost px-3 py-1.5 text-xs shrink-0 font-bold" style={{ color: C.dim }}>Pending</button>}
             </div>
             <div className="grid grid-cols-3 gap-2">
               {NEMESIS_REWARDS.map((r) => { const got = wins >= r.wins; return (
@@ -99,7 +122,7 @@ export function RivalryCard({ s, setS, rows, openProfile }) {
                 </div>
               ); })}
             </div>
-            {challenge && <DuelButton s={s} targetId={nemCard.id} targetName={nemCard.name} targetUid={nemCard.uid} nemesis onSent={() => setChallenge(false)} />}
+            {challenge && <DuelButton s={s} targetId={nemCard.id} targetName={nemCard.name} targetUid={nemCard.uid} nemesis duels={duels} onSent={() => setChallenge(false)} onCancelled={(d) => { setDuels?.((x) => (x || []).filter((y) => y.key !== d.key)); setChallenge(false); }} />}
           </div>
         );
       })() : s.nemesis?.id ? (
@@ -117,7 +140,7 @@ export function DuelsSection(props) {
   const [duels, setDuels] = useState(null);
   useEffect(() => { readShared("duel:").then((d) => setDuels(d.filter((x) => x.from === s.playerId || x.to === s.playerId).sort((a, b) => (b.t || 0) - (a.t || 0)))).catch(() => setDuels([])); }, []);
   const incoming = props.rows.filter((r) => r.rivalWith === s.playerId && r.id !== s.playerId && s.nemesis?.id !== r.id && !(s.rivalDeclined || {})[r.id]).length;
-  const pending = (duels || []).filter((d) => d.status === "pending" && d.to === s.playerId && Date.now() - (d.t || 0) <= 7 * 86400000).length;
+  const pending = (duels || []).filter((d) => d.status === "pending" && d.to === s.playerId && Date.now() - (d.t || 0) <= DUEL_PENDING_MS).length;
   const actionable = incoming + pending;
   const rec = s.nemesis?.id ? rivalRecord(s, s.nemesis.id) : null;
   const recTxt = rec ? `${rec.w}–${rec.l}${rec.t ? `–${rec.t}` : ""}` : "";
@@ -138,7 +161,7 @@ export function DuelsPanel({ s, setS, gainXp, rows, openProfile, duels, setDuels
   const shown = showAll ? duels : duels?.slice(0, 5);
   return (
     <div className="pt-1">
-      <RivalryCard s={s} setS={setS} rows={rows} openProfile={openProfile} />
+      <RivalryCard s={s} setS={setS} rows={rows} openProfile={openProfile} duels={duels} setDuels={setDuels} />
       {duels === null && <div className="flex items-center gap-2 body text-sm mt-2" style={{ color: C.dim }}><Loader2 size={14} className="animate-spin" />Loading duels…</div>}
       {duels?.length === 0 && <Empty>No duels yet. Open someone's profile from the board and challenge them: most XP, most steps, or most workouts over 7 days.</Empty>}
       {shown?.map((d) => {
@@ -147,7 +170,7 @@ export function DuelsPanel({ s, setS, gainXp, rows, openProfile, duels, setDuels
         const saved = (s.duelResults || {})[d.id];
         const st = saved ? { ...duelState(d, s, oc), phase: "done", r: saved.r, mine: saved.mine, theirs: saved.theirs } : duelState(d, s, oc);
         const c = DUEL_CONDS[st.cond], fmtV = (v) => (v == null ? "?" : st.cond === "workouts" && (d.rule || 0) >= 1 ? (Math.round(Number(v) * 10) / 10).toFixed(1) : Number(v).toLocaleString());
-        const expired = d.status === "pending" && Date.now() - (d.t || 0) > 7 * 86400000;
+        const expired = d.status === "pending" && Date.now() - (d.t || 0) > DUEL_PENDING_MS;
         const isOpen = openId === d.key;
         const word = expired ? ["Expired", C.mute]
           : d.status === "pending" ? (me ? ["Sent", C.dim] : ["Pending", C.cyan])

@@ -1540,7 +1540,7 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
 import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
 import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout, workoutXp, cardioSteps } from "./lib/stats.js";
 import { CARDIO_METRIC } from "./data/cardio.js";
-import { cardScore, selfScore } from "./tabs/board/duels.js";
+import { cardScore, selfScore, pendingOutgoingDuels, DUEL_PENDING_MS } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
 import { AURA_TASKS, BORDERS, unlocked, stripGhostCosmetics } from "./tabs/profile/unlock.js";
 import { TITLES } from "./tabs/profile/titles.js";
@@ -1703,6 +1703,26 @@ test("workout duels created under 7d sum credit and older ones still count sessi
   assert.equal(cardScore(legacy, "workouts", "2026-09-01", "2026-09-07", { rule: 1 }), null);
   const next = { daily: { "2026-09-01": [0, 0, 1, 0.5], "2026-09-02": [0, 0, 1, 1], "2026-09-08": [0, 0, 0, 0] } };
   assert.equal(cardScore(next, "workouts", "2026-09-01", "2026-09-07", { rule: 1 }).v, 1.5);
+});
+
+test("pendingOutgoingDuels: one live outgoing challenge blocks all new sends", () => {
+  const now = 1_000_000_000;
+  const me = "p1";
+  const mk = (over) => ({ id: "d1", from: me, to: "p2", status: "pending", t: now - 1000, ...over });
+  // pending outgoing blocks — regardless of who it was sent to
+  assert.equal(pendingOutgoingDuels([mk()], me, now).length, 1);
+  assert.equal(pendingOutgoingDuels([mk({ to: "p9" })], me, now).length, 1);
+  // incoming pending, active, and resolved duels do not block
+  assert.equal(pendingOutgoingDuels([mk({ from: "p2", to: me })], me, now).length, 0);
+  assert.equal(pendingOutgoingDuels([mk({ status: "on" })], me, now).length, 0);
+  assert.equal(pendingOutgoingDuels([mk({ status: "done" })], me, now).length, 0);
+  // an expired pending challenge (older than the 7-day window) frees the slot
+  assert.equal(pendingOutgoingDuels([mk({ t: now - DUEL_PENDING_MS - 1 })], me, now).length, 0);
+  assert.equal(pendingOutgoingDuels([mk({ t: now - DUEL_PENDING_MS })], me, now).length, 1);
+  // missing/foreign data never blocks
+  assert.equal(pendingOutgoingDuels([], me, now).length, 0);
+  assert.equal(pendingOutgoingDuels(null, me, now).length, 0);
+  assert.equal(pendingOutgoingDuels([mk({ from: "p3" })], me, now).length, 0);
 });
 
 test("miles and volume stay on the session list while workout progress is credit", () => {

@@ -4,7 +4,7 @@ export const APP_VERSION = "7v";
 export const DEFAULT = {
   profile: { name: "", weight: 170, height: 70, age: 20, sex: "m", activity: 1.55, goal: "lean" },
   xp: 0, xpLog: {}, workouts: [], active: null, days: {}, meals: {}, weekly: {}, monthly: {}, rankSnap: null, rankHist: {}, steps: {}, stepXp: {}, savedRoutes: [], stepToken: null, stepTokenHash: null, loot: {}, seasonBadges: {}, monthBadges: {}, nemesis: null, nemesisSeen: {}, roasts: {}, checkins: {}, atGym: null, water: {}, dayTemplates: [], measure: {}, groupClaimed: {}, duelClaimed: {}, lastSummary: null, playerId: null, lb: false, test: false, ghost: null, bossRecaps: {}, streakNagDay: null, worldFirsts: {}, wfClaim: {}, crewBanners: {}, custom: [], fuelClaimed: {}, chat: [], ach: {}, achV: 4, mogClaimed: {}, xpDetail: {}, xpDone: {}, presets: [], weightLog: {}, community: { ex: [], foods: [] }, savedFoods: [], gyms: [], currentGym: null, gymSpecific: {}, testCrate: { pity: 0, log: [] }, seenVersion: APP_VERSION,
-  settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, dysFont: false, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
+  settings: { theme: "dark", zesty: false, voice: true, voiceStyle: "goblin", sounds: true, rest: 90, custom: { on: false, cyan: "#00D9FF", blue: "#0A84FF", bg: "#000000" } },
   savedV: APP_VERSION,
 };
 

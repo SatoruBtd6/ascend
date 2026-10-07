@@ -10,6 +10,13 @@ export const DUEL_CONDS = {
   workouts: { label: "Most workouts", short: "Workouts", unit: "workouts", idx: 2 },
 };
 export const duelCond = (d) => (DUEL_CONDS[d?.cond] ? d.cond : "xp");
+// An unaccepted challenge goes stale after 7 days (DuelsPanel renders those as
+// "Expired"). Only one outgoing challenge may be pending at a time — a fresh
+// one is blocked until the pending one is accepted, cancelled or expires.
+export const DUEL_PENDING_MS = 7 * 86400000;
+export function pendingOutgoingDuels(duels, playerId, now = Date.now()) {
+  return (duels || []).filter((d) => d?.status === "pending" && d.from === playerId && now - (d.t || 0) <= DUEL_PENDING_MS);
+}
 // Legacy duels ran the calendar week they were sent in; new ones run 7 days from the day they're accepted
 export const duelWindow = (d) => { const start = d?.start || d?.ws; return start ? { start, end: shift(start, DUEL_DAYS - 1) } : null; };
 // Last 21 days of [xp, steps, workouts] for the board card. Zeros included, so others can tell the card is current.

@@ -986,7 +986,7 @@ export default function App() {
 
   return (
     <SaveCtx.Provider value={{ status: saveStatus }}>
-    <div className={`fixed inset-0 overflow-hidden ${s.settings?.zesty ? "zesty" : ""} ${s.settings?.dysFont ? "dys" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className={`fixed inset-0 overflow-hidden dys ${s.settings?.zesty ? "zesty" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <UpdateBanner onReload={reloadForUpdate} />
       {updateReady && !chunkBanner && (
         <div role="alert" className="absolute left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>

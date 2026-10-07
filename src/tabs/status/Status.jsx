@@ -83,15 +83,13 @@ export function Status({ s, setS, gainXp, openAssistant, openSettings, openProfi
           <Physique tier={overall.score} height={116} aura={s.profile.look?.aura} sex={s.profile.sex} />
         </div>
         <div className="mt-2 relative"><Bar pct={overall.divPct} color={oc.color} /></div>
-        <button onClick={openProfile} className="mt-2 flex items-center gap-1 relative body font-semibold" style={{ fontSize: 15, color: C.cyan }}>Profile <ChevronRight size={15} /></button>
 
         <div className="mt-3 flex justify-between items-baseline relative">
           <span className="text-xl font-bold">Level {lvl}</span>
           <span className="text-sm body" style={{ color: C.dim }}>{into} / {need} XP</span>
         </div>
         <div className="mt-2"><Bar pct={(into / need) * 100} color={C.cyan} /></div>
-        <div className="mt-2 flex justify-between items-center relative">
-          <button onClick={() => openXp()} className="body flex items-center gap-0.5" style={{ fontSize: 15, color: C.cyan }}>XP history <ChevronRight size={14} /></button>
+        <div className="mt-2 flex justify-end items-center relative">
           <button onClick={() => setPtsOpen((v) => !v)} aria-expanded={ptsOpen} className="text-xl font-bold" style={{ color: C.gold, textShadow: "0 0 12px rgba(255,212,71,.5)" }}>{points.toLocaleString()} pts</button>
         </div>
         {ptsOpen && (() => {
