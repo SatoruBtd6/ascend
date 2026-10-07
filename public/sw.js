@@ -39,6 +39,28 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("message", (e) => {
   if (e.data === "skipWaiting") self.skipWaiting();
 });
+
+// Web Push: the daily quest nudge lands here while the app is closed.
+// Payload is only {title, body, tag, url} — count + generic text, no personal data.
+self.addEventListener("push", (e) => {
+  let p = {};
+  try { p = e.data ? e.data.json() : {}; } catch { try { p = { body: e.data?.text() }; } catch { /* empty */ } }
+  e.waitUntil(self.registration.showNotification(p.title || "Quests ready", {
+    body: p.body || "",
+    tag: p.tag || "ascend-quest",
+    icon: "/icon-192.png",
+    data: { url: p.url || "/?tab=quests" },
+  }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url || "/?tab=quests";
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    const win = list.find((w) => w.url.startsWith(self.location.origin));
+    if (win) { win.focus(); try { win.navigate(url); } catch { /* cross-nav */ } return; }
+    return clients.openWindow(url);
+  }));
+});
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;

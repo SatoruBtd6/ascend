@@ -6,7 +6,7 @@ import { ask } from "../../lib/ask.js";
 import { reconcileRecount } from "../train/xpRecount.js";
 import { XpSync } from "../../lib/xpSync.js";
 import { levelFromXp, normalizeState } from "../../math.js";
-import { isInstalledPwa, isIOSDevice, notifyPermission, questAlertToggleState, requestNotifyPermission } from "../../lib/notify.js";
+import { isInstalledPwa, isIOSDevice, notifyPermission, questAlertToggleState, requestNotifyPermission, syncPushSubscription } from "../../lib/notify.js";
 import { C } from "../../theme.js";
 import { SettingsToggle } from "../../ui/primitives.jsx";
 import { stripGhostCosmetics } from "../profile/unlock.js";
@@ -174,7 +174,8 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
                 // toggling ON is the opt-in gesture: iOS grants the OS prompt
                 // only when asked from a real tap, and denial lands on the
                 // "denied" state below once the promise resolves.
-                if (on) requestNotifyPermission()?.then(() => setPerm(notifyPermission()));
+                if (on) (requestNotifyPermission() || Promise.resolve()).then(() => { setPerm(notifyPermission()); syncPushSubscription(true, s.playerId); });
+                else syncPushSubscription(false, s.playerId);
                 setSet("questAlerts", on);
               }} />
             : <span style={{ opacity: 0.4, pointerEvents: "none" }}><SettingsToggle label="Quest alerts" on={false} onClick={() => {}} /></span>}

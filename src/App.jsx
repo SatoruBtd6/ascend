@@ -13,7 +13,7 @@ import { AskRef } from "./lib/ask.js";
 import { scrollPageTop, legacyStandalone } from "./lib/dom.js";
 import { findEx } from "./lib/exercises.js";
 import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements, ACH_VERSION, claimableCount, claimableLabel } from "./lib/stats.js";
-import { questAlertShouldFire, fireQuestAlert, notifyPermission } from "./lib/notify.js";
+import { questAlertShouldFire, fireQuestAlert, notifyPermission, syncPushSubscription } from "./lib/notify.js";
 import { SaveCtx } from "./ui/saveCtx.js";
 import { Sheet } from "./ui/primitives.jsx";
 import { AURAS } from "./auras/catalog.js";
@@ -88,6 +88,9 @@ const RETURN_TAB_KEY = "ascend-return-tab";
 const RETURNABLE_TABS = new Set(["status", "train", "quests", "fuel", "calendar", "ranks", "board", "run", "settings", "assistant"]);
 const readReturnTab = () => {
   try {
+    // Push notifications land on /?tab=quests so a tap opens the Quests tab.
+    const q = new URLSearchParams(window.location.search).get("tab");
+    if (q && RETURNABLE_TABS.has(q)) return q;
     const t = sessionStorage.getItem(RETURN_TAB_KEY);
     if (t) { sessionStorage.removeItem(RETURN_TAB_KEY); if (RETURNABLE_TABS.has(t)) return t; }
   } catch (e) { /* private mode */ }
@@ -129,13 +132,16 @@ class TabErrorBoundary extends React.Component {
 // Foreground quest alert: fires when the claimable count rises while the app
 // is open. Lives in a child so App's early returns (boot screen, watch mode)
 // don't gate a hook. No polling — runs off the same `s` the nav badge reads.
-function QuestAlerts({ count, enabled }) {
+function QuestAlerts({ count, enabled, playerId }) {
   const prev = useRef(count);
   useEffect(() => {
     const p = prev.current;
     prev.current = count;
     if (questAlertShouldFire(p, count, { enabled, permission: notifyPermission() })) fireQuestAlert(count);
   }, [count, enabled]);
+  // While the toggle is on, keep the push_subscriptions row fresh on every
+  // boot — covers iOS rotating the endpoint under us.
+  useEffect(() => { if (enabled) syncPushSubscription(true, playerId); }, [enabled, playerId]);
   return null;
 }
 
@@ -1003,7 +1009,7 @@ export default function App() {
     <SaveCtx.Provider value={{ status: saveStatus }}>
     <div className={`fixed inset-0 overflow-hidden dys ${s.settings?.zesty ? "zesty" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <UpdateBanner onReload={reloadForUpdate} />
-      <QuestAlerts count={questBadge} enabled={!!s.settings?.questAlerts} />
+      <QuestAlerts count={questBadge} enabled={!!s.settings?.questAlerts} playerId={s.playerId} />
       {updateReady && !chunkBanner && (
         <div role="alert" className="absolute left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
           <div className="max-w-md w-full flex items-center gap-3 px-4 py-3" style={{ borderRadius: 14, background: C.sheet, border: `1px solid ${C.cyan}`, boxShadow: `0 8px 30px rgba(0,0,0,.45), 0 0 18px ${C.glow}` }}>

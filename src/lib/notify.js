@@ -1,6 +1,9 @@
 // Quest + rest-timer notification plumbing. The pure decisions
 // (toggle state, should-fire, label) are exported for tests; the DOM and
 // service-worker calls sit behind them and no-op where unsupported.
+import { supabase, configured } from "../supabase.js";
+
+const VAPID_PUBLIC = (import.meta.env?.VITE_VAPID_PUBLIC_KEY || "").trim();
 
 // Pure: what the Settings "Quest alerts" row can do.
 //   "ready"       — toggle usable (permission granted or still askable)
@@ -47,4 +50,34 @@ export function fireQuestAlert(n) {
   try { new Notification(title, { body, tag: "ascend-quest", icon: "/icon-192.png" }); return true; } catch { /* fall through */ }
   try { navigator.serviceWorker?.ready?.then((r) => r?.showNotification?.(title, { body, tag: "ascend-quest", icon: "/icon-192.png" })); } catch { /* none */ }
   return false;
+}
+
+const urlB64ToU8 = (b64) => {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const bin = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+};
+
+// Keep the push_subscriptions row in step with the toggle. ON: subscribe (or
+// reuse the current subscription — upsert also covers iOS rotating endpoints)
+// and upsert {uid, endpoint, keys, player_id}. OFF: unsubscribe + delete the
+// user's rows, so the daily job can't reach them. All failures are silent —
+// alerts just degrade to foreground-only.
+export async function syncPushSubscription(on, playerId) {
+  try {
+    if (!configured || !supabase || !VAPID_PUBLIC) return;
+    const uid = window.ascendUserId;
+    if (!uid || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const reg = await navigator.serviceWorker.ready;
+    if (!on) {
+      try { const sub = await reg.pushManager.getSubscription(); await sub?.unsubscribe(); } catch { /* none */ }
+      await supabase.from("push_subscriptions").delete().eq("uid", uid);
+      return;
+    }
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
+    if (!sub) return;
+    const j = sub.toJSON();
+    await supabase.from("push_subscriptions").upsert({ uid, endpoint: sub.endpoint, keys: j.keys || {}, player_id: playerId || null, updated_at: new Date().toISOString() }, { onConflict: "uid,endpoint" });
+  } catch { /* push unsupported or offline — no-op */ }
 }
