@@ -11,3 +11,5 @@ tmp-diag/
 .vercel
 evidence/
 public/aura/*.jpg
+# Local dev probes — kept on disk, never committed.
+_probe-*.mjs
