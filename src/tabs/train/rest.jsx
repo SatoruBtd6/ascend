@@ -3,7 +3,10 @@ import { createPortal } from "react-dom";
 import { Timer as TimerIcon, X } from "lucide-react";
 import { C } from "../../theme.js";
 import { Beeper, fmtClock } from "./beeper.js";
+import { requestNotifyPermission } from "../../lib/notify.js";
 export function fireRest(end) {
+  // Called from the set-done tap: a real user gesture, so iOS honors this.
+  requestNotifyPermission();
   try { window.dispatchEvent(new CustomEvent("ascend-rest", { detail: end ? { end } : null })); } catch { /* */ }
 }
 
@@ -42,7 +45,8 @@ export function RestBubble({ end, onDone, onClose, onChangeEnd }) {
   useEffect(() => { persistRestEnd(end); }, [end]);
   useEffect(() => {
     (async () => { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* unsupported */ } })();
-    try { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* */ }
+    // permission is requested on the gesture path (fireRest / Quests nav tap) —
+    // iOS silently ignores requests made from an effect.
     const onVis = async () => { if (document.visibilityState === "visible") { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } } };
     document.addEventListener("visibilitychange", onVis);
     return () => { document.removeEventListener("visibilitychange", onVis); try { wakeRef.current?.release(); } catch (e) { /* */ } };
@@ -94,7 +98,8 @@ export function RestWatchPage() {
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, []);
   useEffect(() => {
     (async () => { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } })();
-    try { if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* */ }
+    // permission is requested on the gesture path (fireRest / Quests nav tap) —
+    // iOS silently ignores requests made from an effect.
     const onVis = async () => { if (document.visibilityState === "visible") { try { wakeRef.current = await navigator.wakeLock?.request("screen"); } catch (e) { /* */ } } };
     const onStor = (e) => { if (e.key === "ascend-rest-end") setEnd(+e.newValue || 0); };
     document.addEventListener("visibilitychange", onVis);

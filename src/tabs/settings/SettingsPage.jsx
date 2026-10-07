@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
-import { Check, ChevronLeft, Copy, Download, Layers, Moon, Palette, Save, Share2, Sun, Timer as TimerIcon, Upload, Volume2, VolumeX } from "lucide-react";
+import { Bell, Check, ChevronLeft, Copy, Download, Layers, Moon, Palette, Save, Share2, Sun, Timer as TimerIcon, Upload, Volume2, VolumeX } from "lucide-react";
 import { APP_VERSION, BACKUP_KEY, DEFAULT, runningBundle } from "../../appStay.js";
 import * as D from "../../diag.js";
 import { ask } from "../../lib/ask.js";
 import { reconcileRecount } from "../train/xpRecount.js";
 import { XpSync } from "../../lib/xpSync.js";
 import { levelFromXp, normalizeState } from "../../math.js";
+import { isInstalledPwa, isIOSDevice, notifyPermission, questAlertToggleState } from "../../lib/notify.js";
 import { C } from "../../theme.js";
 import { SettingsToggle } from "../../ui/primitives.jsx";
 import { stripGhostCosmetics } from "../profile/unlock.js";
@@ -29,6 +30,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   const [impMsg, setImpMsg] = useState(null);
   const impRef = useRef(null);
   const [diagOn, setDiagOn] = useState(() => D.on());
+  const alertUi = questAlertToggleState({ hasApi: typeof Notification !== "undefined", isIOS: isIOSDevice(), installed: isInstalledPwa(), permission: notifyPermission() });
   const [diagCopied, setDiagCopied] = useState(false);
   const [page, setPage] = useState(null); // "whatsnew" | "audit"
   const verTaps = useRef([]);
@@ -150,6 +152,25 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
             ))}
           </div>
         )}
+      </div>
+
+      <h2 className="text-lg font-bold">Alerts</h2>
+      <div className="panel p-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <Bell size={22} style={{ color: C.cyan }} />
+          <div className="flex-1">
+            <div className="font-bold">Quest alerts</div>
+            <div className="body text-xs" style={{ color: C.dim }}>
+              {alertUi === "denied" ? "Notifications are off in system settings for Ascend — turn them on there to use this."
+                : alertUi === "install" ? "Install the app to your home screen to get quest alerts."
+                : alertUi === "unsupported" ? "This device can't show notifications."
+                : "A banner when quests become claimable, plus a daily nudge if any are still waiting."}
+            </div>
+          </div>
+          {alertUi === "ready"
+            ? <SettingsToggle label="Quest alerts" on={!!st.questAlerts} onClick={() => setSet("questAlerts", !st.questAlerts)} />
+            : <span style={{ opacity: 0.4, pointerEvents: "none" }}><SettingsToggle label="Quest alerts" on={false} onClick={() => {}} /></span>}
+        </div>
       </div>
 
       <h2 className="text-lg font-bold">Tutorial</h2>

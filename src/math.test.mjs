@@ -1581,6 +1581,7 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
 
 import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
 import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout, workoutXp, cardioSteps, claimableCount, claimableLabel } from "./lib/stats.js";
+import { questAlertToggleState, questAlertShouldFire, questAlertText } from "./lib/notify.js";
 import { CARDIO_METRIC } from "./data/cardio.js";
 import { cardScore, selfScore, pendingOutgoingDuels, DUEL_PENDING_MS } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
@@ -1815,6 +1816,39 @@ test("claimableCount mirrors the Quests tab's claim conditions", () => {
   assert.equal(claimableLabel(9), "9");
   assert.equal(claimableLabel(10), "9+");
   assert.equal(claimableLabel(big), "9+");
+});
+
+test("quest alerts: gate needs toggle + granted + a rising count", () => {
+  const G = { enabled: true, permission: "granted" };
+  // fires only when the count rose
+  assert.equal(questAlertShouldFire(0, 3, G), true);
+  assert.equal(questAlertShouldFire(2, 3, G), true);
+  assert.equal(questAlertShouldFire(3, 3, G), false);        // same count — e.g. unrelated save
+  assert.equal(questAlertShouldFire(4, 3, G), false);        // a claim dropped the count — no alert
+  assert.equal(questAlertShouldFire(0, 1, G), true);
+  // toggle off or permission missing -> silence
+  assert.equal(questAlertShouldFire(0, 3, { ...G, enabled: false }), false);
+  assert.equal(questAlertShouldFire(0, 3, { ...G, permission: "default" }), false);
+  assert.equal(questAlertShouldFire(0, 3, { ...G, permission: "denied" }), false);
+  assert.equal(questAlertShouldFire(0, 3, { ...G, permission: "unsupported" }), false);
+  // label text, singular + plural
+  assert.deepEqual(questAlertText(1), { title: "Quests ready", body: "You have 1 quest waiting." });
+  assert.deepEqual(questAlertText(3).body, "You have 3 quests waiting.");
+});
+
+test("quest alerts: Settings toggle degrades for denied, uninstalled iOS, and no API", () => {
+  const base = { hasApi: true, isIOS: false, installed: false, permission: "granted" };
+  assert.equal(questAlertToggleState(base), "ready");
+  assert.equal(questAlertToggleState({ ...base, permission: "default" }), "ready");   // still askable
+  assert.equal(questAlertToggleState({ ...base, permission: "denied" }), "denied");
+  // iOS without a home-screen install -> "install" (API present or not)
+  assert.equal(questAlertToggleState({ ...base, isIOS: true }), "install");
+  assert.equal(questAlertToggleState({ hasApi: false, isIOS: true, installed: false, permission: "unsupported" }), "install");
+  // installed iOS PWA behaves like any other platform
+  assert.equal(questAlertToggleState({ ...base, isIOS: true, installed: true }), "ready");
+  assert.equal(questAlertToggleState({ ...base, isIOS: true, installed: true, permission: "denied" }), "denied");
+  // no API anywhere else -> unsupported
+  assert.equal(questAlertToggleState({ hasApi: false, isIOS: false, installed: false, permission: "unsupported" }), "unsupported");
 });
 
 test("miles and volume stay on the session list while workout progress is credit", () => {

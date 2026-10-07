@@ -13,6 +13,7 @@ import { AskRef } from "./lib/ask.js";
 import { scrollPageTop, legacyStandalone } from "./lib/dom.js";
 import { findEx } from "./lib/exercises.js";
 import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements, ACH_VERSION, claimableCount, claimableLabel } from "./lib/stats.js";
+import { questAlertShouldFire, fireQuestAlert, notifyPermission, requestNotifyPermission } from "./lib/notify.js";
 import { SaveCtx } from "./ui/saveCtx.js";
 import { Sheet } from "./ui/primitives.jsx";
 import { AURAS } from "./auras/catalog.js";
@@ -123,6 +124,19 @@ class TabErrorBoundary extends React.Component {
       </div>
     );
   }
+}
+
+// Foreground quest alert: fires when the claimable count rises while the app
+// is open. Lives in a child so App's early returns (boot screen, watch mode)
+// don't gate a hook. No polling — runs off the same `s` the nav badge reads.
+function QuestAlerts({ count, enabled }) {
+  const prev = useRef(count);
+  useEffect(() => {
+    const p = prev.current;
+    prev.current = count;
+    if (questAlertShouldFire(p, count, { enabled, permission: notifyPermission() })) fireQuestAlert(count);
+  }, [count, enabled]);
+  return null;
 }
 
 export default function App() {
@@ -989,6 +1003,7 @@ export default function App() {
     <SaveCtx.Provider value={{ status: saveStatus }}>
     <div className={`fixed inset-0 overflow-hidden dys ${s.settings?.zesty ? "zesty" : ""}`} id="ascend-root" style={{ background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <UpdateBanner onReload={reloadForUpdate} />
+      <QuestAlerts count={questBadge} enabled={!!s.settings?.questAlerts} />
       {updateReady && !chunkBanner && (
         <div role="alert" className="absolute left-0 right-0 z-[60] flex justify-center px-3" style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
           <div className="max-w-md w-full flex items-center gap-3 px-4 py-3" style={{ borderRadius: 14, background: C.sheet, border: `1px solid ${C.cyan}`, boxShadow: `0 8px 30px rgba(0,0,0,.45), 0 0 18px ${C.glow}` }}>
@@ -1203,7 +1218,7 @@ export default function App() {
       <nav className="absolute bottom-0 inset-x-0 z-40" style={{ background: C.glass, borderTop: `1px solid ${C.glassLine}`, backdropFilter: "blur(22px) saturate(150%)", WebkitBackdropFilter: "blur(22px) saturate(150%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="max-w-md mx-auto grid grid-cols-7">
           {tabs.map(([id, Icon, label]) => (
-            <button key={id} onClick={() => setTab(id)} className="pt-2.5 pb-3 flex flex-col items-center gap-1 relative" style={{ fontSize: 10, color: tab === id ? C.cyan : C.mute, filter: tab === id ? `drop-shadow(0 0 6px ${C.glow})` : "none" }}>
+            <button key={id} onClick={() => { setTab(id); if (id === "quests") requestNotifyPermission(); }} className="pt-2.5 pb-3 flex flex-col items-center gap-1 relative" style={{ fontSize: 10, color: tab === id ? C.cyan : C.mute, filter: tab === id ? `drop-shadow(0 0 6px ${C.glow})` : "none" }}>
               {tab === id && <span className="absolute top-0 left-1/4 right-1/4" style={{ height: 2, background: C.cyan, boxShadow: `0 0 10px ${C.cyan}` }} />}
               <span className="relative">
                 <Icon size={19} strokeWidth={tab === id ? 2.4 : 1.8} />
