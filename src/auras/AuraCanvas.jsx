@@ -3301,6 +3301,12 @@ export const AURA_ART = {
   },
 };
 
+// Dev tooling (the ?auras=1 gallery scrub): a painter with a bounded
+// clock-driven sequence self-declares its full cycle length in seconds so
+// the timeline knows its max. Painters that are continuous (sway, idle
+// drift) declare nothing — the gallery uses a fixed window for those.
+AURA_ART.descended.cycle = 45;
+
 // One shared animation loop for every aura on screen. Offscreen or hidden auras don't tick.
 export const AuraLoop = {
   set: new Set(), raf: 0, last: 0,
@@ -3874,6 +3880,40 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
   const cc = {};
   api.momentWait = momentAt;
   api.forceMoment = () => { if (fx.moment && momentT == null) momentAt = Math.min(momentAt, 0.001); };
+  // Dev-only review hooks (the ?auras=1 gallery scrub). `clock` mirrors the
+  // instance's unscaled clock each frame; `cycle` is the painter-declared
+  // sequence length when one exists (AURA_ART.*.cycle).
+  api.cycle = AURA_ART[fx.art]?.cycle ?? AURA_ART[fx.overArt]?.cycle ?? null;
+  api.clock = clock;
+  // Aura state is integrated per frame — particle positions, painter caches,
+  // the moment schedule — so there is no closed-form teleport to clock = T;
+  // seeking steps frames instead. Painters with a declared cycle wrap the
+  // target past the boundary, so seeking back costs at most one cycle of
+  // stepping. Auras without a cycle can only step forward — { backward }
+  // tells the caller to remount for an earlier time. Production never calls
+  // these; opted-in only.
+  api.seek = (target, { step = 1 / 30, maxSteps = 3600 } = {}) => {
+    let t = Math.max(0, +target || 0);
+    if (t < clock && api.cycle) t += Math.ceil((clock - t) / api.cycle - 1e-9) * api.cycle;
+    if (t < clock - 1e-9) return { ok: false, backward: true, clock };
+    let steps = 0;
+    while (clock < t - 1e-9 && steps < maxSteps) {
+      try { frame(Math.min(step, t - clock)); } catch (e) { break; }
+      steps += 1;
+    }
+    return { ok: clock >= t - 1e-9, clock, steps };
+  };
+  // Step until the spec moment is playing — for auras whose moment fires on
+  // a randomized wait, so a reviewer can reach it without waiting.
+  api.seekMoment = ({ step = 1 / 30, maxSteps = 3600 } = {}) => {
+    if (!fx.moment) return { ok: false, clock };
+    let steps = 0;
+    while (api.moment == null && steps < maxSteps) {
+      try { frame(step); } catch (e) { break; }
+      steps += 1;
+    }
+    return { ok: api.moment != null, clock, steps };
+  };
   const c1 = base?.colors?.[0] || "#00D9FF", c2 = base?.colors?.[1] || c1;
   const rgba = (hex, a) => { const c = hexRgb(hex) || [0, 217, 255]; return `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`; };
 
@@ -5110,6 +5150,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
     }
     if (flashLeft > 0) { flashLeft -= dt; if (flashLeft <= 0) flashSpec = null; }
     api.strike = strike;
+    api.clock = clock;
     g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
   };
   api.frame = frame;

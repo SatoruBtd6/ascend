@@ -616,6 +616,46 @@ function Stage({ aura, size, backdrop, photo, canvasKey, showAnchors, onInstance
   );
 }
 
+// Sequence scrub: draggable timeline under the preview stages. Seeking
+// steps frames inside the live instance (api.seek) — aura state is
+// integrated per frame, so there is no teleport. Painters with a declared
+// cycle (AURA_ART.*.cycle) loop the thumb over the cycle; spec-moment and
+// particle-only auras get a fixed window and can only seek forward —
+// earlier times remount the stage and step from zero. The scrub target is
+// remembered and re-applied to new instances, so committed edits (which
+// remount) and view/reduce toggles restore the same timeline position.
+function ScrubBar({ instsRef, spec, paused, onTogglePause, onSeek, onSeekMoment }) {
+  const [now, setNow] = useState(0);
+  const [drag, setDrag] = useState(null);
+  const [max, setMax] = useState(30);
+  const [cyclic, setCyclic] = useState(false);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const inst = instsRef.current.get("ring") || instsRef.current.values().next().value;
+      if (!inst) return;
+      setMax(inst.cycle ?? (spec?.moment ? (spec.moment.every?.[1] ?? 10) + (spec.moment.dur || 2) : 30));
+      setCyclic(!!inst.cycle);
+      setNow(inst.clock ?? 0);
+    }, 150);
+    return () => clearInterval(id);
+  }, [instsRef, spec]);
+  const shown = cyclic && max ? now % max : Math.min(now, max);
+  const pos = drag ?? shown;
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+      <span style={{ fontSize: 10, color: C.mute }}>Sequence</span>
+      <button type="button" id="aura-playpause" onClick={onTogglePause} title={paused ? "Play" : "Pause"} style={{ ...chip(paused), minWidth: 32 }}>{paused ? "▶" : "⏸"}</button>
+      <input id="aura-scrub" type="range" min={0} max={max} step={0.1} value={pos}
+        onChange={(e) => { const v = Number(e.target.value); setDrag(v); onSeek(v, false); }}
+        onPointerUp={() => { if (drag != null) onSeek(drag, true); setDrag(null); }}
+        onKeyUp={() => setDrag(null)} onBlur={() => setDrag(null)}
+        style={{ flex: 1, minWidth: 80 }} />
+      <span style={{ font: "11px ui-monospace, monospace", color: C.mute, whiteSpace: "nowrap" }}>{pos.toFixed(1)}s / {max % 1 ? max.toFixed(1) : max}s</span>
+      {spec?.moment && <button type="button" id="aura-nextmoment" onClick={onSeekMoment} title="Step forward until the moment is playing" style={{ ...chip(false), fontSize: 11 }}>⏭ moment</button>}
+    </div>
+  );
+}
+
 // setDeep/deleteDeep live in specFormat.js (shared with the renderer's view
 // merge and the effect test) — re-exported above for existing callers.
 
@@ -1653,6 +1693,57 @@ export function DevAuraGallery() {
     setRevs((r) => ({ ...r, [rid]: (r[rid] || 0) + 1 }));
   };
 
+  // Live aura instances of the selected aura, keyed by preview stage — the
+  // sequence scrub drives all of them so every preview shows the same
+  // timeline position. seekTarget survives remounts: a committed edit (or a
+  // backward seek on a non-cyclic aura) remounts the stages, and each new
+  // instance steps forward to the scrubbed position on registration.
+  const instsRef = useRef(new Map());
+  const pausedRef = useRef(false);
+  const seekTargetRef = useRef(null);
+  const [paused, setPaused] = useState(false);
+  const regInst = (key) => (inst) => {
+    if (!inst) { instsRef.current.delete(key); return; }
+    instsRef.current.set(key, inst);
+    if (seekTargetRef.current != null) inst.seek?.(seekTargetRef.current);
+    // The instance adds itself to the loop after onInstance runs — drop it
+    // back out on the microtask when the scrub is paused.
+    if (pausedRef.current) queueMicrotask(() => AuraLoop.remove(inst));
+  };
+  const selectAura = (id) => {
+    setCopied("");
+    seekTargetRef.current = null;
+    pausedRef.current = false;
+    setPaused(false);
+    setSelected(id);
+  };
+  const remountSelected = () => setRevs((r) => ({ ...r, [selected]: (r[selected] || 0) + 1 }));
+  const seekAll = (v, commit = true) => {
+    seekTargetRef.current = v;
+    let needRemount = false;
+    for (const inst of instsRef.current.values()) {
+      if (!commit) {
+        // Live-drag: only step forward. A backward drag on a cyclic aura is
+        // a whole extra cycle of stepping per input event — it stalls the
+        // drag, so the drop does the real seek instead.
+        const pos = inst.cycle ? (inst.clock ?? 0) % inst.cycle : (inst.clock ?? 0);
+        if (v <= pos) continue;
+      }
+      const r = inst.seek?.(v);
+      if (r?.backward) needRemount = true;
+    }
+    if (needRemount) remountSelected();
+  };
+  const togglePause = () => {
+    setPaused((p) => {
+      const next = !p;
+      pausedRef.current = next;
+      for (const inst of instsRef.current.values()) next ? AuraLoop.remove(inst) : AuraLoop.add(inst);
+      return next;
+    });
+  };
+  const seekMomentAll = () => { for (const inst of instsRef.current.values()) inst.seekMoment?.(); };
+
   const onPhoto = (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -1790,7 +1881,7 @@ export function DevAuraGallery() {
       {selected && selectedAura ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start", paddingTop: barH + 12, paddingRight: 16, paddingBottom: 88, paddingLeft: 16, scrollMarginTop: barH + 12 }}>
           <div style={{ flex: "0 0 auto" }}>
-            <button type="button" onClick={() => { setSelected(null); setCopied(""); }} style={{ ...chip(false), marginBottom: 8 }}>All auras</button>
+            <button type="button" onClick={() => selectAura(null)} style={{ ...chip(false), marginBottom: 8 }}>All auras</button>
             {/* All three views stay mounted — drafts write AURA_FX + bump revs,
                 so every preview re-renders live, and Play moment hits every
                 live instance of the aura at once. */}
@@ -1803,6 +1894,7 @@ export function DevAuraGallery() {
                   figure={backdrop.kind === "photo" && photo ? photo : backdrop.kind === "figure" ? backdrop.src : lastFig.current}
                   canvasKey={`vf-${selected}:${revs[selected] || 0}:${reduce ? 1 : 0}`}
                   showAnchors={showAnchors}
+                  onInstance={regInst("fig")}
                 />
               </div>
               <div>
@@ -1816,6 +1908,7 @@ export function DevAuraGallery() {
                   photo={backdrop.kind === "photo" ? photo : null}
                   letter="A"
                   showAnchors={showAnchors}
+                  onInstance={regInst("ring")}
                 />
               </div>
               <div>
@@ -1829,9 +1922,18 @@ export function DevAuraGallery() {
                   photo={backdrop.kind === "photo" ? photo : null}
                   letter="A"
                   showAnchors={false}
+                  onInstance={regInst("board")}
                 />
               </div>
             </div>
+            <ScrubBar
+              instsRef={instsRef}
+              spec={specFor(selected)}
+              paused={paused}
+              onTogglePause={togglePause}
+              onSeek={seekAll}
+              onSeekMoment={seekMomentAll}
+            />
             {specFor(selected)?.moment && (
               <button type="button" onClick={() => fireAuraMoment(selected)} style={{ ...chip(false), marginTop: 8, fontSize: 12 }}>▶ Play moment (all previews)</button>
             )}
@@ -1888,7 +1990,7 @@ export function DevAuraGallery() {
           scrollMarginTop: barH + 12,
         }}>
           {AURAS.map((aura) => (
-            <button key={aura.id} type="button" onClick={() => { setCopied(""); setSelected(aura.id); }} style={{ background: "transparent", color: "inherit", border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, cursor: "pointer", textAlign: "center" }}>
+            <button key={aura.id} type="button" onClick={() => selectAura(aura.id)} style={{ background: "transparent", color: "inherit", border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, cursor: "pointer", textAlign: "center" }}>
               {stageFor(aura.id)}
               <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700 }}>{aura.name}</div>
               <div style={{ fontSize: 10, color: C.dim }}>{aura.rarity || aura.group} · {aura.id}</div>

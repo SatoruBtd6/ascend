@@ -12,7 +12,7 @@ async function loadRenderer() {
   const outfile = join(dir, "renderer.mjs");
   await esbuild.build({
     stdin: {
-      contents: `export { AURA_FX, _auraImageCache, _auraLiveInstances, trackAuraInstance, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura, makeFlameTongues, setFlashPageClock } from "./AuraCanvas.jsx";\n`,
+      contents: `export { AURA_FX, AURA_ART, _auraImageCache, _auraLiveInstances, trackAuraInstance, FRAME_ANCHOR_CACHE_LIMIT, cachedFrameEdgeAnchors, edgeAnchorsFromAlpha, frameBlendAt, readyFrameBlend, ringColorAt, drawNewParticleShape, makeAura, makeFlameTongues, setFlashPageClock } from "./AuraCanvas.jsx";\n`,
       resolveDir: fileURLToPath(new URL(".", import.meta.url)),
       sourcefile: "renderer-entry.js",
       loader: "js",
@@ -1634,4 +1634,83 @@ test("small: n override draws fewer particles on a 59px canvas than on the ring"
   const board = await countDraws(59), ring = await countDraws(141);
   assert.ok(board < ring, `small canvas should draw fewer particles (59px ${board} vs 141px ${ring})`);
   delete renderer.AURA_FX.__smallCount;
+});
+
+// The gallery scrub stubs document for sprite helpers and gives getImageData
+// real alpha bytes so painter normalization code can run in Node.
+function installSeekStubs() {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  const gradient = { addColorStop() {} };
+  globalThis.document = {
+    createElement: () => {
+      const el = { width: 0, height: 0 };
+      el.getContext = () => new Proxy({
+        globalAlpha: 1,
+        createRadialGradient: () => gradient,
+        createLinearGradient: () => gradient,
+        getImageData: (x, y, w, h) => ({ data: new Uint8ClampedArray(Math.max(4, w * h * 4)) }),
+      }, {
+        get: (t, k) => (k in t ? t[k] : () => {}),
+        set: (t, k, v) => { t[k] = v; return true; },
+      });
+      return el;
+    },
+  };
+}
+
+test("scrub seek: cyclic painters wrap the target, spec auras only step forward", async () => {
+  installSeekStubs();
+  // Painters self-declare their cycle for the gallery timeline.
+  assert.equal(renderer.AURA_ART.descended.cycle, 45);
+  renderer.AURA_ART.__cycTest = () => {};
+  renderer.AURA_ART.__cycTest.cycle = 10;
+  renderer.AURA_FX.__cycTest = { glow: 0, art: "__cycTest", layers: [{ k: "rise", n: 2, c: ["#FFFFFF"], sz: [1, 2], sp: [5, 10], life: [1, 2] }] };
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "__cycTest", w: 200, h: 200, mode: "circle", ringR: 80 });
+  assert.equal(inst.cycle, 10);
+  inst.frame(0.5);
+  const fwd = inst.seek(7);
+  assert.ok(Math.abs(fwd.clock - 7) < 1e-6, `forward seek should land on the target (got ${fwd.clock})`);
+  assert.ok(Math.abs(inst.clock - 7) < 1e-6, "api.clock should mirror the instance clock");
+  // Backward on a cyclic aura wraps one cycle ahead — position 3 from 7.
+  const back = inst.seek(3);
+  assert.ok(back.ok, "cyclic backward seek should succeed by wrapping");
+  assert.ok(Math.abs(back.clock - 13) < 1e-6, `wrap should land one cycle ahead (got ${back.clock})`);
+  assert.ok(Math.abs((inst.clock % 10) - 3) < 1e-6);
+  delete renderer.AURA_FX.__cycTest;
+  delete renderer.AURA_ART.__cycTest;
+  // Non-cyclic auras step forward only — the caller remounts for earlier times.
+  renderer.AURA_FX.__seekPlain = { glow: 0, layers: [{ k: "rise", n: 2, c: ["#FFFFFF"], sz: [1, 2], sp: [5, 10], life: [1, 2] }] };
+  const plain = renderer.makeAura(stubRendererCanvas(), { aura: "__seekPlain", w: 200, h: 200, mode: "circle", ringR: 80 });
+  plain.frame(1); plain.frame(1); plain.frame(1);
+  const backRef = plain.seek(1);
+  assert.equal(backRef.backward, true, "non-cyclic backward seek must report it needs a remount");
+  const fwdRef = plain.seek(6);
+  assert.ok(fwdRef.ok && Math.abs(plain.clock - 6) < 1e-6);
+  delete renderer.AURA_FX.__seekPlain;
+  // clock0 still seeds the start — the scrub reads the same clock.
+  const seeded = renderer.makeAura(stubRendererCanvas(), { aura: "descended", w: 200, h: 200, mode: "circle", ringR: 80, clock0: 6 });
+  assert.equal(seeded.cycle, 45);
+  assert.equal(seeded.clock, 6);
+  const dSeek = seeded.seek(20);
+  assert.ok(Math.abs(dSeek.clock - 20) < 1e-6, `descended should seek within its cycle (got ${dSeek.clock})`);
+});
+
+test("scrub seekMoment: steps until the spec moment is playing", async () => {
+  installSeekStubs();
+  renderer.AURA_FX.__seekMoment = {
+    glow: 0,
+    layers: [{ k: "rise", n: 2, c: ["#FFFFFF"], sz: [1, 2], sp: [5, 10], life: [1, 2] }],
+    moment: { every: [3, 3], dur: 2 },
+  };
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "__seekMoment", w: 200, h: 200, mode: "circle", ringR: 80 });
+  assert.equal(inst.moment, null);
+  const r = inst.seekMoment();
+  assert.ok(r.ok, "seekMoment should reach the moment inside the first wait");
+  assert.ok(inst.moment != null && inst.moment > 0 && inst.moment <= 1, `moment should be playing (got ${inst.moment})`);
+  assert.ok(inst.clock <= 3.2, `the first wait is drawn in (0.4, every[1]] (clock ${inst.clock})`);
+  delete renderer.AURA_FX.__seekMoment;
+  // No moment spec — nothing to reach.
+  const descended = renderer.makeAura(stubRendererCanvas(), { aura: "descended", w: 200, h: 200, mode: "circle", ringR: 80 });
+  assert.equal(descended.seekMoment().ok, false, "auras without a moment report nothing to seek");
 });
