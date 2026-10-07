@@ -29,12 +29,14 @@ export const isInstalledPwa = () => navigator.standalone === true || !!window.ma
 export const notifyPermission = () => (typeof Notification === "undefined" ? "unsupported" : Notification.permission);
 
 // One shared permission request for quest alerts and the rest timer. MUST be
-// called synchronously inside a user gesture (Quests nav tap, set-done tap) —
-// iOS silently ignores requests fired from effects or timers.
+// called synchronously inside a user gesture (Quest alerts toggle, set-done
+// tap) — iOS silently ignores requests fired from effects or timers. Returns
+// the requestPermission promise (or null when nothing was asked).
 export function requestNotifyPermission() {
   try {
-    if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission().catch(() => {});
+    if (typeof Notification !== "undefined" && Notification.permission === "default") return Notification.requestPermission().catch(() => {});
   } catch { /* no API */ }
+  return null;
 }
 
 // Foreground banner for a newly-claimable quest. tag collapses several

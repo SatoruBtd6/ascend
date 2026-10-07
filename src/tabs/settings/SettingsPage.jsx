@@ -6,7 +6,7 @@ import { ask } from "../../lib/ask.js";
 import { reconcileRecount } from "../train/xpRecount.js";
 import { XpSync } from "../../lib/xpSync.js";
 import { levelFromXp, normalizeState } from "../../math.js";
-import { isInstalledPwa, isIOSDevice, notifyPermission, questAlertToggleState } from "../../lib/notify.js";
+import { isInstalledPwa, isIOSDevice, notifyPermission, questAlertToggleState, requestNotifyPermission } from "../../lib/notify.js";
 import { C } from "../../theme.js";
 import { SettingsToggle } from "../../ui/primitives.jsx";
 import { stripGhostCosmetics } from "../profile/unlock.js";
@@ -30,7 +30,8 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   const [impMsg, setImpMsg] = useState(null);
   const impRef = useRef(null);
   const [diagOn, setDiagOn] = useState(() => D.on());
-  const alertUi = questAlertToggleState({ hasApi: typeof Notification !== "undefined", isIOS: isIOSDevice(), installed: isInstalledPwa(), permission: notifyPermission() });
+  const [perm, setPerm] = useState(() => notifyPermission());
+  const alertUi = questAlertToggleState({ hasApi: typeof Notification !== "undefined", isIOS: isIOSDevice(), installed: isInstalledPwa(), permission: perm });
   const [diagCopied, setDiagCopied] = useState(false);
   const [page, setPage] = useState(null); // "whatsnew" | "audit"
   const verTaps = useRef([]);
@@ -168,7 +169,14 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
             </div>
           </div>
           {alertUi === "ready"
-            ? <SettingsToggle label="Quest alerts" on={!!st.questAlerts} onClick={() => setSet("questAlerts", !st.questAlerts)} />
+            ? <SettingsToggle label="Quest alerts" on={!!st.questAlerts} onClick={() => {
+                const on = !st.questAlerts;
+                // toggling ON is the opt-in gesture: iOS grants the OS prompt
+                // only when asked from a real tap, and denial lands on the
+                // "denied" state below once the promise resolves.
+                if (on) requestNotifyPermission()?.then(() => setPerm(notifyPermission()));
+                setSet("questAlerts", on);
+              }} />
             : <span style={{ opacity: 0.4, pointerEvents: "none" }}><SettingsToggle label="Quest alerts" on={false} onClick={() => {}} /></span>}
         </div>
       </div>
