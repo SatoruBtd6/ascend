@@ -31,6 +31,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
   const impRef = useRef(null);
   const [diagOn, setDiagOn] = useState(() => D.on());
   const [perm, setPerm] = useState(() => notifyPermission());
+  const [pushErr, setPushErr] = useState(null); // last push-subscribe failure reason, shown under the toggle
   const alertUi = questAlertToggleState({ hasApi: typeof Notification !== "undefined", isIOS: isIOSDevice(), installed: isInstalledPwa(), permission: perm });
   const [diagCopied, setDiagCopied] = useState(false);
   const [page, setPage] = useState(null); // "whatsnew" | "audit"
@@ -166,6 +167,7 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
                 : alertUi === "install" ? "Install the app to your home screen to get quest alerts."
                 : alertUi === "unsupported" ? "This device can't show notifications."
                 : "A banner when quests become claimable, plus a daily nudge if any are still waiting."}
+              {pushErr && <div className="body text-xs" style={{ color: C.red }}>Push signup failed: {pushErr}</div>}
             </div>
           </div>
           {alertUi === "ready"
@@ -174,8 +176,8 @@ export function SettingsPage({ s, setS, onBack, party, setParty, openTool, saveD
                 // toggling ON is the opt-in gesture: iOS grants the OS prompt
                 // only when asked from a real tap, and denial lands on the
                 // "denied" state below once the promise resolves.
-                if (on) (requestNotifyPermission() || Promise.resolve()).then(() => { setPerm(notifyPermission()); syncPushSubscription(true, s.playerId); });
-                else syncPushSubscription(false, s.playerId);
+                if (on) (requestNotifyPermission() || Promise.resolve()).then(() => { setPerm(notifyPermission()); syncPushSubscription(true, s.playerId).then((r) => setPushErr(r === true ? null : r)); });
+                else syncPushSubscription(false, s.playerId).then((r) => setPushErr(r === true ? null : r));
                 setSet("questAlerts", on);
               }} />
             : <span style={{ opacity: 0.4, pointerEvents: "none" }}><SettingsToggle label="Quest alerts" on={false} onClick={() => {}} /></span>}

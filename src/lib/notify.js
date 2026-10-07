@@ -57,27 +57,41 @@ const urlB64ToU8 = (b64) => {
   const bin = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 };
+const b64key = (buf) => (buf ? btoa(String.fromCharCode(...new Uint8Array(buf))) : null);
 
 // Keep the push_subscriptions row in step with the toggle. ON: subscribe (or
 // reuse the current subscription — upsert also covers iOS rotating endpoints)
 // and upsert {uid, endpoint, keys, player_id}. OFF: unsubscribe + delete the
-// user's rows, so the daily job can't reach them. All failures are silent —
-// alerts just degrade to foreground-only.
+// user's rows, so the daily job can't reach them.
+// Returns true on success, otherwise a short reason string — also logged as
+// console.error("[ascend-push] ...") so a phone user can see WHY it failed
+// (the Settings row surfaces it too).
 export async function syncPushSubscription(on, playerId) {
+  const fail = (why, e) => { const m = `${why}${e ? ` — ${e?.message || e}` : ""}`; try { console.error(`[ascend-push] ${m}`); } catch { /* console? */ } return m; };
   try {
-    if (!configured || !supabase || !VAPID_PUBLIC) return;
+    if (!configured || !supabase) return fail("no Supabase client (env missing)");
+    if (!VAPID_PUBLIC) return fail("VITE_VAPID_PUBLIC_KEY missing from this build — set it in Vercel and redeploy");
     const uid = window.ascendUserId;
-    if (!uid || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    const reg = await navigator.serviceWorker.ready;
+    if (!uid) return fail("no signed-in user id");
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return fail("PushManager unsupported — on iPhone install the app to the home screen");
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej(new Error("service worker never became active")), 8000)),
+    ]);
     if (!on) {
-      try { const sub = await reg.pushManager.getSubscription(); await sub?.unsubscribe(); } catch { /* none */ }
-      await supabase.from("push_subscriptions").delete().eq("uid", uid);
-      return;
+      try { const sub = await reg.pushManager.getSubscription(); await sub?.unsubscribe(); } catch (e) { console.error("[ascend-push] unsubscribe", e); }
+      const { error } = await supabase.from("push_subscriptions").delete().eq("uid", uid);
+      return error ? fail("row delete failed", error) : true;
     }
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
-    if (!sub) return;
-    const j = sub.toJSON();
-    await supabase.from("push_subscriptions").upsert({ uid, endpoint: sub.endpoint, keys: j.keys || {}, player_id: playerId || null, updated_at: new Date().toISOString() }, { onConflict: "uid,endpoint" });
-  } catch { /* push unsupported or offline — no-op */ }
+    if (typeof Notification === "undefined") return fail("no Notification API");
+    if (Notification.permission !== "granted") return fail(`permission is ${Notification.permission}, not granted`);
+    let sub = null;
+    try { sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) }); }
+    catch (e) { return fail("pushManager.subscribe threw", e); }
+    if (!sub) return fail("subscribe() returned no subscription");
+    const j = sub.toJSON ? sub.toJSON() : {}; // early iOS 16.4 lacks toJSON — fall back to getKey
+    const keys = j.keys || { p256dh: b64key(sub.getKey?.("p256dh")), auth: b64key(sub.getKey?.("auth")) };
+    const { error } = await supabase.from("push_subscriptions").upsert({ uid, endpoint: sub.endpoint, keys, player_id: playerId || null, updated_at: new Date().toISOString() }, { onConflict: "uid,endpoint" });
+    return error ? fail("push_subscriptions write failed (RLS?)", error) : true;
+  } catch (e) { return fail("unexpected", e); }
 }
