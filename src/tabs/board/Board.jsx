@@ -11,7 +11,7 @@ import { Empty, ExpandBox, MoreRow, Tap, Title } from "../../ui/primitives.jsx";
 import { Avatar, FancyName } from "../profile/Avatar.jsx";
 import { PROFILE_BGS, lookStyle } from "../profile/lookConsts.js";
 import { profileCard } from "../profile/profileCard.js";
-import { settleMonth } from "../profile/season.js";
+import { backfillSeptemberBadges, settleMonth } from "../profile/season.js";
 import { liveBoard } from "../train/social.js";
 import { isMutualNemesis } from "./duels.js";
 import { Feed } from "./Feed.jsx";
@@ -76,6 +76,7 @@ export function Board({ s, setS, openProfile, gainXp }) {
       // never affect standings.
       settleSeason(s, setS, liveBoard(cards)).catch(() => {});
       settleMonth(s, setS, liveBoard(cards)).catch(() => {});
+      backfillSeptemberBadges(s, setS).catch(() => {});
       applyReigning(s, setS, liveBoard(cards));
       setRows(liveBoard(cards, { ghosts: !!s.test }));
     }

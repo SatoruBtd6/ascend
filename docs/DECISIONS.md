@@ -731,6 +731,12 @@ path — the only writers are additive merges on the owning account's own blob.
   race; settling them retroactively crowned a September winner who never
   entered one (the incident that prompted this). The floor gates the whole
   function — pre-mechanic records are never even read.
+- **September 2026 was backfilled once, by exception.** Its podium race was
+  real even though the mechanic shipped after close, so the restored
+  `month:2026-09` record (Finn 18,131 / Brody 16,552 / Aidan 11,600) lets
+  each winner's own client stamp `monthBadges` — Laurel only, no prize
+  aura. `backfillSeptemberBadges` is the floor-exempt path; the floor
+  itself still governs every other pre-October month.
 
 ## GPS outdoor bonuses: small pace + climb under ONE shared 60% cap (7s — approved by Brodan)
 

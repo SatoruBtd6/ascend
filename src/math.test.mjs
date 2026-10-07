@@ -1299,6 +1299,48 @@ test("settleMonth floor: months that closed before the mechanic never settle", a
   assert.deepEqual(store, {});
 });
 
+test("september backfill: winners self-stamp the Laurel badge once — no aura, no writes, nothing else touched", async () => {
+  const rec = {
+    key: "2026-09",
+    winners: [
+      { id: "finn", name: "Finn", xp: 18131, place: 1 },
+      { id: "brody", name: "Brody", xp: 16552, place: 2 },
+      { id: "aidan", name: "Aidan", xp: 11600, place: 3 },
+    ],
+    t: 1,
+  };
+  const store = { "month:2026-09": JSON.stringify(rec) };
+  const storage = {
+    get: async (k) => (store[k] ? { value: store[k] } : null),
+    set: async () => { throw new Error("backfill must never write shared data"); },
+  };
+  const lau = BORDERS.find((b) => b.id === "laurel");
+  const run = async (s) => { let next = s; await backfillSeptemberBadges(s, (f) => { next = f(next); }, storage); return next; };
+  // all three podium spots self-stamp on their own client and earn Laurel
+  for (const [pid, place] of [["finn", 1], ["brody", 2], ["aidan", 3]]) {
+    const next = await run({ playerId: pid });
+    assert.equal(next.monthBadges["2026-09"].place, place);
+    assert.equal(next.monthBadges["2026-09"].xp, rec.winners[place - 1].xp);
+    assert.equal(next.auraUnlocks, undefined); // September had no prize aura
+    assert.equal(unlocked(lau, next), true);
+  }
+  // a non-winner's client never stamps
+  const nobody = await run({ playerId: "nobody" });
+  assert.equal(nobody.monthBadges, undefined);
+  // idempotent — an existing badge is kept and setS is not even called
+  const stamped = { playerId: "brody", monthBadges: { "2026-09": { place: 2, xp: 16552 } } };
+  let called = false;
+  await backfillSeptemberBadges(stamped, () => { called = true; }, storage);
+  assert.equal(called, false);
+  // a voided (retired) record grants nothing — guards the pre-restore window
+  const deadStore = { "month:2026-09": JSON.stringify({ key: "2026-09", winners: [], retired: true }) };
+  const deadStorage = { get: async (k) => ({ value: deadStore[k] }), set: async () => { throw new Error("no writes"); } };
+  await backfillSeptemberBadges({ playerId: "finn" }, () => { called = true; }, deadStorage);
+  assert.equal(called, false);
+  // scoped: the record holds no other month and the normal floor is untouched
+  assert.equal(MONTH_PRIZE_START, "2026-10");
+});
+
 test("monthly prize: per-month lookup, live #1 loans it, grace never blesses a prize aura", () => {
   assert.equal(monthlyPrizeId("2026-10"), "descended");
   assert.equal(monthlyPrizeId("2027-01"), null); // unlisted month = no prize
@@ -1546,7 +1588,7 @@ import { AURA_TASKS, BORDERS, unlocked, stripGhostCosmetics } from "./tabs/profi
 import { TITLES } from "./tabs/profile/titles.js";
 import { auraById } from "./auras/catalog.js";
 import { monthKey, prevMonthKey, monthXp } from "./tabs/profile/season.js";
-import { pickMonthWinner, pickMonthWinners, settleMonth, monthlyPrizeId, everMonthlyPrize, loanStripAura, MONTH_PRIZE_START } from "./tabs/profile/season.js";
+import { pickMonthWinner, pickMonthWinners, settleMonth, backfillSeptemberBadges, monthlyPrizeId, everMonthlyPrize, loanStripAura, MONTH_PRIZE_START } from "./tabs/profile/season.js";
 import { reconcileRecount } from "./tabs/train/xpRecount.js";
 
 const near = (a, b, label) => assert.ok(Math.abs(a - b) < 1e-9, `${label || ""} ${a} vs ${b}`);

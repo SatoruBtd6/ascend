@@ -102,3 +102,19 @@ export async function settleMonth(s, setS, rows, storage = window.storage, mk = 
     monthBadges: { ...(p.monthBadges || {}), [last]: { place: mine.place, xp: mine.xp } },
   }));
 }
+
+// September 2026 backfill — one-time approved exception (DECISIONS.md). The
+// podium mechanic shipped Oct 1, so settleMonth's floor skips September even
+// though its race was real. With the restored month:2026-09 record in place,
+// each winner's own client stamps monthBadges — the Laurel grant. Badge only:
+// September had no prize aura, so auraUnlocks is never touched. Read-only
+// against shared data, and idempotent — an existing badge is kept.
+export async function backfillSeptemberBadges(s, setS, storage = window.storage) {
+  if (s.monthBadges?.["2026-09"]) return;
+  let rec = null;
+  try { const r = await storage.get("month:2026-09", true); rec = r?.value ? JSON.parse(r.value) : null; } catch (e) { rec = null; }
+  if (!rec || rec.retired || !Array.isArray(rec.winners)) return;
+  const mine = rec.winners.find((w) => w.id === s.playerId);
+  if (!mine) return;
+  setS((p) => (p.monthBadges?.["2026-09"] ? p : { ...p, monthBadges: { ...(p.monthBadges || {}), "2026-09": { place: mine.place, xp: mine.xp } } }));
+}
