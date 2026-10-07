@@ -4,7 +4,8 @@ import { QUEST_POOL, QUEST_EX } from "../data/quests.js";
 import { TIER_STYLE, ACH_SERIES, ROMAN } from "../data/achievements.js";
 import { RANKS, DIVS, GROUP_WEIGHT } from "../data/ranks.js";
 import { findEx, allExercises } from "./exercises.js";
-import { today, shift, uid, e1rm } from "./dates.js";
+import { today, shift, uid, e1rm, dayOfWeek, monthKey } from "./dates.js";
+import { WEEKLY_POOL, WEEKLY_REPS, MONTHLY_POOL, MONTHLY_REPS } from "../data/challenges.js";
 // Add a finished workout and push its reps into matching daily quests
 export function fillQuests(p, d, exercises) {
   const day = p.days?.[d] || newDay();
@@ -378,3 +379,27 @@ export function pickChallenges(pool, seedStr, n) {
   while (out.length < n && rest.length) { seed = (seed * 1103515245 + 12345) >>> 0; out.push(rest.splice(seed % rest.length, 1)[0]); }
   return out;
 }
+// Claimable-count for the Quests nav badge — the SAME conditions the Quests
+// tab uses to show each Claim button, kept in one place so the badge and the
+// tab can't disagree (Quests.jsx / Challenges.jsx):
+//   daily quest:    !claimed && progress >= target
+//   set bonus:      every top-tier daily claimed && day.bonuses < topTier
+//   weekly/monthly: !claimed[id] && challenge.get(rangeStats) >= target
+export function claimableCount(s, d = today()) {
+  const day = s.days?.[d];
+  const list = day?.list || [];
+  let n = list.filter((q) => !q.claimed && q.progress >= q.target).length;
+  const topTier = Math.max(...list.map((q) => q.tier));
+  if (list.filter((q) => q.tier === topTier).every((q) => q.claimed) && (day?.bonuses || 0) < topTier) n += 1;
+  const ws = shift(d, -dayOfWeek(d)), we = shift(ws, 6), mk = monthKey(d);
+  const wst = rangeStats(s, ws, we), mst = rangeStats(s, `${mk}-01`, `${mk}-31`);
+  const wc = s.weekly?.[ws];
+  const wClaimed = wc === true ? { "w-train4": true } : (wc || {});
+  const mClaimed = s.monthly?.[mk] || {};
+  n += [...pickChallenges(WEEKLY_POOL, ws, 3), WEEKLY_REPS].filter((c) => !wClaimed[c.id] && c.get(wst) >= c.target).length;
+  n += [...pickChallenges(MONTHLY_POOL, mk, 3), MONTHLY_REPS].filter((c) => !mClaimed[c.id] && c.get(mst) >= c.target).length;
+  return n;
+}
+// Badge text: a number for 1-9, "9+" above that. Hidden entirely at 0 (the
+// caller renders nothing).
+export const claimableLabel = (n) => (n > 9 ? "9+" : String(n));

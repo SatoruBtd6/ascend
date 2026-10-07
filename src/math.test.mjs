@@ -1580,7 +1580,7 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
 });
 
 import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
-import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout, workoutXp, cardioSteps } from "./lib/stats.js";
+import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout, workoutXp, cardioSteps, claimableCount, claimableLabel } from "./lib/stats.js";
 import { CARDIO_METRIC } from "./data/cardio.js";
 import { cardScore, selfScore, pendingOutgoingDuels, DUEL_PENDING_MS } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
@@ -1765,6 +1765,56 @@ test("pendingOutgoingDuels: one live outgoing challenge blocks all new sends", (
   assert.equal(pendingOutgoingDuels([], me, now).length, 0);
   assert.equal(pendingOutgoingDuels(null, me, now).length, 0);
   assert.equal(pendingOutgoingDuels([mk({ from: "p3" })], me, now).length, 0);
+});
+
+test("claimableCount mirrors the Quests tab's claim conditions", () => {
+  const d = "2026-10-08";                       // Thursday; week 2026-10-04..10, month 2026-10
+  const ws = "2026-10-04";
+  const empty = { days: {}, weekly: {}, monthly: {}, workouts: [], fuelClaimed: {}, weightLog: {}, xpLog: {} };
+  const q = (over, claimed = false, tier = 1) => ({ id: Math.random().toString(36).slice(2), qid: "x", title: "q", target: 10, unit: "reps", xp: 10, progress: over ? 10 : 0, claimed, tier });
+
+  // zero: nothing claimable → badge hidden
+  assert.equal(claimableCount(empty, d), 0);
+  assert.equal(claimableCount({ ...empty, days: { [d]: { list: [q(true, true), q(false)], rerolls: 0, bonuses: 0 } } }, d), 0);
+
+  // some dailies: !claimed && progress >= target (Quests.jsx `done && <ClaimBtn>`)
+  const twoDone = { ...empty, days: { [d]: { list: [q(true), q(true), q(false)], rerolls: 0, bonuses: 0 } } };
+  assert.equal(claimableCount(twoDone, d), 2);
+
+  // a weekly: fixed "earn 4 workouts" card flips claimable (Challenges.jsx `value >= c.target && !claimed`)
+  const sess = (date) => ({ date, minutes: 60, volume: 1000, exercises: [{ name: "Bench Press", sets: Array.from({ length: 12 }, () => ({ w: 135, r: 5, done: true })) }] });
+  const wk = { ...empty, workouts: ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"].map(sess) };
+  const wkN = claimableCount(wk, d);
+  assert.ok(wkN >= 1);
+  assert.equal(claimableCount({ ...wk, weekly: { [ws]: { "w-train4": true } } }, d), wkN - 1);
+  // legacy boolean weekly record maps onto the same fixed card
+  assert.equal(claimableCount({ ...wk, weekly: { [ws]: true } }, d), wkN - 1);
+
+  // set bonus: every top-tier quest claimed && bonuses < topTier (Quests.jsx canBonus)
+  const bonusDay = (bonuses) => ({ ...empty, days: { [d]: { list: [q(true, true), q(true, true), q(true, true)], rerolls: 0, bonuses } } });
+  assert.equal(claimableCount(bonusDay(0), d), 1);
+  assert.equal(claimableCount(bonusDay(1), d), 0);    // already taken → "Take on 3 harder quests" is not a claim
+  // only the TOP tier has to be fully claimed for the bonus
+  const tiered = { ...empty, days: { [d]: { list: [q(true), q(true, true, 2), q(true, true, 2)], rerolls: 0, bonuses: 0 } } };
+  assert.equal(claimableCount(tiered, d), 2);         // 1 claimable tier-1 daily + 1 set bonus
+
+  // 9+ cap: a state where every challenge is claimable counts 3 dailies + 4 weekly + 4 monthly = 11
+  const ex5 = ["Bench Press", "Lat Pulldown", "Squat", "Overhead Press", "Close-Grip Bench Press"].map((name) => ({ name, sets: Array.from({ length: 5 }, () => ({ w: 135, r: 100, done: true })) }));
+  const wdates = ["2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"];
+  const heavy = {
+    ...empty,
+    workouts: Array.from({ length: 16 }, (_, i) => ({ date: wdates[i % 7], minutes: 120, volume: 25000, prBonus: 400, exercises: ex5, ...(i === 6 ? { run: { segments: [{ mode: "run", secs: 5400, miles: 30 }] } } : {}) })),
+    days: { [d]: { list: [q(true), q(true), q(true)], rerolls: 0, bonuses: 0 }, "2026-10-05": { list: Array.from({ length: 50 }, () => q(true, true)), rerolls: 0, bonuses: 0 } },
+    fuelClaimed: Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`2026-10-${String(i + 1).padStart(2, "0")}`, true])),
+    weightLog: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`2026-10-${String(i + 1).padStart(2, "0")}`, 170])),
+  };
+  const big = claimableCount(heavy, d);
+  assert.equal(big, 11);
+  // label: a number for 1-9, "9+" above
+  assert.equal(claimableLabel(1), "1");
+  assert.equal(claimableLabel(9), "9");
+  assert.equal(claimableLabel(10), "9+");
+  assert.equal(claimableLabel(big), "9+");
 });
 
 test("miles and volume stay on the session list while workout progress is credit", () => {

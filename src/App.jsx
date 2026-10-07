@@ -12,7 +12,7 @@ import { today, uid, weekStart, fmtDay } from "./lib/dates.js";
 import { AskRef } from "./lib/ask.js";
 import { scrollPageTop, legacyStandalone } from "./lib/dom.js";
 import { findEx } from "./lib/exercises.js";
-import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements, ACH_VERSION } from "./lib/stats.js";
+import { rankedLifts, overallInfo, reconcileAchievements, earnedAchievements, ACH_VERSION, claimableCount, claimableLabel } from "./lib/stats.js";
 import { SaveCtx } from "./ui/saveCtx.js";
 import { Sheet } from "./ui/primitives.jsx";
 import { AURAS } from "./auras/catalog.js";
@@ -983,6 +983,7 @@ export default function App() {
   );
 
   const tabs = [["status", User, "Status"], ["train", Dumbbell, "Train"], ["quests", Swords, "Quests"], ["fuel", Utensils, "Fuel"], ["calendar", CalendarDays, "Log"], ["ranks", Shield, "Ranks"], ["board", Crown, "Board"]];
+  const questBadge = claimableCount(s);
 
   return (
     <SaveCtx.Provider value={{ status: saveStatus }}>
@@ -1204,7 +1205,12 @@ export default function App() {
           {tabs.map(([id, Icon, label]) => (
             <button key={id} onClick={() => setTab(id)} className="pt-2.5 pb-3 flex flex-col items-center gap-1 relative" style={{ fontSize: 10, color: tab === id ? C.cyan : C.mute, filter: tab === id ? `drop-shadow(0 0 6px ${C.glow})` : "none" }}>
               {tab === id && <span className="absolute top-0 left-1/4 right-1/4" style={{ height: 2, background: C.cyan, boxShadow: `0 0 10px ${C.cyan}` }} />}
-              <Icon size={19} strokeWidth={tab === id ? 2.4 : 1.8} />{label}
+              <span className="relative">
+                <Icon size={19} strokeWidth={tab === id ? 2.4 : 1.8} />
+                {id === "quests" && questBadge > 0 && (
+                  <span aria-label={`${questBadge} claimable`} className="absolute -top-1.5 -right-2.5 flex items-center justify-center font-extrabold" style={{ minWidth: 15, height: 15, padding: "0 4px", borderRadius: 999, background: C.cyan, color: "#001018", fontSize: 9, boxShadow: `0 0 8px ${C.glow}` }}>{claimableLabel(questBadge)}</span>
+                )}
+              </span>{label}
             </button>
           ))}
         </div>
