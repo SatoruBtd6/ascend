@@ -799,11 +799,14 @@ export const AURA_FX = {
       // (the redline mechanism — the ring canvas leaves no room above it for
       // a photo-width hat), head-anchored on the figure. mY/mRot/mScale =
       // the dip → pop → tip → settle gag beat.
-      { k: "orbit", n: 1, shape: "img", src: "/aura/wealthy-tophat.webp", placed: "head", headSz: 3.4, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: 0.12, bob: 1, bobAmp: 0.05, wobble: 0.035, rot: 0.03, a: 0.98, over: 1, blend: "source-over",
-        rim: 1, rimSz: 1.45, rimSink: 0.16,
-        mY: [[0, 0], [0.1, 0.07], [0.3, -0.3], [0.45, -0.24], [0.62, -0.28], [0.85, 0], [1, 0]],
-        mRot: [[0, 0], [0.1, 0], [0.3, -0.16], [0.5, -0.22], [0.65, -0.14], [0.85, 0], [1, 0]],
-        mScale: [[0, 1], [0.1, 0.95], [0.3, 1.12], [0.55, 1.05], [0.85, 1], [1, 1]] },
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wealthy-tophat.webp", placed: "head", headSz: 2.7, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: 0, bob: 1, bobAmp: 0.05, wobble: 0.035, rot: 0.03, a: 0.98, over: 1, blend: "source-over",
+        rim: 1, rimSz: 1.4, rimSink: 0.24,
+        mY: [[0, 0], [0.1, 0.07], [0.3, -0.13], [0.45, -0.1], [0.62, -0.12], [0.85, 0], [1, 0]],
+        mRot: [[0, 0], [0.1, 0], [0.3, -0.1], [0.5, -0.13], [0.65, -0.08], [0.85, 0], [1, 0]],
+        mScale: [[0, 1], [0.1, 0.96], [0.3, 1.07], [0.55, 1.03], [0.85, 1], [1, 1]],
+        // figure canvases are short — seat the hat deeper on the head and
+        // keep the same gag beat at reduced amplitude so the crown stays in
+        body: { headSz: 2.5, hover: -0.12, mY: [[0, 0], [0.1, 0.05], [0.3, -0.08], [0.62, -0.07], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.08], [0.65, -0.05], [0.85, 0], [1, 0]], mScale: [[0, 1], [0.3, 1.04], [0.85, 1], [1, 1]] } },
       // ambient bill storm — tumbling green notes drifting down the band
       { k: "fall", n: 14, shape: "bill", c: ["#2FBF5B", "#45D977", "#1E8E43"], sp: [7, 15], sz: [1.9, 3.2], drift: 5, spin: 1.1, a: 0.92, xWrap: 1, xFade: 9, small: { n: 6, sz: [1.6, 2.5] } },
       // gold `$` twinkle field around the band edge
@@ -3469,7 +3472,7 @@ AURA_ART.wealthy.anchorPoints = ({ w, h, cx, cy, rx, ry, mode, anchors }) => {
   // hat brim-centre: the rim seat in circle mode (bottom of the brim sits
   // ~0.28·sz below the sprite centre), the head anchor on the figure
   if (mode === "body") pts.push({ x: f.x, y: f.y - headHalf });
-  else pts.push({ x: cx, y: cy - ry + Math.min(rx, ry) * 1.45 * (0.16 + 0.28) });
+  else pts.push({ x: cx, y: cy - ry + Math.min(rx, ry) * 1.4 * (0.24 + 0.28) });
   if (mode !== "body" && Math.min(w, h) >= 110) {
     const rec = auraImage(W_GUN_SRC);
     const iw = rec.img?.naturalWidth || 512, ih = rec.img?.naturalHeight || 512;
