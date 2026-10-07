@@ -206,7 +206,7 @@ test("all ten 7j particle shapes draw distinct painted output without throwing",
   }
 });
 
-test("7j particle shapes animate over time and hold still under reduced motion", () => {
+test("7j particle shapes animate over time and hold still under reduced motion", async () => {
   installStubDocument();
   const animated = ["sparkle", "orb", "crystal", "wisp", "rune", "moth", "lantern", "sparkburst"];
   const p = { sz: 4, c: "#abcdef", rot: 0.4, ph: 0.7, age: 0.4, life: 1.5, ang: 0.3, w: 0.2, i: 3, vx: 10, vy: -6 };
@@ -257,14 +257,18 @@ test("7j particle shapes animate over time and hold still under reduced motion",
   assert.notEqual(sl(0.5, false, 10, -6), sl(0.5, false, -8, 4), "sliver does not align to its velocity");
   assert.equal(sl(0.5, false), sl(1.3, false), "sliver drifts on an internal clock");
   assert.equal(sl(0.5, true), sl(1.3, true), "sliver still animates under reduced motion");
-  // wealthy: bill flutters on a clock (freeze under reduce), dollar is a
-  // baked palette-tinted glyph — both must paint something
+  // wealthy: the `bill` shape draws the keyed banknote sprite (an async
+  // image — warm it once, then every call paints) — flutter on a clock,
+  // frozen under reduce; dollar is a baked palette-tinted glyph
+  globalThis.Image = FakeImage;
+  renderer.drawNewParticleShape(stubCanvas().ctx, "bill", { ...p }, 20, 20, 0, false);
+  await new Promise((resolve) => setTimeout(resolve, 0));
   const bill = (t, reduced) => {
     const { ctx, output } = stubCanvas();
     renderer.drawNewParticleShape(ctx, "bill", { ...p }, 20, 20, t, reduced);
     return JSON.stringify(output);
   };
-  assert.ok(bill(0.5, false).includes('"fill"'), "bill produced no painted output");
+  assert.ok(bill(0.5, false).includes('"drawImage"') && bill(0.5, false).includes("wealthy-bill"), "bill produced no sprite output");
   assert.notEqual(bill(0.5, false), bill(1.3, false), "bill does not flutter");
   assert.equal(bill(0.5, true), bill(1.3, true), "bill still flutters under reduced motion");
   const { ctx: dctx, output: dout } = stubCanvas();
@@ -1147,8 +1151,8 @@ test("wealthy renders without throwing; the hat sits head-anchored on the photo"
     assert.ok(lastImgDraw(over.output, "wealthy-tophat"), `wealthy ${mode} hat drew nothing on the over canvas`);
   }
   // circle mode: head seat — centre at face.y - headHalf - sz·hover
-  const over = stubRendererCanvas();
-  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  const main = stubRendererCanvas(), over = stubRendererCanvas();
+  const inst = renderer.makeAura(main, { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
   installStubDocument();
   inst.frame(1 / 60);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1159,16 +1163,29 @@ test("wealthy renders without throwing; the hat sits head-anchored on the photo"
   const sz = headHalf * hat.headSz;
   const wantY = (70.5 - 0.16 * 40.7) - headHalf - sz * hat.hover;
   assert.ok(Math.abs(xy.y - wantY) < 0.75, `hat head seat y ${xy.y.toFixed(2)} vs ${wantY.toFixed(2)}`);
-  // oversized: drawn sprite ≈ 0.85-1.0x photo width (sprite art ~0.89 wide)
-  const wide = sz * 0.887 / (2 * 40.7);
-  assert.ok(wide > 0.75 && wide < 1.1, `hat width ${wide.toFixed(2)}x photo width`);
+  // oversized: drawn sprite ≈0.85x photo width (sprite art ~0.962 of the box
+  // wide; the edge rule caps the dramatic 0.9-1.0x target at ring size)
+  const wide = sz * 0.962 / (2 * 40.7);
+  assert.ok(wide > 0.78 && wide < 1.05, `hat width ${wide.toFixed(2)}x photo width`);
+  // the sprite stack: sun behind (main canvas), bezel + pool + ambient bill
+  // sprites visible at REST, hat on top of the overArt output
+  assert.ok(lastImgDraw(main.output, "wealthy-sun"), "sun sprite did not draw on the main canvas");
+  assert.ok(lastImgDraw(main.output, "wealthy-bill"), "ambient bill sprites did not draw on the main canvas");
+  assert.ok(lastImgDraw(over.output, "wealthy-bezel"), "bezel did not draw at rest");
+  assert.ok(lastImgDraw(over.output, "wealthy-pool"), "pool sprite did not draw at rest");
+  const iPool = over.output.lastIndexOf(lastImgDraw(over.output, "wealthy-pool"));
+  const iHat = over.output.lastIndexOf(lastImgDraw(over.output, "wealthy-tophat"));
+  const iBez = over.output.lastIndexOf(lastImgDraw(over.output, "wealthy-bezel"));
+  assert.ok(iBez < iPool && iPool < iHat, "over-canvas z-order must be bezel → pool → hat");
 });
 
 test("wealthy money gun draws and fires bills on the over canvas; suppressed under reduce and at board size", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   installStubDocument();
-  const firedBills = (out) => out.filter((o) => o[0] === "set" && o[1] === "fillStyle" && ["#7CC24A", "#9BD35A", "#5CB85C", "#2FBF5B"].includes(o[2])).length;
+  // fired bills are drawImage calls of the keyed banknote sprite on the over
+  // canvas (the ambient storm's bills draw on the main canvas, not here)
+  const firedBills = (out) => out.filter((o) => o[0] === "drawImage" && String(o[1]).includes("wealthy-bill")).length;
   // ring size: gun sprite draws and the muzzle bill stream paints green notes
   const over = stubRendererCanvas();
   const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
@@ -1193,7 +1210,7 @@ test("wealthy money gun draws and fires bills on the over canvas; suppressed und
   assert.ok(!lastImgDraw(overS.output, "wealthy-gun"), "gun drew at board size");
 });
 
-test("wealthy moment pops drawn $ eyes on the eye line and unrolls a tongue from photo centre", async () => {
+test("wealthy moment pops sprite $ eyes on the eye line and unrolls the tongue sprite from photo centre", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   installStubDocument();
@@ -1202,19 +1219,33 @@ test("wealthy moment pops drawn $ eyes on the eye line and unrolls a tongue from
   inst.frame(1 / 60);
   await new Promise((resolve) => setTimeout(resolve, 0));
   inst.forceMoment();
-  for (let i = 0; i < 60 * 3 && (inst.moment == null || inst.moment < 0.5); i += 1) inst.frame(1 / 60);
+  for (let i = 0; i < 60 * 4 && (inst.moment == null || inst.moment < 0.5); i += 1) inst.frame(1 / 60);
   assert.ok(inst.moment != null && inst.moment >= 0.5, "moment did not reach the hold beat");
-  const dollars = over.output.filter((o) => o[0] === "fillText" && o[1] === "$");
-  assert.ok(dollars.length >= 2, `expected two $ eyes, got ${dollars.length}`);
-  // eyes sit on the photo eye-line (cy - 0.16·ry): read the translate that
-  // precedes each glyph — dollarGlyph draws at its translated origin
+  // eyes: the keyed $ medallion, drawn twice (left + mirrored right) — the
+  // translate before each drawImage is the sprite's centre on the eye line
+  const eyes = over.output.filter((o) => o[0] === "drawImage" && String(o[1]).includes("wealthy-eye"));
+  assert.ok(eyes.length >= 2, `expected two $ eye sprites, got ${eyes.length}`);
   const eyeLineY = 70.5 - 0.16 * 40.7;
-  const last2 = dollars.slice(-2).map((d) => over.output.lastIndexOf(d));
+  const last2 = eyes.slice(-2).map((d) => over.output.lastIndexOf(d));
   for (const i of last2) {
     const tr = over.output.slice(0, i).findLast((o) => o[0] === "translate");
     assert.ok(Math.abs(tr[2] - eyeLineY) < 8, `$ eye translate y ${tr[2].toFixed(1)} vs eye line ${eyeLineY.toFixed(1)}`);
   }
-  assert.ok(over.output.some((o) => o[0] === "set" && o[1] === "fillStyle" && o[2] === "#E0342B"), "tongue did not draw");
+  assert.ok(eyes.length % 2 === 0, "eyes must draw as a mirrored pair");
+  const tongue = lastImgDraw(over.output, "wealthy-tongue");
+  assert.ok(tongue, "tongue sprite did not draw during the moment");
+  // the tongue unrolls below the mouth anchor (cy + 0.06·ry) and stays out
+  // over the pool — its draw is a 9-arg drawImage with positive dest height
+  assert.ok(tongue[tongue.length - 1] > 1, "tongue drew with no visible height");
+  // reduced motion: the whole gag + gun stay suppressed even mid-moment
+  const overR = stubRendererCanvas();
+  const instR = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: overR });
+  instR.reduce = true;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  instR.forceMoment();
+  for (let i = 0; i < 60 * 4 && (instR.moment == null || instR.moment < 0.6); i += 1) instR.frame(1 / 60);
+  assert.ok(instR.moment != null, "reduced-motion moment never ran");
+  assert.ok(!overR.output.some((o) => o[0] === "drawImage" && (String(o[1]).includes("wealthy-eye") || String(o[1]).includes("wealthy-tongue"))), "gag sprites drew under reduced motion");
 });
 
 test("atlas sphere wanders a zigzag around the figure instead of resting on the head", async () => {

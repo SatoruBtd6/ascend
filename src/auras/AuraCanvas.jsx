@@ -784,18 +784,12 @@ export const AURA_FX = {
   // and a red cartoon tongue unrolls from photo centre (painter). Zero
   // flashes — the POP brightening is a slow mA/mLen rays swell.
   wealthy: { spd: 0.95, glow: 0.72, art: "wealthy", overArt: "wealthy",
-    // rising sun: the red→orange→gold banded arc behind the photo (painter,
-    // main pass). Bands are [colour, innerR, outerR] fractions of the sun
-    // disc; rays are wedge spokes in the outer band. mA = slow swell only.
-    sun: { r: 1.58, drop: 0.14,
-      bands: [["#E23A2E", 0, 0.58], ["#F28C28", 0.58, 0.8], ["#F8C531", 0.8, 1]],
-      raysN: 9, rayW: 0.09, a: 0.95,
+    // rising sun sprite behind the photo (painter, main pass): the keyed
+    // dome's flat base seats at cy + drop and the dome spans ~r·min(rx,ry).
+    // mA/mR = the slow moment swell — alpha/scale only, never a flash.
+    sun: { r: 1.58, drop: 0.14, a: 0.97,
       mA: [[0, 1], [0.13, 1], [0.32, 1.4], [0.6, 1.28], [0.85, 1], [1, 1]],
       mR: [[0, 1], [0.13, 1], [0.32, 1.06], [0.6, 1.04], [0.85, 1], [1, 1]] },
-    // the money pool: a deep mound of overlapping bills filling the bottom
-    // of the ring and curving up the sides (painter, over pass).
-    pool: { n: 60, bw: [0.3, 0.44], lift: 0.62, crest: 0.14, loose: 5, labels: 1,
-      small: { n: 14, bw: [0.24, 0.34], loose: 0 } },
     moment: { every: [16, 24], dur: 2.3,
       bursts: [
         // ka-ching by the hat band on the POP beat — a scale/alpha twinkle
@@ -804,18 +798,21 @@ export const AURA_FX = {
         { at: 0.15, path: "shower", shape: "sparkle", n: 5, c: ["#FFF6C9", "#FFD95A"], anchor: "head", dir: -0.5, spread: 0.8, sp: [14, 34], sz: [1.0, 1.8], life: [0.5, 0.9], grav: 0.5, a: 0.9, over: 1 },
       ] },
     layers: [
-      // the hat: head-anchored, oversized (about 0.85-0.9x photo width),
-      // brim seated just above the eye-line like the reference mogul.
-      // mY/mRot/mScale = the dip → pop → tip → settle gag beat.
-      { k: "orbit", n: 1, shape: "img", src: "/aura/wealthy-tophat.webp", placed: "head", headSz: 3.7, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: 0.05, bob: 1, bobAmp: 0.02, wobble: 0.025, rot: 0.03, a: 0.98, over: 1, blend: "source-over",
-        mY: [[0, 0], [0.1, 0.03], [0.3, -0.04], [0.45, -0.03], [0.62, -0.04], [0.85, 0], [1, 0]],
-        mRot: [[0, 0], [0.1, 0], [0.3, -0.06], [0.5, -0.075], [0.65, -0.05], [0.85, 0], [1, 0]],
-        mScale: [[0, 1], [0.1, 0.96], [0.3, 1.05], [0.55, 1.02], [0.85, 1], [1, 1]],
+      // the hat: head-anchored, oversized (~0.85x photo width at ring size —
+      // the edge rule is the ceiling), brim seated on the eye-line like the
+      // reference mogul. over:2 paints it after the overArt pass so the
+      // crown/brim stay on top of the gag pieces. mY/mRot/mScale = the
+      // dip → pop → tip → settle gag beat.
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wealthy-tophat.webp", placed: "head", headSz: 3.7, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: 0.13, bob: 1, bobAmp: 0.012, wobble: 0.015, rot: 0.012, a: 0.98, over: 2, blend: "source-over",
+        mY: [[0, 0], [0.1, 0.04], [0.3, -0.02], [0.45, -0.015], [0.62, -0.02], [0.85, 0], [1, 0]],
+        mRot: [[0, 0], [0.1, 0], [0.3, -0.05], [0.5, -0.06], [0.65, -0.04], [0.85, 0], [1, 0]],
+        mScale: [[0, 1], [0.1, 0.97], [0.3, 1.04], [0.55, 1.02], [0.85, 1], [1, 1]],
         // figure canvases are short — seat the hat deeper on the head and
         // keep the same gag beat at reduced amplitude so the crown stays in
-        body: { headSz: 2.9, hover: 0.02, mY: [[0, 0], [0.1, 0.02], [0.3, -0.02], [0.62, -0.02], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.05], [0.65, -0.03], [0.85, 0], [1, 0]], mScale: [[0, 1], [0.3, 1.03], [0.85, 1], [1, 1]] } },
-      // ambient bill storm — big tumbling green notes drifting down the band
-      { k: "fall", n: 16, shape: "bill", c: ["#7CC24A", "#9BD35A", "#5CB85C", "#2FBF5B"], sp: [7, 15], sz: [6, 10], drift: 5, spin: 1.1, a: 0.92, xWrap: 1, xFade: 14, small: { n: 5, sz: [2.6, 4] }, body: { n: 8, sz: [3.5, 6] } },
+        body: { headSz: 3.0, hover: 0.06, mY: [[0, 0], [0.1, 0.02], [0.3, -0.015], [0.62, -0.015], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.04], [0.65, -0.025], [0.85, 0], [1, 0]], mScale: [[0, 1], [0.3, 1.03], [0.85, 1], [1, 1]] } },
+      // ambient bill storm — the keyed banknote sprite, big tumbling notes
+      // drifting down the band (the `bill` shape draws wealthy-bill.webp)
+      { k: "fall", n: 16, shape: "bill", sp: [7, 15], sz: [8, 13], drift: 5, spin: 1.1, a: 0.92, xWrap: 1, xFade: 14, small: { n: 5, sz: [3.2, 5.2] }, body: { n: 8, sz: [4.5, 7.5] } },
       // gold `$` twinkle field around the band edge
       { k: "orbit", n: 10, shape: "dollar", c: ["#FFD95A", "#F2C230", "#FFF3C4"], w: [0.16, 0.4], r: [1.06, 1.26], sz: [1.9, 3.0], tw: 1, a: 0.95, small: { n: 5, sz: [1.4, 2] } },
     ] },
@@ -3343,31 +3340,32 @@ export const AURA_ART = {
       if (opts.moment) drawBrandSear(ctx, opts);
     }
   },
-  // Wealthy — the pieces that need a measured point or the moment beat: a
-  // money gun on the right rim firing bills up-and-out CONTINUOUSLY at rest,
-  // and the $-eyes / tongue gag on opts.moment.t (the same mt the spec
-  // layers read, so the hat keys stay synced). Everything else is spec data.
-  // No flashes anywhere — every effect is scale/alpha/position motion.
-  wealthy: ({ pass, g, over, cc, clock, time, fx, cx, cy, rx, ry, w, h, mode, anchors, moment, reduce }) => {
+  // Wealthy — sprite composition matching docs/aura-refs/wealthy/
+  // wealthy-ref-mogul.png. Over-pass order: gold bezel → money pool → money
+  // gun + fired bills → $-eyes + tongue gag; the hat is an `over: 2` layer
+  // so it paints last, on top of the gag. The $-eyes / tongue gag runs on
+  // opts.moment.t (the same mt the spec layers read, so the hat keys stay
+  // synced). No flashes anywhere — every effect is scale/alpha/position
+  // motion and nothing calls noteStrikeFlash.
+  wealthy: ({ pass, g, over, cc, clock, fx, cx, cy, rx, ry, w, h, mode, anchors, moment, reduce }) => {
     const m = Math.min(w, h);
     const small = m < 110;
     const mt = moment ? Math.min(1, Math.max(0, moment.t)) : 0;
     if (mt <= 0) cc._flurry = 0;
-    // main pass: the banded rising sun behind the photo. Drawn before rings
+    // main pass: the rising-sun sprite behind the photo. Drawn before rings
     // and layers so everything else sits in front of it.
-    if (pass === "main") { wealthySun(g, fx.sun, cx, cy, rx, ry, w, h, mt, reduce, time); return null; }
+    if (pass === "main") { wealthySun(g, fx.sun, cx, cy, rx, ry, w, h, mt, reduce); return null; }
     if (pass !== "over") return null;
     const ctx = over || g;
     const dt = Math.max(0, Math.min(0.12, clock - (cc._wdt ?? clock))); cc._wdt = clock;
 
-    // the money pool — a deep mound of overlapping bills filling the bottom
-    // of the ring and curving up the sides; always present (rest state)
-    const P = { ...(fx.pool || {}), ...(small ? fx.pool?.small : {}) };
-    if (!small || mode === "circle") {
-      const key = `${w}x${h}:${mode}:${P.n}`;
-      if (cc._poolKey !== key) { cc._poolKey = key; cc._pool = genPool(cx, cy, rx, ry, w, h, P); }
-      for (const b of cc._pool) poolBill(ctx, b, clock, reduce);
-    }
+    // the gold bezel — always-on frame around the photo (ring views only),
+    // with a shine arc that travels the band across the moment's pop beat
+    if (mode === "circle") wealthyBezel(ctx, cx, cy, rx, ry, w, h, mt, reduce);
+
+    // the money pool — the keyed pile sprite cradles the photo's lower
+    // half and wraps up its sides; always present (rest state)
+    if (!small || mode === "circle") wealthyPool(ctx, cx, cy, rx, ry, w, h);
 
     // the gun is a ring-view piece only: it drops at board size, on the
     // figure, and under reduced motion (gag + gun suppressed per the brief)
@@ -3401,7 +3399,7 @@ export const AURA_ART = {
         if (cc._bills.length >= W_BILL_CAP) cc._bills.shift();
         const a = ang + rnd(-0.17, 0.17);
         const v = rnd(0.9, 1.45) * rx * 1.2;
-        cc._bills.push({ x: mz.x, y: mz.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd(0, Math.PI * 2), vr: rnd(-3.2, 3.2), sz: rnd(7, 11), ph: rnd(0, Math.PI * 2), age: 0, life: rnd(2.4, 3.6), ang: 0, w: 0, i: 0, c: pick(W_BILL_COLS) });
+        cc._bills.push({ x: mz.x, y: mz.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd(0, Math.PI * 2), vr: rnd(-3.2, 3.2), sz: rnd(9, 14), ph: rnd(0, Math.PI * 2), age: 0, life: rnd(2.4, 3.6), ang: 0, w: 0, i: 0 });
         cc._kick = 1;
       }
       if (cc._kick) cc._kick = Math.max(0, cc._kick - dt * 6);
@@ -3415,62 +3413,51 @@ export const AURA_ART = {
         // fade in fast, out before the frame edge — frame-edge exit is the
         // one allowed transient-debris case; the fade completes a full bill
         // extent inside the border so a note can never paint the edge
-        const dEdge = Math.min(b.x, w - b.x, b.y, h - b.y) - b.sz * 0.66;
+        const dEdge = Math.min(b.x, w - b.x, b.y, h - b.y) - b.sz * 0.8;
         ctx.globalAlpha = Math.max(0, Math.min(1, b.age * 7, (b.life - b.age) * 1.4, dEdge / (rx * 0.22)));
         drawNewParticleShape(ctx, "bill", b, b.x, b.y, clock, false);
       }
       ctx.globalAlpha = 1;
     } else if (cc._bills) { cc._bills.length = 0; cc._acc = 0; }
 
-    // the gag — bold $-sign eyes launch off the photo eye-line with cartoon
-    // overshoot, and a red tongue unrolls segment-by-segment from photo
-    // centre. Both over the photo; suppressed with the gun at small/reduce.
+    // the gag — the keyed $-medallion eyes pop off the photo eye-line with
+    // cartoon overshoot, and the tongue sprite unrolls from the mouth point
+    // down over the pile. Both over the photo; suppressed with the gun at
+    // small size / reduced motion.
     const f = anchors?.face;
     if (f && mt > 0 && !small && !reduce) {
+      const eyeRec = auraImage(W_EYE_SRC), tRec = auraImage(W_TONGUE_SRC);
       const rise = Math.min(1, Math.max(0, (mt - 0.13) / 0.2));
       const pop = mt < 0.85 ? easeOutBack(rise) : Math.max(0, 1 - (mt - 0.85) / 0.12);
-      if (pop > 0.02) {
+      if (pop > 0.02 && eyeRec.ready && !eyeRec.failed) {
         const es = f.eyeW * 1.15;
         const wob = Math.sin(clock * 16) * 0.06 * Math.min(1, (mt - 0.13) * 8) * (mt < 0.85 ? 1 : 0);
         for (const sgn of [-1, 1]) {
           const ex = f.x + sgn * f.eyeX * (1 + 0.16 * Math.min(1, rise));
-          const ey = f.y - es * (0.1 + 0.2 * Math.min(1, rise));
-          dollarEye(ctx, ex, ey, es * Math.min(pop, 1.22), sgn * -0.14 + wob * sgn);
+          // seat just under the eye line: the brim edge lands at the eye
+          // line, so the medallions read as $-eyes peeking out from under
+          // the hat (brim covers the coin tops — hat draws last)
+          const ey = f.y + es * (0.1 + 0.25 * Math.min(1, rise));
+          const ed = es * 2.0 * Math.min(pop, 1.22);
+          // mirrored pair — the right medallion is the sprite flipped
+          ctx.save(); ctx.translate(ex, ey); ctx.rotate(sgn * -0.14 + wob * sgn); if (sgn > 0) ctx.scale(-1, 1);
+          ctx.drawImage(eyeRec.img, -ed / 2, -ed / 2, ed, ed);
+          ctx.restore();
         }
       }
-      // tongue: rolls out from photo centre — the unfurled ribbon grows
-      // while the tip stays coiled, then the coil opens into the rounded
-      // tip at full extension. Overshoot, hold, roll back up on retract.
+      // tongue: the sprite is fully unrolled with the flat root at the top —
+      // the reveal crops progressively more source rows while the drawn
+      // strip grows downward from the pinned mouth anchor (slide + vertical
+      // scale), overshoot stretches slightly, then it rolls back up.
       const tu = mt < 0.26 ? 0 : mt < 0.62 ? easeOutBack((mt - 0.26) / 0.32) : mt < 0.85 ? 1 : Math.max(0, 1 - (mt - 0.85) / 0.13);
-      if (tu > 0.02) {
+      if (tu > 0.02 && tRec.ready && !tRec.failed) {
+        const iw = tRec.img.naturalWidth || 512, ih = tRec.img.naturalHeight || 512;
         const tx = f.x, ty = mode === "body" ? f.y + f.eyeW * 1.5 : cy + ry * 0.06;
-        const u = Math.min(tu, 1.08);
-        const wid = f.eyeW * 1.2;
-        // the ribbon unspools: hanging length grows while the coil shrinks
-        const coil = Math.max(0, 1 - u * 1.15);
-        const len = u * ry * 0.6 + coil * wid * 0.4;
-        const tipR = wid * (0.3 + 0.22 * coil);
-        const sway = reduce ? 0 : Math.sin(clock * 3.2) * wid * 0.05 * Math.min(1, u);
-        const endY = ty + len;
-        ctx.save(); ctx.lineJoin = "round";
-        ctx.fillStyle = "#E0342B";
-        ctx.beginPath();
-        ctx.moveTo(tx - wid * 0.42, ty);
-        ctx.quadraticCurveTo(tx - wid * 0.58 + sway, ty + len * 0.45, tx - tipR + sway, endY - tipR * 0.5);
-        ctx.arc(tx + sway, endY - tipR * 0.5, tipR, Math.PI, 0, false);
-        ctx.quadraticCurveTo(tx + wid * 0.58 + sway, ty + len * 0.45, tx + wid * 0.42, ty);
-        ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = "#8E1710"; ctx.lineWidth = Math.max(1, wid * 0.13); ctx.stroke();
-        // the coil's spiral while rolled, fading into the centre crease
-        if (coil > 0.05) {
-          ctx.strokeStyle = "#8E1710"; ctx.lineWidth = Math.max(0.7, wid * 0.09); ctx.lineCap = "round";
-          ctx.beginPath(); ctx.arc(tx + sway, endY - tipR * 0.5, tipR * 0.55, -0.4, Math.PI * 1.25); ctx.stroke();
-        }
-        ctx.strokeStyle = "rgba(142,23,16,0.6)"; ctx.lineWidth = Math.max(0.6, wid * 0.06);
-        ctx.beginPath(); ctx.moveTo(tx, ty + len * 0.12); ctx.quadraticCurveTo(tx + sway * 0.6, ty + len * 0.5, tx + sway, endY - tipR * 1.1); ctx.stroke();
-        // gloss stripe down the left edge — cartoon shine, not a flash
-        ctx.strokeStyle = "rgba(255,150,130,0.5)"; ctx.lineWidth = Math.max(0.6, wid * 0.09);
-        ctx.beginPath(); ctx.moveTo(tx - wid * 0.22, ty + len * 0.15); ctx.quadraticCurveTo(tx - wid * 0.34 + sway, ty + len * 0.5, tx - tipR * 0.4 + sway, endY - tipR * 0.9); ctx.stroke();
+        const td = f.eyeW * 3.4;                     // box size; the strip is ~0.37·td wide
+        const uu = Math.min(1, Math.max(0.05, tu));
+        const sway = reduce ? 0 : Math.sin(clock * 3.2) * 0.05 * Math.min(1, tu);
+        ctx.save(); ctx.translate(tx, ty); ctx.rotate(sway);
+        ctx.drawImage(tRec.img, 0, 0, iw, ih * uu, -td / 2, -td * 0.02, td, td * Math.min(1.07, Math.max(uu, tu)));
         ctx.restore();
       }
     }
@@ -3479,8 +3466,20 @@ export const AURA_ART = {
 };
 
 // Wealthy painter constants. Sprite-space points are fractions of the keyed
-// sprite's dimensions, measured on wealthy-gun.webp (the dark muzzle hole at
-// the barrel tip) so a re-export at a different pixel size stays correct.
+// sprite's dimensions, measured on the shipped webp assets (see
+// docs/wealthy-sprite-specs.md) so a re-export at a different pixel size
+// stays correct.
+const W_SUN_SRC = "/aura/wealthy-sun.webp";
+const W_SUN_TOP = 0.256, W_SUN_BASE = 0.742;  // dome apex row / flat base row
+const W_POOL_SRC = "/aura/wealthy-pool.webp";
+const W_POOL_XW = 0.959;                      // content width fraction of the box
+const W_POOL_TOP = 0.314, W_POOL_BASE = 0.684; // side-mound tops / pile base rows
+const W_BEZEL_SRC = "/aura/wealthy-bezel.webp";
+const W_BEZEL_IN = 0.328, W_BEZEL_OUT = 0.480; // ring radii as sprite fractions
+const W_EYE_SRC = "/aura/wealthy-eye.webp";
+const W_TONGUE_SRC = "/aura/wealthy-tongue.webp";
+const W_BILL_SRC = "/aura/wealthy-bill.webp";
+const W_BILL_CROP = [0.02, 0.277, 0.979, 0.721]; // banknote content bbox x0,y0,x1,y1
 const W_GUN_SRC = "/aura/wealthy-gun.webp";
 const W_GUN_A = 0.28;                     // rim placement: fraction of a turn, 0.25 = 3 o'clock
 const W_GUN_R = 1.0;                      // pivot radius in rx units — on the rim
@@ -3490,142 +3489,70 @@ const W_GUN_PIVOT = { x: 0.42, y: 0.5 };  // sprite pivot the rim seat refers to
 const W_MUZZLE = { x: 0.875, y: 0.16 };   // measured muzzle hole (sprite fractions)
 const W_FIRE = 9;                         // bills per second at rest
 const W_BILL_CAP = 70;                    // board-32 budget: painter bills + ambient storm
-const W_BILL_COLS = ["#7CC24A", "#9BD35A", "#5CB85C", "#2FBF5B"];
 const easeOutBack = (t) => { const u = Math.min(1, Math.max(0, t)) - 1; return 1 + 2.70158 * u * u * u + 1.70158 * u * u; };
 
-// Wealthy painter helpers — the rising sun, the money pool and the gag
-// pieces, matching docs/aura-refs/wealthy/wealthy-ref-mogul.png.
+// Wealthy painter helpers — sprite seating for the sun dome, the money
+// pool and the photo bezel, matching docs/aura-refs/wealthy/wealthy-ref-mogul.png.
 
-// banded rising-sun disc behind the photo: red core → orange → gold rim,
-// with wedge rays poking past the outer band. mA/mR keyframes give the
-// POP-beat swell — alpha/scale only, never a flash.
-const wealthySun = (g, S, cx, cy, rx, ry, w, h, mt, reduce, time) => {
+// rising-sun dome behind the photo: the sprite's flat base seats on
+// cy + drop and its apex spans ~R. mA/mR keyframes give the POP-beat
+// swell — alpha/scale only, never a flash. The whole sprite stays inside
+// the canvas at every size (edge rule), bound pre-divided by the swell.
+const wealthySun = (g, S, cx, cy, rx, ry, w, h, mt, reduce) => {
+  const rec = auraImage(W_SUN_SRC);
+  if (!rec.ready || rec.failed) return;
   const drop = ry * (S?.drop ?? 0.14);
-  const sw = Math.min(1.5, mt > 0 ? (keyAt(S?.mA, mt) ?? 1) : 1);
-  const sr = mt > 0 ? (keyAt(S?.mR, mt) ?? 1) : 1;
-  // the whole disc stays inside the canvas at every size (edge rule),
-  // including the moment mR swell — the bound is pre-divided by it
+  const calm = reduce ? 0.4 : 1;   // reduced motion keeps the swell gentle
+  const sw = 1 + (Math.min(1.5, mt > 0 ? (keyAt(S?.mA, mt) ?? 1) : 1) - 1) * calm;
+  const sr = 1 + ((mt > 0 ? (keyAt(S?.mR, mt) ?? 1) : 1) - 1) * calm;
   const R = Math.min(Math.min(rx, ry) * (S?.r ?? 1.58), (Math.min(cx, cy + drop, w - cx, h - cy - drop) - 2) / sr);
   if (R <= 4) return;
-  g.save(); g.translate(cx, cy + drop);
-  g.scale(sr, sr);
-  g.globalAlpha = Math.min(1, (S?.a ?? 0.95) * sw);
-  // rays: wedge spokes through and past the outer band, gently waving.
-  // Tips are clamped inside the frame — a solid ray must never paint the
-  // border (edge rule).
-  const n = S?.raysN ?? 9, wd = S?.rayW ?? 0.09;
-  const tipR = Math.min(R * 1.14, Math.max(R * 0.5, (Math.min(cx, w - cx, cy + drop, h - cy - drop) - 1) / sr));
-  g.fillStyle = "#F8C531";
-  for (let i = 0; i < n; i++) {
-    const a0 = -Math.PI / 2 + ((i - (n - 1) / 2) / n) * Math.PI * 1.3 + (reduce ? 0 : Math.sin(time * 0.7 + i * 2.1) * 0.02);
-    g.beginPath();
-    g.moveTo(Math.cos(a0) * R * 0.55, Math.sin(a0) * R * 0.55);
-    g.lineTo(Math.cos(a0 - wd) * tipR, Math.sin(a0 - wd) * tipR);
-    g.lineTo(Math.cos(a0 + wd) * tipR, Math.sin(a0 + wd) * tipR);
-    g.closePath(); g.fill();
-  }
-  // concentric band fills, outermost first
-  const bands = S?.bands || [["#E23A2E", 0, 0.58], ["#F28C28", 0.58, 0.8], ["#F8C531", 0.8, 1]];
-  for (const [c, , r1] of [...bands].sort((a, b) => b[2] - a[2])) {
-    g.fillStyle = c;
-    g.beginPath(); g.arc(0, 0, R * r1, 0, Math.PI * 2); g.fill();
-  }
-  // bold cartoon band outlines
-  g.strokeStyle = "rgba(74,26,4,0.5)"; g.lineWidth = Math.max(1, R * 0.02);
-  for (const [, r0] of bands.map((b) => [b[0], b[1]])) {
-    if (r0 <= 0) continue;
-    g.beginPath(); g.arc(0, 0, R * r0, 0, Math.PI * 2); g.stroke();
-  }
-  g.globalAlpha = 1;
+  // sprite box: dome height (base−top) maps to R·sr; content is centred
+  const d = (R * sr) / (W_SUN_BASE - W_SUN_TOP);
+  g.save();
+  g.globalAlpha = Math.min(1, (S?.a ?? 0.97) * sw);
+  g.drawImage(rec.img, cx - d / 2, cy + drop - W_SUN_BASE * d, d, d);
   g.restore();
 };
 
-// pool fills are deliberately disjoint from W_BILL_COLS — the two palettes
-// stay distinct so the pile reads layered and tests can tell them apart
-const W_POOL_FILLS = ["#A8DC6E", "#8FD05A", "#C4EA8C", "#6FBF58", "#B8E050"];
-const W_POOL_OUTLINE = "#175C2C";
-const W_LABELS = ["STOCK OPTIONS", "MUTUAL FUNDS", "BONDS", "SHARES"];
-
-// one bold-outlined cartoon banknote for the pool — same silhouette as the
-// `bill` particle but denser: thick outline, inner border, medallion, end
-// bars, and optional finance label + ruled lines (the reference pile).
-const poolBill = (g, b, time, reduce) => {
-  const s = b.bw, bh = s * 0.5;
-  const bob = b.loose && !reduce;
-  const rot = b.rot + (bob ? Math.sin(time * 1.4 + (b.ph || 0)) * 0.16 : 0);
-  const y = b.y + (bob ? Math.sin(time * 1.9 + (b.ph || 0)) * s * 0.09 : 0);
-  g.save(); g.translate(b.x, y); g.rotate(rot);
-  g.lineJoin = "round";
-  g.fillStyle = b.c;
-  g.beginPath(); g.rect(-s / 2, -bh / 2, s, bh); g.fill();
-  g.strokeStyle = W_POOL_OUTLINE; g.lineWidth = Math.max(1, s * 0.09); g.stroke();
-  g.strokeStyle = "rgba(20,80,35,0.5)"; g.lineWidth = Math.max(0.4, s * 0.035);
-  g.beginPath(); g.rect(-s * 0.4, -bh * 0.34, s * 0.8, bh * 0.68); g.stroke();
-  g.fillStyle = "rgba(20,80,35,0.45)";
-  g.beginPath(); g.ellipse(0, 0, s * 0.13, bh * 0.3, 0, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = "rgba(20,80,35,0.45)"; g.lineWidth = Math.max(0.4, s * 0.03); g.lineCap = "round";
-  for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(sgn * s * 0.31, -bh * 0.26); g.lineTo(sgn * s * 0.31, bh * 0.26); g.stroke(); }
-  if (b.label && s > 9) {
-    g.fillStyle = "rgba(20,60,30,0.75)";
-    g.font = `700 ${Math.max(3, Math.round(s * 0.15))}px Georgia, serif`;
-    g.textAlign = "center"; g.textBaseline = "middle";
-    g.fillText(b.label, 0, -bh * 0.14);
-    g.strokeStyle = "rgba(20,60,30,0.45)"; g.lineWidth = Math.max(0.3, s * 0.015);
-    for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-s * 0.28, bh * (0.06 + i * 0.13)); g.lineTo(s * 0.28, bh * (0.06 + i * 0.13)); g.stroke(); }
-  }
-  g.restore();
+// the money pile: side mounds (0.314·d) seat just past the photo midline
+// and the pile base (0.684·d) tucks to ~the photo's bottom edge, so the
+// concave hollow cradles the lower photo. Width/height-capped so the
+// sprite content never reaches the canvas border.
+const wealthyPool = (g, cx, cy, rx, ry, w, h) => {
+  const rec = auraImage(W_POOL_SRC);
+  if (!rec.ready || rec.failed) return;
+  const span = W_POOL_BASE - W_POOL_TOP;               // 0.37
+  let d = ry / span;                                   // mounds→base span = ry
+  d = Math.min(d, (Math.min(cx, w - cx) - 3) / (W_POOL_XW / 2));
+  d = Math.min(d, (h - 3 - cy + 0.05 * ry) / span);
+  if (d <= 6) return;
+  g.drawImage(rec.img, cx - d / 2, cy - ry * 0.05 - W_POOL_TOP * d, d, d);
 };
 
-// scatter the mound once per canvas size: jittered rows from the bottom up
-// under a parabolic surface curve that rises at both sides, a few loose
-// bills tumbling at the crest. Cached on cc so the pile is stable.
-const genPool = (cx, cy, rx, ry, w, h, P) => {
-  const m = Math.min(rx, ry);
-  const bw = m * ((P.bw?.[0] ?? 0.3) + (P.bw?.[1] ?? 0.44)) / 2;
-  // bill centres stay a rotated half-diagonal inside the frame — the pile
-  // can sit against the ring edge but never paints the border
-  const reach = bw * 1.18 * 0.58;
-  const halfW = Math.min(w / 2 - 3 - reach, m * 1.62);
-  const bot = Math.min(h - 3 - reach, cy + ry * 1.45);
-  const crest = cy + ry * (P.crest ?? 0.14);
-  const lift = ry * (P.lift ?? 0.62);
-  const surfY = (x) => crest - lift * Math.pow(Math.abs(x - cx) / Math.max(1, halfW), 1.7);
-  const bills = [];
-  const stepY = bw * 0.36, stepX = bw * 0.6;
-  let row = 0;
-  for (let y = bot - bw * 0.22; y > crest - lift - bw * 0.6 && bills.length < (P.n ?? 60); y -= stepY, row++) {
-    const off = (row % 2) * stepX * 0.5;
-    for (let x = cx - halfW + off; x <= cx + halfW && bills.length < (P.n ?? 60); x += stepX) {
-      const jx = x + rnd(-0.15, 0.15) * bw;
-      const jy = y + rnd(-0.12, 0.12) * bw;
-      if (jy < surfY(jx) + bw * 0.1) continue;
-      bills.push({ x: jx, y: jy, bw: bw * rnd(0.8, 1.15), rot: rnd(-0.5, 0.5), c: pick(W_POOL_FILLS), loose: 0 });
-    }
+// always-on gold frame around the photo: the inner hole edge sits on the
+// photo rim, the outer edge is clamped inside the canvas. The moment adds
+// a pale shine arc travelling the band across the pop beat — alpha and
+// position motion only, never a flash.
+const wealthyBezel = (g, cx, cy, rx, ry, w, h, mt, reduce) => {
+  const rec = auraImage(W_BEZEL_SRC);
+  if (!rec.ready || rec.failed) return;
+  let d = (Math.min(rx, ry) * 0.99) / W_BEZEL_IN;
+  d = Math.min(d, (Math.min(cx, cy, w - cx, h - cy) - 2) / W_BEZEL_OUT);
+  if (d <= 6) return;
+  g.drawImage(rec.img, cx - d / 2, cy - d / 2, d, d);
+  if (mt > 0.15 && mt < 0.8) {
+    const k = (mt - 0.15) / 0.65;
+    const a = Math.sin(k * Math.PI) * 0.5 * (reduce ? 0.55 : 1);
+    const mid = (W_BEZEL_IN + W_BEZEL_OUT) * 0.5 * d;
+    const band = (W_BEZEL_OUT - W_BEZEL_IN) * d * 0.85;
+    const ang = -2.3 + k * 2.2;
+    g.save();
+    g.globalAlpha = a; g.strokeStyle = "#FFF3B0";
+    g.lineWidth = Math.max(1.5, band); g.lineCap = "round";
+    g.beginPath(); g.arc(cx, cy, mid, ang, ang + 0.55); g.stroke();
+    g.restore();
   }
-  for (let i = 0; i < (P.loose ?? 5); i++) {
-    const lx = cx + rnd(-0.72, 0.72) * halfW;
-    bills.push({ x: lx, y: surfY(lx) - bw * 0.12, bw: bw * rnd(0.8, 1), rot: rnd(-0.8, 0.8), c: pick(W_POOL_FILLS), loose: 1, ph: rnd(0, Math.PI * 2) });
-  }
-  if (P.labels) {
-    let k = 0;
-    for (const b of bills) if (!b.loose && Math.abs(b.rot) < 0.28 && k < 4 && Math.random() < 0.1) b.label = W_LABELS[k++ % W_LABELS.length];
-  }
-  bills.sort((a, b) => a.y - b.y);
-  return bills;
-};
-
-// the moment eyes: a big bold `$` with a thick dark outline and a glossy
-// white highlight — unmistakably a dollar sign at ring size
-const dollarEye = (g, x, y, s, rot = 0) => {
-  g.save(); g.translate(x, y); g.rotate(rot);
-  g.font = `900 ${Math.max(6, Math.round(s * 2.4))}px system-ui, sans-serif`;
-  g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
-  g.lineWidth = Math.max(1.2, s * 0.5);
-  g.strokeStyle = "rgba(8,38,16,0.95)"; g.strokeText("$", 0, s * 0.06);
-  g.fillStyle = "#35D465"; g.fillText("$", 0, s * 0.06);
-  g.fillStyle = "rgba(255,255,255,0.85)";
-  g.beginPath(); g.ellipse(-s * 0.26, -s * 0.4, s * 0.15, s * 0.09, -0.5, 0, Math.PI * 2); g.fill();
-  g.restore();
 };
 
 // Dev tooling (gallery anchor overlay): the seats Wealthy validates — hat
@@ -3637,11 +3564,11 @@ AURA_ART.wealthy.anchorPoints = ({ w, h, cx, cy, rx, ry, mode, anchors }) => {
   const f = anchors.face;
   const headHalf = f.eyeX * HEAD_FROM_EYE;
   // hat brim-centre: head-anchored in both views — the sprite centre sits
-  // at face.y - headHalf - sz·hover, and the brim bottom is ~0.36·sz below
-  // it (headSz 4.0, hover 0.16 in circle mode; the body override differs)
-  const hSz = (mode === "body" ? 3.2 : 3.7) * headHalf;
-  const hov = mode === "body" ? 0.02 : 0.05;
-  pts.push({ x: f.x, y: f.y - headHalf - hSz * hov + hSz * 0.36 });
+  // at face.y - headHalf - sz·hover, and the brim bottom is ~0.40·sz below
+  // it (headSz 3.7, hover 0.11 in circle mode; the body override differs)
+  const hSz = (mode === "body" ? 3.0 : 3.7) * headHalf;
+  const hov = mode === "body" ? 0.06 : 0.11;
+  pts.push({ x: f.x, y: f.y - headHalf - hSz * hov + hSz * 0.40 });
   if (mode !== "body" && Math.min(w, h) >= 110) {
     const rec = auraImage(W_GUN_SRC);
     const iw = rec.img?.naturalWidth || 512, ih = rec.img?.naturalHeight || 512;
@@ -4147,6 +4074,20 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.save(); g.translate(x, y); g.rotate(p.rot + sway);
     g.drawImage(sp, -s * 2.2, -s * 2.4, s * 4.4, s * 4.8);
     g.restore();
+  } else if (shape === "bill") {
+    // keyed banknote sprite — Wealthy is the only aura using `bill`, so the
+    // sprite draw is opt-in by the shape itself. Same built-in paper
+    // flutter on top of p.rot as the old vector note, so the money gun's
+    // muzzle bills and the ambient storm still read identical.
+    const recB = auraImage(W_BILL_SRC);
+    if (recB.ready && !recB.failed) {
+      const iw = recB.img.naturalWidth || 512, ih = recB.img.naturalHeight || 512;
+      const [bx0, by0, bx1, by1] = W_BILL_CROP;
+      const dw = s * 1.3, dh = dw * ((by1 - by0) * ih) / ((bx1 - bx0) * iw);
+      g.save(); g.translate(x, y); g.rotate(p.rot + (reduced ? 0 : Math.sin(time * 2.1 + p.ph) * 0.3));
+      g.drawImage(recB.img, bx0 * iw, by0 * ih, (bx1 - bx0) * iw, (by1 - by0) * ih, -dw / 2, -dh / 2, dw, dh);
+      g.restore();
+    }
   } else if (shape === "sparkburst") {
     // six tapered rays around a bright core — one sprite, spun and pulsed
     const sp = shapeSprite(p, "sparkburst", s * 4.6, (sg, rgb) => {
@@ -4164,29 +4105,6 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.save(); g.translate(x, y); g.rotate(p.rot + (reduced ? 0 : time * 0.4));
     g.globalAlpha *= Math.min(1, pul);
     g.drawImage(sp, -s * 2.3, -s * 2.3, s * 4.6, s * 4.6);
-    g.restore();
-  } else if (shape === "bill") {
-    // flat banknote: tinted body, pale edge, centre medallion + end bars.
-    // Built-in paper flutter on top of p.rot; the Wealthy painter's muzzle
-    // bills reuse this exact draw so fired bills and the ambient storm
-    // look identical.
-    g.save(); g.translate(x, y); g.rotate(p.rot + (reduced ? 0 : Math.sin(time * 2.1 + p.ph) * 0.3));
-    const bw = s * 1.15, bh = s * 0.52;
-    g.lineJoin = "round";
-    g.fillStyle = p.c;
-    g.beginPath(); g.rect(-bw / 2, -bh / 2, bw, bh); g.fill();
-    // bold cartoon outline — the reference's confident dark edging
-    g.strokeStyle = "rgba(18,74,36,0.95)"; g.lineWidth = Math.max(0.8, s * 0.16);
-    g.beginPath(); g.rect(-bw / 2, -bh / 2, bw, bh); g.stroke();
-    g.strokeStyle = "rgba(240,255,238,0.7)"; g.lineWidth = Math.max(0.4, s * 0.05);
-    g.beginPath(); g.rect(-bw * 0.38, -bh * 0.32, bw * 0.76, bh * 0.64); g.stroke();
-    g.fillStyle = "rgba(8,58,26,0.5)";
-    g.beginPath(); g.ellipse(0, 0, s * 0.19, s * 0.25, 0, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = "rgba(8,58,26,0.6)"; g.lineWidth = Math.max(0.4, s * 0.07); g.lineCap = "round";
-    g.beginPath();
-    g.moveTo(-bw * 0.31, -bh * 0.24); g.lineTo(-bw * 0.31, bh * 0.24);
-    g.moveTo(bw * 0.31, -bh * 0.24); g.lineTo(bw * 0.31, bh * 0.24);
-    g.stroke();
     g.restore();
   } else if (shape === "dollar") {
     // palette-tinted drawn $ glyph — NOT the emoji shape (that cannot tint
@@ -4265,6 +4183,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
   if (fx.art === "wheel") auraImage(WHEEL_EYE_SRC);
   if (fx.art === "descended") { auraImage(DESC_WINGS_SRC); auraImage(DESC_EMBLEM_SRC); auraImage(DESC_EYE_SRC); }
   if (fx.art === "stormborn" || fx.overArt === "stormborn") { auraImage(SB_BACK_SRC); auraImage(SB_BACK2_SRC); auraImage(SB_FRONT_SRC); }
+  if (fx.art === "wealthy" || fx.overArt === "wealthy") { for (const s of [W_SUN_SRC, W_POOL_SRC, W_BILL_SRC, W_TONGUE_SRC, W_EYE_SRC, W_BEZEL_SRC, W_GUN_SRC]) auraImage(s); }
   const spd = fx.spd || 1;
   const cx = w / 2, cy = mode === "body" ? h * 0.52 : h / 2;
   const fit = aura === "ascended" || aura === "descended" ? 1 : (mode === "body" ? 0.84 : 1);
@@ -5277,7 +5196,11 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
     const paintLayers = (ctx, wantOver) => {
       for (const state of layers) {
         const { L, ps, spawn } = state;
-        if (!!L.over !== wantOver) continue;
+        // `over` is a paint tier: falsy paints on the main canvas, truthy on
+        // the over canvas, and 2 goes last (after overArt) so a worn piece
+        // stays on top of painter-drawn art. No existing spec uses 2 —
+        // opt-in only.
+        if ((L.over === 2 ? 2 : L.over ? 1 : 0) !== wantOver) continue;
         const layerDt = artState?.freeze && L.shape !== "img" ? 0 : dt;
         if (state.shadow) updateShadowWisps(state, layerDt);
         ctx.globalCompositeOperation = L.blend || (L.shape === "emoji" || L.shape === "img" ? "source-over" : "lighter");
@@ -5418,7 +5341,7 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
     const shkU = shkSpec && api.moment != null ? (api.moment - shkSpec.at) / Math.max(0.01, shkSpec.dur ?? 0.4) : 1;
     const shakeAmp = shkSpec && shkU >= 0 && shkU < 1 ? (shkSpec.amp ?? 0.04) * Math.min(rx, ry) * (1 - shkU) * (1 - shkU) * (api.reduce ? 0.3 : 1) : 0;
     if (shakeAmp > 0.01) { g.save(); g.translate(rnd(-shakeAmp, shakeAmp), rnd(-shakeAmp, shakeAmp)); }
-    paintLayers(g, false);
+    paintLayers(g, 0);
     paintMoment(g, false);
     if (shakeAmp > 0.01) g.restore();
     if (fx.artLate) AURA_ART[fx.art]?.(artArgs("late"));
@@ -5565,11 +5488,12 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
     paintWash(g);
     if (overG) {
       if (shakeAmp > 0.01) { overG.save(); overG.translate(rnd(-shakeAmp, shakeAmp), rnd(-shakeAmp, shakeAmp)); }
-      paintLayers(overG, true);
+      paintLayers(overG, 1);
       paintMoment(overG, true);
       if (shakeAmp > 0.01) overG.restore();
       paintWash(overG);
       if (fx.overArt) AURA_ART[fx.overArt]?.(artArgs("over"));
+      paintLayers(overG, 2);
     }
     if (flashLeft > 0) { flashLeft -= dt; if (flashLeft <= 0) flashSpec = null; }
     api.strike = strike;
