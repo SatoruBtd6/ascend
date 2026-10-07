@@ -1,7 +1,7 @@
 // Dev-only aura tuning gallery. Loaded from a DEV branch in Auth so production builds drop this module.
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { resolveAuraAnchors, HEAD_FROM_EYE } from "./anchors.js";
-import { AURA_FX, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape, fireAuraMoment } from "./AuraCanvas.jsx";
+import { AURA_FX, AURA_ART, AuraCanvas, AuraLoop, _auraImageCache, auraNeedsOver, drawNewParticleShape, fireAuraMoment } from "./AuraCanvas.jsx";
 import { AURAS, resolveAuraId } from "./catalog.js";
 import {
   cloneSpec, formatAuraEntry, specFields, setDeep, deleteDeep, walkPath,
@@ -540,11 +540,19 @@ function PairField({ title, lo, hi, bounds, onLo, onHi, loDefault, hiDefault, on
 }
 
 function AnchorOverlay({ w, h, mode, aura, ringR, figure, style }) {
-  const anchors = resolveAuraAnchors(mode, geometry(mode, w, h, aura, ringR), figure);
+  const geo = geometry(mode, w, h, aura, ringR);
+  const anchors = resolveAuraAnchors(mode, geo, figure);
   if (!anchors) return null;
   const sw = Math.max(1, w / 140);
   const headHalf = anchors.face.eyeX * HEAD_FROM_EYE;
   const mark = Math.max(4, w / 28);
+  // Landmarks painters seat art on: the avatar's eye line (bonewright eyes,
+  // nullpoint blindfold) and the figure's sigil point (brandmark). Painters
+  // with measured sprite seats self-declare them via AURA_ART.*.anchorPoints
+  // (descended's wing sockets) — auras with none draw nothing extra.
+  const eyeR = Math.max(1.5, anchors.face.eyeW * 0.45);
+  const art = AURA_FX[aura]?.art || AURA_FX[aura]?.overArt;
+  const artPoints = art ? AURA_ART[art]?.anchorPoints?.({ w, h, cx: geo.cx, cy: geo.cy }) : null;
   return (
     <svg width={w} height={h} aria-hidden="true" style={{ pointerEvents: "none", ...style }}>
       <circle cx={anchors.face.x} cy={anchors.face.y} r={Math.max(2, headHalf)} fill="none" stroke="#FF2D6F" strokeWidth={sw} />
@@ -552,6 +560,13 @@ function AnchorOverlay({ w, h, mode, aura, ringR, figure, style }) {
       <line x1={anchors.shoulderX - anchors.shoulderHalf} y1={anchors.shoulderY} x2={anchors.shoulderX + anchors.shoulderHalf} y2={anchors.shoulderY} stroke="#FFD447" strokeWidth={sw} />
       <line x1={anchors.torso.x - mark} y1={anchors.torso.y} x2={anchors.torso.x + mark} y2={anchors.torso.y} stroke="#7DF9FF" strokeWidth={sw} />
       <line x1={anchors.torso.x} y1={anchors.torso.y - mark} x2={anchors.torso.x} y2={anchors.torso.y + mark} stroke="#7DF9FF" strokeWidth={sw} />
+      <circle cx={anchors.face.x - anchors.face.eyeX} cy={anchors.face.y} r={eyeR} fill="none" stroke="#B14BFF" strokeWidth={sw} />
+      <circle cx={anchors.face.x + anchors.face.eyeX} cy={anchors.face.y} r={eyeR} fill="none" stroke="#B14BFF" strokeWidth={sw} />
+      <circle cx={anchors.sigil.x} cy={anchors.sigil.y} r={Math.max(2, mark * 0.6)} fill="none" stroke="#B14BFF" strokeWidth={sw} />
+      <circle cx={anchors.sigil.x} cy={anchors.sigil.y} r={sw} fill="#B14BFF" />
+      {(artPoints || []).map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={Math.max(2, mark * 0.55)} fill="none" stroke="#C2001F" strokeWidth={sw} />
+      ))}
     </svg>
   );
 }
@@ -1888,7 +1903,7 @@ export function DevAuraGallery() {
           </label>
           <button type="button" onClick={() => setShowShapes(!showShapes)} title="Particle shape sheet" style={{ ...chip(showShapes), fontSize: 12 }}>{showShapes ? "Hide shapes" : "Show shapes"}</button>
         </BarGroup>
-        {showAnchors && <span style={{ fontSize: 11, color: C.mute }}>Head circle, shoulder line, torso cross, eyes/sigil dots</span>}
+        {showAnchors && <span style={{ fontSize: 11, color: C.mute }}>Head circle, shoulder line, torso cross, eyes/sigil violet, socket rings crimson</span>}
         <span style={{ fontSize: 11, color: C.mute }}>Preview only. Nothing is saved.</span>
       </div>
 

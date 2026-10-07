@@ -3307,6 +3307,30 @@ export const AURA_ART = {
 // drift) declare nothing — the gallery uses a fixed window for those.
 AURA_ART.descended.cycle = 45;
 
+// Dev tooling (gallery anchor overlay): painters that seat art on measured
+// sprite points can self-declare the rest-pose seat positions in canvas
+// pixels — the overlay draws them as markers so a reviewer can check
+// seating without reading painter code. Painters with no such points
+// declare nothing and the overlay draws only the shared figure anchors.
+AURA_ART.descended.anchorPoints = ({ w, h, cx, cy }) => {
+  const m = Math.min(w, h);
+  const small = m < 110;
+  const wingD = small
+    ? Math.min(m * 0.98, (m - 4) / (DESC_WING_REACH * 1.015 * 1.04 * 1.04))
+    : m * 1.45;
+  if (small) {
+    // Small canvases seat the eyes on the approved even ring at sockR.
+    const sockR = Math.min(DESC_SOCK_FRAC * wingD * 0.5, Math.min(cx, w - cx, cy, h - cy) * 0.82);
+    return DESC_SOCKS.map((_, i) => {
+      const a = (i / 8) * Math.PI * 2;
+      return { x: cx + Math.cos(a) * sockR, y: cy + Math.sin(a) * sockR };
+    });
+  }
+  // Large canvases carry the measured socket fractions through the wing's
+  // rest transform (rot ≈ 0, breathe ≈ 1) — the points the eyes pull out of.
+  return DESC_SOCKS.map(([fx, fy]) => ({ x: cx + fx * wingD * 0.5, y: cy + fy * wingD * 0.5 }));
+};
+
 // One shared animation loop for every aura on screen. Offscreen or hidden auras don't tick.
 export const AuraLoop = {
   set: new Set(), raf: 0, last: 0,
