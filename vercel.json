@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/questnudge", "schedule": "0 0 * * *" }
+  ]
+}
