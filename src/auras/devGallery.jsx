@@ -1421,6 +1421,25 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
       </div>
     );
   const vSpec = scoped ? mergeViewSpec(spec, view) : spec;
+  // Inert rows naming the strings/assets that drive the aura — painter ids,
+  // anchor placements, image sources, glyphs. The biggest visual element
+  // (the painter) used to be silently absent from the panel; read-only this
+  // phase, same row layout as editable fields.
+  const srcRows = [];
+  if (vSpec.art) srcRows.push(["Art (painter)", vSpec.art]);
+  if (vSpec.overArt) srcRows.push(["Over-canvas art", vSpec.overArt]);
+  for (const sec of ["rays", "bolts", "sweep", "corona", "flare"]) {
+    if (typeof vSpec[sec]?.from === "string") srcRows.push([`${SECTION_TITLES[sec] || sec} · from`, vSpec[sec].from]);
+  }
+  viewLayers.forEach((L, i) => {
+    if (!L) return;
+    if (L.placed) srcRows.push([`Layer ${i + 1} · anchored`, L.placed]);
+    if (L.src) srcRows.push([`Layer ${i + 1} · image`, [].concat(L.src).join(", ")]);
+    if (L.frames) srcRows.push([`Layer ${i + 1} · frames`, `${[].concat(L.frames).length} sprites`]);
+    if (L.glyph) srcRows.push([`Layer ${i + 1} · glyph`, L.glyph]);
+    if (Array.isArray(L.e) && L.e.length) srcRows.push([`Layer ${i + 1} · icons`, L.e.join(" ")]);
+    if (typeof L.from === "string") srcRows.push([`Layer ${i + 1} · from`, L.from]);
+  });
   const scopeNote = view === "both"
     ? <><b>Both views</b> — edits write the shared value. ● marks a field with a per-view override, which still wins for that view; × clears the override.</>
     : <><b>{SCOPE_LABEL[view]}</b> — edits apply only to this view; the other stays pixel-identical. ● = overridden for a view, ○ = inherits the shared value; × clears the override.</>;
@@ -1435,6 +1454,17 @@ function SpecEditor({ spec, original, view, onMutate, onAddLayer, onRemoveLayer 
       {overall.length > 0 && (
         <SpecSection title="Overall">
           <BasicAdv items={groupPairs(overall)} render={(item) => renderItem(item, "overall")} />
+        </SpecSection>
+      )}
+      {srcRows.length > 0 && (
+        <SpecSection title="Driving / source">
+          {srcRows.map(([label, value]) => (
+            <div key={label} style={{ ...numRow, gridTemplateColumns: "140px 1fr" }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+              <span title={value} style={{ color: C.mute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</span>
+            </div>
+          ))}
+          <FixedNote>Read-only — set in the spec or the painter, not tunable here.</FixedNote>
         </SpecSection>
       )}
       {vSpec.art === "ophanim" && (
