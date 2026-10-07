@@ -450,9 +450,13 @@ function useLiveCommit(value, onChange) {
 const numRow = { display: "grid", gridTemplateColumns: "140px 1fr 72px 22px", gap: 6, alignItems: "center", fontSize: 11, color: C.dim };
 
 function ResetBtn({ onClick, dirty }) {
+  // Not dirty = nothing to reset: a muted dot keeps the row's grid column
+  // without looking like a broken disabled button. The full ⟲ appears the
+  // instant the field is dirty.
+  if (!dirty) return <span title="At default — nothing to reset" aria-hidden="true" style={{ display: "inline-block", width: 14, textAlign: "center", color: C.mute, fontSize: 11, lineHeight: "18px", opacity: 0.4 }}>·</span>;
   return (
-    <button type="button" title="Reset to default" aria-label="Reset to default" disabled={!dirty} onClick={onClick}
-      style={{ ...chip(false), padding: "0 4px", fontSize: 11, lineHeight: "18px", opacity: dirty ? 1 : 0.35, cursor: dirty ? "pointer" : "default" }}>⟲</button>
+    <button type="button" title="Reset to default" aria-label="Reset to default" onClick={onClick}
+      style={{ ...chip(false), padding: "0 4px", fontSize: 11, lineHeight: "18px" }}>⟲</button>
   );
 }
 
@@ -1779,8 +1783,17 @@ export function DevAuraGallery() {
     }
   };
 
-  const barBtn = (on, label, onClick) => (
-    <button type="button" aria-pressed={on} onClick={onClick} style={chip(on)}>{label}</button>
+  const barBtn = (on, label, onClick, title) => (
+    <button type="button" aria-pressed={on} title={title} onClick={onClick} style={chip(on)}>{label}</button>
+  );
+
+  // Toolbar section: small-caps label + a thin divider before the group's
+  // controls, matching the editor's own label styling.
+  const BarGroup = ({ label, children }) => (
+    <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 12, color: C.dim, paddingLeft: 10, borderLeft: `1px solid ${C.border}` }}>
+      <span style={{ fontSize: 9, color: C.mute, textTransform: "uppercase", letterSpacing: 0.6, marginRight: 2 }}>{label}</span>
+      {children}
+    </span>
   );
 
   const stageFor = (id) => (
@@ -1818,11 +1831,10 @@ export function DevAuraGallery() {
     <div style={{ minHeight: "100dvh", background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div ref={barRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 30, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: 10, background: C.navBg, borderBottom: `1px solid ${C.border}` }}>
         <strong style={{ fontSize: 13 }}>Aura gallery</strong>
-        <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 12, color: C.dim }}>
-          Backdrop
-          {barBtn(backdrop.kind === "figure", "Figure", () => setBackdropId(lastFig.current))}
-          {barBtn(backdrop.kind === "letter", "Default avatar", () => setBackdropId("letter"))}
-          {barBtn(backdrop.kind === "photo", "My photo", () => setBackdropId("photo"))}
+        <BarGroup label="Backdrop">
+          {barBtn(backdrop.kind === "figure", "Figure", () => setBackdropId(lastFig.current), "Body figure backdrop")}
+          {barBtn(backdrop.kind === "letter", "Default avatar", () => setBackdropId("letter"), "Letter avatar backdrop")}
+          {barBtn(backdrop.kind === "photo", "My photo", () => setBackdropId("photo"), "Your uploaded photo")}
           <input id="aura-photo" type="file" accept="image/*" onChange={onPhoto} title="Load your own photo" style={{ fontSize: 10, maxWidth: 140, color: C.mute }} />
           {/* hidden select kept so automated shot scripts can drive the backdrop */}
           <select id="aura-backdrop" value={backdropId} onChange={(e) => setBackdropId(e.target.value)} aria-hidden="true" tabIndex={-1} style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}>
@@ -1830,7 +1842,7 @@ export function DevAuraGallery() {
             <option value="letter">Letter</option>
             <option value="photo">Photo</option>
           </select>
-        </span>
+        </BarGroup>
         {backdrop.kind === "figure" && (() => {
           const idx = Math.max(0, FIGURES.findIndex((f) => f.id === backdropId));
           const tier = Math.floor(idx / 2), sex = idx % 2 ? "f" : "m";
@@ -1841,40 +1853,42 @@ export function DevAuraGallery() {
             return lastFig.current;
           });
           return (
-            <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 12, color: C.dim }}>
-              Body {barBtn(sex === "m", "Male", () => pick("m", tier))} {barBtn(sex === "f", "Female", () => pick("f", tier))}
+            <BarGroup label="Figure">
+              Body {barBtn(sex === "m", "Male", () => pick("m", tier), "Male physique")} {barBtn(sex === "f", "Female", () => pick("f", tier), "Female physique")}
               <span style={{ marginLeft: 6 }}>Rank</span>
-              {TIER_IDS.map((t, ti) => <span key={t}>{barBtn(ti === tier, t, () => pick(sex, ti))}</span>)}
-              {barBtn(false, "◀", () => step(-1))} {barBtn(false, "▶", () => step(1))}
-            </span>
+              {TIER_IDS.map((t, ti) => <span key={t}>{barBtn(ti === tier, t, () => pick(sex, ti), `Rank ${t} physique`)}</span>)}
+              {barBtn(false, "◀", () => step(-1), "Previous physique")} {barBtn(false, "▶", () => step(1), "Next physique")}
+            </BarGroup>
           );
         })()}
-        <span style={{ display: "flex", gap: 4 }}>
-          {barBtn(theme === "dark", "Dark", () => setTheme("dark"))}
-          {barBtn(theme === "light", "Light", () => setTheme("light"))}
-          {barBtn(theme === "zesty", "Zesty", () => setTheme("zesty"))}
-          {barBtn(theme === "custom", "Custom", () => setTheme("custom"))}
-        </span>
-        {theme === "custom" && (
-          <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
-            Cyan <input type="color" value={custom.cyan} onChange={(e) => setCustom((c) => ({ ...c, cyan: e.target.value }))} />
-            Blue <input type="color" value={custom.blue} onChange={(e) => setCustom((c) => ({ ...c, blue: e.target.value }))} />
-            Background <input type="color" value={custom.bg} onChange={(e) => setCustom((c) => ({ ...c, bg: e.target.value }))} />
-          </span>
-        )}
-        <span style={{ display: "flex", gap: 4 }}>
-          {SIZES.map((s) => <span key={s.id}>{barBtn(sizeId === s.id, s.label, () => setSizeId(s.id))}</span>)}
-        </span>
-        <label style={{ fontSize: 12, color: C.dim, display: "flex", gap: 4, alignItems: "center" }}>
-          <input id="aura-reduce" type="checkbox" checked={reduce} onChange={(e) => setReduce(e.target.checked)} />
-          Reduced motion
-        </label>
-        <label style={{ fontSize: 12, color: C.dim, display: "flex", gap: 4, alignItems: "center" }}>
-          <input id="aura-anchors" type="checkbox" checked={showAnchors} onChange={(e) => setShowAnchors(e.target.checked)} />
-          Anchors
-        </label>
-        <button type="button" onClick={() => setShowShapes(!showShapes)} style={{ ...chip(showShapes), fontSize: 12 }}>{showShapes ? "Hide shapes" : "Show shapes"}</button>
-        {showAnchors && <span style={{ fontSize: 11, color: C.mute }}>Head circle, shoulder line, torso cross</span>}
+        <BarGroup label="Theme">
+          {barBtn(theme === "dark", "Dark", () => setTheme("dark"), "Dark theme")}
+          {barBtn(theme === "light", "Light", () => setTheme("light"), "Light theme")}
+          {barBtn(theme === "zesty", "Zesty", () => setTheme("zesty"), "Zesty theme")}
+          {barBtn(theme === "custom", "Custom", () => setTheme("custom"), "Custom colours")}
+          {theme === "custom" && (
+            <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, color: C.dim }}>
+              Cyan <input type="color" value={custom.cyan} onChange={(e) => setCustom((c) => ({ ...c, cyan: e.target.value }))} />
+              Blue <input type="color" value={custom.blue} onChange={(e) => setCustom((c) => ({ ...c, blue: e.target.value }))} />
+              Background <input type="color" value={custom.bg} onChange={(e) => setCustom((c) => ({ ...c, bg: e.target.value }))} />
+            </span>
+          )}
+        </BarGroup>
+        <BarGroup label="Size">
+          {SIZES.map((s) => <span key={s.id}>{barBtn(sizeId === s.id, s.label, () => setSizeId(s.id), `Preview at ${s.label}`)}</span>)}
+        </BarGroup>
+        <BarGroup label="Overlays">
+          <label style={{ fontSize: 12, color: C.dim, display: "flex", gap: 4, alignItems: "center" }}>
+            <input id="aura-reduce" type="checkbox" checked={reduce} onChange={(e) => setReduce(e.target.checked)} />
+            Reduced motion
+          </label>
+          <label style={{ fontSize: 12, color: C.dim, display: "flex", gap: 4, alignItems: "center" }}>
+            <input id="aura-anchors" type="checkbox" checked={showAnchors} onChange={(e) => setShowAnchors(e.target.checked)} />
+            Anchors
+          </label>
+          <button type="button" onClick={() => setShowShapes(!showShapes)} title="Particle shape sheet" style={{ ...chip(showShapes), fontSize: 12 }}>{showShapes ? "Hide shapes" : "Show shapes"}</button>
+        </BarGroup>
+        {showAnchors && <span style={{ fontSize: 11, color: C.mute }}>Head circle, shoulder line, torso cross, eyes/sigil dots</span>}
         <span style={{ fontSize: 11, color: C.mute }}>Preview only. Nothing is saved.</span>
       </div>
 
@@ -1955,9 +1969,10 @@ export function DevAuraGallery() {
               }} style={chip(false)}>Reset</button>
               <span style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11, color: C.mute, marginLeft: "auto" }}>
                 Changes apply to:
-                {barBtn(editScope === "body", "Body figure only", () => setEditScope("body"))}
-                {barBtn(editScope === "circle", "Avatar ring only", () => setEditScope("circle"))}
-                {barBtn(editScope === "both", "Both views", () => setEditScope("both"))}
+                {barBtn(editScope === "body", "Body figure only", () => setEditScope("body"), "Edits apply to the body figure view only")}
+                {barBtn(editScope === "circle", "Avatar ring only", () => setEditScope("circle"), "Edits apply to the avatar ring view only")}
+                {barBtn(editScope === "both", "Both views", () => setEditScope("both"), "Edits write the shared value both views inherit")}
+                <span title="● field overridden for a view · ○ inherits the shared value · × clears the override" style={{ marginLeft: 6, cursor: "help" }}>● overridden · ○ inherits · × clear</span>
               </span>
             </div>
             <SpecEditor
