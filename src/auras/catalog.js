@@ -31,6 +31,10 @@ export const AURAS = [
   { id: "ascended", name: "Ascended", how: "Retired — held by its champion", award: true, group: "special", colors: ["#FFD447", "#7DF9FF"] },
   { id: "descended", name: "Descended", how: "Monthly champion — awarded once, kept forever", award: true, group: "special", colors: ["#C2001F", "#14161C"] },
   { id: "huntersmoon", name: "Hunter's Moon", how: "Land the killing blow on a global boss", worldFirst: true, group: "special", colors: ["#C2001F", "#E4E8F2"] },
+  // Wealthy: monthly Points #1 prize. No unlock field — the reward wiring
+  // (leaderboard award) lands with the prize task; until then it is
+  // dev-previewable in the gallery only.
+  { id: "wealthy", name: "Wealthy", how: "Finish a month as Points #1", group: "special", colors: ["#2FBF5B", "#F2C230"] },
   { id: "wheel", name: "Living Wheel", how: "Finish #1 in back-to-back months", seraph: true, group: "special", colors: ["#38C6FF", "#FFD447"] },
   { id: "soon_throne", name: "Throne", how: "Coming soon", soon: true, group: "soon", colors: ["#C9A8FF", "#7DF9FF"] },
   { id: "soon_seraphim", name: "Seraphim", how: "Coming soon", soon: true, group: "soon", colors: ["#FFFFFF", "#FFD447"] },

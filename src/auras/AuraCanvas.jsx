@@ -775,6 +775,40 @@ export const AURA_FX = {
       { k: "orbit", n: 14, shape: "ember", c: ["#C2001F", "#FF3A3A", "#7A0014"], w: [0.2, 0.42], r: [0.98, 1.14], sz: [1.4, 2.6], tw: 1, a: 0.9, mDim: [[0, 1], [0.36, 0.4], [0.52, 0.12], [0.66, 0.6], [0.85, 1], [1, 1]] },
     ],
     small: { scale: 0.6 } },
+  // Wealthy — monthly Points #1 prize (reward wiring deferred to the prize
+  // task). Money-mogul flex: an oversized black top hat perched on the
+  // photo crown, a gold sunburst pulsing behind, a money gun on the right
+  // rim firing bills up-and-out (AURA_ART.wealthy, over pass), a tumbling
+  // green bill field and twinkling drawn `$` glyphs. Moment (every 16–24 s,
+  // 2.3 s): hat dips→pops→tips while `$` eyes burst over the photo eye-line
+  // and a red cartoon tongue unrolls from photo centre (painter). Zero
+  // flashes — the POP brightening is a slow mA/mLen rays swell.
+  wealthy: { spd: 0.95, glow: 0.72, overArt: "wealthy",
+    rays: { n: 12, c: "#F2C230", spin: 0.03, len: 1.4, a: 0.15, fit: 1,
+      mA: [[0, 1], [0.13, 1], [0.32, 1.55], [0.6, 1.4], [0.85, 1], [1, 1]],
+      mLen: [[0, 1], [0.13, 1], [0.32, 1.14], [0.6, 1.1], [0.85, 1], [1, 1]] },
+    moment: { every: [16, 24], dur: 2.3,
+      bursts: [
+        // ka-ching by the hat band on the POP beat — a scale/alpha twinkle
+        // shower of drawn `$` + sparkle, over the photo. Never a flash.
+        { at: 0.15, path: "shower", shape: "dollar", n: 5, c: ["#FFD95A", "#F2C230"], anchor: "head", dir: -0.4, spread: 0.7, sp: [16, 42], sz: [1.6, 2.6], life: [0.7, 1.2], grav: 0.8, a: 0.95, over: 1 },
+        { at: 0.15, path: "shower", shape: "sparkle", n: 5, c: ["#FFF6C9", "#FFD95A"], anchor: "head", dir: -0.5, spread: 0.8, sp: [14, 34], sz: [1.0, 1.8], life: [0.5, 0.9], grav: 0.5, a: 0.9, over: 1 },
+      ] },
+    layers: [
+      // the hat: rim-seated on the photo frame's top edge in circle mode
+      // (the redline mechanism — the ring canvas leaves no room above it for
+      // a photo-width hat), head-anchored on the figure. mY/mRot/mScale =
+      // the dip → pop → tip → settle gag beat.
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wealthy-tophat.webp", placed: "head", headSz: 3.4, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: 0.12, bob: 1, bobAmp: 0.05, wobble: 0.035, rot: 0.03, a: 0.98, over: 1, blend: "source-over",
+        rim: 1, rimSz: 1.45, rimSink: 0.16,
+        mY: [[0, 0], [0.1, 0.07], [0.3, -0.3], [0.45, -0.24], [0.62, -0.28], [0.85, 0], [1, 0]],
+        mRot: [[0, 0], [0.1, 0], [0.3, -0.16], [0.5, -0.22], [0.65, -0.14], [0.85, 0], [1, 0]],
+        mScale: [[0, 1], [0.1, 0.95], [0.3, 1.12], [0.55, 1.05], [0.85, 1], [1, 1]] },
+      // ambient bill storm — tumbling green notes drifting down the band
+      { k: "fall", n: 14, shape: "bill", c: ["#2FBF5B", "#45D977", "#1E8E43"], sp: [7, 15], sz: [1.9, 3.2], drift: 5, spin: 1.1, a: 0.92, xWrap: 1, xFade: 9, small: { n: 6, sz: [1.6, 2.5] } },
+      // gold `$` twinkle field around the band edge
+      { k: "orbit", n: 10, shape: "dollar", c: ["#FFD95A", "#F2C230", "#FFF3C4"], w: [0.16, 0.4], r: [1.06, 1.26], sz: [1.6, 2.6], tw: 1, a: 0.95, small: { n: 5, sz: [1.4, 2] } },
+    ] },
 };
 
 export const rnd = (a, b) => a + Math.random() * (b - a);
