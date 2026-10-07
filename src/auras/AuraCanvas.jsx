@@ -783,10 +783,19 @@ export const AURA_FX = {
   // 2.3 s): hat dips→pops→tips while `$` eyes burst over the photo eye-line
   // and a red cartoon tongue unrolls from photo centre (painter). Zero
   // flashes — the POP brightening is a slow mA/mLen rays swell.
-  wealthy: { spd: 0.95, glow: 0.72, overArt: "wealthy",
-    rays: { n: 12, c: "#F2C230", spin: 0.03, len: 1.4, a: 0.15, fit: 1,
-      mA: [[0, 1], [0.13, 1], [0.32, 1.55], [0.6, 1.4], [0.85, 1], [1, 1]],
-      mLen: [[0, 1], [0.13, 1], [0.32, 1.14], [0.6, 1.1], [0.85, 1], [1, 1]] },
+  wealthy: { spd: 0.95, glow: 0.72, art: "wealthy", overArt: "wealthy",
+    // rising sun: the red→orange→gold banded arc behind the photo (painter,
+    // main pass). Bands are [colour, innerR, outerR] fractions of the sun
+    // disc; rays are wedge spokes in the outer band. mA = slow swell only.
+    sun: { r: 1.58, drop: 0.14,
+      bands: [["#E23A2E", 0, 0.58], ["#F28C28", 0.58, 0.8], ["#F8C531", 0.8, 1]],
+      raysN: 9, rayW: 0.09, a: 0.95,
+      mA: [[0, 1], [0.13, 1], [0.32, 1.4], [0.6, 1.28], [0.85, 1], [1, 1]],
+      mR: [[0, 1], [0.13, 1], [0.32, 1.06], [0.6, 1.04], [0.85, 1], [1, 1]] },
+    // the money pool: a deep mound of overlapping bills filling the bottom
+    // of the ring and curving up the sides (painter, over pass).
+    pool: { n: 60, bw: [0.3, 0.44], lift: 0.62, crest: 0.14, loose: 5, labels: 1,
+      small: { n: 14, bw: [0.24, 0.34], loose: 0 } },
     moment: { every: [16, 24], dur: 2.3,
       bursts: [
         // ka-ching by the hat band on the POP beat — a scale/alpha twinkle
@@ -795,22 +804,20 @@ export const AURA_FX = {
         { at: 0.15, path: "shower", shape: "sparkle", n: 5, c: ["#FFF6C9", "#FFD95A"], anchor: "head", dir: -0.5, spread: 0.8, sp: [14, 34], sz: [1.0, 1.8], life: [0.5, 0.9], grav: 0.5, a: 0.9, over: 1 },
       ] },
     layers: [
-      // the hat: rim-seated on the photo frame's top edge in circle mode
-      // (the redline mechanism — the ring canvas leaves no room above it for
-      // a photo-width hat), head-anchored on the figure. mY/mRot/mScale =
-      // the dip → pop → tip → settle gag beat.
-      { k: "orbit", n: 1, shape: "img", src: "/aura/wealthy-tophat.webp", placed: "head", headSz: 2.7, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: 0, bob: 1, bobAmp: 0.05, wobble: 0.035, rot: 0.03, a: 0.98, over: 1, blend: "source-over",
-        rim: 1, rimSz: 1.4, rimSink: 0.24,
-        mY: [[0, 0], [0.1, 0.07], [0.3, -0.13], [0.45, -0.1], [0.62, -0.12], [0.85, 0], [1, 0]],
-        mRot: [[0, 0], [0.1, 0], [0.3, -0.1], [0.5, -0.13], [0.65, -0.08], [0.85, 0], [1, 0]],
-        mScale: [[0, 1], [0.1, 0.96], [0.3, 1.07], [0.55, 1.03], [0.85, 1], [1, 1]],
+      // the hat: head-anchored, oversized (about 0.85-0.9x photo width),
+      // brim seated just above the eye-line like the reference mogul.
+      // mY/mRot/mScale = the dip → pop → tip → settle gag beat.
+      { k: "orbit", n: 1, shape: "img", src: "/aura/wealthy-tophat.webp", placed: "head", headSz: 3.7, r: [1, 1], w: [0, 0], sz: [1, 1], even: 1, hover: 0.05, bob: 1, bobAmp: 0.02, wobble: 0.025, rot: 0.03, a: 0.98, over: 1, blend: "source-over",
+        mY: [[0, 0], [0.1, 0.03], [0.3, -0.04], [0.45, -0.03], [0.62, -0.04], [0.85, 0], [1, 0]],
+        mRot: [[0, 0], [0.1, 0], [0.3, -0.06], [0.5, -0.075], [0.65, -0.05], [0.85, 0], [1, 0]],
+        mScale: [[0, 1], [0.1, 0.96], [0.3, 1.05], [0.55, 1.02], [0.85, 1], [1, 1]],
         // figure canvases are short — seat the hat deeper on the head and
         // keep the same gag beat at reduced amplitude so the crown stays in
-        body: { headSz: 2.5, hover: -0.12, mY: [[0, 0], [0.1, 0.05], [0.3, -0.08], [0.62, -0.07], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.08], [0.65, -0.05], [0.85, 0], [1, 0]], mScale: [[0, 1], [0.3, 1.04], [0.85, 1], [1, 1]] } },
-      // ambient bill storm — tumbling green notes drifting down the band
-      { k: "fall", n: 14, shape: "bill", c: ["#2FBF5B", "#45D977", "#1E8E43"], sp: [7, 15], sz: [1.9, 3.2], drift: 5, spin: 1.1, a: 0.92, xWrap: 1, xFade: 9, small: { n: 6, sz: [1.6, 2.5] } },
+        body: { headSz: 2.9, hover: 0.02, mY: [[0, 0], [0.1, 0.02], [0.3, -0.02], [0.62, -0.02], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.05], [0.65, -0.03], [0.85, 0], [1, 0]], mScale: [[0, 1], [0.3, 1.03], [0.85, 1], [1, 1]] } },
+      // ambient bill storm — big tumbling green notes drifting down the band
+      { k: "fall", n: 16, shape: "bill", c: ["#7CC24A", "#9BD35A", "#5CB85C", "#2FBF5B"], sp: [7, 15], sz: [6, 10], drift: 5, spin: 1.1, a: 0.92, xWrap: 1, xFade: 14, small: { n: 5, sz: [2.6, 4] }, body: { n: 8, sz: [3.5, 6] } },
       // gold `$` twinkle field around the band edge
-      { k: "orbit", n: 10, shape: "dollar", c: ["#FFD95A", "#F2C230", "#FFF3C4"], w: [0.16, 0.4], r: [1.06, 1.26], sz: [1.6, 2.6], tw: 1, a: 0.95, small: { n: 5, sz: [1.4, 2] } },
+      { k: "orbit", n: 10, shape: "dollar", c: ["#FFD95A", "#F2C230", "#FFF3C4"], w: [0.16, 0.4], r: [1.06, 1.26], sz: [1.9, 3.0], tw: 1, a: 0.95, small: { n: 5, sz: [1.4, 2] } },
     ] },
 };
 
@@ -3341,14 +3348,27 @@ export const AURA_ART = {
   // and the $-eyes / tongue gag on opts.moment.t (the same mt the spec
   // layers read, so the hat keys stay synced). Everything else is spec data.
   // No flashes anywhere — every effect is scale/alpha/position motion.
-  wealthy: ({ pass, g, over, cc, clock, cx, cy, rx, ry, w, h, mode, anchors, moment, reduce }) => {
-    if (pass !== "over") return null;
-    const ctx = over || g;
-    const dt = Math.max(0, Math.min(0.12, clock - (cc._wdt ?? clock))); cc._wdt = clock;
+  wealthy: ({ pass, g, over, cc, clock, time, fx, cx, cy, rx, ry, w, h, mode, anchors, moment, reduce }) => {
     const m = Math.min(w, h);
     const small = m < 110;
     const mt = moment ? Math.min(1, Math.max(0, moment.t)) : 0;
     if (mt <= 0) cc._flurry = 0;
+    // main pass: the banded rising sun behind the photo. Drawn before rings
+    // and layers so everything else sits in front of it.
+    if (pass === "main") { wealthySun(g, fx.sun, cx, cy, rx, ry, w, h, mt, reduce, time); return null; }
+    if (pass !== "over") return null;
+    const ctx = over || g;
+    const dt = Math.max(0, Math.min(0.12, clock - (cc._wdt ?? clock))); cc._wdt = clock;
+
+    // the money pool — a deep mound of overlapping bills filling the bottom
+    // of the ring and curving up the sides; always present (rest state)
+    const P = { ...(fx.pool || {}), ...(small ? fx.pool?.small : {}) };
+    if (!small || mode === "circle") {
+      const key = `${w}x${h}:${mode}:${P.n}`;
+      if (cc._poolKey !== key) { cc._poolKey = key; cc._pool = genPool(cx, cy, rx, ry, w, h, P); }
+      for (const b of cc._pool) poolBill(ctx, b, clock, reduce);
+    }
+
     // the gun is a ring-view piece only: it drops at board size, on the
     // figure, and under reduced motion (gag + gun suppressed per the brief)
     const gunOn = mode === "circle" && !small && !reduce;
@@ -3375,13 +3395,13 @@ export const AURA_ART = {
       // continuous fire — the POP beat adds one flurry, then it resumes
       cc._bills ??= [];
       cc._acc = (cc._acc || 0) + dt * W_FIRE * (mt > 0.6 && mt < 0.85 ? 2.2 : 1);
-      if (mt > 0.6 && mt < 0.85 && !cc._flurry) { cc._flurry = 1; cc._acc += 7; }
+      if (mt > 0.6 && mt < 0.85 && !cc._flurry) { cc._flurry = 1; cc._acc += 9; }
       while (cc._acc >= 1) {
         cc._acc -= 1;
         if (cc._bills.length >= W_BILL_CAP) cc._bills.shift();
         const a = ang + rnd(-0.17, 0.17);
         const v = rnd(0.9, 1.45) * rx * 1.2;
-        cc._bills.push({ x: mz.x, y: mz.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd(0, Math.PI * 2), vr: rnd(-3.2, 3.2), sz: rnd(1.9, 3.3), ph: rnd(0, Math.PI * 2), age: 0, life: rnd(2.4, 3.6), ang: 0, w: 0, i: 0, c: pick(W_BILL_COLS) });
+        cc._bills.push({ x: mz.x, y: mz.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd(0, Math.PI * 2), vr: rnd(-3.2, 3.2), sz: rnd(7, 11), ph: rnd(0, Math.PI * 2), age: 0, life: rnd(2.4, 3.6), ang: 0, w: 0, i: 0, c: pick(W_BILL_COLS) });
         cc._kick = 1;
       }
       if (cc._kick) cc._kick = Math.max(0, cc._kick - dt * 6);
@@ -3393,41 +3413,64 @@ export const AURA_ART = {
       cc._bills = cc._bills.filter((b) => b.age < b.life);
       for (const b of cc._bills) {
         // fade in fast, out before the frame edge — frame-edge exit is the
-        // one allowed transient-debris case, the fade keeps the border clean
-        const dEdge = Math.min(b.x, w - b.x, b.y, h - b.y);
-        ctx.globalAlpha = Math.max(0, Math.min(1, b.age * 7, (b.life - b.age) * 1.4, dEdge / (rx * 0.3)));
+        // one allowed transient-debris case; the fade completes a full bill
+        // extent inside the border so a note can never paint the edge
+        const dEdge = Math.min(b.x, w - b.x, b.y, h - b.y) - b.sz * 0.66;
+        ctx.globalAlpha = Math.max(0, Math.min(1, b.age * 7, (b.life - b.age) * 1.4, dEdge / (rx * 0.22)));
         drawNewParticleShape(ctx, "bill", b, b.x, b.y, clock, false);
       }
       ctx.globalAlpha = 1;
     } else if (cc._bills) { cc._bills.length = 0; cc._acc = 0; }
 
-    // the gag — $ eyes on the photo eye-line and a tongue from photo centre,
-    // both drawn over the photo. Suppressed with the gun at small/reduce.
+    // the gag — bold $-sign eyes launch off the photo eye-line with cartoon
+    // overshoot, and a red tongue unrolls segment-by-segment from photo
+    // centre. Both over the photo; suppressed with the gun at small/reduce.
     const f = anchors?.face;
     if (f && mt > 0 && !small && !reduce) {
-      const rise = Math.min(1, Math.max(0, (mt - 0.13) / 0.27));
-      const pop = mt < 0.85 ? easeOutBack(rise) : Math.max(0, 1 - (mt - 0.85) / 0.15);
+      const rise = Math.min(1, Math.max(0, (mt - 0.13) / 0.2));
+      const pop = mt < 0.85 ? easeOutBack(rise) : Math.max(0, 1 - (mt - 0.85) / 0.12);
       if (pop > 0.02) {
-        const es = f.eyeW * 0.95;
-        for (const sgn of [-1, 1]) dollarGlyph(ctx, f.x + sgn * f.eyeX * (1 + 0.1 * Math.min(1, pop)), f.y - es * 0.1, es * pop, "#2FBF5B", sgn * -0.12);
+        const es = f.eyeW * 1.15;
+        const wob = Math.sin(clock * 16) * 0.06 * Math.min(1, (mt - 0.13) * 8) * (mt < 0.85 ? 1 : 0);
+        for (const sgn of [-1, 1]) {
+          const ex = f.x + sgn * f.eyeX * (1 + 0.16 * Math.min(1, rise));
+          const ey = f.y - es * (0.1 + 0.2 * Math.min(1, rise));
+          dollarEye(ctx, ex, ey, es * Math.min(pop, 1.22), sgn * -0.14 + wob * sgn);
+        }
       }
-      const tu = mt < 0.26 ? 0 : mt < 0.6 ? easeOutBack((mt - 0.26) / 0.34) : mt < 0.85 ? 1 : Math.max(0, 1 - (mt - 0.85) / 0.15);
+      // tongue: rolls out from photo centre — the unfurled ribbon grows
+      // while the tip stays coiled, then the coil opens into the rounded
+      // tip at full extension. Overshoot, hold, roll back up on retract.
+      const tu = mt < 0.26 ? 0 : mt < 0.62 ? easeOutBack((mt - 0.26) / 0.32) : mt < 0.85 ? 1 : Math.max(0, 1 - (mt - 0.85) / 0.13);
       if (tu > 0.02) {
         const tx = f.x, ty = mode === "body" ? f.y + f.eyeW * 1.5 : cy + ry * 0.06;
-        const len = Math.min(tu, 1.06) * ry * 0.5;
-        const wid = f.eyeW * (0.55 + 0.6 * Math.min(1, tu));
-        const curl = Math.sin(Math.min(1, tu) * Math.PI) * wid * 0.4;
-        ctx.save();
+        const u = Math.min(tu, 1.08);
+        const wid = f.eyeW * 1.2;
+        // the ribbon unspools: hanging length grows while the coil shrinks
+        const coil = Math.max(0, 1 - u * 1.15);
+        const len = u * ry * 0.6 + coil * wid * 0.4;
+        const tipR = wid * (0.3 + 0.22 * coil);
+        const sway = reduce ? 0 : Math.sin(clock * 3.2) * wid * 0.05 * Math.min(1, u);
+        const endY = ty + len;
+        ctx.save(); ctx.lineJoin = "round";
         ctx.fillStyle = "#E0342B";
         ctx.beginPath();
-        ctx.moveTo(tx - wid / 2, ty);
-        ctx.quadraticCurveTo(tx - wid * 0.66, ty + len * 0.5, tx - wid * 0.28 + curl, ty + len * 0.92);
-        ctx.quadraticCurveTo(tx + curl, ty + len + wid * 0.4, tx + wid * 0.28 + curl, ty + len * 0.92);
-        ctx.quadraticCurveTo(tx + wid * 0.66, ty + len * 0.5, tx + wid / 2, ty);
+        ctx.moveTo(tx - wid * 0.42, ty);
+        ctx.quadraticCurveTo(tx - wid * 0.58 + sway, ty + len * 0.45, tx - tipR + sway, endY - tipR * 0.5);
+        ctx.arc(tx + sway, endY - tipR * 0.5, tipR, Math.PI, 0, false);
+        ctx.quadraticCurveTo(tx + wid * 0.58 + sway, ty + len * 0.45, tx + wid * 0.42, ty);
         ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = "#8E1710"; ctx.lineWidth = Math.max(0.8, wid * 0.1); ctx.lineJoin = "round"; ctx.stroke();
+        ctx.strokeStyle = "#8E1710"; ctx.lineWidth = Math.max(1, wid * 0.13); ctx.stroke();
+        // the coil's spiral while rolled, fading into the centre crease
+        if (coil > 0.05) {
+          ctx.strokeStyle = "#8E1710"; ctx.lineWidth = Math.max(0.7, wid * 0.09); ctx.lineCap = "round";
+          ctx.beginPath(); ctx.arc(tx + sway, endY - tipR * 0.5, tipR * 0.55, -0.4, Math.PI * 1.25); ctx.stroke();
+        }
         ctx.strokeStyle = "rgba(142,23,16,0.6)"; ctx.lineWidth = Math.max(0.6, wid * 0.06);
-        ctx.beginPath(); ctx.moveTo(tx, ty + len * 0.12); ctx.quadraticCurveTo(tx + curl * 0.6, ty + len * 0.55, tx + curl, ty + len * 0.86); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(tx, ty + len * 0.12); ctx.quadraticCurveTo(tx + sway * 0.6, ty + len * 0.5, tx + sway, endY - tipR * 1.1); ctx.stroke();
+        // gloss stripe down the left edge — cartoon shine, not a flash
+        ctx.strokeStyle = "rgba(255,150,130,0.5)"; ctx.lineWidth = Math.max(0.6, wid * 0.09);
+        ctx.beginPath(); ctx.moveTo(tx - wid * 0.22, ty + len * 0.15); ctx.quadraticCurveTo(tx - wid * 0.34 + sway, ty + len * 0.5, tx - tipR * 0.4 + sway, endY - tipR * 0.9); ctx.stroke();
         ctx.restore();
       }
     }
@@ -3445,19 +3488,143 @@ const W_GUN_ANG = -0.8;                   // sprite aims right+down; this aims t
 const W_GUN_W = 0.44;                     // gun length as a fraction of photo diameter
 const W_GUN_PIVOT = { x: 0.42, y: 0.5 };  // sprite pivot the rim seat refers to
 const W_MUZZLE = { x: 0.875, y: 0.16 };   // measured muzzle hole (sprite fractions)
-const W_FIRE = 6;                         // bills per second at rest
-const W_BILL_CAP = 42;                    // board-32 budget: painter bills + ambient storm
-const W_BILL_COLS = ["#2FBF5B", "#45D977", "#1E8E43"];
+const W_FIRE = 9;                         // bills per second at rest
+const W_BILL_CAP = 70;                    // board-32 budget: painter bills + ambient storm
+const W_BILL_COLS = ["#7CC24A", "#9BD35A", "#5CB85C", "#2FBF5B"];
 const easeOutBack = (t) => { const u = Math.min(1, Math.max(0, t)) - 1; return 1 + 2.70158 * u * u * u + 1.70158 * u * u; };
-// drawn `$` for the moment eyes — same look as the `dollar` particle glyph,
-// sized big with a dark outline so it reads over the photo
-const dollarGlyph = (g, x, y, s, fill, rot = 0) => {
+
+// Wealthy painter helpers — the rising sun, the money pool and the gag
+// pieces, matching docs/aura-refs/wealthy/wealthy-ref-mogul.png.
+
+// banded rising-sun disc behind the photo: red core → orange → gold rim,
+// with wedge rays poking past the outer band. mA/mR keyframes give the
+// POP-beat swell — alpha/scale only, never a flash.
+const wealthySun = (g, S, cx, cy, rx, ry, w, h, mt, reduce, time) => {
+  const drop = ry * (S?.drop ?? 0.14);
+  const sw = Math.min(1.5, mt > 0 ? (keyAt(S?.mA, mt) ?? 1) : 1);
+  const sr = mt > 0 ? (keyAt(S?.mR, mt) ?? 1) : 1;
+  // the whole disc stays inside the canvas at every size (edge rule),
+  // including the moment mR swell — the bound is pre-divided by it
+  const R = Math.min(Math.min(rx, ry) * (S?.r ?? 1.58), (Math.min(cx, cy + drop, w - cx, h - cy - drop) - 2) / sr);
+  if (R <= 4) return;
+  g.save(); g.translate(cx, cy + drop);
+  g.scale(sr, sr);
+  g.globalAlpha = Math.min(1, (S?.a ?? 0.95) * sw);
+  // rays: wedge spokes through and past the outer band, gently waving.
+  // Tips are clamped inside the frame — a solid ray must never paint the
+  // border (edge rule).
+  const n = S?.raysN ?? 9, wd = S?.rayW ?? 0.09;
+  const tipR = Math.min(R * 1.14, Math.max(R * 0.5, (Math.min(cx, w - cx, cy + drop, h - cy - drop) - 1) / sr));
+  g.fillStyle = "#F8C531";
+  for (let i = 0; i < n; i++) {
+    const a0 = -Math.PI / 2 + ((i - (n - 1) / 2) / n) * Math.PI * 1.3 + (reduce ? 0 : Math.sin(time * 0.7 + i * 2.1) * 0.02);
+    g.beginPath();
+    g.moveTo(Math.cos(a0) * R * 0.55, Math.sin(a0) * R * 0.55);
+    g.lineTo(Math.cos(a0 - wd) * tipR, Math.sin(a0 - wd) * tipR);
+    g.lineTo(Math.cos(a0 + wd) * tipR, Math.sin(a0 + wd) * tipR);
+    g.closePath(); g.fill();
+  }
+  // concentric band fills, outermost first
+  const bands = S?.bands || [["#E23A2E", 0, 0.58], ["#F28C28", 0.58, 0.8], ["#F8C531", 0.8, 1]];
+  for (const [c, , r1] of [...bands].sort((a, b) => b[2] - a[2])) {
+    g.fillStyle = c;
+    g.beginPath(); g.arc(0, 0, R * r1, 0, Math.PI * 2); g.fill();
+  }
+  // bold cartoon band outlines
+  g.strokeStyle = "rgba(74,26,4,0.5)"; g.lineWidth = Math.max(1, R * 0.02);
+  for (const [, r0] of bands.map((b) => [b[0], b[1]])) {
+    if (r0 <= 0) continue;
+    g.beginPath(); g.arc(0, 0, R * r0, 0, Math.PI * 2); g.stroke();
+  }
+  g.globalAlpha = 1;
+  g.restore();
+};
+
+// pool fills are deliberately disjoint from W_BILL_COLS — the two palettes
+// stay distinct so the pile reads layered and tests can tell them apart
+const W_POOL_FILLS = ["#A8DC6E", "#8FD05A", "#C4EA8C", "#6FBF58", "#B8E050"];
+const W_POOL_OUTLINE = "#175C2C";
+const W_LABELS = ["STOCK OPTIONS", "MUTUAL FUNDS", "BONDS", "SHARES"];
+
+// one bold-outlined cartoon banknote for the pool — same silhouette as the
+// `bill` particle but denser: thick outline, inner border, medallion, end
+// bars, and optional finance label + ruled lines (the reference pile).
+const poolBill = (g, b, time, reduce) => {
+  const s = b.bw, bh = s * 0.5;
+  const bob = b.loose && !reduce;
+  const rot = b.rot + (bob ? Math.sin(time * 1.4 + (b.ph || 0)) * 0.16 : 0);
+  const y = b.y + (bob ? Math.sin(time * 1.9 + (b.ph || 0)) * s * 0.09 : 0);
+  g.save(); g.translate(b.x, y); g.rotate(rot);
+  g.lineJoin = "round";
+  g.fillStyle = b.c;
+  g.beginPath(); g.rect(-s / 2, -bh / 2, s, bh); g.fill();
+  g.strokeStyle = W_POOL_OUTLINE; g.lineWidth = Math.max(1, s * 0.09); g.stroke();
+  g.strokeStyle = "rgba(20,80,35,0.5)"; g.lineWidth = Math.max(0.4, s * 0.035);
+  g.beginPath(); g.rect(-s * 0.4, -bh * 0.34, s * 0.8, bh * 0.68); g.stroke();
+  g.fillStyle = "rgba(20,80,35,0.45)";
+  g.beginPath(); g.ellipse(0, 0, s * 0.13, bh * 0.3, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = "rgba(20,80,35,0.45)"; g.lineWidth = Math.max(0.4, s * 0.03); g.lineCap = "round";
+  for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(sgn * s * 0.31, -bh * 0.26); g.lineTo(sgn * s * 0.31, bh * 0.26); g.stroke(); }
+  if (b.label && s > 9) {
+    g.fillStyle = "rgba(20,60,30,0.75)";
+    g.font = `700 ${Math.max(3, Math.round(s * 0.15))}px Georgia, serif`;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(b.label, 0, -bh * 0.14);
+    g.strokeStyle = "rgba(20,60,30,0.45)"; g.lineWidth = Math.max(0.3, s * 0.015);
+    for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-s * 0.28, bh * (0.06 + i * 0.13)); g.lineTo(s * 0.28, bh * (0.06 + i * 0.13)); g.stroke(); }
+  }
+  g.restore();
+};
+
+// scatter the mound once per canvas size: jittered rows from the bottom up
+// under a parabolic surface curve that rises at both sides, a few loose
+// bills tumbling at the crest. Cached on cc so the pile is stable.
+const genPool = (cx, cy, rx, ry, w, h, P) => {
+  const m = Math.min(rx, ry);
+  const bw = m * ((P.bw?.[0] ?? 0.3) + (P.bw?.[1] ?? 0.44)) / 2;
+  // bill centres stay a rotated half-diagonal inside the frame — the pile
+  // can sit against the ring edge but never paints the border
+  const reach = bw * 1.18 * 0.58;
+  const halfW = Math.min(w / 2 - 3 - reach, m * 1.62);
+  const bot = Math.min(h - 3 - reach, cy + ry * 1.45);
+  const crest = cy + ry * (P.crest ?? 0.14);
+  const lift = ry * (P.lift ?? 0.62);
+  const surfY = (x) => crest - lift * Math.pow(Math.abs(x - cx) / Math.max(1, halfW), 1.7);
+  const bills = [];
+  const stepY = bw * 0.36, stepX = bw * 0.6;
+  let row = 0;
+  for (let y = bot - bw * 0.22; y > crest - lift - bw * 0.6 && bills.length < (P.n ?? 60); y -= stepY, row++) {
+    const off = (row % 2) * stepX * 0.5;
+    for (let x = cx - halfW + off; x <= cx + halfW && bills.length < (P.n ?? 60); x += stepX) {
+      const jx = x + rnd(-0.15, 0.15) * bw;
+      const jy = y + rnd(-0.12, 0.12) * bw;
+      if (jy < surfY(jx) + bw * 0.1) continue;
+      bills.push({ x: jx, y: jy, bw: bw * rnd(0.8, 1.15), rot: rnd(-0.5, 0.5), c: pick(W_POOL_FILLS), loose: 0 });
+    }
+  }
+  for (let i = 0; i < (P.loose ?? 5); i++) {
+    const lx = cx + rnd(-0.72, 0.72) * halfW;
+    bills.push({ x: lx, y: surfY(lx) - bw * 0.12, bw: bw * rnd(0.8, 1), rot: rnd(-0.8, 0.8), c: pick(W_POOL_FILLS), loose: 1, ph: rnd(0, Math.PI * 2) });
+  }
+  if (P.labels) {
+    let k = 0;
+    for (const b of bills) if (!b.loose && Math.abs(b.rot) < 0.28 && k < 4 && Math.random() < 0.1) b.label = W_LABELS[k++ % W_LABELS.length];
+  }
+  bills.sort((a, b) => a.y - b.y);
+  return bills;
+};
+
+// the moment eyes: a big bold `$` with a thick dark outline and a glossy
+// white highlight — unmistakably a dollar sign at ring size
+const dollarEye = (g, x, y, s, rot = 0) => {
   g.save(); g.translate(x, y); g.rotate(rot);
   g.font = `900 ${Math.max(6, Math.round(s * 2.4))}px system-ui, sans-serif`;
   g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
-  g.lineWidth = Math.max(1, s * 0.4);
-  g.strokeStyle = "rgba(10,42,18,0.9)"; g.strokeText("$", 0, s * 0.06);
-  g.fillStyle = fill; g.fillText("$", 0, s * 0.06);
+  g.lineWidth = Math.max(1.2, s * 0.5);
+  g.strokeStyle = "rgba(8,38,16,0.95)"; g.strokeText("$", 0, s * 0.06);
+  g.fillStyle = "#35D465"; g.fillText("$", 0, s * 0.06);
+  g.fillStyle = "rgba(255,255,255,0.85)";
+  g.beginPath(); g.ellipse(-s * 0.26, -s * 0.4, s * 0.15, s * 0.09, -0.5, 0, Math.PI * 2); g.fill();
   g.restore();
 };
 
@@ -3469,10 +3636,12 @@ AURA_ART.wealthy.anchorPoints = ({ w, h, cx, cy, rx, ry, mode, anchors }) => {
   if (rx == null || ry == null || !anchors?.face) return pts;
   const f = anchors.face;
   const headHalf = f.eyeX * HEAD_FROM_EYE;
-  // hat brim-centre: the rim seat in circle mode (bottom of the brim sits
-  // ~0.28·sz below the sprite centre), the head anchor on the figure
-  if (mode === "body") pts.push({ x: f.x, y: f.y - headHalf });
-  else pts.push({ x: cx, y: cy - ry + Math.min(rx, ry) * 1.4 * (0.24 + 0.28) });
+  // hat brim-centre: head-anchored in both views — the sprite centre sits
+  // at face.y - headHalf - sz·hover, and the brim bottom is ~0.36·sz below
+  // it (headSz 4.0, hover 0.16 in circle mode; the body override differs)
+  const hSz = (mode === "body" ? 3.2 : 3.7) * headHalf;
+  const hov = mode === "body" ? 0.02 : 0.05;
+  pts.push({ x: f.x, y: f.y - headHalf - hSz * hov + hSz * 0.36 });
   if (mode !== "body" && Math.min(w, h) >= 110) {
     const rec = auraImage(W_GUN_SRC);
     const iw = rec.img?.naturalWidth || 512, ih = rec.img?.naturalHeight || 512;
@@ -4003,12 +4172,17 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     // look identical.
     g.save(); g.translate(x, y); g.rotate(p.rot + (reduced ? 0 : Math.sin(time * 2.1 + p.ph) * 0.3));
     const bw = s * 1.15, bh = s * 0.52;
+    g.lineJoin = "round";
     g.fillStyle = p.c;
     g.beginPath(); g.rect(-bw / 2, -bh / 2, bw, bh); g.fill();
-    g.strokeStyle = "rgba(240,255,238,0.9)"; g.lineWidth = Math.max(0.5, s * 0.1);
+    // bold cartoon outline — the reference's confident dark edging
+    g.strokeStyle = "rgba(18,74,36,0.95)"; g.lineWidth = Math.max(0.8, s * 0.16);
     g.beginPath(); g.rect(-bw / 2, -bh / 2, bw, bh); g.stroke();
-    g.strokeStyle = "rgba(8,58,26,0.55)"; g.lineWidth = Math.max(0.4, s * 0.08); g.lineCap = "round";
-    g.beginPath(); g.ellipse(0, 0, s * 0.2, s * 0.27, 0, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = "rgba(240,255,238,0.7)"; g.lineWidth = Math.max(0.4, s * 0.05);
+    g.beginPath(); g.rect(-bw * 0.38, -bh * 0.32, bw * 0.76, bh * 0.64); g.stroke();
+    g.fillStyle = "rgba(8,58,26,0.5)";
+    g.beginPath(); g.ellipse(0, 0, s * 0.19, s * 0.25, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(8,58,26,0.6)"; g.lineWidth = Math.max(0.4, s * 0.07); g.lineCap = "round";
     g.beginPath();
     g.moveTo(-bw * 0.31, -bh * 0.24); g.lineTo(-bw * 0.31, bh * 0.24);
     g.moveTo(bw * 0.31, -bh * 0.24); g.lineTo(bw * 0.31, bh * 0.24);

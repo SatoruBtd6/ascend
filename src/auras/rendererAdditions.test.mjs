@@ -1134,7 +1134,7 @@ test("redline hat keeps drawing under reduced motion with a damped bob", async (
   assert.ok(range(calm) < range(full) * 0.55, `bob should damp under reduce (${range(calm).toFixed(2)} vs ${range(full).toFixed(2)})`);
 });
 
-test("wealthy renders without throwing; the hat rim-seats on the photo frame's top edge", async () => {
+test("wealthy renders without throwing; the hat sits head-anchored on the photo", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   for (const mode of ["circle", "body"]) {
@@ -1146,8 +1146,7 @@ test("wealthy renders without throwing; the hat rim-seats on the photo frame's t
     assert.doesNotThrow(() => { for (let i = 0; i < 8; i += 1) inst.frame(0.4); }, `wealthy ${mode}`);
     assert.ok(lastImgDraw(over.output, "wealthy-tophat"), `wealthy ${mode} hat drew nothing on the over canvas`);
   }
-  // circle mode: rim seat — hat centre sits on the frame's top edge, sunk by
-  // rimSink like the redline hat
+  // circle mode: head seat — centre at face.y - headHalf - sz·hover
   const over = stubRendererCanvas();
   const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
   installStubDocument();
@@ -1156,16 +1155,20 @@ test("wealthy renders without throwing; the hat rim-seats on the photo frame's t
   inst.frame(1 / 60);
   const xy = inst.imgXY["/aura/wealthy-tophat.webp"];
   const hat = renderer.AURA_FX.wealthy.layers.find((L) => String(L.src).includes("tophat"));
-  const d = Math.min(40.7, 40.7) * hat.rimSz;
-  const wantY = 70.5 - 40.7 + d * (hat.rimSink ?? 0.12);
-  assert.ok(Math.abs(xy.y - wantY) < 0.75, `hat rim seat y ${xy.y.toFixed(2)} vs ${wantY.toFixed(2)}`);
+  const headHalf = 0.19 * 40.7 * (22.5 / 9);           // eyeX * HEAD_FROM_EYE
+  const sz = headHalf * hat.headSz;
+  const wantY = (70.5 - 0.16 * 40.7) - headHalf - sz * hat.hover;
+  assert.ok(Math.abs(xy.y - wantY) < 0.75, `hat head seat y ${xy.y.toFixed(2)} vs ${wantY.toFixed(2)}`);
+  // oversized: drawn sprite ≈ 0.85-1.0x photo width (sprite art ~0.89 wide)
+  const wide = sz * 0.887 / (2 * 40.7);
+  assert.ok(wide > 0.75 && wide < 1.1, `hat width ${wide.toFixed(2)}x photo width`);
 });
 
 test("wealthy money gun draws and fires bills on the over canvas; suppressed under reduce and at board size", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
   installStubDocument();
-  const firedBills = (out) => out.filter((o) => o[0] === "set" && o[1] === "fillStyle" && ["#2FBF5B", "#45D977", "#1E8E43"].includes(o[2])).length;
+  const firedBills = (out) => out.filter((o) => o[0] === "set" && o[1] === "fillStyle" && ["#7CC24A", "#9BD35A", "#5CB85C", "#2FBF5B"].includes(o[2])).length;
   // ring size: gun sprite draws and the muzzle bill stream paints green notes
   const over = stubRendererCanvas();
   const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
