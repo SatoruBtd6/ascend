@@ -1069,7 +1069,7 @@ export function isDeadField(layer, key, { view = "figure", overCount = 0 } = {})
   return false;
 }
 export const DEDICATED_RING_FIELDS = new Set(["colorCycle", "cyclePeriod", "cycleEasing"]);
-export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink", "page", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst"];
+export const LAYER_SHAPE_OPTIONS = ["spark", "dot", "ember", "smoke", "flake", "shard", "leaf", "square", "star", "drop", "glyph", "gem", "petal", "eye", "ash", "feather", "bonechip", "coin", "crescent", "pulse", "sandgrain", "chainlink", "page", "comet", "sparkle", "orb", "crystal", "wisp", "rune", "zap", "moth", "lantern", "sparkburst", "bill", "dollar"];
 export const LAYER_KIND_OPTIONS = ["rise", "fall", "orbit", "inward", "bubble"];
 
 // The exact field list SpecEditor renders for a spec — exported so the

@@ -257,6 +257,19 @@ test("7j particle shapes animate over time and hold still under reduced motion",
   assert.notEqual(sl(0.5, false, 10, -6), sl(0.5, false, -8, 4), "sliver does not align to its velocity");
   assert.equal(sl(0.5, false), sl(1.3, false), "sliver drifts on an internal clock");
   assert.equal(sl(0.5, true), sl(1.3, true), "sliver still animates under reduced motion");
+  // wealthy: bill flutters on a clock (freeze under reduce), dollar is a
+  // baked palette-tinted glyph — both must paint something
+  const bill = (t, reduced) => {
+    const { ctx, output } = stubCanvas();
+    renderer.drawNewParticleShape(ctx, "bill", { ...p }, 20, 20, t, reduced);
+    return JSON.stringify(output);
+  };
+  assert.ok(bill(0.5, false).includes('"fill"'), "bill produced no painted output");
+  assert.notEqual(bill(0.5, false), bill(1.3, false), "bill does not flutter");
+  assert.equal(bill(0.5, true), bill(1.3, true), "bill still flutters under reduced motion");
+  const { ctx: dctx, output: dout } = stubCanvas();
+  assert.doesNotThrow(() => renderer.drawNewParticleShape(dctx, "dollar", { ...p, c: "#F2C230" }, 20, 20, 0.5));
+  assert.ok(dout.some(([op]) => op === "drawImage"), "dollar produced no painted output");
 });
 
 test("zap flicker phases are staggered so a layer never brightens in sync", () => {

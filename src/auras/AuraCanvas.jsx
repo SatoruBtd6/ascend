@@ -3806,6 +3806,40 @@ export function drawNewParticleShape(g, shape, p, x, y, time = 0, reduced = fals
     g.globalAlpha *= Math.min(1, pul);
     g.drawImage(sp, -s * 2.3, -s * 2.3, s * 4.6, s * 4.6);
     g.restore();
+  } else if (shape === "bill") {
+    // flat banknote: tinted body, pale edge, centre medallion + end bars.
+    // Built-in paper flutter on top of p.rot; the Wealthy painter's muzzle
+    // bills reuse this exact draw so fired bills and the ambient storm
+    // look identical.
+    g.save(); g.translate(x, y); g.rotate(p.rot + (reduced ? 0 : Math.sin(time * 2.1 + p.ph) * 0.3));
+    const bw = s * 1.15, bh = s * 0.52;
+    g.fillStyle = p.c;
+    g.beginPath(); g.rect(-bw / 2, -bh / 2, bw, bh); g.fill();
+    g.strokeStyle = "rgba(240,255,238,0.9)"; g.lineWidth = Math.max(0.5, s * 0.1);
+    g.beginPath(); g.rect(-bw / 2, -bh / 2, bw, bh); g.stroke();
+    g.strokeStyle = "rgba(8,58,26,0.55)"; g.lineWidth = Math.max(0.4, s * 0.08); g.lineCap = "round";
+    g.beginPath(); g.ellipse(0, 0, s * 0.2, s * 0.27, 0, 0, Math.PI * 2); g.stroke();
+    g.beginPath();
+    g.moveTo(-bw * 0.31, -bh * 0.24); g.lineTo(-bw * 0.31, bh * 0.24);
+    g.moveTo(bw * 0.31, -bh * 0.24); g.lineTo(bw * 0.31, bh * 0.24);
+    g.stroke();
+    g.restore();
+  } else if (shape === "dollar") {
+    // palette-tinted drawn $ glyph — NOT the emoji shape (that cannot tint
+    // and renders per-OS). Baked per colour+tier like sparkle; the twinkle
+    // is a size pulse, not an alpha flash.
+    const tw = reduced ? 1 : 1 + 0.24 * Math.sin(time * 4.6 + p.ph * 3);
+    const sp = shapeSprite(p, "dollar", s * 5, (sg, rgb) => {
+      sg.font = "900 46px system-ui, sans-serif";
+      sg.textAlign = "center"; sg.textBaseline = "middle";
+      sg.lineJoin = "round"; sg.lineWidth = 7;
+      sg.strokeStyle = "rgba(30,20,0,0.85)"; sg.strokeText("$", 0, 2);
+      sg.fillStyle = `rgb(${rgb.join(",")})`; sg.fillText("$", 0, 2);
+    });
+    const r = s * 1.55 * tw;
+    g.save(); g.translate(x, y); g.rotate(p.rot * 0.25);
+    g.drawImage(sp, -r, -r, r * 2, r * 2);
+    g.restore();
   }
 }
 
@@ -4398,7 +4432,8 @@ export function makeAura(canvas, { aura, w, h, mode, ringR, overCanvas, figure, 
         drawNewParticleShape(g, L.shape, p, x, y, time, api.reduce, L); break;
       }
       case "ash": case "feather": case "bonechip": case "coin": case "crescent": case "pulse": case "sandgrain": case "chainlink":
-      case "comet": case "sparkle": case "orb": case "crystal": case "wisp": case "rune": case "zap": case "moth": case "lantern": case "sparkburst": case "beye": case "glyphring": {
+      case "comet": case "sparkle": case "orb": case "crystal": case "wisp": case "rune": case "zap": case "moth": case "lantern": case "sparkburst": case "beye": case "glyphring":
+      case "bill": case "dollar": {
         drawNewParticleShape(g, L.shape, p, x, y, time, api.reduce, L); break;
       }
       default: { // bubble ring
