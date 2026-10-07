@@ -3333,6 +3333,159 @@ export const AURA_ART = {
       if (opts.moment) drawBrandSear(ctx, opts);
     }
   },
+  // Wealthy — the pieces that need a measured point or the moment beat: a
+  // money gun on the right rim firing bills up-and-out CONTINUOUSLY at rest,
+  // and the $-eyes / tongue gag on opts.moment.t (the same mt the spec
+  // layers read, so the hat keys stay synced). Everything else is spec data.
+  // No flashes anywhere — every effect is scale/alpha/position motion.
+  wealthy: ({ pass, g, over, cc, clock, cx, cy, rx, ry, w, h, mode, anchors, moment, reduce }) => {
+    if (pass !== "over") return null;
+    const ctx = over || g;
+    const dt = Math.max(0, Math.min(0.12, clock - (cc._wdt ?? clock))); cc._wdt = clock;
+    const m = Math.min(w, h);
+    const small = m < 110;
+    const mt = moment ? Math.min(1, Math.max(0, moment.t)) : 0;
+    if (mt <= 0) cc._flurry = 0;
+    // the gun is a ring-view piece only: it drops at board size, on the
+    // figure, and under reduced motion (gag + gun suppressed per the brief)
+    const gunOn = mode === "circle" && !small && !reduce;
+    if (gunOn) {
+      const rec = auraImage(W_GUN_SRC);
+      const iw = rec.img?.naturalWidth || 512, ih = rec.img?.naturalHeight || 512;
+      const sc = (W_GUN_W * 2 * rx) / iw;
+      const ga = W_GUN_A * Math.PI * 2;
+      const gp = { x: cx + Math.sin(ga) * rx * W_GUN_R, y: cy - Math.cos(ga) * ry * W_GUN_R };
+      const kick = cc._kick || 0;
+      const ang = W_GUN_ANG - kick * 0.08;
+      // muzzle = measured sprite point rotated with the sprite, not the centre
+      const dxs = (W_MUZZLE.x - W_GUN_PIVOT.x) * iw, dys = (W_MUZZLE.y - W_GUN_PIVOT.y) * ih;
+      const mz = {
+        x: gp.x + (dxs * Math.cos(ang) - dys * Math.sin(ang)) * sc,
+        y: gp.y + (dxs * Math.sin(ang) + dys * Math.cos(ang)) * sc,
+      };
+      cc._muzzle = mz;
+      if (rec.ready && !rec.failed) {
+        ctx.save(); ctx.translate(gp.x, gp.y); ctx.rotate(ang);
+        ctx.drawImage(rec.img, -W_GUN_PIVOT.x * iw * sc, -W_GUN_PIVOT.y * ih * sc, iw * sc, ih * sc);
+        ctx.restore();
+      }
+      // continuous fire — the POP beat adds one flurry, then it resumes
+      cc._bills ??= [];
+      cc._acc = (cc._acc || 0) + dt * W_FIRE * (mt > 0.6 && mt < 0.85 ? 2.2 : 1);
+      if (mt > 0.6 && mt < 0.85 && !cc._flurry) { cc._flurry = 1; cc._acc += 7; }
+      while (cc._acc >= 1) {
+        cc._acc -= 1;
+        if (cc._bills.length >= W_BILL_CAP) cc._bills.shift();
+        const a = ang + rnd(-0.17, 0.17);
+        const v = rnd(0.9, 1.45) * rx * 1.2;
+        cc._bills.push({ x: mz.x, y: mz.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: rnd(0, Math.PI * 2), vr: rnd(-3.2, 3.2), sz: rnd(1.9, 3.3), ph: rnd(0, Math.PI * 2), age: 0, life: rnd(2.4, 3.6), ang: 0, w: 0, i: 0, c: pick(W_BILL_COLS) });
+        cc._kick = 1;
+      }
+      if (cc._kick) cc._kick = Math.max(0, cc._kick - dt * 6);
+      const grav = 3.4 * rx;   // up-out launch, then rain down
+      for (const b of cc._bills) {
+        b.age += dt; b.vy += grav * dt;
+        b.x += b.vx * dt; b.y += b.vy * dt; b.rot += b.vr * dt;
+      }
+      cc._bills = cc._bills.filter((b) => b.age < b.life);
+      for (const b of cc._bills) {
+        // fade in fast, out before the frame edge — frame-edge exit is the
+        // one allowed transient-debris case, the fade keeps the border clean
+        const dEdge = Math.min(b.x, w - b.x, b.y, h - b.y);
+        ctx.globalAlpha = Math.max(0, Math.min(1, b.age * 7, (b.life - b.age) * 1.4, dEdge / (rx * 0.3)));
+        drawNewParticleShape(ctx, "bill", b, b.x, b.y, clock, false);
+      }
+      ctx.globalAlpha = 1;
+    } else if (cc._bills) { cc._bills.length = 0; cc._acc = 0; }
+
+    // the gag — $ eyes on the photo eye-line and a tongue from photo centre,
+    // both drawn over the photo. Suppressed with the gun at small/reduce.
+    const f = anchors?.face;
+    if (f && mt > 0 && !small && !reduce) {
+      const rise = Math.min(1, Math.max(0, (mt - 0.13) / 0.27));
+      const pop = mt < 0.85 ? easeOutBack(rise) : Math.max(0, 1 - (mt - 0.85) / 0.15);
+      if (pop > 0.02) {
+        const es = f.eyeW * 0.95;
+        for (const sgn of [-1, 1]) dollarGlyph(ctx, f.x + sgn * f.eyeX * (1 + 0.1 * Math.min(1, pop)), f.y - es * 0.1, es * pop, "#2FBF5B", sgn * -0.12);
+      }
+      const tu = mt < 0.26 ? 0 : mt < 0.6 ? easeOutBack((mt - 0.26) / 0.34) : mt < 0.85 ? 1 : Math.max(0, 1 - (mt - 0.85) / 0.15);
+      if (tu > 0.02) {
+        const tx = f.x, ty = mode === "body" ? f.y + f.eyeW * 1.5 : cy + ry * 0.06;
+        const len = Math.min(tu, 1.06) * ry * 0.5;
+        const wid = f.eyeW * (0.55 + 0.6 * Math.min(1, tu));
+        const curl = Math.sin(Math.min(1, tu) * Math.PI) * wid * 0.4;
+        ctx.save();
+        ctx.fillStyle = "#E0342B";
+        ctx.beginPath();
+        ctx.moveTo(tx - wid / 2, ty);
+        ctx.quadraticCurveTo(tx - wid * 0.66, ty + len * 0.5, tx - wid * 0.28 + curl, ty + len * 0.92);
+        ctx.quadraticCurveTo(tx + curl, ty + len + wid * 0.4, tx + wid * 0.28 + curl, ty + len * 0.92);
+        ctx.quadraticCurveTo(tx + wid * 0.66, ty + len * 0.5, tx + wid / 2, ty);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#8E1710"; ctx.lineWidth = Math.max(0.8, wid * 0.1); ctx.lineJoin = "round"; ctx.stroke();
+        ctx.strokeStyle = "rgba(142,23,16,0.6)"; ctx.lineWidth = Math.max(0.6, wid * 0.06);
+        ctx.beginPath(); ctx.moveTo(tx, ty + len * 0.12); ctx.quadraticCurveTo(tx + curl * 0.6, ty + len * 0.55, tx + curl, ty + len * 0.86); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    return null;
+  },
+};
+
+// Wealthy painter constants. Sprite-space points are fractions of the keyed
+// sprite's dimensions, measured on wealthy-gun.webp (the dark muzzle hole at
+// the barrel tip) so a re-export at a different pixel size stays correct.
+const W_GUN_SRC = "/aura/wealthy-gun.webp";
+const W_GUN_A = 0.28;                     // rim placement: fraction of a turn, 0.25 = 3 o'clock
+const W_GUN_R = 1.0;                      // pivot radius in rx units — on the rim
+const W_GUN_ANG = -0.8;                   // sprite aims right+down; this aims the barrel ~45deg up-out
+const W_GUN_W = 0.44;                     // gun length as a fraction of photo diameter
+const W_GUN_PIVOT = { x: 0.42, y: 0.5 };  // sprite pivot the rim seat refers to
+const W_MUZZLE = { x: 0.875, y: 0.16 };   // measured muzzle hole (sprite fractions)
+const W_FIRE = 6;                         // bills per second at rest
+const W_BILL_CAP = 42;                    // board-32 budget: painter bills + ambient storm
+const W_BILL_COLS = ["#2FBF5B", "#45D977", "#1E8E43"];
+const easeOutBack = (t) => { const u = Math.min(1, Math.max(0, t)) - 1; return 1 + 2.70158 * u * u * u + 1.70158 * u * u; };
+// drawn `$` for the moment eyes — same look as the `dollar` particle glyph,
+// sized big with a dark outline so it reads over the photo
+const dollarGlyph = (g, x, y, s, fill, rot = 0) => {
+  g.save(); g.translate(x, y); g.rotate(rot);
+  g.font = `900 ${Math.max(6, Math.round(s * 2.4))}px system-ui, sans-serif`;
+  g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+  g.lineWidth = Math.max(1, s * 0.4);
+  g.strokeStyle = "rgba(10,42,18,0.9)"; g.strokeText("$", 0, s * 0.06);
+  g.fillStyle = fill; g.fillText("$", 0, s * 0.06);
+  g.restore();
+};
+
+// Dev tooling (gallery anchor overlay): the seats Wealthy validates — hat
+// brim-centre (the head seat), the rotated muzzle point, the two eye-line
+// sockets and the tongue attach. Derived from the painter's own constants.
+AURA_ART.wealthy.anchorPoints = ({ w, h, cx, cy, rx, ry, mode, anchors }) => {
+  const pts = [];
+  if (rx == null || ry == null || !anchors?.face) return pts;
+  const f = anchors.face;
+  const headHalf = f.eyeX * HEAD_FROM_EYE;
+  // hat brim-centre: the rim seat in circle mode (bottom of the brim sits
+  // ~0.28·sz below the sprite centre), the head anchor on the figure
+  if (mode === "body") pts.push({ x: f.x, y: f.y - headHalf });
+  else pts.push({ x: cx, y: cy - ry + Math.min(rx, ry) * 1.45 * (0.16 + 0.28) });
+  if (mode !== "body" && Math.min(w, h) >= 110) {
+    const rec = auraImage(W_GUN_SRC);
+    const iw = rec.img?.naturalWidth || 512, ih = rec.img?.naturalHeight || 512;
+    const sc = (W_GUN_W * 2 * rx) / iw;
+    const ga = W_GUN_A * Math.PI * 2;
+    const gp = { x: cx + Math.sin(ga) * rx * W_GUN_R, y: cy - Math.cos(ga) * ry * W_GUN_R };
+    const dxs = (W_MUZZLE.x - W_GUN_PIVOT.x) * iw, dys = (W_MUZZLE.y - W_GUN_PIVOT.y) * ih;
+    pts.push({ x: gp.x + (dxs * Math.cos(W_GUN_ANG) - dys * Math.sin(W_GUN_ANG)) * sc,
+               y: gp.y + (dxs * Math.sin(W_GUN_ANG) + dys * Math.cos(W_GUN_ANG)) * sc });
+    pts.push({ x: f.x - f.eyeX, y: f.y }, { x: f.x + f.eyeX, y: f.y });   // eye-line L/R
+    pts.push({ x: f.x, y: cy + ry * 0.06 });                            // tongue attach
+  } else if (Math.min(w, h) >= 110) {
+    pts.push({ x: f.x - f.eyeX, y: f.y }, { x: f.x + f.eyeX, y: f.y });
+    pts.push({ x: f.x, y: f.y + f.eyeW * 1.5 });
+  }
+  return pts;
 };
 
 // Dev tooling (the ?auras=1 gallery scrub): a painter with a bounded

@@ -552,7 +552,7 @@ function AnchorOverlay({ w, h, mode, aura, ringR, figure, style }) {
   // (descended's wing sockets) — auras with none draw nothing extra.
   const eyeR = Math.max(1.5, anchors.face.eyeW * 0.45);
   const art = AURA_FX[aura]?.art || AURA_FX[aura]?.overArt;
-  const artPoints = art ? AURA_ART[art]?.anchorPoints?.({ w, h, cx: geo.cx, cy: geo.cy }) : null;
+  const artPoints = art ? AURA_ART[art]?.anchorPoints?.({ w, h, cx: geo.cx, cy: geo.cy, rx: geo.rx, ry: geo.ry, mode, anchors }) : null;
   return (
     <svg width={w} height={h} aria-hidden="true" style={{ pointerEvents: "none", ...style }}>
       <circle cx={anchors.face.x} cy={anchors.face.y} r={Math.max(2, headHalf)} fill="none" stroke="#FF2D6F" strokeWidth={sw} />

@@ -1134,6 +1134,86 @@ test("redline hat keeps drawing under reduced motion with a damped bob", async (
   assert.ok(range(calm) < range(full) * 0.55, `bob should damp under reduce (${range(calm).toFixed(2)} vs ${range(full).toFixed(2)})`);
 });
 
+test("wealthy renders without throwing; the hat rim-seats on the photo frame's top edge", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  for (const mode of ["circle", "body"]) {
+    const over = stubRendererCanvas();
+    const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: mode === "body" ? 180 : 141, mode, ringR: 40.7, overCanvas: over, figure: "/avatars/E.webp" });
+    installStubDocument();
+    inst.frame(1 / 60);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.doesNotThrow(() => { for (let i = 0; i < 8; i += 1) inst.frame(0.4); }, `wealthy ${mode}`);
+    assert.ok(lastImgDraw(over.output, "wealthy-tophat"), `wealthy ${mode} hat drew nothing on the over canvas`);
+  }
+  // circle mode: rim seat — hat centre sits on the frame's top edge, sunk by
+  // rimSink like the redline hat
+  const over = stubRendererCanvas();
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  installStubDocument();
+  inst.frame(1 / 60);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  inst.frame(1 / 60);
+  const xy = inst.imgXY["/aura/wealthy-tophat.webp"];
+  const hat = renderer.AURA_FX.wealthy.layers.find((L) => String(L.src).includes("tophat"));
+  const d = Math.min(40.7, 40.7) * hat.rimSz;
+  const wantY = 70.5 - 40.7 + d * (hat.rimSink ?? 0.12);
+  assert.ok(Math.abs(xy.y - wantY) < 0.75, `hat rim seat y ${xy.y.toFixed(2)} vs ${wantY.toFixed(2)}`);
+});
+
+test("wealthy money gun draws and fires bills on the over canvas; suppressed under reduce and at board size", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installStubDocument();
+  const firedBills = (out) => out.filter((o) => o[0] === "set" && o[1] === "fillStyle" && ["#2FBF5B", "#45D977", "#1E8E43"].includes(o[2])).length;
+  // ring size: gun sprite draws and the muzzle bill stream paints green notes
+  const over = stubRendererCanvas();
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  inst.frame(1 / 60);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  for (let i = 0; i < 90; i += 1) inst.frame(1 / 30);
+  assert.ok(lastImgDraw(over.output, "wealthy-gun"), "gun sprite did not draw on the over canvas");
+  assert.ok(firedBills(over.output) >= 6, `expected fired bills, got ${firedBills(over.output)}`);
+  // reduced motion: gun + firing suppressed (ambient spec layers stay)
+  const overR = stubRendererCanvas();
+  const instR = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: overR });
+  instR.reduce = true;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  for (let i = 0; i < 60; i += 1) instR.frame(1 / 30);
+  assert.ok(!lastImgDraw(overR.output, "wealthy-gun"), "gun drew under reduced motion");
+  assert.equal(firedBills(overR.output), 0, "bills fired under reduced motion");
+  // board-32: gun drops
+  const overS = stubRendererCanvas();
+  const instS = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 32, h: 32, mode: "circle", ringR: 13, overCanvas: overS });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  for (let i = 0; i < 30; i += 1) instS.frame(1 / 30);
+  assert.ok(!lastImgDraw(overS.output, "wealthy-gun"), "gun drew at board size");
+});
+
+test("wealthy moment pops drawn $ eyes on the eye line and unrolls a tongue from photo centre", async () => {
+  globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
+  globalThis.Image = FakeImage;
+  installStubDocument();
+  const over = stubRendererCanvas();
+  const inst = renderer.makeAura(stubRendererCanvas(), { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
+  inst.frame(1 / 60);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  inst.forceMoment();
+  for (let i = 0; i < 60 * 3 && (inst.moment == null || inst.moment < 0.5); i += 1) inst.frame(1 / 60);
+  assert.ok(inst.moment != null && inst.moment >= 0.5, "moment did not reach the hold beat");
+  const dollars = over.output.filter((o) => o[0] === "fillText" && o[1] === "$");
+  assert.ok(dollars.length >= 2, `expected two $ eyes, got ${dollars.length}`);
+  // eyes sit on the photo eye-line (cy - 0.16·ry): read the translate that
+  // precedes each glyph — dollarGlyph draws at its translated origin
+  const eyeLineY = 70.5 - 0.16 * 40.7;
+  const last2 = dollars.slice(-2).map((d) => over.output.lastIndexOf(d));
+  for (const i of last2) {
+    const tr = over.output.slice(0, i).findLast((o) => o[0] === "translate");
+    assert.ok(Math.abs(tr[2] - eyeLineY) < 8, `$ eye translate y ${tr[2].toFixed(1)} vs eye line ${eyeLineY.toFixed(1)}`);
+  }
+  assert.ok(over.output.some((o) => o[0] === "set" && o[1] === "fillStyle" && o[2] === "#E0342B"), "tongue did not draw");
+});
+
 test("atlas sphere wanders a zigzag around the figure instead of resting on the head", async () => {
   globalThis.window = { devicePixelRatio: 1, location: { search: "" } };
   globalThis.Image = FakeImage;
