@@ -1582,6 +1582,7 @@ test("makeVerifiedCopy stamps user id and server rev after a successful hydrate 
 import { WORKOUT_CREDIT, workoutCredit } from "./math.js";
 import { activeDays, earnedAchievements, lifetimeStats, rangeStats, reconcileAchievements, weightAtDate, profileAt, rankedLifts, overallInfo, addWorkout, workoutXp, cardioSteps, claimableCount, claimableLabel } from "./lib/stats.js";
 import { questAlertToggleState, questAlertShouldFire, questAlertText } from "./lib/notify.js";
+import { nudgeCount, nudgeDayKey } from "../api/questnudge.js";
 import { CARDIO_METRIC } from "./data/cardio.js";
 import { cardScore, selfScore, pendingOutgoingDuels, DUEL_PENDING_MS } from "./tabs/board/duels.js";
 import { WEEKLY_POOL } from "./data/challenges.js";
@@ -1834,6 +1835,23 @@ test("quest alerts: gate needs toggle + granted + a rising count", () => {
   // label text, singular + plural
   assert.deepEqual(questAlertText(1), { title: "Quests ready", body: "You have 1 quest waiting." });
   assert.deepEqual(questAlertText(3).body, "You have 3 quests waiting.");
+});
+
+test("daily nudge counts with the SAME claimableCount the app ships", () => {
+  // the function re-exports the app's real import — identity check means the
+  // server and the badge can never drift.
+  assert.equal(nudgeCount, claimableCount);
+  const d = "2026-10-08";
+  const empty = { days: {}, weekly: {}, monthly: {}, workouts: [], fuelClaimed: {}, weightLog: {}, xpLog: {} };
+  const q = (over, claimed = false) => ({ id: "n", qid: "x", title: "q", target: 10, unit: "reps", xp: 10, progress: over ? 10 : 0, claimed, tier: 1 });
+  // several sample states agree through the server's export
+  assert.equal(nudgeCount(empty, d), 0);
+  assert.equal(nudgeCount({ ...empty, days: { [d]: { list: [q(true), q(true), q(false)], rerolls: 0, bonuses: 0 } } }, d), 2);
+  assert.equal(nudgeCount({ ...empty, days: { [d]: { list: [q(true, true), q(true, true), q(true, true)], rerolls: 0, bonuses: 0 } } }, d), 1);
+  // day key: the dedupe date is the America/Chicago calendar day
+  const key = nudgeDayKey(new Date("2026-10-08T03:00:00Z"));      // 11pm CT on the 7th
+  assert.equal(key, "2026-10-07");
+  assert.equal(nudgeDayKey(new Date("2026-10-08T06:00:00Z")), "2026-10-08"); // past midnight CT
 });
 
 test("quest alerts: Settings toggle degrades for denied, uninstalled iOS, and no API", () => {

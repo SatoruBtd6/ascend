@@ -166,3 +166,24 @@ $$;
 --   update public.kv set owner = '3502ef55-bea7-4bd6-8c54-feed26219ec2'::uuid
 --   where scope = 'shared' and owner is null and key like 'food:%';
 --   alter table public.kv enable trigger <kv owner trigger name>;
+
+-- ---------------------------------------------------------------------------
+-- public.push_subscriptions — Web Push endpoints for the daily quest nudge
+-- (api/questnudge.js). One row per device: a user may have several endpoints.
+-- Clients write only their own rows (RLS); the Vercel function reads/writes
+-- every row with the service-role key, which lives only in Vercel env vars.
+create table if not exists public.push_subscriptions (
+  uid        uuid not null references auth.users(id) on delete cascade,
+  endpoint   text not null,
+  keys       jsonb not null,        -- {"p256dh": "...", "auth": "..."}
+  player_id  text,
+  last_sent  date,                  -- America/Chicago day of last nudge (dedupe)
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (uid, endpoint)
+);
+alter table public.push_subscriptions enable row level security;
+create policy "push_sub read"   on public.push_subscriptions for select to authenticated using (uid = auth.uid());
+create policy "push_sub insert" on public.push_subscriptions for insert to authenticated with check (uid = auth.uid());
+create policy "push_sub update" on public.push_subscriptions for update to authenticated using (uid = auth.uid()) with check (uid = auth.uid());
+create policy "push_sub delete" on public.push_subscriptions for delete to authenticated using (uid = auth.uid());
