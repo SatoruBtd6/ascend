@@ -53,9 +53,18 @@ export function fireQuestAlert(n) {
 }
 
 const urlB64ToU8 = (b64) => {
-  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
-  const bin = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  const clean = b64.replace(/\s/g, ""); // env values sometimes carry a pasted newline/space
+  const pad = "=".repeat((4 - (clean.length % 4)) % 4);
+  const bin = atob((clean + pad).replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+};
+// TEMP DIAGNOSTIC — removable: what did the build actually get for the VAPID key?
+// A valid public key is 87-88 url-safe-base64 chars → 65 bytes starting 0x04.
+const keyDiag = () => {
+  try {
+    const b = urlB64ToU8(VAPID_PUBLIC);
+    return `key ${VAPID_PUBLIC.length}ch ${JSON.stringify(VAPID_PUBLIC.slice(0, 6))}…${JSON.stringify(VAPID_PUBLIC.slice(-6))} → ${b.length}B first=0x${(b[0] ?? 0).toString(16).padStart(2, "0")}`;
+  } catch (e) { return `key undecodable (${e.message}) len=${VAPID_PUBLIC.length}`; }
 };
 const b64key = (buf) => (buf ? btoa(String.fromCharCode(...new Uint8Array(buf))) : null);
 
@@ -86,8 +95,12 @@ export async function syncPushSubscription(on, playerId) {
     if (typeof Notification === "undefined") return fail("no Notification API");
     if (Notification.permission !== "granted") return fail(`permission is ${Notification.permission}, not granted`);
     let sub = null;
-    try { sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) }); }
-    catch (e) { return fail("pushManager.subscribe threw", e); }
+    try {
+      sub = await reg.pushManager.getSubscription();
+      if (!sub) { try { console.error(`[ascend-push] subscribing, ${keyDiag()}`); } catch { /* console? */ }
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
+      }
+    } catch (e) { return fail(`pushManager.subscribe threw [${keyDiag()}]`, e); }
     if (!sub) return fail("subscribe() returned no subscription");
     const j = sub.toJSON ? sub.toJSON() : {}; // early iOS 16.4 lacks toJSON — fall back to getKey
     const keys = j.keys || { p256dh: b64key(sub.getKey?.("p256dh")), auth: b64key(sub.getKey?.("auth")) };
