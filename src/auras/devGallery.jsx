@@ -572,6 +572,9 @@ function AnchorOverlay({ w, h, mode, aura, ringR, figure, style }) {
 }
 
 function Face({ px, photo, letter }) {
+  // Crate cells mount no photo at all — a zero face size means bare aura
+  // canvas, not a 16px letter.
+  if (!px || px <= 0) return null;
   const box = Math.max(16, Math.round(px));
   if (photo) return <img src={photo} alt="" style={{ width: box, height: box, borderRadius: 999, objectFit: "cover", display: "block" }} />;
   return (
@@ -2050,10 +2053,10 @@ export function DevAuraGallery() {
           scrollMarginTop: barH + 12,
         }}>
           {AURAS.map((aura) => (
-            <button key={aura.id} type="button" onClick={() => selectAura(aura.id)} style={{ background: "transparent", color: "inherit", border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, cursor: "pointer", textAlign: "center" }}>
+            <button key={aura.id} type="button" disabled={aura.id === "none"} onClick={() => selectAura(aura.id)} style={{ background: "transparent", color: "inherit", border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, cursor: aura.id === "none" ? "default" : "pointer", textAlign: "center" }}>
               {stageFor(aura.id)}
               <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700 }}>{aura.name}</div>
-              <div style={{ fontSize: 10, color: C.dim }}>{aura.rarity || aura.group} · {aura.id}</div>
+              <div style={{ fontSize: 10, color: C.dim }}>{aura.rarity || aura.group} · {aura.id}{aura.id === "none" ? " · no spec" : ""}</div>
             </button>
           ))}
         </div>
