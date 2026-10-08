@@ -787,7 +787,7 @@ export const AURA_FX = {
     // rising sun sprite behind the photo (painter, main pass): the keyed
     // dome's flat base seats at cy + drop and the dome spans ~r·min(rx,ry).
     // mA/mR = the slow moment swell — alpha/scale only, never a flash.
-    sun: { r: 1.58, drop: 0.14, a: 0.97,
+    sun: { r: 2.1, drop: 0.05, a: 0.97,
       mA: [[0, 1], [0.13, 1], [0.32, 1.4], [0.6, 1.28], [0.85, 1], [1, 1]],
       mR: [[0, 1], [0.13, 1], [0.32, 1.06], [0.6, 1.04], [0.85, 1], [1, 1]] },
     moment: { every: [16, 24], dur: 2.3,
@@ -809,7 +809,14 @@ export const AURA_FX = {
         mScale: [[0, 1], [0.1, 0.97], [0.3, 1.04], [0.55, 1.02], [0.85, 1], [1, 1]],
         // figure canvases are short — seat the hat deeper on the head and
         // keep the same gag beat at reduced amplitude so the crown stays in
-        body: { headSz: 3.0, hover: 0.06, mY: [[0, 0], [0.1, 0.02], [0.3, -0.015], [0.62, -0.015], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.04], [0.65, -0.025], [0.85, 0], [1, 0]], mScale: [[0, 1], [0.3, 1.03], [0.85, 1], [1, 1]] } },
+        body: { headSz: 3.0, hover: 0.06, mY: [[0, 0], [0.1, 0.02], [0.3, -0.015], [0.62, -0.015], [0.85, 0], [1, 0]], mRot: [[0, 0], [0.3, -0.04], [0.65, -0.025], [0.85, 0], [1, 0]], mScale: [[0, 1], [0.3, 1.03], [0.85, 1], [1, 1]] },
+        // Brodan's seat: hat lifted clear of the gag. Brief gave circle
+        // y:-0.89; hover is the identical lift (0.89·ry = 0.505·sz at every
+        // circle size) and, unlike y, lets small: reseat via headSz —
+        // ring141/crate160 crown towers off the canvas top by design (same
+        // bleed precedent as descended); small sizes keep the crown in frame.
+        circle: { hover: 0.635 },
+        small: { headSz: 1.75 } },
       // ambient bill storm — the keyed banknote sprite, big tumbling notes
       // drifting down the band (the `bill` shape draws wealthy-bill.webp)
       { k: "fall", n: 16, shape: "bill", sp: [7, 15], sz: [8, 13], drift: 5, spin: 1.1, a: 0.92, xWrap: 1, xFade: 14, small: { n: 5, sz: [3.2, 5.2] }, body: { n: 8, sz: [4.5, 7.5] } },
@@ -3430,14 +3437,13 @@ export const AURA_ART = {
       const rise = Math.min(1, Math.max(0, (mt - 0.13) / 0.2));
       const pop = mt < 0.85 ? easeOutBack(rise) : Math.max(0, 1 - (mt - 0.85) / 0.12);
       if (pop > 0.02 && eyeRec.ready && !eyeRec.failed) {
-        const es = f.eyeW * 1.15;
+        const es = f.eyeW * 2.2;
         const wob = Math.sin(clock * 16) * 0.06 * Math.min(1, (mt - 0.13) * 8) * (mt < 0.85 ? 1 : 0);
         for (const sgn of [-1, 1]) {
-          const ex = f.x + sgn * f.eyeX * (1 + 0.16 * Math.min(1, rise));
-          // seat just under the eye line: the brim edge lands at the eye
-          // line, so the medallions read as $-eyes peeking out from under
-          // the hat (brim covers the coin tops — hat draws last)
-          const ey = f.y + es * (0.1 + 0.25 * Math.min(1, rise));
+          // wider spread keeps the bigger pair from merging into one blob
+          const ex = f.x + sgn * f.eyeX * (1.7 + 0.45 * Math.min(1, rise));
+          // on the eye line — the focal piece now the hat is lifted clear
+          const ey = f.y - es * 0.05;
           const ed = es * 2.0 * Math.min(pop, 1.22);
           // mirrored pair — the right medallion is the sprite flipped
           ctx.save(); ctx.translate(ex, ey); ctx.rotate(sgn * -0.14 + wob * sgn); if (sgn > 0) ctx.scale(-1, 1);
@@ -3453,7 +3459,7 @@ export const AURA_ART = {
       if (tu > 0.02 && tRec.ready && !tRec.failed) {
         const iw = tRec.img.naturalWidth || 512, ih = tRec.img.naturalHeight || 512;
         const tx = f.x, ty = mode === "body" ? f.y + f.eyeW * 1.5 : cy + ry * 0.06;
-        const td = f.eyeW * 3.4;                     // box size; the strip is ~0.37·td wide
+        const td = f.eyeW * 6.2;                     // v3.1 ~1.8x — box size; the strip is ~0.37·td wide
         const uu = Math.min(1, Math.max(0.05, tu));
         const sway = reduce ? 0 : Math.sin(clock * 3.2) * 0.05 * Math.min(1, tu);
         ctx.save(); ctx.translate(tx, ty); ctx.rotate(sway);
@@ -3523,11 +3529,13 @@ const wealthyPool = (g, cx, cy, rx, ry, w, h) => {
   const rec = auraImage(W_POOL_SRC);
   if (!rec.ready || rec.failed) return;
   const span = W_POOL_BASE - W_POOL_TOP;               // 0.37
-  let d = ry / span;                                   // mounds→base span = ry
+  // v3.1: ~20% bigger and seated lower — the pile base tucks to the
+  // ring's bottom edge so the photo sits deeper in the cash
+  const base = Math.min(h - 2, cy + ry * 1.09);
+  let d = ry * 1.2 / span;
   d = Math.min(d, (Math.min(cx, w - cx) - 3) / (W_POOL_XW / 2));
-  d = Math.min(d, (h - 3 - cy + 0.05 * ry) / span);
   if (d <= 6) return;
-  g.drawImage(rec.img, cx - d / 2, cy - ry * 0.05 - W_POOL_TOP * d, d, d);
+  g.drawImage(rec.img, cx - d / 2, base - W_POOL_BASE * d, d, d);
 };
 
 // always-on gold frame around the photo: the inner hole edge sits on the
@@ -3565,9 +3573,10 @@ AURA_ART.wealthy.anchorPoints = ({ w, h, cx, cy, rx, ry, mode, anchors }) => {
   const headHalf = f.eyeX * HEAD_FROM_EYE;
   // hat brim-centre: head-anchored in both views — the sprite centre sits
   // at face.y - headHalf - sz·hover, and the brim bottom is ~0.40·sz below
-  // it (headSz 3.7, hover 0.11 in circle mode; the body override differs)
-  const hSz = (mode === "body" ? 3.0 : 3.7) * headHalf;
-  const hov = mode === "body" ? 0.06 : 0.11;
+  // it (v3.1: circle hover 0.635 lifts it clear; small shrinks headSz)
+  const sml = mode !== "body" && Math.min(w, h) < 110;
+  const hSz = (mode === "body" ? 3.0 : sml ? 1.75 : 3.7) * headHalf;
+  const hov = mode === "body" ? 0.06 : 0.635;
   pts.push({ x: f.x, y: f.y - headHalf - hSz * hov + hSz * 0.40 });
   if (mode !== "body" && Math.min(w, h) >= 110) {
     const rec = auraImage(W_GUN_SRC);

@@ -1150,7 +1150,8 @@ test("wealthy renders without throwing; the hat sits head-anchored on the photo"
     assert.doesNotThrow(() => { for (let i = 0; i < 8; i += 1) inst.frame(0.4); }, `wealthy ${mode}`);
     assert.ok(lastImgDraw(over.output, "wealthy-tophat"), `wealthy ${mode} hat drew nothing on the over canvas`);
   }
-  // circle mode: head seat — centre at face.y - headHalf - sz·hover
+  // circle mode: head seat — centre at face.y - headHalf - sz·hover (the
+  // v3.1 raised seat is a circle: hover override, so merge it here)
   const main = stubRendererCanvas(), over = stubRendererCanvas();
   const inst = renderer.makeAura(main, { aura: "wealthy", w: 141, h: 141, mode: "circle", ringR: 40.7, overCanvas: over });
   installStubDocument();
@@ -1161,7 +1162,7 @@ test("wealthy renders without throwing; the hat sits head-anchored on the photo"
   const hat = renderer.AURA_FX.wealthy.layers.find((L) => String(L.src).includes("tophat"));
   const headHalf = 0.19 * 40.7 * (22.5 / 9);           // eyeX * HEAD_FROM_EYE
   const sz = headHalf * hat.headSz;
-  const wantY = (70.5 - 0.16 * 40.7) - headHalf - sz * hat.hover;
+  const wantY = (70.5 - 0.16 * 40.7) - headHalf - sz * (hat.circle?.hover ?? hat.hover);
   assert.ok(Math.abs(xy.y - wantY) < 0.75, `hat head seat y ${xy.y.toFixed(2)} vs ${wantY.toFixed(2)}`);
   // oversized: drawn sprite ≈0.85x photo width (sprite art ~0.962 of the box
   // wide; the edge rule caps the dramatic 0.9-1.0x target at ring size)

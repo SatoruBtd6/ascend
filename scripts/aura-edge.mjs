@@ -69,7 +69,10 @@ const SIZES = [
 // off the canvas at the large display sizes by design — "too big for the
 // frame" is the effect. Contact is still measured and printed (marked BLEED),
 // it just doesn't fail the gate. Small sizes still gate normally.
-const EDGE_BLEED_OK = { descended: new Set(["ring141", "crate160", "figure128x163"]) };
+// Wealthy v3.1 (Brodan's chosen circle seat): the lifted hat crown towers off
+// the canvas top at the large display sizes by the same "too big for the
+// frame" intent; small sizes + figure keep the crown in frame via overrides.
+const EDGE_BLEED_OK = { descended: new Set(["ring141", "crate160", "figure128x163"]), wealthy: new Set(["ring141", "crate160"]) };
 
 const OUT = evidenceDir("aura-edge");
 const header = [];
